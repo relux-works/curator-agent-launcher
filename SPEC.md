@@ -1,6 +1,6 @@
 # Curator Agent Launcher — Specification
 
-**Specification version:** `0.1.0-draft`
+**Specification version:** `0.1.1-draft`
 **Status:** in-repository draft (see [Versioning](#8-versioning))
 
 The launcher is the **execution plane** of the four-plane composition fixed
@@ -224,8 +224,12 @@ installation guidance.
 Resolving a fragment activates nothing: the fragment's `system_prompt`
 section is data about a channel — the inert materialized file's path and
 the adapter's declared channel descriptors — never an applied override.
-The launcher is the one component that applies a channel, and only behind
-the explicit `--system-prompt <append|replace>` opt-in.
+The launcher is the one component that applies a `flag`, `config-key`, or
+`variable` channel, and only behind the explicit
+`--system-prompt <append|replace>` opt-in. `file`-kind channels are the
+one exception: the launcher never applies them — the tool does, on its
+own, whenever the file is present — so the launcher's whole duty for them
+is detection and warning (§5.1).
 
 Application, by descriptor kind (the per-environment channel tables are
 environments.md §7.3 and are not restated here):
@@ -240,36 +244,107 @@ environments.md §7.3 and are not restated here):
   freeze, per the environments.md §7.3 discipline.
 - **variable-class** (`gemini`, once that adapter lands): set the
   descriptor's variable to the fragment's path in the child environment.
+- **file-class** (`pi`: `APPEND_SYSTEM.md` for `append`, `SYSTEM.md` for
+  `replace`): the launcher applies nothing, because there is nothing left
+  to apply — the tool reads the file from its home unconditionally when
+  it is present. The launcher MUST NOT place, remove, or edit a
+  file-kind channel's file: those files are materialized exclusively by
+  Curator, and only under the per-profile × environment
+  `system_prompt_files` machine setting (environments.md §5.5, default
+  `off`). The opt-in for a file-kind channel happened at the
+  machine-setting level, not on this command line. The launcher's duty
+  is §5.1: detect an active file-kind channel and warn.
 
-Selection and refusal rules:
+### 5.1 File-kind channels: detection, orthogonality, warning
+
+When the fragment's `system_prompt.channels` list carries `file`-kind
+descriptors, the launcher MUST probe, immediately before the handoff or
+exec of §4.5, the path `<home>/<filename>` for each such descriptor,
+where `<home>` is the managed home the fragment's `env` map points the
+tool at. The probe has exactly three outcomes, and they are three
+different facts:
+
+- **Absent** — no file exists at the path. The channel is inactive. This
+  is the legitimate default: `system_prompt_files` defaults to `off` and
+  §5.5 keeps both files unwritten under it. No warning, no diagnostic,
+  no launch change. Absence of a file-kind file is never an error,
+  because the fragment reproduces the adapter's descriptor list as data
+  about what channels *exist*, not a claim about which are engaged.
+- **Present and readable** — a regular file the launcher can open for
+  reading. The channel is **active**: the tool will apply it. The
+  launcher MUST print the §5.2 warning naming this channel, even when
+  `--system-prompt` was not given — the operator's opt-in already
+  happened when the machine setting materialized the file, and a plain
+  launch into such a home is a customized run whether or not this
+  command line said so.
+- **Anything else** — the path exists but cannot be read (permission,
+  I/O error), or is not a regular file (a directory, a dangling
+  symlink). The launch fails with `sysprompt_file_unreadable`. A failed
+  probe is a read failure, never an absence: the tool itself will
+  attempt the file at startup, so exec'ing past an indeterminate probe
+  would start a run whose customization state the launcher cannot
+  state — and the warning contract of §5.2 would be unsatisfiable.
+
+File-kind presence is **orthogonal and additive** to the flag-class
+opt-in. The `--system-prompt <semantics>` opt-in selects among the
+fragment's non-`file` channels only; a `file`-kind descriptor never
+satisfies the opt-in, and the opt-in never suppresses, removes, or
+substitutes for an active file-kind channel. On a `pi` launch with
+`--system-prompt append` into a home where `APPEND_SYSTEM.md` is present,
+both channels engage — the launcher appends the flag, the tool applies
+the file — and the warning enumerates both. The launcher MUST NOT try to
+deduplicate the two applications: which one the tool honors, and in what
+order, is the tool's documented behavior, not the launcher's to arbitrate.
+
+A fragment with no `system_prompt` section carries no descriptors, so
+there is nothing to probe; hygiene of a managed home that nevertheless
+contains a stray `SYSTEM.md` is Curator's drift-and-repair surface
+(§4.3 resolution repairs the home before the fragment is returned), not
+the launcher's.
+
+### 5.2 Selection and refusal rules
 
 - The launcher selects the fragment channel whose `semantics` equals the
-  opt-in value. If the fragment carries no `system_prompt` section (the
-  resolved chain has no applicable system modules), or no channel with the
-  requested semantics exists for the environment, the launch fails with
-  `sysprompt_channel_unavailable`. Opting in to nothing is an error, not
-  a silent no-op: the operator asked for a customized run and MUST NOT
-  get an uncustomized one without noticing.
+  opt-in value, considering only `flag`, `config-key`, and `variable`
+  descriptors. If the fragment carries no `system_prompt` section (the
+  resolved chain has no applicable system modules), or no non-`file`
+  channel with the requested semantics exists for the environment, the
+  launch fails with `sysprompt_channel_unavailable` — a `file`-kind
+  descriptor with matching semantics does not avert this refusal,
+  because the launcher cannot engage it. Opting in to nothing is an
+  error, not a silent no-op: the operator asked for a customized run
+  and MUST NOT get an uncustomized one without noticing.
 - Without the opt-in the launcher applies no channel, adds no flag, sets
   no key, and exports no variable. Managed homes carry no active
   system-prompt file by default (environments.md §5.5), so a plain launch
-  runs the tool's built-in behavior.
+  runs the tool's built-in behavior — except where the machine setting
+  has materialized a file-kind channel, which §5.1 detects and warns
+  about without altering the launch.
 
-**Warnings.** Every activation MUST print, to stderr, before the exec, a
-warning that states all three of:
+**Warnings.** Every activation — a flag-class, config-key, or
+variable-class channel the launcher applied under the opt-in, and every
+active file-kind channel detected by the §5.1 probe — MUST be covered by
+a warning printed to stderr, before the exec, that states all three of:
 
-1. this run's system prompt is customized (naming the profile and the
-   semantics applied);
-2. for `replace` semantics, that replacement discards the tool's built-in
-   system behavior entirely;
+1. this run's system prompt is customized, enumerating **every** active
+   channel: for each, the profile, the descriptor kind (and, for
+   file-kind, the filename), and the semantics applied;
+2. for `replace` semantics on any active channel, that replacement
+   discards the tool's built-in system behavior entirely;
 3. that a custom system prefix can change how requests are cached and
    therefore billed — a tool's default system prompt may participate in
    shared prompt caching, while a custom one forms its own cache prefix
    (exact per-tool behavior is Decision 0010 open question 7's research).
 
-The warning is not suppressible in revision 1. Reproducibility over
-silence: the cost of the warning is one stderr line-group; the cost of a
-silent customized run is an operator misattributing behavior to the tool.
+The warning set is identical whether a channel was engaged by the
+command-line opt-in or by machine-setting materialization: the operator
+at the keyboard may not be the operator who configured the machine, and
+the warning exists for the one at the keyboard. The warning is not
+suppressible in revision 1, and the absence of `--system-prompt` on the
+command line MUST NOT suppress it for file-kind channels.
+Reproducibility over silence: the cost of the warning is one stderr
+line-group; the cost of a silent customized run is an operator
+misattributing behavior to the tool.
 
 ## 6. Errors and diagnostics
 
@@ -286,12 +361,13 @@ contract. Usage errors exit 2; every operational failure exits 1.
 | environment | `env_unsupported` | §4.2: the environment has no spawn-plane mapping in this revision |
 | exec | `exec_provider_missing` | §4.5: the plan's binary does not exist — reported with the executable name and installation guidance |
 | ax | `ax_handoff_failed` | §4.5: the configured `ax` instrumentation could not take the launch; no untracked fallback |
-| system prompt | `sysprompt_channel_unavailable` | §5: opt-in given but the fragment carries no channel with the requested semantics |
+| system prompt | `sysprompt_channel_unavailable`, `sysprompt_file_unreadable` | §5.2: opt-in given but the fragment carries no non-`file` channel with the requested semantics; §5.1: a fragment-named file-kind channel's file exists but cannot be read (or is not a regular file) at the pre-exec probe — an absent file is not this diagnostic, it is the channel's legitimate inactive state |
 
 Two invariants hold across every family. First, an absence and a failure
 to read are different facts: a fallback defined for absence (no
-`system_prompt` section means no channel to select) never fires on a
-failed or malformed read (`resolve_fragment_invalid`). Second, no
+`system_prompt` section means no channel to select; an absent file-kind
+file means an inactive channel) never fires on a failed or malformed
+read (`resolve_fragment_invalid`, `sysprompt_file_unreadable`). Second, no
 diagnostic downgrades the launch: every failure is terminal for that
 invocation, and the operator retries deliberately.
 
@@ -309,7 +385,7 @@ injected default, fail-open limit state with indeterminate-read-is-unknown
 ## 8. Versioning
 
 - This specification is versioned semantically; the current version is
-  **`0.1.0-draft`**. Draft versions may change incompatibly between
+  **`0.1.1-draft`**. Draft versions may change incompatibly between
   commits; the `-draft` suffix is the signal that nothing downstream may
   pin them.
 - The `curator-run` binary reports both its build version and the
@@ -320,6 +396,13 @@ injected default, fail-open limit state with indeterminate-read-is-unknown
   at stabilization — the moment a second implementer or a conformance
   suite needs it. Promotion drops the `-draft` suffix, freezes `1.0.0`,
   and moves conformance vectors alongside the prose.
+
+### 8.1 Revision history
+
+| Version | Change |
+|---|---|
+| `0.1.1-draft` | §5 restructured (§5.1/§5.2): file-kind channel semantics specified — launcher never places, removes, or edits the files; pre-exec presence probe; warnings mandatory for an active file-kind channel without the `--system-prompt` opt-in; orthogonal-and-additive selection when flag-class and file-kind coexist; `sysprompt_file_unreadable` diagnostic added. |
+| `0.1.0-draft` | Initial in-repository draft. |
 
 ## 9. Open items
 
