@@ -1,6 +1,6 @@
 # Curator Agent Launcher — Specification
 
-**Specification version:** `0.1.1-draft`
+**Specification version:** `0.1.2-draft`
 **Status:** in-repository draft (see [Versioning](#8-versioning))
 
 The launcher is the **execution plane** of the four-plane composition fixed
@@ -257,26 +257,38 @@ environments.md §7.3 and are not restated here):
 
 ### 5.1 File-kind channels: detection, orthogonality, warning
 
-When the fragment's `system_prompt.channels` list carries `file`-kind
-descriptors, the launcher MUST probe, immediately before the handoff or
-exec of §4.5, the path `<home>/<filename>` for each such descriptor,
-where `<home>` is the managed home the fragment's `env` map points the
-tool at. The probe has exactly three outcomes, and they are three
-different facts:
+The file-kind probe is keyed on the **environment**, not the fragment.
+For an env-id whose environments.md §7.3 adapter registry declares
+`file`-kind channels — in revision 1 exactly `pi`, with
+`APPEND_SYSTEM.md` (`append`) and `SYSTEM.md` (`replace`) — the launcher
+MUST probe, on **every** launch, immediately before the handoff or exec
+of §4.5, the path `<home>/<filename>` for each filename in that closed
+registry set, where `<home>` is the managed home the fragment's `env`
+map points the tool at. The probe runs whether or not the fragment
+carries a `system_prompt` section: the tool applies a present file
+unconditionally (environments.md §7.3), so which channels the fragment
+happens to name has no bearing on which files the tool will read. The
+registry set is closed and versioned with the environments protocol, and
+the launcher already owns the §4.2 environment mapping, so keying the
+probe on the registry adds no new knowledge edge. The probe has exactly
+three outcomes, and they are three different facts:
 
 - **Absent** — no file exists at the path. The channel is inactive. This
   is the legitimate default: `system_prompt_files` defaults to `off` and
   §5.5 keeps both files unwritten under it. No warning, no diagnostic,
   no launch change. Absence of a file-kind file is never an error,
-  because the fragment reproduces the adapter's descriptor list as data
-  about what channels *exist*, not a claim about which are engaged.
+  because the registry declares what channels *exist*, not which are
+  engaged: an inactive channel is the normal state of a managed home.
 - **Present and readable** — a regular file the launcher can open for
   reading. The channel is **active**: the tool will apply it. The
   launcher MUST print the §5.2 warning naming this channel, even when
-  `--system-prompt` was not given — the operator's opt-in already
-  happened when the machine setting materialized the file, and a plain
-  launch into such a home is a customized run whether or not this
-  command line said so.
+  `--system-prompt` was not given, and even when the fragment carries no
+  `system_prompt` section or no descriptor for this filename. A plain
+  launch into such a home is a customized run regardless of how the file
+  got there: when the machine setting materialized it, the opt-in
+  happened at the machine-setting level; when something else wrote it,
+  no one opted in at all, and the warning is the only thing standing
+  between the operator and a silently customized run.
 - **Anything else** — the path exists but cannot be read (permission,
   I/O error), or is not a regular file (a directory, a dangling
   symlink). The launch fails with `sysprompt_file_unreadable`. A failed
@@ -296,11 +308,17 @@ the file — and the warning enumerates both. The launcher MUST NOT try to
 deduplicate the two applications: which one the tool honors, and in what
 order, is the tool's documented behavior, not the launcher's to arbitrate.
 
-A fragment with no `system_prompt` section carries no descriptors, so
-there is nothing to probe; hygiene of a managed home that nevertheless
-contains a stray `SYSTEM.md` is Curator's drift-and-repair surface
-(§4.3 resolution repairs the home before the fragment is returned), not
-the launcher's.
+Detection is the launcher's whole authority here; removal is not. The
+launcher MUST NOT remove or edit a file the probe finds, whatever put it
+there. A file Curator materialized under the `system_prompt_files`
+machine setting is a marker-recorded managed surface, owned by Curator's
+materialization and covered by its drift and repair (environments.md
+§5.5, §8.4). Any other file at a registry filename is an **unmanaged**
+file: Curator's repair explicitly leaves unmanaged files untouched and
+its drift detection covers only marker-recorded surfaces (environments.md
+§10.1, §8.4), so no automated contract in the cited protocol removes it —
+removing it is the operator's deliberate action, and until it is removed
+every launcher-mediated launch into that home warns.
 
 ### 5.2 Selection and refusal rules
 
@@ -317,14 +335,15 @@ the launcher's.
 - Without the opt-in the launcher applies no channel, adds no flag, sets
   no key, and exports no variable. Managed homes carry no active
   system-prompt file by default (environments.md §5.5), so a plain launch
-  runs the tool's built-in behavior — except where the machine setting
-  has materialized a file-kind channel, which §5.1 detects and warns
+  runs the tool's built-in behavior — except where a file-kind
+  channel's file is present in the home, which §5.1 detects and warns
   about without altering the launch.
 
 **Warnings.** Every activation — a flag-class, config-key, or
 variable-class channel the launcher applied under the opt-in, and every
 active file-kind channel detected by the §5.1 probe — MUST be covered by
-a warning printed to stderr, before the exec, that states all three of:
+a warning printed to stderr, before the §4.5 handoff or exec, that
+states all three of:
 
 1. this run's system prompt is customized, enumerating **every** active
    channel: for each, the profile, the descriptor kind (and, for
@@ -361,7 +380,7 @@ contract. Usage errors exit 2; every operational failure exits 1.
 | environment | `env_unsupported` | §4.2: the environment has no spawn-plane mapping in this revision |
 | exec | `exec_provider_missing` | §4.5: the plan's binary does not exist — reported with the executable name and installation guidance |
 | ax | `ax_handoff_failed` | §4.5: the configured `ax` instrumentation could not take the launch; no untracked fallback |
-| system prompt | `sysprompt_channel_unavailable`, `sysprompt_file_unreadable` | §5.2: opt-in given but the fragment carries no non-`file` channel with the requested semantics; §5.1: a fragment-named file-kind channel's file exists but cannot be read (or is not a regular file) at the pre-exec probe — an absent file is not this diagnostic, it is the channel's legitimate inactive state |
+| system prompt | `sysprompt_channel_unavailable`, `sysprompt_file_unreadable` | §5.2: opt-in given but the fragment carries no non-`file` channel with the requested semantics; §5.1: a registry-declared file-kind channel's file exists but cannot be read (or is not a regular file) at the pre-exec probe — an absent file is not this diagnostic, it is the channel's legitimate inactive state |
 
 Two invariants hold across every family. First, an absence and a failure
 to read are different facts: a fallback defined for absence (no
@@ -385,7 +404,7 @@ injected default, fail-open limit state with indeterminate-read-is-unknown
 ## 8. Versioning
 
 - This specification is versioned semantically; the current version is
-  **`0.1.1-draft`**. Draft versions may change incompatibly between
+  **`0.1.2-draft`**. Draft versions may change incompatibly between
   commits; the `-draft` suffix is the signal that nothing downstream may
   pin them.
 - The `curator-run` binary reports both its build version and the
@@ -401,11 +420,21 @@ injected default, fail-open limit state with indeterminate-read-is-unknown
 
 | Version | Change |
 |---|---|
+| `0.1.2-draft` | §5.1 probe re-keyed from the fragment's descriptor list to the environment adapter's closed file-channel filename set, run on every launch into a managed home regardless of the fragment's `system_prompt` section; false stray-file drift-and-repair claim removed — a stray file at a registry filename is unmanaged, no automated contract removes it, and every launcher-mediated launch warns until the operator removes it; native/hand-launch and probe-to-exec race residuals recorded in §9. |
 | `0.1.1-draft` | §5 restructured (§5.1/§5.2): file-kind channel semantics specified — launcher never places, removes, or edits the files; pre-exec presence probe; warnings mandatory for an active file-kind channel without the `--system-prompt` opt-in; orthogonal-and-additive selection when flag-class and file-kind coexist; `sysprompt_file_unreadable` diagnostic added. |
 | `0.1.0-draft` | Initial in-repository draft. |
 
 ## 9. Open items
 
+- The §5.1 warning contract is complete only for launcher-mediated
+  launches, and the probe is a point-in-time check. Two residuals are
+  known and accepted in this revision: a tool started by hand in a
+  managed home applies a present file-kind file with no probe and no
+  warning (§1: the launcher is never mandatory), and a file written
+  between the §5.1 probe and the tool's own startup read goes
+  undetected. Neither residual is closable from the launcher's seat;
+  closing the first would require the tool or Curator to warn, which
+  the cited protocol does not provide.
 - The §4.2 mapping for `opencode` awaits an `agents-management` system
   plugin; until then the environment resolves but does not launch.
 - The `gemini` variable-class channel (`GEMINI_SYSTEM_MD`) engages when
