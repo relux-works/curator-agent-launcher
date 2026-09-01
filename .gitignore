@@ -1,0 +1,19 @@
+# Binaries and build output
+/curator-run
+/bin/
+/dist/
+*.exe
+*.test
+*.out
+
+# Go tooling
+go.work
+go.work.sum
+
+# Task-scoped scratch space
+.temp/
+
+# Editor and OS noise
+.DS_Store
+.idea/
+.vscode/
