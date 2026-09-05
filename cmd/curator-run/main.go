@@ -15,11 +15,13 @@ import (
 
 const (
 	name        = "curator-run"
-	specVersion = "0.1.0-draft"
+	specVersion = "0.2.0-draft"
 )
 
 const usage = `usage: curator-run <env-id> [--profile <name>] [--system-prompt <append|replace>]
-                   [--model <model>] [--effort <effort>] [--] <native args...>
+                   [--model <model>] [--effort <effort>]
+                   [--name <session-name>] [--ax-profile <standard|yolo>]
+                   [--] <native args...>
 
 curator-run is not yet implemented; this build carries the specification
 draft only. See SPEC.md in the source repository.

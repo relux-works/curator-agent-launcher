@@ -21,7 +21,7 @@ diagnostics, and versioning, lives in [SPEC.md](SPEC.md).
 ## Status
 
 **Specification draft — not yet implemented.** The specification is
-`0.1.0-draft`. The `curator-run` binary in this repository is a stub that
+`0.2.0-draft`. The `curator-run` binary in this repository is a stub that
 prints its name, specification version, and usage, and refuses everything
 else with exit code 2. No composition logic exists yet.
 

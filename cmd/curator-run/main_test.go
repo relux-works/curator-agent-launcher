@@ -45,3 +45,19 @@ func TestRunRejectsEverythingElse(t *testing.T) {
 		}
 	}
 }
+
+// TestSpecVersionPinned fails when the stub's reported specification version
+// drifts from the version SPEC.md and README.md state; the three are one fact.
+func TestSpecVersionPinned(t *testing.T) {
+	const want = "0.2.0-draft"
+	if specVersion != want {
+		t.Fatalf("specVersion = %q, want %q", specVersion, want)
+	}
+	var out, errOut strings.Builder
+	if got := run([]string{"--version"}, &out, &errOut); got != 0 {
+		t.Fatalf("run(--version) = %d, want 0", got)
+	}
+	if out.String() != name+" "+want+"\n" {
+		t.Fatalf("run(--version) stdout = %q, want %q", out.String(), name+" "+want+"\n")
+	}
+}
