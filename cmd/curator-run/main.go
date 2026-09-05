@@ -15,7 +15,7 @@ import (
 
 const (
 	name        = "curator-run"
-	specVersion = "0.2.0-draft"
+	specVersion = "0.2.1-draft"
 )
 
 const usage = `usage: curator-run <env-id> [--profile <name>] [--system-prompt <append|replace>]

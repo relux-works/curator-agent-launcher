@@ -7,7 +7,7 @@ independent contracts into one exec —
   reasoning effort, and vendor, and whether provider limits admit a launch
   right now — consumed as a built launch plan, never rebuilt;
 - the **context plane** (Curator): the launch environment fragment obtained
-  through `curator env resolve --format json` and merged into the child
+  through `curator env resolve --repair --format json` and merged into the child
   environment;
 - the **session plane** (`ax`): when the machine's `ax` integration is
   configured, every launch goes through `ax`'s instrumentation so the
@@ -21,7 +21,7 @@ diagnostics, and versioning, lives in [SPEC.md](SPEC.md).
 ## Status
 
 **Specification draft — not yet implemented.** The specification is
-`0.2.0-draft`. The `curator-run` binary in this repository is a stub that
+`0.2.1-draft`. The `curator-run` binary in this repository is a stub that
 prints its name, specification version, and usage, and refuses everything
 else with exit code 2. No composition logic exists yet.
 

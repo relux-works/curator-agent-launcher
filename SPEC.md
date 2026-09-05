@@ -1,6 +1,6 @@
 # Curator Agent Launcher — Specification
 
-**Specification version:** `0.2.0-draft`
+**Specification version:** `0.2.1-draft`
 **Status:** in-repository draft (see [Versioning](#8-versioning))
 
 The launcher is the **execution plane** of the four-plane composition fixed
@@ -28,13 +28,16 @@ RFC 2119. Normative references:
   (MCP declaration packages, the launch channel, the `env_names` union)
   and Decision 8 (the fragment under locks: `profile.lock_sha256`, the two
   precedence primitives, `composition` withdrawn, the `mcp` section).
-- `curator-spec/protocol/environments.md` — §10 (`env resolve` and
-  `launch-env-fragment-v1`), §7.1 (adapter home variables), §7.3
-  (system-prompt channels), §5.5 (system-prompt output), §11 (umbrella
-  subcommand discovery). §10 is cited as it will read in the revision 1.1
-  rewrite that carries Decision 0012 D8; where this document names a
-  fragment member revision 1 does not yet spell (`lock_sha256`, `mcp`),
-  Decision 0012 D8 is the authority until that rewrite lands.
+- `curator-spec/protocol/environments.md` revision 1.1 (curator-spec
+  `fcdb9ba`) — §10 (`env resolve`, `--repair`, and
+  `launch-env-fragment-v1`), §9.2 step 5 (stale homes after `profile
+  update`), §7.1 (adapter home variables), §7.3 (system-prompt
+  channels), §7.8 and §5.8 (MCP launch channels and the codex layer
+  file), §5.5 (system-prompt output), §11 (umbrella subcommand
+  discovery), §12.1 (the manager's machine-configuration knob table).
+  Revision 1.1 carries Decision 0012 D8, so the fragment members this
+  document consumes (`lock_sha256`, `mcp`) are now spelled there.
+  `profiles/manager.md` §12.5 restates `env resolve` for the manager.
 - `curator-spec/protocol/registry.md` §1 — CCJ-1 canonicalization, used
   for the fragment digest.
 - `agent-session-manager-spec/SPEC.md` (`ax`) — §2.1 (session-name
@@ -76,7 +79,9 @@ Non-goals, each a boundary rather than an omission:
   imported by the stub). No shared libraries, no other import edges.
 - **No profile management.** Installation, materialization, switching,
   drift repair, and garbage collection are Curator's. The launcher only
-  asks for a fragment; resolution itself repairs a stale home.
+  asks for a fragment, always under `--repair` (§4.1), and it is
+  Curator's resolution that repairs a stale home — the launcher never
+  writes into a managed home.
 - **Not the only door.** An operator can always start a tool by hand with
   the tool's own flags. The launcher's job is to make the managed path
   explicit, warned, and reproducible — never to be mandatory.
@@ -158,12 +163,30 @@ launch differ only in who creates the process.
 The launcher runs, as a subprocess:
 
 ```text
-curator env resolve <env-id> [--profile <name>] --format json
+curator env resolve <env-id> [--profile <name>] --repair --format json
 ```
 
 and parses the closed `launch-env-fragment-v1` object per environments.md
 §10.2 as revised by Decision 0012 D8, rejecting unknown fields, unknown
-kinds, and unknown semantics values. The members this document consumes:
+kinds, and unknown semantics values.
+
+`--repair` is **always** passed (environments.md §9.2 step 5, §10.1;
+`profiles/manager.md` §12.5): the launcher is the one caller that repairs.
+Without it, `env resolve` is read-only — a lock-free verification of
+exactly the marker-recorded surfaces — and **fail-closed**: a managed home
+that is unprovisioned, stale after `profile update`, drifted, or whose
+passthrough is detached is reported as `environment_home_stale` with its
+reasons and yields **no fragment**. Under `--repair` the same read-only
+verification runs first, a current home emits its fragment without any
+lock being taken, and only a stale home takes Curator's mutation lock
+with a bounded wait and is provisioned or repaired from the store as one
+journaled transaction before the fragment is emitted. The launcher does
+not offer a read-only launch: a launch into a home Curator knows is wrong
+is the failure `env resolve` exists to prevent, and an operator who wants
+to inspect staleness without repairing runs `curator env resolve` or
+`curator env status` by hand.
+
+The members this document consumes:
 
 - `profile.name` and `profile.lock_sha256` — the profile and its
   effective pin (Decision 0012 D3: the lock hash is the identity
@@ -185,13 +208,18 @@ kinds, and unknown semantics values. The members this document consumes:
   `semantics` is absent and MUST be accepted as such). `pi` has no MCP
   channel and no `mcp` section;
 - `precedence` (two primitives) is accepted and not consumed;
-  `composition` is withdrawn under Decision 0012 D8 and is rejected as an
-  unknown field once the revision 1.1 rewrite lands.
+  `composition` is withdrawn under Decision 0012 D8 and environments.md 1.1
+  §10.2, and is rejected as an unknown field.
 
-Resolution is a pure function and activates nothing; it also verifies and,
-when needed, repairs the managed home, so a fragment in hand means a home
-that is materialized and current. Nothing in the fragment is applied here:
-`system_prompt` waits for the §5 opt-in, `mcp` is applied in §4.5.
+Resolution is a pure function and activates nothing; under `--repair` it
+also verifies and, when needed, repairs the managed home, so a fragment in
+hand means a home that was materialized and current at resolve time. The
+window between that verification and the child's first read of the home
+is environments.md §10.1's recorded residual; the launcher re-verifies
+nothing in that window except the two probes this document names — the
+§4.5 codex layer stat and the §5.1 file-kind probe — and the §4.6 binary
+check. Nothing in the fragment is applied here: `system_prompt` waits for
+the §5 opt-in, `mcp` is applied in §4.5.
 
 Failure modes are distinct and none of them degrades to a fragment-less
 launch:
@@ -199,10 +227,18 @@ launch:
 - the subprocess cannot be started (`curator` missing from `PATH`) —
   `resolve_invocation_failed`;
 - the subprocess exits non-zero — the launcher maps Curator's own
-  diagnostics through: `environment_unknown` → `resolve_environment_unknown`,
-  `profile_unknown` → `resolve_profile_unknown`,
-  `environment_repair_failed` → `resolve_repair_failed`; any other
-  non-zero exit is `resolve_invocation_failed`;
+  diagnostics (environments.md §10.4) through: `environment_unknown` →
+  `resolve_environment_unknown`, `profile_unknown` →
+  `resolve_profile_unknown`, `environment_repair_failed` →
+  `resolve_repair_failed` (the store cannot restore this home),
+  `environment_lock_unavailable` → `resolve_lock_unavailable` (the
+  repair could not take Curator's mutation lock within its bounded wait —
+  a retry later is the remedy, and the launcher does not retry on its
+  own); any other non-zero exit is `resolve_invocation_failed`.
+  `environment_home_stale` cannot arise from a `--repair` invocation; a
+  Curator that nevertheless reports it is not the Curator this document
+  is written against, and the exit falls under `resolve_invocation_failed`
+  like any other unexpected non-zero exit;
 - the subprocess exits zero but the output is not a valid closed fragment
   — `resolve_fragment_invalid`. A malformed read is a read failure, never
   an absence: the launcher MUST NOT treat unparseable output as "no
@@ -276,7 +312,9 @@ with no configured effort takes the lineup's effort for that model.
    absent is a legitimate absence and the
    level yields nothing; a file that exists but cannot be read or parsed
    is `defaults_config_invalid` — a read failure is not an absence, and
-   the lineup fallback MUST NOT fire past it.
+   the lineup fallback MUST NOT fire past it. The file and its sibling
+   `ax.json` (§4.6) are the **launcher's configuration file family**,
+   delimited against Curator's machine configuration in §4.7.
 3. **Lineup fallback.** The highest-ranked model of `vendorplugin.Lineup`
    (capability score descending) among the models the module's runtime
    compatibility registry admits for the mapped system, with that model's
@@ -353,6 +391,46 @@ The composed launch is one plan (Decision 0013 D6.3). Its members, closed:
    MCP set is the profile's context;
 4. the native arguments after `--`, verbatim, uninspected.
 
+**The codex layer file MUST be stat-ed before launch.** Two verified
+facts about codex (environments.md §7.8, codex 0.153.2) shape the
+`codex_cli` MCP part and are restated here because they bind the
+launcher, not Curator:
+
+- `-p <name>` layers `$CODEX_HOME/<name>.config.toml` on the base
+  configuration, and a **missing layer file is silently ignored** — exit
+  0, the launch proceeds with no MCP set — under `--strict-config` too.
+  The tool therefore cannot tell the operator that the profile's MCP set
+  did not arrive. So, whenever the composed argv carries `-p curator-mcp`,
+  the launcher MUST stat the fragment's `mcp.path` — by construction
+  `<home>/curator-mcp.config.toml`, the `CODEX_HOME` of the fragment's
+  `env` map — **immediately before** the §4.6 handoff or exec, at the same
+  point as the §5.1 probe, in both modes. The stat has three outcomes and
+  they are three different facts: a regular file the launcher can open for
+  reading — launch; no file at the path — `mcp_layer_missing`; anything
+  else (a directory, a dangling symlink, a permission or I/O error) —
+  `mcp_layer_unreadable`. Neither failure degrades to a launch without
+  `-p`: the fragment said the profile has an MCP set, and a codex that
+  runs without it is exactly the silent failure the stat exists to catch.
+  `env resolve --repair` already covers the same file as a
+  marker-recorded surface, so a fragment in hand means the file existed
+  at resolve time; the stat closes the §10.1 residual window for this one
+  file, whose absence the tool would otherwise swallow. The launcher MUST
+  NOT write, restore, or repair the file: a missing layer after a
+  successful resolve is a fact to report, and the remedy is another
+  `curator run`, whose `--repair` re-materializes it.
+- `-p` accepts **exactly one** value; a second occurrence is codex's own
+  argument error, not last-wins. The composed argv already carries the
+  launcher's `-p curator-mcp` whenever the fragment has an `mcp` section,
+  so an operator `-p <name>` after `--` **fails the launch** — at the tool,
+  with the tool's error, after the handoff or exec. The launcher does not
+  inspect the native arguments to prevent this (§3: everything after `--`
+  is uninspected) and does not merge, drop, or reorder either `-p`:
+  operator profile layering is unavailable in a managed `codex_cli` launch
+  whose profile carries an MCP set, a recorded consequence that closes
+  Decision 0012 open question 3. When the fragment has no `mcp` section
+  the launcher spells no `-p` and an operator `-p` after `--` is the
+  tool's to honor.
+
 The interactive plan's `Binary` is the executable. **Order is contract:**
 for some tools everything after the last recognized flag is the user
 turn, so a channel flag after the native arguments would become prompt
@@ -412,14 +490,26 @@ the launcher's configuration directories of §4.3 level 2: a sibling file
 `ax.json` with the closed schema `{ "schema": "curator-run-ax-v1",
 "enabled": <boolean> }` (readers MUST reject an unknown member); the
 machine file decides when it exists, otherwise the operator file, and an
-absent file in both places means not configured. The file is read once
-per invocation before argument handling completes, so the §3 usage rules
-for `--ax-profile` and `--name` can name the fact; a file that exists but
-cannot be read or parsed is `defaults_config_invalid`, never "not
-configured". A configured integration is not
-a per-launch option: there is no `--no-ax` flag, and bypassing tracking is
-a configuration change, not a flag. The launcher composes the Decision 0013 D3.2 request document and
-invokes, as a subprocess:
+absent file in both places means not configured. A present file whose
+`enabled` is `false` also means **not configured**: the launch is
+untracked, exactly as if no file existed, and the only difference is that
+the operator wrote the answer down. The precedence is deliberately the
+inverse of `defaults.json`'s operator-over-machine: whether sessions on
+this machine are tracked is machine policy, so a machine file that exists
+always wins, without a `locked` member — the operator file is consulted
+only where the machine is silent. Model and effort defaults are a
+per-operator preference, so there the operator wins unless the machine
+locks. The file is read once per invocation before argument handling
+completes, so the §3 usage rules for `--ax-profile` and `--name` can name
+the fact; a file that exists but cannot be read or parsed is
+`defaults_config_invalid`, never "not configured", and because that read
+precedes argument validation it is the diagnostic that fires when the
+command line would also have been a usage error — both are terminal, and
+the configuration fault is the one the operator cannot see from the
+command line. A configured integration is not a per-launch option: there
+is no `--no-ax` flag, and bypassing tracking is a configuration change,
+not a flag. The launcher composes the Decision 0013 D3.2 request document
+and invokes, as a subprocess:
 
 ```text
 ax start <name> --provider <id> --launch-plan - [--profile <ax-profile>] --workspace <cwd>
@@ -491,7 +581,42 @@ In both shapes the plan's binary missing from the filesystem or `PATH`
 is `exec_provider_missing`, reported with the exact executable name and
 installation guidance; in tracked mode the launcher checks this before
 the handoff so that `ax` is never asked to record a session for a binary
-that is not there.
+that is not there. The three pre-launch checks — this binary check, the
+§4.5 codex layer stat, and the §5.1 file-kind probe — all run immediately
+before the handoff or exec, in both modes, so that `ax` is never asked to
+record a session the launcher already knows is wrong.
+
+### 4.7 The launcher's configuration file family
+
+The launcher owns exactly two configuration files, both in the §4.3
+level-2 directories (`$XDG_CONFIG_HOME/curator-run/`, default
+`~/.config/curator-run/`, for the operator; `/etc/curator-run/` for the
+machine), each with its own closed schema:
+
+| File | Owns | Precedence |
+|---|---|---|
+| `defaults.json` (`curator-run-defaults-v1`, §4.3) | model and effort defaults per env-id; the `locked` rule | operator over machine per member, unless the machine file is locked |
+| `ax.json` (`curator-run-ax-v1`, §4.6) | whether the `ax` integration is configured | machine over operator; `enabled: false` is not configured |
+
+These are **launcher-owned knobs, not manager knobs**. Curator's machine
+configuration is the closed knob table of environments.md §12.1, carried
+by `manager-config` schema 2 under one `environments` object, and none of
+the launcher's knobs appears there: environments.md §12.1 names no
+launcher section, no model default, no effort default, and no `ax`
+switch. Conversely the launcher reads no §12.1 knob. Every knob of that
+table that shapes a launch reaches the launcher **only through the
+fragment**, resolved by Curator: `passable_env_names` bounds the
+fragment's `mcp.env_names` before the launcher sees them (§10.3);
+`system_prompt_files.<profile>.pi` decides whether a file-kind file is
+materialized, which the §5.1 probe detects on disk; `current_profile` and
+`scoped_current` select the profile when `--profile` is absent;
+`isolation`, `forms`, `in_place_mode`, and the rest shape the managed
+home the fragment's `env` map points at. The launcher never opens
+`manager-config`, never resolves a `curator` knob itself, and never
+duplicates a §12.1 value into its own files. The one open item is
+recorded in §9: should Curator's machine configuration ever grow a
+launcher section, both files move there by specification revision and
+their schemas stay.
 
 ## 5. System-prompt application
 
@@ -649,12 +774,13 @@ contract. Usage errors exit 2; every operational failure exits 1.
 | Family | Codes | Condition |
 |---|---|---|
 | usage | `usage` | unknown flag, missing `<env-id>`, stray operand before `--`, repeated flag, invalid `--system-prompt` or `--ax-profile` value, `--name` outside the `ax` §2.1 grammar or over 64 characters, `--ax-profile` on an untracked machine, a flag overriding a locked default — exit 2, nothing resolved, nothing launched |
-| resolve | `resolve_invocation_failed`, `resolve_environment_unknown`, `resolve_profile_unknown`, `resolve_repair_failed`, `resolve_fragment_invalid` | §4.1: the context plane could not produce a usable fragment |
-| defaults | `defaults_config_invalid`, `defaults_unresolvable` | §4.3: a machine-configuration file exists but cannot be read or parsed, or names an unknown env-id or member — a read failure, never an absence; the lineup admits no model for the mapped system after the flag and configuration levels left it unset |
+| resolve | `resolve_invocation_failed`, `resolve_environment_unknown`, `resolve_profile_unknown`, `resolve_repair_failed`, `resolve_lock_unavailable`, `resolve_fragment_invalid` | §4.1: the context plane could not produce a usable fragment — `curator` not startable or an unexpected non-zero exit; unregistered environment; uninstalled profile; the store cannot restore the stale home; the repair could not take Curator's mutation lock within its bounded wait; or the output is not a valid closed fragment |
+| defaults | `defaults_config_invalid`, `defaults_unresolvable` | §4.3 and §4.6: a launcher-owned configuration file — `defaults.json` or `ax.json` (§4.7) — exists but cannot be read or parsed, or names an unknown env-id or member — a read failure, never an absence; the lineup admits no model for the mapped system after the flag and configuration levels left it unset |
 | plan | `plan_refused`, `plan_provider_limited` | §4.4: the spawn plane refused the request (unknown system, mode not declared by the system, invalid or missing required effort, unresolved vendor), or the provider-limits verdict was not observed healthy — the verdict's structure and evidence are surfaced verbatim |
 | environment | `env_unsupported` | §4.2: the environment has no spawn-plane or `ax` provider mapping in this revision |
 | exec | `exec_provider_missing` | §4.6: the plan's binary does not exist — reported with the executable name and installation guidance |
 | ax | `ax_handoff_failed` | §4.6: the configured `ax` could not take the launch — `ax` not startable, or `ax start` exited non-zero, its Structured Error passed through; no untracked fallback |
+| mcp | `mcp_layer_missing`, `mcp_layer_unreadable` | §4.5: the composed argv carries `-p curator-mcp` and the pre-launch stat of the fragment's `mcp.path` finds no file, or finds something it cannot read as a regular file — codex would silently launch without the profile's MCP set, so neither degrades to a launch without `-p`; the two are distinct facts and are reported as such |
 | system prompt | `sysprompt_channel_unavailable`, `sysprompt_file_unreadable` | §5.2: opt-in given but the fragment carries no non-`file` channel with the requested semantics; §5.1: a registry-declared file-kind channel's file exists but cannot be read (or is not a regular file) at the pre-exec probe — an absent file is not this diagnostic, it is the channel's legitimate inactive state |
 
 Two invariants hold across every family. First, an absence and a failure
@@ -663,7 +789,9 @@ to read are different facts: a fallback defined for absence (no
 file means an inactive channel; an absent defaults file means the next
 level) never fires on a failed or malformed read
 (`resolve_fragment_invalid`, `sysprompt_file_unreadable`,
-`defaults_config_invalid`). Second, no
+`defaults_config_invalid`, `mcp_layer_unreadable`); and where absence is
+itself the failure (`mcp_layer_missing`), it still carries its own code
+rather than sharing the read failure's. Second, no
 diagnostic downgrades the launch: every failure is terminal for that
 invocation, and the operator retries deliberately.
 
@@ -689,7 +817,7 @@ reordered.
 ## 8. Versioning
 
 - This specification is versioned semantically; the current version is
-  **`0.2.0-draft`**. Draft versions may change incompatibly between
+  **`0.2.1-draft`**. Draft versions may change incompatibly between
   commits; the `-draft` suffix is the signal that nothing downstream may
   pin them.
 - The `curator-run` binary reports both its build version and the
@@ -705,6 +833,7 @@ reordered.
 
 | Version | Change |
 |---|---|
+| `0.2.1-draft` | Follow-ups against environments.md 1.1 and the cycle-2 review. §4.1: the resolve invocation always passes `--repair`, with the read-only/fail-closed semantics of environments.md §10.1 stated, `resolve_repair_failed` kept, `resolve_lock_unavailable` added for `environment_lock_unavailable`, and `environment_home_stale` declared unreachable. §4.5: the codex layer file `<home>/curator-mcp.config.toml` MUST be stat-ed immediately before handoff or exec whenever the argv carries `-p curator-mcp` (a missing layer is silently ignored by codex, under `--strict-config` too), with `mcp_layer_missing` / `mcp_layer_unreadable`; `-p` takes exactly one value, so an operator `-p` after `--` fails the launch (Decision 0012 open question 3 closed). §4.6: `ax.json` `enabled: false` is not configured; the machine-over-operator precedence explained; the configuration read fires before a usage error. New §4.7 names the `defaults.json`/`ax.json` file family as launcher-owned knobs against the environments.md §12.1 manager knob table. §6: `defaults` row names §4.6/`ax.json`, `mcp` family added, invariant 1 extended. §9: docs-confidence item covers both files; codex `-p` item closed; residual-window item added. |
 | `0.2.0-draft` | Decision 0013 D6 applied. §4 reordered fragment-first and grown to six steps: the managed home from the fragment is `LaunchRequest.Home` (D6.1, M7); the plan is requested as `LaunchModeInteractive` with an empty `Composition` and the launcher spells no provider flag (D5, M2); launcher-owned model/effort default precedence — flags, lockable `defaults.json` machine configuration, lineup fallback — with the resolved pair printed every launch (D6.2, M8); the composition rule with argv order as contract, the MCP channel applied by the launcher, the four-layer environment, and the literal-versus-lookup `env_names` collision rule (D6.3, F5); tracked mode specified as `ax start <name> --provider <id> --launch-plan - [--profile] --workspace <cwd>` with the request document, the four `works.relux.curator.*` extension keys, the `profile-pin` as the lock hash, session-name derivation, and Structured Error pass-through (D6.4). §3 gains `--name` and `--ax-profile`; §4.2 gains the `ax` provider-id column; §6 gains the `defaults` family; §7 requires the interactive-mode module release; §1 non-goals restated (D6.5). §5 unchanged apart from renumbered cross-references. |
 | `0.1.2-draft` | §5.1 probe re-keyed from the fragment's descriptor list to the environment adapter's closed file-channel filename set, run on every launch into a managed home regardless of the fragment's `system_prompt` section; false stray-file drift-and-repair claim removed — a stray file at a registry filename is unmanaged, no automated contract removes it, and every launcher-mediated launch warns until the operator removes it; native/hand-launch and probe-to-exec race residuals recorded in §9. |
 | `0.1.1-draft` | §5 restructured (§5.1/§5.2): file-kind channel semantics specified — launcher never places, removes, or edits the files; pre-exec presence probe; warnings mandatory for an active file-kind channel without the `--system-prompt` opt-in; orthogonal-and-additive selection when flag-class and file-kind coexist; `sysprompt_file_unreadable` diagnostic added. |
@@ -741,8 +870,9 @@ reordered.
   flags are recognized after the plan's model and effort flags, and that
   the first native argument is where the tool's own parsing begins
   (environments.md §7.3 discipline). The codex_cli `-p curator-mcp` layer
-  against an operator `-p` after `--` is Decision 0012 open question 3
-  and is verified in the same pass.
+  against an operator `-p` after `--` is no longer open: environments.md
+  §7.8 verified on codex 0.153.2 that `-p` takes exactly one value, and
+  §4.5 records the consequence (Decision 0012 open question 3 closed).
 - **Native tail on resume.** An operator's `-- resume --last` is a
   one-shot turn; `ax` replays the recorded `argv_suffix` on resume, which
   may double-resume. Whether the composer marks the native tail as
@@ -757,6 +887,14 @@ reordered.
 - The codex_cli configuration-override spelling and both flag-class
   spellings verify against pinned tool releases before conformance
   vectors freeze (environments.md §7.3 discipline).
-- The §4.3 `defaults.json` location and lock rule are this document's
-  own; if Curator's machine configuration grows a launcher section, the
-  file moves there by specification revision and the schema stays.
+- The §4.7 file family — `defaults.json` with its location and lock
+  rule, and `ax.json` with its machine-over-operator precedence — is this
+  document's own drafting choice, not a fact recorded from any tool or
+  from environments.md §12.1; if Curator's machine configuration grows a
+  launcher section, both files move there by specification revision and
+  their schemas stay.
+- The §4.5 codex layer stat closes the environments.md §10.1 residual
+  window for one file only. Every other managed surface is verified at
+  resolve time and not re-verified before exec; the launcher MAY re-verify
+  the marker-recorded hashes under a later revision, as §10.1 permits,
+  and this revision does not.
