@@ -408,10 +408,15 @@ is `null` for every launchable environment (§4.4).
 **With the `ax` integration configured** on the machine, the launcher
 ALWAYS routes the composed launch through `ax` so the session is tracked
 from birth. Whether the integration is configured is one fact read from
-the launcher's machine configuration (the same closed file family as
-§4.3 level 2, member `ax.enabled`, default `false`), read once per
-invocation before argument handling completes, so the §3 usage rules for
-`--ax-profile` and `--name` can name it. A configured integration is not
+the launcher's configuration directories of §4.3 level 2: a sibling file
+`ax.json` with the closed schema `{ "schema": "curator-run-ax-v1",
+"enabled": <boolean> }` (readers MUST reject an unknown member); the
+machine file decides when it exists, otherwise the operator file, and an
+absent file in both places means not configured. The file is read once
+per invocation before argument handling completes, so the §3 usage rules
+for `--ax-profile` and `--name` can name the fact; a file that exists but
+cannot be read or parsed is `defaults_config_invalid`, never "not
+configured". A configured integration is not
 a per-launch option: there is no `--no-ax` flag, and bypassing tracking is
 a configuration change, not a flag. The launcher composes the Decision 0013 D3.2 request document and
 invokes, as a subprocess:
