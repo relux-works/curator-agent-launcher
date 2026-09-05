@@ -267,11 +267,13 @@ with no configured effort takes the lineup's effort for that model.
    are passed through unvalidated — admission stays the spawn plane's.
    **Lockable:** when the machine file carries `"locked": true`, the
    operator file is ignored for every env-id the machine file names, and
-   the machine entry is used even against `--model`/`--effort` flags for
-   that member — the flags are then a `usage` error naming the locked
-   member, so a locked default is never silently overridden and never
-   silently applied. Otherwise the operator file overrides the machine
-   file per env-id. A file that is absent is a legitimate absence and the
+   a `--model`/`--effort` flag for a member the machine entry sets is a
+   `usage` error naming the locked member, so a locked default is never
+   silently overridden and never silently applied. Otherwise the operator
+   file overrides the machine file per member: an operator entry that sets
+   only `model` leaves a machine `effort` for the same env-id in force, the
+   same per-member resolution as the rest of this section. A file that is
+   absent is a legitimate absence and the
    level yields nothing; a file that exists but cannot be read or parsed
    is `defaults_config_invalid` — a read failure is not an absence, and
    the lineup fallback MUST NOT fire past it.
@@ -405,9 +407,13 @@ is `null` for every launchable environment (§4.4).
 
 **With the `ax` integration configured** on the machine, the launcher
 ALWAYS routes the composed launch through `ax` so the session is tracked
-from birth. A configured integration is not a per-launch option: there is
-no `--no-ax` flag, and bypassing tracking is a configuration change, not a
-flag. The launcher composes the Decision 0013 D3.2 request document and
+from birth. Whether the integration is configured is one fact read from
+the launcher's machine configuration (the same closed file family as
+§4.3 level 2, member `ax.enabled`, default `false`), read once per
+invocation before argument handling completes, so the §3 usage rules for
+`--ax-profile` and `--name` can name it. A configured integration is not
+a per-launch option: there is no `--no-ax` flag, and bypassing tracking is
+a configuration change, not a flag. The launcher composes the Decision 0013 D3.2 request document and
 invokes, as a subprocess:
 
 ```text
