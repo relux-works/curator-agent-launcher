@@ -37,8 +37,8 @@ mutants=(
   'M11@@cli@@TestNativeTailVerbatim@@inv.Native = append([]string{}, args[i:]...)@@inv.Native = []string{}; for _, a := range args[i:] { if a != "" { inv.Native = append(inv.Native, a) } }'
   'M12@@cli@@TestParseRejected/unknown_flag_before_help@@return inv, usageErr("unknown flag %q before --", tok)@@if tok != "--nope" { return inv, usageErr("unknown flag %q before --", tok) }; continue'
   'M13@@main@@TestRunUsageErrorsExit2@@return cli.ExitCode@@return 1'
-  'M14@@main@@TestRunParsedLaunchRefused@@nothing was resolved or launched\n", name, inv.EnvID)
-	return 1@@nothing was resolved or launched\n", name, inv.EnvID)
+  'M14@@main@@TestRunParsedLaunchResolvesThenRefuses@@name, frag.Environment, frag.Profile.Name, frag.Home(), frag.Digest)
+	return 1@@name, frag.Environment, frag.Profile.Name, frag.Home(), frag.Digest)
 	return 0'
 )
 

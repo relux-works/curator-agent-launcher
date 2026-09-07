@@ -1,0 +1,1 @@
+{"env":{"CODEX_HOME":"/Users/iv/.curator/environments/default/codex_cli"},"environment":"codex_cli","fragment":"launch-env-fragment-v1","precedence":{"placement":"winner-last","winner":"higher-weight"},"profile":{"lock_sha256":"726310f80f442428a9a640d2d49ad9b635f22857fb4ad22167832c7c6ff30e19","name":"default"}}

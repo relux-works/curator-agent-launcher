@@ -1,0 +1,36 @@
+{
+  "env": {
+    "PI_CODING_AGENT_DIR": "/manager/environments/companyA/pi"
+  },
+  "environment": "pi",
+  "fragment": "launch-env-fragment-v1",
+  "precedence": {
+    "placement": "winner-last",
+    "winner": "higher-weight"
+  },
+  "profile": {
+    "lock_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "name": "companyA"
+  },
+  "system_prompt": {
+    "channels": [
+      {
+        "argument": "path",
+        "flag": "--append-system-prompt",
+        "kind": "flag",
+        "semantics": "append"
+      },
+      {
+        "filename": "APPEND_SYSTEM.md",
+        "kind": "file",
+        "semantics": "append"
+      },
+      {
+        "filename": "SYSTEM.md",
+        "kind": "file",
+        "semantics": "replace"
+      }
+    ],
+    "path": "/manager/environments/companyA/pi/.agent-context/system-prompt.md"
+  }
+}

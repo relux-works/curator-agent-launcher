@@ -1,0 +1,31 @@
+{
+  "env": {
+    "XDG_CONFIG_HOME": "/manager/environments/companyA/opencode"
+  },
+  "environment": "opencode",
+  "fragment": "launch-env-fragment-v1",
+  "mcp": {
+    "channels": [
+      {
+        "kind": "variable",
+        "variable": "OPENCODE_CONFIG"
+      }
+    ],
+    "env_names": [
+      "FIGMA_API_KEY"
+    ],
+    "path": "/manager/environments/companyA/opencode/opencode/.agent-context/mcp/opencode.json"
+  },
+  "precedence": {
+    "placement": "winner-last",
+    "winner": "higher-weight"
+  },
+  "profile": {
+    "lock_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "name": "companyA"
+  },
+  "system_prompt": {
+    "channels": [],
+    "path": "/manager/environments/companyA/opencode/opencode/.agent-context/system-prompt.md"
+  }
+}

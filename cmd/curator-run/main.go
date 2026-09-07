@@ -3,19 +3,23 @@
 // (curator env resolve), and the session plane (ax) into one exec.
 //
 // This build implements SPEC.md §3, the closed CLI surface, through
-// internal/cli. Composition (§4), system-prompt application (§5), and the
-// configuration file family (§4.7) are not delivered yet: a well-formed
-// launch invocation is refused after parsing with exit 1 and launches
-// nothing. The agents-management Go module is the planned spawn-plane
-// dependency and is deliberately not imported yet.
+// internal/cli, and §4.1, the fragment resolution, through
+// internal/fragment. The later composition steps (§4.2-§4.6), system-prompt
+// application (§5), and the configuration file family (§4.7) are not
+// delivered yet: a launch invocation whose fragment resolves is refused
+// after resolution with exit 1 and launches nothing. The agents-management
+// Go module is the planned spawn-plane dependency and is deliberately not
+// imported yet.
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
 
 	"github.com/relux-works/curator-agent-launcher/internal/cli"
+	"github.com/relux-works/curator-agent-launcher/internal/fragment"
 )
 
 const (
@@ -27,7 +31,7 @@ const (
 )
 
 func main() {
-	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
+	os.Exit(run(context.Background(), os.Args[1:], os.Stdout, os.Stderr, fragment.New()))
 }
 
 // run is the production entry point behind main. It reads the ax
@@ -35,9 +39,12 @@ func main() {
 // so this build parses against an unconfigured integration), parses argv
 // under §3, prints informational output, and reports usage errors as the
 // §6 usage family on stderr with exit 2. A launch invocation that parses
-// is refused with exit 1 because no composition stage exists in this
-// build; nothing is resolved and nothing is launched.
-func run(args []string, stdout, stderr io.Writer) int {
+// goes to §4.1: the fragment is resolved through resolver — always with
+// --repair, Curator's stderr forwarded verbatim — and a resolve failure is
+// printed as its §6 resolve-family code line with exit 1. A resolved
+// fragment is then refused with exit 1 because no later composition stage
+// exists in this build; nothing is launched.
+func run(ctx context.Context, args []string, stdout, stderr io.Writer, resolver *fragment.Resolver) int {
 	opts := cli.Options{AxConfigured: false}
 	inv, err := cli.Parse(args, opts)
 	if err != nil {
@@ -56,6 +63,26 @@ func run(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stdout, "%s %s (specification %s)\n", name, buildVersion, specVersion)
 		return 0
 	}
-	fmt.Fprintf(stderr, "%s: not_implemented: parsed launch for environment %q, but composition (SPEC §4) is not delivered in this build; nothing was resolved or launched\n", name, inv.EnvID)
+
+	// SPEC §4.1: obtain the fragment. The subprocess inherits the
+	// launcher's working directory and environment; Curator's stderr goes
+	// to the operator unchanged.
+	frag, err := resolver.Resolve(ctx, fragment.Request{
+		EnvID:      inv.EnvID,
+		Profile:    inv.Profile,
+		ProfileSet: inv.ProfileSet,
+		Stderr:     stderr,
+	})
+	if err != nil {
+		if re, ok := fragment.IsResolve(err); ok {
+			fmt.Fprintf(stderr, "%s: %s: %s\n", name, re.Code, re.Detail)
+			return 1
+		}
+		fmt.Fprintf(stderr, "%s: %s: %v\n", name, fragment.CodeInvocationFailed, err)
+		return 1
+	}
+
+	fmt.Fprintf(stderr, "%s: not_implemented: resolved environment %q (profile %q, home %s, fragment digest %s), but composition beyond SPEC §4.1 is not delivered in this build; nothing was launched\n",
+		name, frag.Environment, frag.Profile.Name, frag.Home(), frag.Digest)
 	return 1
 }

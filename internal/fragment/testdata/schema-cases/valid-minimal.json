@@ -1,0 +1,15 @@
+{
+  "env": {
+    "CLAUDE_CONFIG_DIR": "/manager/environments/companyA/claude_code"
+  },
+  "environment": "claude_code",
+  "fragment": "launch-env-fragment-v1",
+  "precedence": {
+    "placement": "winner-last",
+    "winner": "higher-weight"
+  },
+  "profile": {
+    "lock_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "name": "companyA"
+  }
+}

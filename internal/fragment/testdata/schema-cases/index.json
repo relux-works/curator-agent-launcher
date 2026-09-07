@@ -1,0 +1,201 @@
+{
+ "source": "curator-spec 87a0d0060bad64ab883d007dcdf35df7485368bf conformance/v1/schema-cases/index.json (launch-env-fragment-v1 rows)",
+ "cases": [
+  {
+   "instance": "valid.json",
+   "valid": true
+  },
+  {
+   "instance": "invalid.json",
+   "valid": false
+  },
+  {
+   "instance": "valid-minimal.json",
+   "valid": true
+  },
+  {
+   "instance": "valid-system-prompt-only.json",
+   "valid": true
+  },
+  {
+   "instance": "valid-mcp-only.json",
+   "valid": true
+  },
+  {
+   "instance": "valid-codex-config-key-and-name-channel.json",
+   "valid": true
+  },
+  {
+   "instance": "valid-opencode-empty-channels-and-variable.json",
+   "valid": true
+  },
+  {
+   "instance": "valid-pi-file-channels.json",
+   "valid": true
+  },
+  {
+   "instance": "valid-winner-first.json",
+   "valid": true
+  },
+  {
+   "instance": "valid-path-prepend.json",
+   "valid": true
+  },
+  {
+   "instance": "invalid-fragment-identity.json",
+   "valid": false
+  },
+  {
+   "instance": "invalid-unknown-environment.json",
+   "valid": false
+  },
+  {
+   "instance": "invalid-unknown-field.json",
+   "valid": false
+  },
+  {
+   "instance": "invalid-missing-precedence.json",
+   "valid": false
+  },
+  {
+   "instance": "invalid-precedence-string.json",
+   "valid": false
+  },
+  {
+   "instance": "invalid-profile-commit-pin.json",
+   "valid": false
+  },
+  {
+   "instance": "invalid-profile-lock-prefixed.json",
+   "valid": false
+  },
+  {
+   "instance": "invalid-profile-unknown-field.json",
+   "valid": false
+  },
+  {
+   "instance": "invalid-env-empty.json",
+   "valid": false
+  },
+  {
+   "instance": "invalid-env-lowercase-variable.json",
+   "valid": false
+  },
+  {
+   "instance": "invalid-env-wrong-adapter-variable.json",
+   "valid": false
+  },
+  {
+   "instance": "invalid-env-two-variables.json",
+   "valid": false
+  },
+  {
+   "instance": "invalid-env-relative-path.json",
+   "valid": false
+  },
+  {
+   "instance": "invalid-system-prompt-unknown-field.json",
+   "valid": false
+  },
+  {
+   "instance": "invalid-system-prompt-missing-channels.json",
+   "valid": false
+  },
+  {
+   "instance": "invalid-system-prompt-channels-not-registry.json",
+   "valid": false
+  },
+  {
+   "instance": "invalid-channel-unknown-kind.json",
+   "valid": false
+  },
+  {
+   "instance": "invalid-channel-unknown-semantics.json",
+   "valid": false
+  },
+  {
+   "instance": "invalid-channel-missing-semantics.json",
+   "valid": false
+  },
+  {
+   "instance": "invalid-flag-missing-argument.json",
+   "valid": false
+  },
+  {
+   "instance": "invalid-flag-unknown-argument.json",
+   "valid": false
+  },
+  {
+   "instance": "invalid-flag-name-without-name-argument.json",
+   "valid": false
+  },
+  {
+   "instance": "invalid-flag-name-argument-without-name.json",
+   "valid": false
+  },
+  {
+   "instance": "invalid-flag-with-filename.json",
+   "valid": false
+  },
+  {
+   "instance": "invalid-flag-empty-with.json",
+   "valid": false
+  },
+  {
+   "instance": "invalid-channel-unknown-field.json",
+   "valid": false
+  },
+  {
+   "instance": "invalid-mcp-channel-with-semantics.json",
+   "valid": false
+  },
+  {
+   "instance": "invalid-mcp-channel-not-registry.json",
+   "valid": false
+  },
+  {
+   "instance": "invalid-mcp-unknown-field.json",
+   "valid": false
+  },
+  {
+   "instance": "invalid-mcp-missing-env-names.json",
+   "valid": false
+  },
+  {
+   "instance": "invalid-mcp-env-names-unsorted.json",
+   "valid": false
+  },
+  {
+   "instance": "invalid-mcp-env-names-reserved.json",
+   "valid": false
+  },
+  {
+   "instance": "invalid-mcp-two-channels.json",
+   "valid": false
+  },
+  {
+   "instance": "invalid-mcp-on-pi.json",
+   "valid": false
+  },
+  {
+   "instance": "invalid-path-prepend-relative.json",
+   "valid": false
+  },
+  {
+   "instance": "invalid-path-prepend-outside-root.json",
+   "valid": false
+  },
+  {
+   "instance": "invalid-path-prepend-dotdot-segment.json",
+   "valid": false
+  },
+  {
+   "instance": "invalid-env-dotdot-segment.json",
+   "valid": false
+  },
+  {
+   "instance": "invalid-system-prompt-path-dotdot-segment.json",
+   "valid": false
+  }
+ ]
+}

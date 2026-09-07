@@ -1,0 +1,32 @@
+{
+  "env": {
+    "CLAUDE_CONFIG_DIR": "/manager/environments/companyA/claude_code"
+  },
+  "environment": "claude_code",
+  "fragment": "launch-env-fragment-v1",
+  "precedence": {
+    "placement": "winner-last",
+    "winner": "higher-weight"
+  },
+  "profile": {
+    "lock_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "name": "companyA"
+  },
+  "system_prompt": {
+    "channels": [
+      {
+        "argument": "path",
+        "flag": "--append-system-prompt-file",
+        "kind": "flag",
+        "semantics": "append"
+      },
+      {
+        "argument": "path",
+        "flag": "--system-prompt-file",
+        "kind": "flag",
+        "semantics": "replace"
+      }
+    ],
+    "path": "/manager/environments/companyA/claude_code/.agent-context/system-prompt.md"
+  }
+}

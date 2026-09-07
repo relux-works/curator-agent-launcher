@@ -244,6 +244,19 @@ launch:
   an absence: the launcher MUST NOT treat unparseable output as "no
   fragment" and exec anyway.
 
+Curator's diagnostic transport, as observed (A0 verification,
+TASK-260908-qblycn, curator `v0.14.1-0.20260907213730-04550e282705`;
+erratum candidate E6, STORY-260908-2utz8k): a failing `env resolve` prints
+its §10.4 code as one stderr line of the form `curator: <code>: <detail>`
+and exits 1. The launcher reads the code for the mapping above from the
+first such line of the subprocess's stderr; a non-zero exit without a
+recognizable line is `resolve_invocation_failed`. Curator's stderr is
+forwarded to the operator verbatim, on failure and on success alike: a
+successful resolve may carry `warning: <code>: <detail>` lines — observed
+`environment_tool_version_unverified` when the detected tool release
+differs from the recorded one — which are informational and never fail
+the launch. Stdout carries the fragment and nothing else.
+
 The launcher computes, from the **parsed** object and never from the
 printed bytes, the fragment digest `sha256:<64 lowercase hex>` over the
 CCJ-1 canonicalization (registry §1) of the fragment (Decision 0013 D6.4,

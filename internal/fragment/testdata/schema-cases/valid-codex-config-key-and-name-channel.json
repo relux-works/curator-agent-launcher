@@ -1,0 +1,39 @@
+{
+  "env": {
+    "CODEX_HOME": "/manager/environments/companyA/codex_cli"
+  },
+  "environment": "codex_cli",
+  "fragment": "launch-env-fragment-v1",
+  "mcp": {
+    "channels": [
+      {
+        "argument": "name",
+        "flag": "-p",
+        "kind": "flag",
+        "name": "curator-mcp"
+      }
+    ],
+    "env_names": [
+      "FIGMA_API_KEY"
+    ],
+    "path": "/manager/environments/companyA/codex_cli/curator-mcp.config.toml"
+  },
+  "precedence": {
+    "placement": "winner-last",
+    "winner": "higher-weight"
+  },
+  "profile": {
+    "lock_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "name": "companyA"
+  },
+  "system_prompt": {
+    "channels": [
+      {
+        "key": "model_instructions_file",
+        "kind": "config-key",
+        "semantics": "replace"
+      }
+    ],
+    "path": "/manager/environments/companyA/codex_cli/.agent-context/system-prompt.md"
+  }
+}
