@@ -2,8 +2,10 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -234,5 +236,56 @@ func TestSpecVersionPinned(t *testing.T) {
 	}
 	if out.String() != name+" "+buildVersion+" (specification "+want+")\n" {
 		t.Fatalf("run(--version) stdout = %q", out.String())
+	}
+}
+
+// TestExecutableUnicodePathBoundary uses the built production main and a real
+// fake-curator subprocess; the supplied path is data and is never created.
+func TestExecutableUnicodePathBoundary(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell-script fake curator")
+	}
+	dir := t.TempDir()
+	binary := filepath.Join(dir, "curator-run")
+	if out, err := exec.Command("go", "build", "-o", binary, ".").CombinedOutput(); err != nil {
+		t.Fatalf("build: %v: %s", err, out)
+	}
+	fake := "#!/bin/sh\nd=${0%/*}\n/bin/cat \"$d/fragment.json\"\n"
+	if err := os.WriteFile(filepath.Join(dir, "curator"), []byte(fake), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		name  string
+		count int
+		code  string
+	}{
+		{"accept4096", 4096, "not_implemented"},
+		{"reject4097", 4097, "resolve_fragment_invalid"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var value map[string]any
+			if err := json.Unmarshal([]byte(piFragmentLine), &value); err != nil {
+				t.Fatal(err)
+			}
+			value["env"] = map[string]string{"PI_CODING_AGENT_DIR": "/" + strings.Repeat("é", tc.count-1)}
+			data, err := json.Marshal(value)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(dir, "fragment.json"), data, 0o644); err != nil {
+				t.Fatal(err)
+			}
+			cmd := exec.Command(binary, "pi")
+			cmd.Env = append(os.Environ(), "PATH="+dir)
+			var out, stderr strings.Builder
+			cmd.Stdout, cmd.Stderr = &out, &stderr
+			err = cmd.Run()
+			if e, ok := err.(*exec.ExitError); !ok || e.ExitCode() != 1 {
+				t.Fatalf("exit: %v", err)
+			}
+			if out.Len() != 0 || !strings.HasPrefix(stderr.String(), name+": "+tc.code+": ") {
+				t.Fatalf("stdout %q stderr %q", out.String(), stderr.String())
+			}
+		})
 	}
 }

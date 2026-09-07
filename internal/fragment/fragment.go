@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"unicode/utf8"
 )
 
 // Identity is the required value of the "fragment" member.
@@ -281,10 +282,10 @@ func checkIdentifier(path, s string) error {
 	return nil
 }
 
-// checkAbsolutePath is the schema's absolutePath: 2..4096 bytes, leading
+// checkAbsolutePath is the schema's absolutePath: 2..4096 Unicode characters, leading
 // "/", no NUL, no ".." segment.
 func checkAbsolutePath(path, s string) error {
-	if len(s) < 2 || len(s) > 4096 || s[0] != '/' || strings.IndexByte(s, 0) >= 0 {
+	if n := utf8.RuneCountInString(s); n < 2 || n > 4096 || s[0] != '/' || strings.IndexByte(s, 0) >= 0 {
 		return invalid(path, "%q is not an absolute path", s)
 	}
 	for _, seg := range strings.Split(s, "/") {

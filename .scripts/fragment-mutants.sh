@@ -20,6 +20,7 @@ declare -A FILES=(
   [ccj1]=internal/fragment/ccj1.go
   [fragment]=internal/fragment/fragment.go
   [main]=cmd/curator-run/main.go
+  [index]=internal/fragment/testdata/schema-cases/index.json
 )
 for k in "${!FILES[@]}"; do cp "${FILES[$k]}" "$out/$k.orig"; done
 restore() { for k in "${!FILES[@]}"; do cp "$out/$k.orig" "${FILES[$k]}"; done; }
@@ -54,6 +55,8 @@ mutants=(
   'M24@@fragment@@TestConformanceCorpus@@s/if len\(envObj.Obj\) != 1 \{/if len(envObj.Obj) > 2 || len(envObj.Obj) == 0 {/@@admit two env variables'
   'M25@@fragment@@TestConformanceCorpus@@s/if !hex256Pattern.MatchString\(f.Profile.LockSHA256\) \{/if !hex256Pattern.MatchString(strings.TrimPrefix(f.Profile.LockSHA256, "sha256:")) {/@@admit a sha256:-prefixed lock hash'
   'M26@@main@@TestRunResolveFailuresExit1@@s/if re, ok := fragment.IsResolve\(err\); ok \{/if re, ok := fragment.IsResolve(err); ok \&\& re.Code != fragment.CodeFragmentInvalid {/@@entry point loses the resolve_fragment_invalid code line'
+  'M27@@fragment@@TestExecutableUnicodePathBoundary@@s/n > 4096/n > 4097/@@admit exactly 4097 Unicode characters'
+  'M28@@index@@TestConformanceCorpus@@s/  \{\n   "instance": "invalid-path-prepend-outside-root.json",\n   "valid": false\n  \},\n//@@drop exactly the outside-root negative from the corpus index'
 )
 
 status=0
@@ -61,6 +64,7 @@ summary="$out/summary.tsv"
 printf 'mutant\tfile\texpected_failing_test\tapplied\tsuite_exit\texpected_test_failed\tverdict\tdescription\n' >"$summary"
 for m in "${mutants[@]}"; do
   id="${m%%@@*}"; rest="${m#*@@}"
+  if [ -n "${FRAGMENT_MUTANT_IDS:-}" ] && [[ " $FRAGMENT_MUTANT_IDS " != *" $id "* ]]; then continue; fi
   which="${rest%%@@*}"; rest="${rest#*@@}"
   test="${rest%%@@*}"; rest="${rest#*@@}"
   expr="${rest%%@@*}"; desc="${rest#*@@}"
@@ -72,7 +76,7 @@ for m in "${mutants[@]}"; do
   fi
   log="$out/$id.log"
   { echo "== $id ($desc; expected to fail: $test)"; diff -u "$out/$which.orig" "$file"; echo; } >"$log"
-  go test ./... -count=1 -v >>"$log" 2>&1; code=$?
+  go test ./... -count=1 -v -run "${FRAGMENT_TEST_PATTERN:-.}" >>"$log" 2>&1; code=$?
   failed=no
   grep -Eq "^[[:space:]]*--- FAIL: ${test}( |$)" "$log" && failed=yes
   verdict=KILLED

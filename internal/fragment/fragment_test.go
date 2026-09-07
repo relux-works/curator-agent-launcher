@@ -2,7 +2,9 @@ package fragment
 
 import (
 	"bufio"
+	"crypto/sha256"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -39,8 +41,18 @@ func TestConformanceCorpus(t *testing.T) {
 	if err := json.Unmarshal(readFile(t, "testdata/schema-cases/index.json"), &index); err != nil {
 		t.Fatal(err)
 	}
-	if len(index.Cases) < 40 {
-		t.Fatalf("corpus too small: %d cases", len(index.Cases))
+	// Independently derived from curator-spec 87a0d0060bad64ab883d007dcdf35df7485368bf:
+	// select launch-env-fragment-v1.schema.json rows in upstream index order;
+	// hash each verbatim fixture, then hash "basename\tvalid\tsha256\n" rows.
+	// This pins identities, verdicts, order and bytes, not parser enumeration.
+	const wantManifest = "540f9d32f14490c9293454f466c9e139cc112971a1147d038369702bd7984e60"
+	var manifest strings.Builder
+	for _, c := range index.Cases {
+		data := readFile(t, filepath.Join("testdata/schema-cases", c.Instance))
+		fmt.Fprintf(&manifest, "%s\t%t\t%x\n", c.Instance, c.Valid, sha256.Sum256(data))
+	}
+	if got := fmt.Sprintf("%x", sha256.Sum256([]byte(manifest.String()))); got != wantManifest || len(index.Cases) != 49 {
+		t.Fatalf("pinned corpus correspondence: got %d rows digest %s; want 49 rows digest %s", len(index.Cases), got, wantManifest)
 	}
 	valid, invalid := 0, 0
 	for _, c := range index.Cases {
