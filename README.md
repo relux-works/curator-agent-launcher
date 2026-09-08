@@ -5,7 +5,8 @@ independent contracts into one exec —
 
 - the **spawn plane** (`agents-management`): which agentic system, model,
   reasoning effort, and vendor, and whether provider limits admit a launch
-  right now — consumed as a built launch plan, never rebuilt;
+  right now — consumed through `vendorplugin.BuildLaunch` for the plan
+  and an explicit `providerlimits.Store.AvailabilityFor` check, never rebuilt;
 - the **context plane** (Curator): the launch environment fragment obtained
   through `curator env resolve --repair --format json` and merged into the child
   environment;

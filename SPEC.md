@@ -48,6 +48,18 @@ RFC 2119. Normative references:
   `BuildLaunch` value contract, `LaunchModeInteractive`, the
   `vendorplugin.Lineup` ranking, and the provider-limits verdict model.
 
+The plan/environment corrections in §§4.4–4.6 and §9 follow the accepted
+A0 findings `TASK-260908-qblycn_a0-verification-findings.md` §§3.2, 3.5,
+E3/E4 and the accepted `TASK-260908-1c0fwn` Plan.Env value-contract
+resolution (§§2–5, supplied as `accepted-environment-evidence.md`). The
+recorded module entry point is `pkg/vendorplugin/spawn.go` at `v0.5.10`
+(commit `12f443d10bc217ca7a48e2edab19c739f441df9c`); this is evidence,
+not a dependency-version change. The corresponding upstream corrections
+are [Decision 0013 D6.3/D6.4 and open question 6](https://github.com/relux-works/curator-spec/blob/d019f0e7179520b5c8dcde321c4fe51e04552f58/decisions/0013-execution-ownership-and-launch-plans.md)
+and [environments revision 1.1](https://github.com/relux-works/curator-spec/blob/d019f0e7179520b5c8dcde321c4fe51e04552f58/protocol/environments.md),
+landed in curator-spec PR48. Only the plan/environment corrections are
+applied here; Pi file-channel corrections remain separately tracked.
+
 ## 1. Scope and non-goals
 
 The launcher answers exactly one operator question: *just run it*. The
@@ -358,42 +370,64 @@ The launcher MUST NOT retry with a different pair.
 
 ### 4.4 Obtain the launch plan (spawn plane)
 
-The launcher builds a plan request and obtains a plan through the
-`agents-management` module's declared entry point `BuildPlan`. The
-request, closed:
+The launcher obtains the plan through
+`vendorplugin.BuildLaunch(ctx, registry, request, agentic.LaunchModeInteractive)`,
+the entry point verified at `agents-management` tag `v0.5.10` (A0 E3).
+`BuildLaunch` resolves the runtime and vendor model row, admits the model
+and effort word against that row, and calls `agentic.BuildPlan` with the
+resulting `LaunchRequest`. The launcher MUST NOT bypass that admission
+by calling `BuildPlan` with a bare model id or reconstructing the row's
+`EffortSupport`. The `vendorplugin.SpawnRequest` inputs are:
 
-- system: the §4.2 mapped system;
-- mode: `LaunchModeInteractive` (Decision 0013 D5), requested **by
-  name**. The launcher never spells a provider flag; the plan's argv
-  carries only model selection and the effort transport, and it is the
-  system plugin's to spell. A system that does not declare the mode is
-  refused by the module with `ErrUnsupportedLaunchMode` → `plan_refused`;
-- `Model` and effort: the §4.3 resolved pair;
-- `Home`: the managed home from the fragment's home variable (§4.1).
-  This is why the fragment is obtained first: the module keys on-disk
-  provider-limit state by (provider, home), so the limit evidence that
-  admits or refuses this launch is the managed home's own — a profile A
-  launch never gates a profile B launch through shared evidence, and the
-  native home is never consulted for a managed launch;
+- `Runtime`: the module-declared runtime for the §4.2 mapped system
+  (`claude` for `claude-code`, `codex` for `codex`; native-Pi availability
+  remains subject to the upstream evidence and release boundary in §4.2);
+- `Model` and `Effort`: the §4.3 resolved pair;
+- `Home`: the managed home from the fragment's home variable (§4.1),
+  passed through to `LaunchRequest.Home`;
 - `WorkDir`: the launcher's current working directory;
+- `Env`: `os.Environ()` in **both** tracked and untracked modes, supplied
+  as the parent environment for `LaunchRequest.Env`. The resulting
+  `Plan.Env` is the plugin's complete filtered child environment over
+  that parent, not a delta;
 - `Composition`: **empty**. The fragment's MCP channel is applied by the
-  launcher in §4.5, not by the module; a non-empty composition in
-  interactive mode is refused by the module (`ErrCompositionNotInteractive`),
-  and the launcher never sends one.
+  launcher in §4.5. A non-empty composition in interactive mode is
+  refused with `ErrCompositionNotInteractive`;
+- `Run`: zero; this terminal launch supplies no task-board run context.
+  Goal, budget, service tier, and assignment prompt remain unset.
+
+The mode is requested **by name**, `agentic.LaunchModeInteractive`
+(Decision 0013 D5). The launcher never spells a provider flag; model
+selection and effort transport belong to the system plugin. A system
+that does not declare the mode is refused by the module with
+`ErrUnsupportedLaunchMode` → `plan_refused`.
 
 The plan is a value — `Binary`, `Argv`, `Env`, `Stdin`, `WorkDir` — and
-building it starts no process. `Stdin` is attached only for a system
+building it starts no child process. `Stdin` is attached only for a system
 whose effort transport is stdin; none of the §4.2 systems is, so in this
-revision the plan's stdin is unattached for every launchable
-environment (Decision 0013 D4).
+revision the plan's stdin is unattached for every launchable environment
+(Decision 0013 D4).
 
-Admission is the spawn plane's: a provider-limits verdict that is not
-*observed healthy* is not serviceable, and the launcher surfaces the
-structured verdict (limited-until with its evidence, unreachable with its
-evidence, or unknown) as `plan_provider_limited` instead of launching.
-The launcher MUST NOT retry, downgrade, or substitute a model to route
-around a refusal; "checked and found nothing", "nobody looked", and "the
-read failed" are three different answers and are reported as such.
+**Provider-limit admission is a separate launcher-invoked read.** Neither
+`BuildLaunch` nor `BuildPlan` reads provider-limit state. Before launching
+in either mode, the launcher MUST call
+`providerlimits.Store.AvailabilityFor(providerlimits.VerdictQuery{Runtime, Model, Home})`
+with the same resolved runtime, model, and **managed** home. The module
+owns the state interpretation and verdict; the launcher owns making the
+explicit check and enforcing it. A profile A launch therefore never gates
+a profile B launch through shared evidence, and an empty or native home
+MUST NOT substitute for the managed home.
+
+Only a verdict whose `Serviceable()` is true (`AvailabilityHealthy`) admits
+launch. This includes a determinate read that finds no limit record under
+the module's fail-open state contract; it is distinct from an unknown or
+failed read. A non-serviceable verdict is `plan_provider_limited`, with
+its state and `Until`, `Checked`, `Observed`, and `Failures` evidence
+surfaced. Failure to produce a verdict is a terminal `plan_refused`, with
+the module error, never healthy by inference. The launcher MUST NOT retry,
+downgrade, or substitute a model around a refusal. Model and effort
+admission stay inside `BuildLaunch`; provider-limit checking does not
+replace them.
 
 ### 4.5 Compose the launch
 
@@ -461,15 +495,28 @@ turn, so a channel flag after the native arguments would become prompt
 text. The general rule is fixed here; the per-tool boundary is verified
 against the pinned release before the conformance vectors freeze (§9).
 
-**environment** — four layers, later overriding earlier per name:
+**environment** — three layers, later overriding earlier per name:
 
-1. the launcher's inherited process environment;
-2. the plan's `Env`;
-3. the fragment's `env` map;
-4. the `variable`-kind channel of an engaged descriptor: the fragment's
+1. the plan's complete filtered `Env`;
+2. the fragment's `env` map;
+3. the `variable`-kind channel of an engaged descriptor: the fragment's
    `mcp` descriptor for `opencode` (`OPENCODE_CONFIG` = the materialized
    path), and a `variable`-kind system-prompt descriptor under the §5
    opt-in.
+
+The inherited environment is an input to the plan request (§4.4), never
+an additional composition layer. The launcher MUST NOT overlay it beneath
+`Plan.Env`: doing so re-admits plugin-removed names. Untracked execution
+uses the complete `Plan.Env` base, preserving plugin removals (including
+run-context keys with zero `Run`) and sanitized `PATH`.
+
+The plan's **own names and values** are those returned by
+`System.ChildEnv(nil, req)` for the same system and `LaunchRequest`, over
+an empty parent. They MUST NOT be obtained by diffing `Plan.Env` against
+the inherited environment, or by a second `BuildPlan` with `Env=nil`:
+binary resolution requires `PATH` and refuses that request. These owned
+values define tracked literals and the warning below; `Plan.Env` itself
+includes inherited values and MUST NOT be serialized as literals.
 
 The fragment wins on exactly its own closed names — the adapter-registry
 variable names pointing at managed-home paths — and touches nothing else.
@@ -477,7 +524,7 @@ This conflict rule is safe by construction: fragment names come only from
 the closed adapter registry and fragment values are manager-owned
 managed-home paths (the §10.3 profile-influence boundary), so the
 override can only re-aim the tool's home, never alter how the process is
-launched. When layer 3 or 4 overrides a name layer 2 actually set, the
+launched. When layer 2 or 3 overrides one of the plan's own names, the
 launcher SHOULD warn — the plan author declared an intent the fragment is
 displacing — but the fragment still wins: the operator asked for the
 profile's context.
@@ -485,19 +532,22 @@ profile's context.
 **env_names** — the fragment's `mcp.env_names` union (already bounded,
 before it reaches the launcher, by the reserved-name exclusion and the
 lockable passable-names allowlist of Decision 0012 D6), **minus** every
-name that also appears in the composed `env_literals` of §4.6 — layers
-2–4 above. This is the **literal-versus-lookup collision rule** (Decision
-0013 D6.3 as amended by review finding F5): a literal the composer set is
+name that also appears in the composed `env_literals` of §4.6 — the
+plan's own names plus fragment/channel names. This is the
+**literal-versus-lookup collision rule** (Decision 0013 D6.3 as amended by review finding F5): a literal the composer set is
 an explicit intent and wins over a destination-local lookup, so the name
 is dropped from `env_names` and a warning naming the variable is printed
 on stderr. The reserved-name exclusion keeps registry adapter names out of
-`env_names`, but a system plugin's plan `Env` is not bounded by it, so
+`env_names`, but a system plugin's own names are not bounded by it, so
 this rule is what makes the composed document disjoint by construction:
 `ax` §5.1 disjointness never fires for a composed document, and a
 collision is never an `ax_handoff_failed`. Untracked mode has no
-`env_names` — the child inherits the operator's environment directly and
-the union is informative only — but the warning is printed in both modes
-so that the two modes report the same facts.
+`env_names` lookup — the child receives the composed environment based
+on `Plan.Env`, and the union is informative only — but the warning is
+printed in both modes so that the two modes report the same facts. A name merely inherited in
+`Plan.Env`, such as an allowed `FIGMA_API_KEY`, is not a literal collision
+and MUST remain in tracked `env_names` for the destination-local lookup.
+Warnings name variables, never their values.
 
 **stdin** — the interactive plan's `Stdin` under the Decision 0013 D4
 mapping: `null` when unattached; otherwise `{ "encoding", "bytes" }` with
@@ -565,9 +615,9 @@ The document, `schema` `urn:ax:schema:launch-plan-request`,
 
 | Member | Derivation |
 |---|---|
-| `argv_suffix` | the composed argv without its element 0. The interactive plan's `Argv` is already the tail after the executable; `Binary` is the plugin's to resolve, so the composer never sends element 0 and never uses the `argv` form. |
+| `argv_suffix` | the **entire** composed `Argv`, verbatim. The interactive plan's `Argv` already excludes `Binary`; retain every argument, including the first plugin argument. The composer never sends `Binary` and never uses the `argv` form; `ax` resolves its executable. |
 | `env_names` | as composed, with the §4.5 collision rule already applied — disjoint from `env_literals` before `ax` sees the document. Sorted, unique. |
-| `env_literals` | the **composer's own names only**: plan `Env` ⊕ fragment `env` ⊕ the engaged variable-kind channel (§4.5 layers 2–4). Never a copy of the inherited environment: the inherited layer of a tracked launch is whatever `ax`'s terminal backend gives the child on the destination. |
+| `env_literals` | the **composer's own names only**: the plan's own names and values (`System.ChildEnv(nil, req)`) ⊕ fragment `env` ⊕ the engaged variable-kind channel (§4.5). Never serialize `Plan.Env` or copy inherited `HOME`, `PATH`, or secrets. The inherited layer of a tracked launch is whatever `ax`'s terminal backend gives the child on the destination. |
 | `stdin` | as composed (§4.5). |
 | `extensions` | exactly the four `works.relux.curator.*` keys below. |
 
@@ -596,8 +646,9 @@ failure mode, not the fallback. After a successful handoff the launcher's
 work is over: process creation, the terminal, and the session are `ax`'s.
 
 **Without the integration**, the launcher execs the composed plan
-directly: the plan's `Binary` with the composed argv (§4.5, element 0 the
-binary), the composed environment, and the composed stdin — the same
+directly: the plan's `Binary` with the entire composed argument tail
+(§4.5; prepend `Binary` only for an exec API requiring executable element
+0), the composed environment, and the composed stdin — the same
 plan, with no `ax` residue. Untracked is the honest answer on such a
 machine.
 
@@ -800,7 +851,7 @@ contract. Usage errors exit 2; every operational failure exits 1.
 | usage | `usage` | unknown flag, missing `<env-id>`, stray operand before `--`, repeated flag, invalid `--system-prompt` or `--ax-profile` value, `--name` outside the `ax` §2.1 grammar or over 64 characters, `--ax-profile` on an untracked machine, a flag overriding a locked default — exit 2, nothing resolved, nothing launched |
 | resolve | `resolve_invocation_failed`, `resolve_environment_unknown`, `resolve_profile_unknown`, `resolve_repair_failed`, `resolve_lock_unavailable`, `resolve_fragment_invalid` | §4.1: the context plane could not produce a usable fragment — `curator` not startable or an unexpected non-zero exit; unregistered environment; uninstalled profile; the store cannot restore the stale home; the repair could not take Curator's mutation lock within its bounded wait; or the output is not a valid closed fragment |
 | defaults | `defaults_config_invalid`, `defaults_unresolvable` | §4.3 and §4.6: a launcher-owned configuration file — `defaults.json` or `ax.json` (§4.7) — exists but cannot be read or parsed, or names an unknown env-id or member — a read failure, never an absence; the lineup admits no model for the mapped system after the flag and configuration levels left it unset |
-| plan | `plan_refused`, `plan_provider_limited` | §4.4: the spawn plane refused the request (unknown system, mode not declared by the system, invalid or missing required effort, unresolved vendor), or the provider-limits verdict was not observed healthy — the verdict's structure and evidence are surfaced verbatim |
+| plan | `plan_refused`, `plan_provider_limited` | §4.4: the spawn plane refused the request (unknown system/runtime or model, model not driven by the system, mode not declared by the system, invalid or missing required effort, unresolved vendor, or failure to produce a provider-limits verdict), or the explicit provider-limits verdict was not serviceable (`AvailabilityHealthy`) — the verdict's structure and evidence are surfaced verbatim |
 | environment | `env_unsupported` | §4.2: the environment has no spawn-plane or `ax` provider mapping in this revision |
 | exec | `exec_provider_missing` | §4.6: the plan's binary does not exist — reported with the executable name and installation guidance |
 | ax | `ax_handoff_failed` | §4.6: the configured `ax` could not take the launch — `ax` not startable, or `ax start` exited non-zero, its Structured Error passed through; no untracked fallback |
@@ -866,6 +917,15 @@ reordered.
 
 ## 9. Open items
 
+- **Tracked destination environment filtering.** Decision 0013 D3.2 has
+  no destination environment-unset or `PATH`-transform member. Plugin
+  strips (nesting markers, runtime/token-pointer names, run-context keys)
+  and `PATH` sanitization in `Plan.Env` survive untracked execution but
+  cannot be transported by the tracked literals-only document. A
+  destination supplying `CLAUDECODE=1` can still cause Claude's nested
+  session refusal. Whether `ax` independently filters these values is
+  unknown here. This is a recorded limit, not a new `ax` field, schema,
+  implementation, or permission bypass (Decision 0013 open question 6).
 - The §5.1 warning contract is complete only for launcher-mediated
   launches, and the probe is a point-in-time check. Two residuals are
   known and accepted in this revision: a tool started by hand in a
