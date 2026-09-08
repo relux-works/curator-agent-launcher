@@ -34,8 +34,8 @@ the parsed object, and the `resolve_*` diagnostic family. §4.2 maps the
 resolved environment to its system/provider pair (`internal/mapping`):
 `claude_code` → `claude-code`/`claude`, `codex_cli` → `codex`/`codex`,
 `pi` → `pi-native`/`pi`. Unsupported IDs (including known `opencode`)
-refuse `env_unsupported` with exit 1 before later stages. The later
-composition steps (§4.3–§4.6), system-prompt application (§5), and the
+refuse `env_unsupported` with exit 1 before later stages. The executable wiring for the later
+steps (§4.3–§4.6), system-prompt application (§5), and the
 `defaults.json`/`ax.json` file family (§4.7) are not delivered: a
 well-formed launch invocation parses, resolves its fragment (repairing the
 managed home when Curator finds it stale), maps its supported system/provider pair, and is then refused with exit 1
@@ -45,6 +45,43 @@ with exit 1.
 Because no `ax.json` is read yet, the binary always parses as an untracked
 machine, so `--ax-profile` is currently always a usage error and `--name`
 is accepted without effect.
+
+## Composition API boundary
+
+`internal/composition.Compose` implements the §4.5 value API over an already
+admitted `agentic.Plan`, its original system/request, a validated fragment,
+and an already selected/encoded `PromptApplication`. It calls only
+`System.ChildEnv(nil, sameRequest)` to obtain owned literals; it never builds
+another plan. Argv retains plan → prompt → MCP → native order. Native arguments
+are uninspected, including duplicate `-p` and operator permission flags.
+`Binary` and `WorkDir` are preserved. Direct `Env` starts from all of `Plan.Env`;
+tracked JSON omits that environment, executable, work directory and raw stdin.
+It includes only argv suffix, owned literals, disjoint lookup names and D4 stdin.
+`RawStdin` preserves bytes for direct execution; attached empty is distinct from
+unattached. `Warnings` contains names only, and both launch modes must print
+these warnings to stderr.
+
+The only direct module dependency is the real `skill-agents-management`
+`v0.5.10` release (commit `12f443d10bc217ca7a48e2edab19c739f441df9c`),
+which requires Go 1.25.5. No replacement, workspace override or pseudo-version
+is used. Pi-shaped input values test composition only: they do **not** claim
+native Pi admission in that release. Integration must use the later real
+operator-tagged native Pi release before making that claim.
+
+`Value.CheckLaunchBoundary` freshly checks the codex MCP layer for a readable
+regular file, distinguishing missing from dangling, unreadable and nonregular.
+It never repairs or silently drops MCP flags. The execution Story must call it
+**immediately before both direct process creation and ax handoff**, with the
+binary and §5 file-kind checks; calling it during composition is insufficient.
+The pathname check has a residual replacement window before process creation.
+No main call site or execution guarantee is claimed here. Full pipeline tests,
+BuildLaunch admission, model/default resolution, §5 prompt policy/application,
+tracked schema/extensions, stderr delivery and actual exec/ax remain later
+stories' obligations. The existing executable still refuses `not_implemented`.
+
+Reserved `path_prepend` parsing and hashing remain unchanged. Composition does
+not transform PATH for that reserved field or claim managed command-root
+support; environments §9.4 and the future skill-command-roots proposal bound it.
 
 ## Install and discovery
 
@@ -80,6 +117,7 @@ or tag workflow yet.
 | `.scripts/cli-mutants.sh` | narrowing-mutant harness for the §3 gates: each mutant weakens one gate to admit one rejected shape and the named test must fail | `.scripts/cli-mutants.sh [evidence-dir]` | per-mutant logs and `summary.tsv` under the evidence dir (default `.temp/cli-mutants/`); the source tree is restored on exit |
 | `.scripts/fragment-mutants.sh` | narrowing-mutant harness for the §4.1 gates (argv, exit mapping, stderr transport, reader rules, schema closure, CCJ-1 emission, entry-point wiring); the behavioral suite runs against every mutant | `.scripts/fragment-mutants.sh [evidence-dir]` (optional `FRAGMENT_MUTANT_IDS="M27 M28" FRAGMENT_TEST_PATTERN="TestExecutableUnicodePathBoundary|TestConformanceCorpus"` for focused rework) | `mutants.log` under the evidence dir (default `.temp/fragment-mutants/`); sources are restored from byte copies on exit |
 | `.scripts/mapping-mutants.py` | §4.2 narrowing probes with named production-entry failures; restores candidate bytes after each mutation | `python3 .scripts/mapping-mutants.py [evidence-dir]` | per-mutant logs and `summary.tsv` (default `.temp/mapping-mutants/`) |
+| `.scripts/composition-mutants.py` | §4.5 behavioral narrowing probes for environment ownership, collisions, stdin and launch-boundary file refusal; restores candidate bytes after every mutant | `python3 .scripts/composition-mutants.py [evidence-dir]` | per-mutant logs and `summary.tsv` (default `.temp/composition-mutants/`); permission probe requires a non-root host |
 | fragment test corpus | `internal/fragment/testdata/schema-cases` is the `launch-env-fragment-v1` slice of curator-spec `conformance/v1/schema-cases` (index rows copied with their verdicts, source commit recorded in `index.json`); `testdata/a0` holds the three fragments and digests the installed Curator printed during A0 verification | `go test ./internal/fragment` | none; 49 indexed names/verdicts and fixture bytes are pinned by an independently upstream-derived manifest hash in `TestConformanceCorpus`; refresh requires reviewing the upstream rows and updating that pin as well as `index.json` |
 
 ## License
