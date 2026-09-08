@@ -1,0 +1,355 @@
+# env only
+args: ["codex_cli"]
+ax: false
+result: env="codex_cli" tracked=false native=[]
+
+# env with empty native tail
+args: ["codex_cli" "--"]
+ax: false
+result: env="codex_cli" tracked=false native=[]
+
+# native tail verbatim
+args: ["codex_cli" "--profile" "companyA" "--" "resume" "--last"]
+ax: false
+result: env="codex_cli" tracked=false profile="companyA" native=["resume" "--last"]
+
+# native tail keeps empty operand
+args: ["pi" "--" "" "hello" ""]
+ax: false
+result: env="pi" tracked=false native=["" "hello" ""]
+
+# native tail keeps colliding launcher flags
+args: ["claude_code" "--" "--profile" "x" "--model" "m" "--help" "-h" "--version"]
+ax: false
+result: env="claude_code" tracked=false native=["--profile" "x" "--model" "m" "--help" "-h" "--version"]
+
+# native tail keeps second double dash
+args: ["claude_code" "--" "--" "a" "--"]
+ax: false
+result: env="claude_code" tracked=false native=["--" "a" "--"]
+
+# native tail keeps stray operands
+args: ["codex_cli" "--" "one" "two" "three"]
+ax: false
+result: env="codex_cli" tracked=false native=["one" "two" "three"]
+
+# native tail keeps unknown flags
+args: ["codex_cli" "--" "--no-such-flag" "--dangerously-bypass"]
+ax: false
+result: env="codex_cli" tracked=false native=["--no-such-flag" "--dangerously-bypass"]
+
+# flags before env
+args: ["--profile" "companyA" "--model" "gpt-5.3-codex" "codex_cli"]
+ax: false
+result: env="codex_cli" tracked=false profile="companyA" model="gpt-5.3-codex" native=[]
+
+# flags after env
+args: ["codex_cli" "--model" "gpt-5.3-codex" "--effort" "high"]
+ax: false
+result: env="codex_cli" tracked=false model="gpt-5.3-codex" effort="high" native=[]
+
+# equals form
+args: ["codex_cli" "--profile=companyA" "--effort=medium"]
+ax: false
+result: env="codex_cli" tracked=false profile="companyA" effort="medium" native=[]
+
+# equals form value containing equals
+args: ["codex_cli" "--profile=a=b"]
+ax: false
+result: env="codex_cli" tracked=false profile="a=b" native=[]
+
+# system prompt append
+args: ["pi" "--system-prompt" "append"]
+ax: false
+result: env="pi" tracked=false system-prompt=append native=[]
+
+# system prompt replace
+args: ["pi" "--system-prompt" "replace"]
+ax: false
+result: env="pi" tracked=false system-prompt=replace native=[]
+
+# name on tracked machine
+args: ["codex_cli" "--name" "work.1_a-b"]
+ax: true
+result: env="codex_cli" tracked=true name="work.1_a-b" native=[]
+
+# name 64 chars on tracked machine
+args: ["codex_cli" "--name" "abbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"]
+ax: true
+result: env="codex_cli" tracked=true name="abbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" native=[]
+
+# name single char
+args: ["codex_cli" "--name" "7"]
+ax: true
+result: env="codex_cli" tracked=true name="7" native=[]
+
+# name on untracked machine accepted no effect
+args: ["codex_cli" "--name" "ineffective"]
+ax: false
+result: env="codex_cli" tracked=false name="ineffective" native=[]
+
+# ax profile standard tracked
+args: ["codex_cli" "--ax-profile" "standard"]
+ax: true
+result: env="codex_cli" tracked=true ax-profile=standard native=[]
+
+# ax profile yolo tracked
+args: ["codex_cli" "--ax-profile" "yolo"]
+ax: true
+result: env="codex_cli" tracked=true ax-profile=yolo native=[]
+
+# every flag tracked
+args: ["claude_code" "--profile" "p" "--system-prompt" "append" "--model" "claude-opus-5" "--effort" "high" "--name" "s1" "--ax-profile" "standard" "--" "-p" "x"]
+ax: true
+result: env="claude_code" tracked=true profile="p" system-prompt=append model="claude-opus-5" effort="high" name="s1" ax-profile=standard native=["-p" "x"]
+
+# help alone
+args: ["--help"]
+ax: false
+result: info=help
+
+# short help alone
+args: ["-h"]
+ax: false
+result: info=help
+
+# version alone
+args: ["--version"]
+ax: false
+result: info=version
+
+# help after valid flags wins
+args: ["codex_cli" "--profile" "p" "--help"]
+ax: false
+result: info=help
+
+# version after env wins
+args: ["codex_cli" "--version" "--unknown-never-read"]
+ax: false
+result: info=version
+
+# help before version: first wins
+args: ["--help" "--version"]
+ax: false
+result: info=help
+
+# version before help: first wins
+args: ["--version" "--help"]
+ax: false
+result: info=version
+
+# help without env-id
+args: ["--model" "m" "-h"]
+ax: false
+result: info=help
+
+# env-id lookalike is not validated here
+args: ["not_registered"]
+ax: false
+result: env="not_registered" tracked=false native=[]
+
+# no arguments
+args: []
+ax: false
+error: usage: missing <env-id>
+
+# only double dash
+args: ["--"]
+ax: false
+error: usage: missing <env-id>
+
+# flags only no env
+args: ["--profile" "p"]
+ax: false
+error: usage: missing <env-id>
+
+# native tail no env
+args: ["--" "codex_cli"]
+ax: false
+error: usage: missing <env-id>
+
+# empty env operand
+args: [""]
+ax: false
+error: usage: empty operand before --: <env-id> must not be empty
+
+# stray operand
+args: ["codex_cli" "resume"]
+ax: false
+error: usage: stray operand "resume" before --: native arguments must follow --
+
+# stray operand then double dash
+args: ["codex_cli" "resume" "--" "x"]
+ax: false
+error: usage: stray operand "resume" before --: native arguments must follow --
+
+# unknown flag
+args: ["codex_cli" "--nope"]
+ax: false
+error: usage: unknown flag "--nope" before --
+
+# unknown flag equals form
+args: ["codex_cli" "--nope=1"]
+ax: false
+error: usage: unknown flag "--nope=1" before --
+
+# unknown single dash flag
+args: ["codex_cli" "-p" "x"]
+ax: false
+error: usage: unknown flag "-p" before --
+
+# lone dash
+args: ["codex_cli" "-"]
+ax: false
+error: usage: unknown flag "-" before --
+
+# unknown flag before help
+args: ["--nope" "--help"]
+ax: false
+error: usage: unknown flag "--nope" before --
+
+# triple dash
+args: ["codex_cli" "---"]
+ax: false
+error: usage: unknown flag "---" before --
+
+# repeated profile
+args: ["codex_cli" "--profile" "a" "--profile" "b"]
+ax: false
+error: usage: flag --profile given more than once
+
+# repeated model mixed forms
+args: ["codex_cli" "--model=a" "--model" "b"]
+ax: false
+error: usage: flag --model given more than once
+
+# repeated effort
+args: ["codex_cli" "--effort" "a" "--effort" "a"]
+ax: false
+error: usage: flag --effort given more than once
+
+# repeated system prompt
+args: ["pi" "--system-prompt" "append" "--system-prompt" "replace"]
+ax: false
+error: usage: flag --system-prompt given more than once
+
+# repeated name
+args: ["codex_cli" "--name" "a" "--name" "b"]
+ax: true
+error: usage: flag --name given more than once
+
+# repeated ax profile
+args: ["codex_cli" "--ax-profile" "yolo" "--ax-profile" "standard"]
+ax: true
+error: usage: flag --ax-profile given more than once
+
+# missing value at end
+args: ["codex_cli" "--profile"]
+ax: false
+error: usage: flag --profile requires a value
+
+# missing value before double dash
+args: ["codex_cli" "--model" "--" "x"]
+ax: false
+error: usage: flag --model requires a value
+
+# missing value equals empty
+args: ["codex_cli" "--profile="]
+ax: false
+error: usage: flag --profile requires a value, got ""
+
+# missing value empty string
+args: ["codex_cli" "--effort" ""]
+ax: false
+error: usage: flag --effort requires a value, got ""
+
+# value spelled as flag
+args: ["codex_cli" "--profile" "--model" "m"]
+ax: false
+error: usage: flag --profile requires a value, got "--model"
+
+# value is help flag
+args: ["codex_cli" "--name" "--help"]
+ax: false
+error: usage: flag --name requires a value, got "--help"
+
+# system prompt bad value
+args: ["pi" "--system-prompt" "prepend"]
+ax: false
+error: usage: --system-prompt accepts append or replace, got "prepend"
+
+# system prompt case sensitive
+args: ["pi" "--system-prompt" "Append"]
+ax: false
+error: usage: --system-prompt accepts append or replace, got "Append"
+
+# system prompt without value
+args: ["pi" "--system-prompt"]
+ax: false
+error: usage: flag --system-prompt requires a value
+
+# ax profile bad value tracked
+args: ["codex_cli" "--ax-profile" "unsafe"]
+ax: true
+error: usage: --ax-profile accepts standard or yolo, got "unsafe"
+
+# ax profile bad value untracked
+args: ["codex_cli" "--ax-profile" "unsafe"]
+ax: false
+error: usage: --ax-profile accepts standard or yolo, got "unsafe"
+
+# ax profile case sensitive
+args: ["codex_cli" "--ax-profile" "YOLO"]
+ax: true
+error: usage: --ax-profile accepts standard or yolo, got "YOLO"
+
+# ax profile on untracked machine
+args: ["codex_cli" "--ax-profile" "standard"]
+ax: false
+error: usage: --ax-profile standard given but the ax integration is not configured on this machine; an execution profile is ax's and would be discarded
+
+# ax profile yolo on untracked machine
+args: ["codex_cli" "--ax-profile" "yolo"]
+ax: false
+error: usage: --ax-profile yolo given but the ax integration is not configured on this machine; an execution profile is ax's and would be discarded
+
+# name 65 chars
+args: ["codex_cli" "--name" "abbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"]
+ax: true
+error: usage: --name "abbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" is not a valid ax session name: [A-Za-z0-9][A-Za-z0-9._-]{0,63}
+
+# name leading dot
+args: ["codex_cli" "--name" ".hidden"]
+ax: true
+error: usage: --name ".hidden" is not a valid ax session name: [A-Za-z0-9][A-Za-z0-9._-]{0,63}
+
+# name leading underscore
+args: ["codex_cli" "--name" "_x"]
+ax: true
+error: usage: --name "_x" is not a valid ax session name: [A-Za-z0-9][A-Za-z0-9._-]{0,63}
+
+# name with slash
+args: ["codex_cli" "--name" "a/b"]
+ax: true
+error: usage: --name "a/b" is not a valid ax session name: [A-Za-z0-9][A-Za-z0-9._-]{0,63}
+
+# name with space
+args: ["codex_cli" "--name" "a b"]
+ax: true
+error: usage: --name "a b" is not a valid ax session name: [A-Za-z0-9][A-Za-z0-9._-]{0,63}
+
+# name with unicode
+args: ["codex_cli" "--name" "сессия"]
+ax: true
+error: usage: --name "сессия" is not a valid ax session name: [A-Za-z0-9][A-Za-z0-9._-]{0,63}
+
+# name with newline
+args: ["codex_cli" "--name" "a\nb"]
+ax: true
+error: usage: --name "a\nb" is not a valid ax session name: [A-Za-z0-9][A-Za-z0-9._-]{0,63}
+
+# name invalid on untracked machine still rejected
+args: ["codex_cli" "--name" "bad/name"]
+ax: false
+error: usage: --name "bad/name" is not a valid ax session name: [A-Za-z0-9][A-Za-z0-9._-]{0,63}
+
