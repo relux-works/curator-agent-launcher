@@ -38,6 +38,10 @@ RFC 2119. Normative references:
   Revision 1.1 carries Decision 0012 D8, so the fragment members this
   document consumes (`lock_sha256`, `mcp`) are now spelled there.
   `profiles/manager.md` §12.5 restates `env resolve` for the manager.
+  Pi prompt discovery follows the accepted A0 E5 evidence (§4.3/§6,
+  TASK-260908-qblycn) and the [revision 1.1 corrections at `d019f0e`](https://github.com/relux-works/curator-spec/blob/d019f0e/protocol/environments.md):
+  installed Pi 0.84.2 `dist/core/resource-loader.js`, source selection
+  at lines 380–388 and discovery at lines 808–829.
 - `curator-spec/protocol/registry.md` §1 — CCJ-1 canonicalization, used
   for the fragment digest.
 - `agent-session-manager-spec/SPEC.md` (`ax`) — §2.1 (session-name
@@ -702,8 +706,8 @@ The launcher is the one component that applies a `flag`, `config-key`, or
 `variable` channel, and only behind the explicit
 `--system-prompt <append|replace>` opt-in. `file`-kind channels are the
 one exception: the launcher never applies them — the tool does, on its
-own, whenever the file is present — so the launcher's whole duty for them
-is detection and warning (§5.1).
+own, subject to native discovery precedence — so the launcher's whole
+duty for them is detection and warning (§5.1).
 
 Application, by descriptor kind (the per-environment channel tables are
 environments.md §7.3 and are not restated here):
@@ -719,17 +723,18 @@ environments.md §7.3 and are not restated here):
 - **variable-class** (`gemini`, once that adapter lands): set the
   descriptor's variable to the fragment's path in the child environment.
 - **file-class** (`pi`: `APPEND_SYSTEM.md` for `append`, `SYSTEM.md` for
-  `replace`): the launcher applies nothing, because there is nothing left
-  to apply — the tool reads the file from its home unconditionally when
-  it is present. The launcher MUST NOT place, remove, or edit a
+  `replace`): the launcher applies nothing, because native discovery belongs
+  to the tool: same-semantics flags suppress discovery, and a trusted
+  project file takes precedence over the agent-home file (§5.1). The
+  launcher MUST NOT place, remove, or edit a
   file-kind channel's file: those files are materialized exclusively by
   Curator, and only under the per-profile × environment
   `system_prompt_files` machine setting (environments.md §5.5, default
   `off`). The opt-in for a file-kind channel happened at the
   machine-setting level, not on this command line. The launcher's duty
-  is §5.1: detect an active file-kind channel and warn.
+  is §5.1: detect managed-home file presence and warn within that bound.
 
-### 5.1 File-kind channels: detection, orthogonality, warning
+### 5.1 File-kind channels: detection, native precedence, warning
 
 The file-kind probe is keyed on the **environment**, not the fragment.
 For an env-id whose environments.md §7.3 adapter registry declares
@@ -739,48 +744,56 @@ MUST probe, on **every** launch, immediately before the handoff or exec
 of §4.6, the path `<home>/<filename>` for each filename in that closed
 registry set, where `<home>` is the managed home the fragment's `env`
 map points the tool at. The probe runs whether or not the fragment
-carries a `system_prompt` section: the tool applies a present file
-unconditionally (environments.md §7.3), so which channels the fragment
-happens to name has no bearing on which files the tool will read. The
+carries a `system_prompt` section: native file discovery does not depend
+on the fragment's descriptor list. Presence in the managed home does not
+prove that the tool selects that file; the precedence below applies. The
 registry set is closed and versioned with the environments protocol, and
 the launcher already owns the §4.2 environment mapping, so keying the
 probe on the registry adds no new knowledge edge. The probe has exactly
 three outcomes, and they are three different facts:
 
-- **Absent** — no file exists at the path. The channel is inactive. This
+- **Absent** — no file exists at the probed managed-home path. This
   is the legitimate default: `system_prompt_files` defaults to `off` and
   §5.5 keeps both files unwritten under it. No warning, no diagnostic,
-  no launch change. Absence of a file-kind file is never an error,
-  because the registry declares what channels *exist*, not which are
-  engaged: an inactive channel is the normal state of a managed home.
+  no launch change follows from this probe. Absence here is never an
+  error and does not establish absence of native project-local files or
+  other native prompt inputs.
 - **Present and readable** — a regular file the launcher can open for
-  reading. The channel is **active**: the tool will apply it. The
-  launcher MUST print the §5.2 warning naming this channel, even when
-  `--system-prompt` was not given, and even when the fragment carries no
-  `system_prompt` section or no descriptor for this filename. A plain
-  launch into such a home is a customized run regardless of how the file
-  got there: when the machine setting materialized it, the opt-in
-  happened at the machine-setting level; when something else wrote it,
-  no one opted in at all, and the warning is the only thing standing
-  between the operator and a silently customized run.
+  reading. The launcher MUST print the §5.2 warning naming this observed
+  managed-home file, even without `--system-prompt`, a `system_prompt`
+  section, or a descriptor for this filename. Presence is not proof of
+  application: the warning states the native precedence below. When the
+  machine setting materialized the file, that was the materialization
+  opt-in; a stray file has no such recorded opt-in.
 - **Anything else** — the path exists but cannot be read (permission,
   I/O error), or is not a regular file (a directory, a dangling
   symlink). The launch fails with `sysprompt_file_unreadable`. A failed
-  probe is a read failure, never an absence: the tool itself will
-  attempt the file at startup, so exec'ing past an indeterminate probe
-  would start a run whose customization state the launcher cannot
-  state — and the warning contract of §5.2 would be unsatisfiable.
+  probe is a read failure, never an absence. This existing managed-home
+  validation remains mandatory even when native precedence could keep
+  the tool from selecting the file; it does not attest which source the
+  tool will apply.
 
-File-kind presence is **orthogonal and additive** to the flag-class
-opt-in. The `--system-prompt <semantics>` opt-in selects among the
-fragment's non-`file` channels only; a `file`-kind descriptor never
-satisfies the opt-in, and the opt-in never suppresses, removes, or
-substitutes for an active file-kind channel. On a `pi` launch with
-`--system-prompt append` into a home where `APPEND_SYSTEM.md` is present,
-both channels engage — the launcher appends the flag, the tool applies
-the file — and the warning enumerates both. The launcher MUST NOT try to
-deduplicate the two applications: which one the tool honors, and in what
-order, is the tool's documented behavior, not the launcher's to arbitrate.
+The `--system-prompt <semantics>` opt-in still selects only the fragment's
+non-`file` channels; a `file` descriptor never satisfies it. Native Pi
+0.84.2 source selection is separate: a native `--system-prompt` value
+suppresses `SYSTEM.md` discovery, and native `--append-system-prompt`
+values suppress `APPEND_SYSTEM.md` discovery. A flag and a discovered
+file of the same semantics are alternatives, not additive. Thus launcher
+`--system-prompt append` spells the declared append flag, which suppresses
+`APPEND_SYSTEM.md` discovery even if the managed-home probe finds that
+file. The warning names the flag as applied and the observed file as
+suppressed, not as a second application. This adds no replace flag to
+the adapter registry and does not inspect or alter native arguments (§3).
+
+When discovery applies, an existing `<cwd>/.pi/SYSTEM.md` or
+`<cwd>/.pi/APPEND_SYSTEM.md` in a trusted project wins over the
+corresponding `<agentDir>` file (`agentDir` is the home selected by
+`PI_CODING_AGENT_DIR`). These project files are outside the managed-home
+probe set. Without an applied launcher flag establishing suppression,
+the warning reports a home file as a native-discovery candidate subject
+to flag and trusted-project precedence, not as a verified selected source.
+The accepted E5 loader evidence cited above establishes these semantics;
+no project probe or new channel is introduced.
 
 Detection is the launcher's whole authority here; removal is not. The
 launcher MUST NOT remove or edit a file the probe finds, whatever put it
@@ -807,34 +820,34 @@ every launcher-mediated launch into that home warns.
   error, not a silent no-op: the operator asked for a customized run
   and MUST NOT get an uncustomized one without noticing.
 - Without the opt-in the launcher applies no channel, adds no flag, sets
-  no key, and exports no variable. Managed homes carry no active
-  system-prompt file by default (environments.md §5.5), so a plain launch
-  runs the tool's built-in behavior — except where a file-kind
-  channel's file is present in the home, which §5.1 detects and warns
-  about without altering the launch.
+  no key, and exports no variable. Managed homes carry no materialized
+  system-prompt file by default (environments.md §5.5). Native inputs,
+  including trusted project-local files, may still customize the run;
+  §5.1 detects and warns about managed-home files only.
 
-**Warnings.** Every activation — a flag-class, config-key, or
-variable-class channel the launcher applied under the opt-in, and every
-active file-kind channel detected by the §5.1 probe — MUST be covered by
-a warning printed to stderr, before the §4.6 handoff or exec, that
-states all three of:
+**Warnings.** Every flag-class, config-key, or variable-class channel the
+launcher applied under the opt-in, and every present readable managed-home
+file detected by §5.1, MUST be covered by a warning on stderr before the
+§4.6 handoff or exec. It states:
 
-1. this run's system prompt is customized, enumerating **every** active
-   channel: for each, the profile, the descriptor kind (and, for
-   file-kind, the filename), and the semantics applied;
-2. for `replace` semantics on any active channel, that replacement
-   discards the tool's built-in system behavior entirely;
+1. the profile, descriptor kind (and filename for a probed file), and
+   semantics of each applied launcher channel and observed home file,
+   distinguishing application from suppression or conditional native
+   discovery as required by §5.1; it MUST NOT claim to enumerate all
+   native sources or infer an uncustomized run from home-file absence;
+2. for `replace` semantics, that replacement discards the tool's built-in
+   system behavior entirely, conditional on selection when the observed
+   home file is only a discovery candidate;
 3. that a custom system prefix can change how requests are cached and
    therefore billed — a tool's default system prompt may participate in
    shared prompt caching, while a custom one forms its own cache prefix
    (exact per-tool behavior is Decision 0010 open question 7's research).
 
-The warning set is identical whether a channel was engaged by the
-command-line opt-in or by machine-setting materialization: the operator
-at the keyboard may not be the operator who configured the machine, and
-the warning exists for the one at the keyboard. The warning is not
-suppressible in revision 1, and the absence of `--system-prompt` on the
-command line MUST NOT suppress it for file-kind channels.
+Warnings cover both command-line application and observed machine-setting
+materialization: the operator at the keyboard may not be the operator
+who configured the machine. They are not suppressible in revision 1;
+absence of `--system-prompt` MUST NOT suppress a home-file warning.
+
 Reproducibility over silence: the cost of the warning is one stderr
 line-group; the cost of a silent customized run is an operator
 misattributing behavior to the tool.
@@ -856,12 +869,12 @@ contract. Usage errors exit 2; every operational failure exits 1.
 | exec | `exec_provider_missing` | §4.6: the plan's binary does not exist — reported with the executable name and installation guidance |
 | ax | `ax_handoff_failed` | §4.6: the configured `ax` could not take the launch — `ax` not startable, or `ax start` exited non-zero, its Structured Error passed through; no untracked fallback |
 | mcp | `mcp_layer_missing`, `mcp_layer_unreadable` | §4.5: the composed argv carries `-p curator-mcp` and the pre-launch stat of the fragment's `mcp.path` finds no file, or finds something it cannot read as a regular file — codex would silently launch without the profile's MCP set, so neither degrades to a launch without `-p`; the two are distinct facts and are reported as such |
-| system prompt | `sysprompt_channel_unavailable`, `sysprompt_file_unreadable` | §5.2: opt-in given but the fragment carries no non-`file` channel with the requested semantics; §5.1: a registry-declared file-kind channel's file exists but cannot be read (or is not a regular file) at the pre-exec probe — an absent file is not this diagnostic, it is the channel's legitimate inactive state |
+| system prompt | `sysprompt_channel_unavailable`, `sysprompt_file_unreadable` | §5.2: opt-in given but the fragment carries no non-`file` channel with the requested semantics; §5.1: a registry-declared file-kind channel's file exists but cannot be read (or is not a regular file) at the pre-exec probe — an absent managed-home file is not this diagnostic and says nothing about other native sources |
 
 Two invariants hold across every family. First, an absence and a failure
 to read are different facts: a fallback defined for absence (no
-`system_prompt` section means no channel to select; an absent file-kind
-file means an inactive channel; an absent defaults file means the next
+`system_prompt` section means no channel to select; an absent managed-home
+file means no warning from that probe; an absent defaults file means the next
 level) never fires on a failed or malformed read
 (`resolve_fragment_invalid`, `sysprompt_file_unreadable`,
 `defaults_config_invalid`, `mcp_layer_unreadable`); and where absence is
@@ -912,7 +925,7 @@ reordered.
 | `0.2.1-draft` | Follow-ups against environments.md 1.1 and the cycle-2 review. §4.1: the resolve invocation always passes `--repair`, with the read-only/fail-closed semantics of environments.md §10.1 stated, `resolve_repair_failed` kept, `resolve_lock_unavailable` added for `environment_lock_unavailable`, and `environment_home_stale` declared unreachable. §4.5: the codex layer file `<home>/curator-mcp.config.toml` MUST be stat-ed immediately before handoff or exec whenever the argv carries `-p curator-mcp` (a missing layer is silently ignored by codex, under `--strict-config` too), with `mcp_layer_missing` / `mcp_layer_unreadable`; `-p` takes exactly one value, so an operator `-p` after `--` fails the launch (Decision 0012 open question 3 closed). §4.6: `ax.json` `enabled: false` is not configured; the machine-over-operator precedence explained; the configuration read fires before a usage error. New §4.7 names the `defaults.json`/`ax.json` file family as launcher-owned knobs against the environments.md §12.1 manager knob table. §6: `defaults` row names §4.6/`ax.json`, `mcp` family added, invariant 1 extended. §9: docs-confidence item covers both files; codex `-p` item closed; residual-window item added. |
 | `0.2.0-draft` | Decision 0013 D6 applied. §4 reordered fragment-first and grown to six steps: the managed home from the fragment is `LaunchRequest.Home` (D6.1, M7); the plan is requested as `LaunchModeInteractive` with an empty `Composition` and the launcher spells no provider flag (D5, M2); launcher-owned model/effort default precedence — flags, lockable `defaults.json` machine configuration, lineup fallback — with the resolved pair printed every launch (D6.2, M8); the composition rule with argv order as contract, the MCP channel applied by the launcher, the four-layer environment, and the literal-versus-lookup `env_names` collision rule (D6.3, F5); tracked mode specified as `ax start <name> --provider <id> --launch-plan - [--profile] --workspace <cwd>` with the request document, the four `works.relux.curator.*` extension keys, the `profile-pin` as the lock hash, session-name derivation, and Structured Error pass-through (D6.4). §3 gains `--name` and `--ax-profile`; §4.2 gains the `ax` provider-id column; §6 gains the `defaults` family; §7 requires the interactive-mode module release; §1 non-goals restated (D6.5). §5 unchanged apart from renumbered cross-references. |
 | `0.1.2-draft` | §5.1 probe re-keyed from the fragment's descriptor list to the environment adapter's closed file-channel filename set, run on every launch into a managed home regardless of the fragment's `system_prompt` section; false stray-file drift-and-repair claim removed — a stray file at a registry filename is unmanaged, no automated contract removes it, and every launcher-mediated launch warns until the operator removes it; native/hand-launch and probe-to-exec race residuals recorded in §9. |
-| `0.1.1-draft` | §5 restructured (§5.1/§5.2): file-kind channel semantics specified — launcher never places, removes, or edits the files; pre-exec presence probe; warnings mandatory for an active file-kind channel without the `--system-prompt` opt-in; orthogonal-and-additive selection when flag-class and file-kind coexist; `sysprompt_file_unreadable` diagnostic added. |
+| `0.1.1-draft` | §5 restructured (§5.1/§5.2): file-kind channel semantics specified — launcher never places, removes, or edits the files; pre-exec presence probe; warnings mandatory for an active file-kind channel without the `--system-prompt` opt-in; orthogonal-and-additive selection when flag-class and file-kind coexist (historical claim corrected by E5 in §5.1); `sysprompt_file_unreadable` diagnostic added. |
 | `0.1.0-draft` | Initial in-repository draft. |
 
 ## 9. Open items
@@ -926,15 +939,17 @@ reordered.
   session refusal. Whether `ax` independently filters these values is
   unknown here. This is a recorded limit, not a new `ax` field, schema,
   implementation, or permission bypass (Decision 0013 open question 6).
-- The §5.1 warning contract is complete only for launcher-mediated
-  launches, and the probe is a point-in-time check. Two residuals are
-  known and accepted in this revision: a tool started by hand in a
-  managed home applies a present file-kind file with no probe and no
-  warning (§1: the launcher is never mandatory), and a file written
-  between the §5.1 probe and the tool's own startup read goes
-  undetected. Neither residual is closable from the launcher's seat;
-  closing the first would require the tool or Curator to warn, which
-  the cited protocol does not provide.
+- The §5.1 probe observes only the two registry-named managed-home
+  paths at one point in time, not all native prompt sources. Three
+  residuals are accepted: native/hand launches have no launcher probe or
+  warning and follow native precedence; files changed between the probe
+  and startup read go undetected; and trusted project-local
+  `<cwd>/.pi/SYSTEM.md` / `APPEND_SYSTEM.md` are not probed and win over
+  home files when same-semantics flags have not suppressed discovery.
+  Native arguments remain uninspected (§3). Home-file absence therefore
+  cannot attest absence of native customization, even on a
+  launcher-mediated run. No project probe, home writer, or tool-side
+  warning is added by this revision.
 - **Implementability.** The behavioral contract of this revision is
   implementable only once two upstream changes land: the
   `ax start --launch-plan` operation (Decision 0013 D3, carried by the
