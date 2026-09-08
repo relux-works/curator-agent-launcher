@@ -1,6 +1,6 @@
 # Curator Agent Launcher — Specification
 
-**Specification version:** `0.2.1-draft`
+**Specification version:** `0.3.0-draft`
 **Status:** in-repository draft (see [Versioning](#8-versioning))
 
 The launcher is the **execution plane** of the four-plane composition fixed
@@ -272,8 +272,19 @@ mapping between the three:
 |---|---|---|
 | `claude_code` | `claude-code` | `claude` |
 | `codex_cli` | `codex` | `codex` |
-| `pi` | `pi` | `pi` |
+| `pi` | `pi-native` | `pi` |
 | `opencode` | none in this revision — `env_unsupported` | none — `env_unsupported` |
+
+The Pi system cell corrects accepted A0 errata E1/E2
+(TASK-260908-qblycn, `TASK-260908-qblycn_a0-verification-findings.md`):
+at v0.5.10, system `pi` invokes the legacy `agents-infra` wrapper, which
+replaces the managed home, and has no declared Pi runtime. The accepted
+native-Pi design (TASK-260908-ggxfte) is now landed in
+[agents-management PR23](https://github.com/relux-works/skill-agents-management/pull/23),
+commit `a2a6e9f377f62a5872d99ecdfff0d1690e385f2a`: system `pi-native`
+provides native interactive Pi plans for managed homes. This mapping does
+not require a Go import. The operator-only v0.5.11 tag is pending; this
+revision neither pins an unreleased module nor implements §4.3/§4.4.
 
 An env-id outside this table that Curator nevertheless resolves is
 `env_unsupported`: the launcher refuses rather than guessing a system or
@@ -830,7 +841,7 @@ reordered.
 ## 8. Versioning
 
 - This specification is versioned semantically; the current version is
-  **`0.2.1-draft`**. Draft versions may change incompatibly between
+  **`0.3.0-draft`**. Draft versions may change incompatibly between
   commits; the `-draft` suffix is the signal that nothing downstream may
   pin them.
 - The `curator-run` binary reports both its build version and the
@@ -846,6 +857,7 @@ reordered.
 
 | Version | Change |
 |---|---|
+| `0.3.0-draft` | §4.2: correct the Pi system to `pi-native` using accepted A0 E1/E2 and landed native-Pi support (PR23, `a2a6e9f`). Other API/environment errata remain separately tracked. |
 | `0.2.1-draft` | Follow-ups against environments.md 1.1 and the cycle-2 review. §4.1: the resolve invocation always passes `--repair`, with the read-only/fail-closed semantics of environments.md §10.1 stated, `resolve_repair_failed` kept, `resolve_lock_unavailable` added for `environment_lock_unavailable`, and `environment_home_stale` declared unreachable. §4.5: the codex layer file `<home>/curator-mcp.config.toml` MUST be stat-ed immediately before handoff or exec whenever the argv carries `-p curator-mcp` (a missing layer is silently ignored by codex, under `--strict-config` too), with `mcp_layer_missing` / `mcp_layer_unreadable`; `-p` takes exactly one value, so an operator `-p` after `--` fails the launch (Decision 0012 open question 3 closed). §4.6: `ax.json` `enabled: false` is not configured; the machine-over-operator precedence explained; the configuration read fires before a usage error. New §4.7 names the `defaults.json`/`ax.json` file family as launcher-owned knobs against the environments.md §12.1 manager knob table. §6: `defaults` row names §4.6/`ax.json`, `mcp` family added, invariant 1 extended. §9: docs-confidence item covers both files; codex `-p` item closed; residual-window item added. |
 | `0.2.0-draft` | Decision 0013 D6 applied. §4 reordered fragment-first and grown to six steps: the managed home from the fragment is `LaunchRequest.Home` (D6.1, M7); the plan is requested as `LaunchModeInteractive` with an empty `Composition` and the launcher spells no provider flag (D5, M2); launcher-owned model/effort default precedence — flags, lockable `defaults.json` machine configuration, lineup fallback — with the resolved pair printed every launch (D6.2, M8); the composition rule with argv order as contract, the MCP channel applied by the launcher, the four-layer environment, and the literal-versus-lookup `env_names` collision rule (D6.3, F5); tracked mode specified as `ax start <name> --provider <id> --launch-plan - [--profile] --workspace <cwd>` with the request document, the four `works.relux.curator.*` extension keys, the `profile-pin` as the lock hash, session-name derivation, and Structured Error pass-through (D6.4). §3 gains `--name` and `--ax-profile`; §4.2 gains the `ax` provider-id column; §6 gains the `defaults` family; §7 requires the interactive-mode module release; §1 non-goals restated (D6.5). §5 unchanged apart from renumbered cross-references. |
 | `0.1.2-draft` | §5.1 probe re-keyed from the fragment's descriptor list to the environment adapter's closed file-channel filename set, run on every launch into a managed home regardless of the fragment's `system_prompt` section; false stray-file drift-and-repair claim removed — a stray file at a registry filename is unmanaged, no automated contract removes it, and every launcher-mediated launch warns until the operator removes it; native/hand-launch and probe-to-exec race residuals recorded in §9. |

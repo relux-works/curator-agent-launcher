@@ -3,11 +3,13 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"testing"
 
@@ -226,7 +228,7 @@ func TestRunProductionResolverAgainstFakeCurator(t *testing.T) {
 // TestSpecVersionPinned fails when the reported specification version
 // drifts from the version SPEC.md and README.md state; the three are one fact.
 func TestSpecVersionPinned(t *testing.T) {
-	const want = "0.2.1-draft"
+	const want = "0.3.0-draft"
 	if specVersion != want {
 		t.Fatalf("specVersion = %q, want %q", specVersion, want)
 	}
@@ -287,5 +289,78 @@ func TestExecutableUnicodePathBoundary(t *testing.T) {
 				t.Fatalf("stdout %q stderr %q", out.String(), stderr.String())
 			}
 		})
+	}
+}
+
+// TestRunMapping drives the production entry point with the real fragment
+// parser. Unsupported mappings must not reach the later-stage stub.
+func TestRunMapping(t *testing.T) {
+	for _, tc := range []struct{ env, system, provider string }{
+		{"claude_code", "claude-code", "claude"},
+		{"codex_cli", "codex", "codex"},
+		{"pi", "pi-native", "pi"},
+		{"opencode", "", ""},
+	} {
+		t.Run(tc.env, func(t *testing.T) {
+			line := strings.ReplaceAll(piFragmentLine, `"environment":"pi"`, `"environment":"`+tc.env+`"`)
+			line = strings.ReplaceAll(line, "PI_CODING_AGENT_DIR", fragment.HomeVariable(tc.env))
+			sr := &scriptedRunner{stdout: line}
+			var out, stderr strings.Builder
+			args := []string{tc.env, "--", "", "--help", "--profile", "native", "--"}
+			before := append([]string(nil), args...)
+			code := run(context.Background(), args, &out, &stderr, fragment.NewWithRunner("curator", sr))
+			if code != 1 || out.Len() != 0 || sr.calls != 1 {
+				t.Fatalf("exit=%d stdout=%q resolves=%d", code, out.String(), sr.calls)
+			}
+			if !slices.Equal(args, before) {
+				t.Fatalf("native argv changed: %q", args)
+			}
+			if tc.system == "" {
+				if !strings.HasPrefix(stderr.String(), name+": env_unsupported: ") || strings.Contains(stderr.String(), "not_implemented") {
+					t.Fatalf("refusal: %q", stderr.String())
+				}
+			} else if !strings.HasPrefix(stderr.String(), name+": not_implemented: ") || !strings.Contains(stderr.String(), fmt.Sprintf("mapped system %q / provider %q", tc.system, tc.provider)) {
+				t.Fatalf("mapping: %q", stderr.String())
+			}
+		})
+	}
+}
+
+// A future resolver may extend its registry. Exercise run's mapping defense
+// without weakening today's closed fragment parser to manufacture that state.
+type resolvedUnknown struct{}
+
+func (resolvedUnknown) Resolve(context.Context, fragment.Request) (*fragment.Fragment, error) {
+	return &fragment.Fragment{Environment: "future_env"}, nil
+}
+func TestRunUnknownResolvedMapping(t *testing.T) {
+	var out, stderr strings.Builder
+	if got := run(context.Background(), []string{"future_env"}, &out, &stderr, resolvedUnknown{}); got != 1 {
+		t.Fatalf("exit=%d", got)
+	}
+	if out.Len() != 0 || !strings.HasPrefix(stderr.String(), name+": env_unsupported: ") || strings.Contains(stderr.String(), "not_implemented") {
+		t.Fatalf("stdout=%q stderr=%q", out.String(), stderr.String())
+	}
+}
+
+func TestRunUnknownFragmentStillRefusesResolution(t *testing.T) {
+	sr := &scriptedRunner{stdout: strings.ReplaceAll(piFragmentLine, `"environment":"pi"`, `"environment":"future_env"`)}
+	var out, stderr strings.Builder
+	if got := run(context.Background(), []string{"future_env"}, &out, &stderr, fragment.NewWithRunner("curator", sr)); got != 1 {
+		t.Fatalf("exit=%d", got)
+	}
+	if sr.calls != 1 || out.Len() != 0 || !strings.HasPrefix(stderr.String(), name+": resolve_fragment_invalid: ") {
+		t.Fatalf("stderr=%q calls=%d", stderr.String(), sr.calls)
+	}
+}
+
+func TestRunResolveFailurePrecedesMapping(t *testing.T) {
+	sr := &scriptedRunner{exit: 1, stderr: "curator: environment_unknown: missing\n"}
+	var out, stderr strings.Builder
+	if got := run(context.Background(), []string{"opencode"}, &out, &stderr, fragment.NewWithRunner("curator", sr)); got != 1 {
+		t.Fatalf("exit=%d", got)
+	}
+	if sr.calls != 1 || out.Len() != 0 || !strings.Contains(stderr.String(), name+": resolve_environment_unknown: ") || strings.Contains(stderr.String(), "env_unsupported") || strings.Contains(stderr.String(), "not_implemented") {
+		t.Fatalf("stderr=%q calls=%d", stderr.String(), sr.calls)
 	}
 }
