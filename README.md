@@ -99,6 +99,35 @@ Reserved `path_prepend` parsing and hashing remain unchanged. Composition does
 not transform PATH for that reserved field or claim managed command-root
 support; environments §9.4 and the future skill-command-roots proposal bound it.
 
+## Plan and provider-limit API boundary
+
+`internal/plan.Build(ctx, plan.DefaultDeps(store), request)` accepts an
+explicitly resolved Runtime/Model/Effort, managed fragment Home, current WorkDir
+and inherited Env. Integration must supply `os.Environ()` in both modes.
+The API calls the real tagged `vendorplugin.BuildLaunch` with the named
+`LaunchModeInteractive`, empty Composition, zero Run, and no goal, budget,
+service tier or assignment. It then calls `store.AvailabilityFor` with the exact
+Runtime/Model/Home and admits only `Serviceable()` verdicts. Missing managed
+Home or WorkDir and missing dependencies refuse before module calls.
+
+`RefusedError` preserves module errors through `Unwrap` and adds `--effort`
+guidance for missing required effort. `LimitedError.Verdict` preserves the
+complete non-serviceable verdict; its text includes state, Until, Checked,
+Observed (including timestamps) and Failures. `Code()` selects `plan_refused`
+or `plan_provider_limited` for the integration call site. Neither error retries,
+changes the pair, or provides an executable plan. A real store over a temporary
+layout verifies absent versus corrupt state and isolation by managed Home and
+module-owned model group. Tests never run an installed provider or real ax.
+
+This is an unintegrated API candidate on `v0.5.11`: real Claude/Codex plan
+values are covered by exact argv goldens, and all three native-Pi runtimes
+(`pi-anthropic`, `pi-openai`, `pi-google`) are covered the same way through
+the registered `pinative` system plugin — provider-qualified argv, managed
+home, unattached stdin, no child. No legacy Pi wrapper is registered here.
+Both main routes and independent acceptance are pending. Main wiring remains
+TASK-260908-1o7i8y and the executable still refuses `not_implemented` after
+mapping.
+
 ## System-prompt API boundary
 
 The reusable `internal/systemprompt` API implements §5 selection and encoding,
@@ -221,9 +250,10 @@ exit through `ExitForCode`, with no fallback to a weaker launch shape:
    `ax_handoff_failed` line (already owned by `execution.Launch.Run`;
    no untracked fallback) — preserved, not re-implemented here.
 
-`defaults_unresolvable`, `plan_refused`, and `plan_provider_limited`
-have no producer in this build; they are declared bounds, not dropped
-rows. `.scripts/diagnostics-mutants.sh` carries 21 mutants for the new
+`defaults_unresolvable` still has no producer in this build. The plan API
+now produces `plan_refused` and `plan_provider_limited`, with main call-site
+classification still pending; these are declared bounds, not dropped rows.
+`.scripts/diagnostics-mutants.sh` carries 21 mutants for the new
 gates: 14 narrowing probes (single-member exit/classifier/framing
 weakenings, each requiring its named single-member assertion in the
 log) plus 7 retained broad, drop-one, token-preserving-broad, and
@@ -271,6 +301,7 @@ or tag workflow yet.
 | `.scripts/systemprompt-mutants.py` | SPEC §5 narrowing probes through exported production APIs; exact source bytes restored after every mutation | `python3 .scripts/systemprompt-mutants.py [evidence-dir]` | per-mutant logs and `summary.tsv` (default `.temp/systemprompt-mutants/`) |
 | `.scripts/execution-mutants.py` | narrowing probes at tracking-policy Load and execution Launch.Run, using actual fake subprocesses; restores candidate bytes | `python3 .scripts/execution-mutants.py [evidence-dir]` | per-mutant logs and `summary.tsv`, default `.temp/execution-mutants/`; permission tests require non-root |
 | `.scripts/diagnostics-mutants.sh` | narrowing mutants for the §6 gates (exit mapping, closed membership, no-invention classification, anchored code-line parsing, entry exits, owner/form registry, exact-Detail framing exemption); restores candidate bytes after every mutant | `.scripts/diagnostics-mutants.sh [evidence-dir]` | per-mutant logs and `summary.tsv` (default `.temp/diagnostics-mutants/`) |
+| `.scripts/plan-mutants.py` | SPEC §4.4 behavioral narrowing probes at `plan.Build`, restoring exact candidate bytes | `python3 .scripts/plan-mutants.py [evidence-dir]`; narrow validation: `go test ./internal/plan -count=1 -race`, `go vet ./internal/plan`, `go build ./internal/plan` | per-mutant logs and `summary.tsv`, default `.temp/plan-mutants/` |
 | execution process helpers | exact document/argv/env/stdin/exit and late-check tests; compiles disposable fake provider/ax and API signal driver; Python 3 supplies isolated POSIX PTY regression | `go test ./internal/axconfig ./internal/execution -count=1` | test stdout; helper binaries use temporary directories and are removed |
 | fragment test corpus | `internal/fragment/testdata/schema-cases` is the `launch-env-fragment-v1` slice of curator-spec `conformance/v1/schema-cases` (index rows copied with their verdicts, source commit recorded in `index.json`); `testdata/a0` holds the three fragments and digests the installed Curator printed during A0 verification | `go test ./internal/fragment` | none; 49 indexed names/verdicts and fixture bytes are pinned by an independently upstream-derived manifest hash in `TestConformanceCorpus`; refresh requires reviewing the upstream rows and updating that pin as well as `index.json` |
 
