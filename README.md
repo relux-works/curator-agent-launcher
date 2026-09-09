@@ -76,8 +76,9 @@ binary and §5 file-kind checks; calling it during composition is insufficient.
 The pathname check has a residual replacement window before process creation.
 No main call site or execution guarantee is claimed here. Full pipeline tests,
 BuildLaunch admission, model/default resolution, §5 prompt API integration,
-tracked schema/extensions, stderr delivery and actual exec/ax remain later
-stories' obligations. The existing executable still refuses `not_implemented`.
+main integration remain later stories' obligations. The execution API below
+now owns tracked schema/extensions, stderr delivery and actual subprocesses.
+The existing executable still refuses `not_implemented`.
 
 Reserved `path_prepend` parsing and hashing remain unchanged. Composition does
 not transform PATH for that reserved field or claim managed command-root
@@ -106,6 +107,77 @@ home probe; `FormatWarnings` is pure. Warnings distinguish flag suppression
 from conditional discovery under native-flag and trusted-project precedence.
 The API writes nothing and does not inspect native argv or project files;
 probe-to-exec races and native source selection remain outside its evidence.
+
+## Execution and tracking-policy APIs
+
+`axconfig.Load(machineDir, operatorDir)` reads `ax.json` with closed schema
+`curator-run-ax-v1` and a required boolean `enabled`. Machine policy, including
+false, decides without even inspecting the ignored operator directory. Both
+absent means false. Unknown/duplicate/wrong-typed members, broken ancestors,
+dangling links, nonregular files and read failures return
+`defaults_config_invalid`; the API writes nothing. Supply `/etc/curator-run`
+and the operator's `$XDG_CONFIG_HOME/curator-run` (or
+`~/.config/curator-run`) directories explicitly. Integration must call this
+**before `cli.Parse`**, including invalid argv, and pass `AxConfigured`.
+
+`execution.Prepare(value, fragment, invocation, target, compositionTime)` takes
+an actual `composition.Compose` result, validated fragment, parsed invocation
+and mapped target. It snapshots the D3.2 document and direct argv/env/stdin.
+Pass the composition timestamp; default names use its UTC value. Explicit
+name, profile and workspace become the exact §4.6 ax argv. The closed document
+contains schema/version, the entire argv suffix, owned literals, lookup names,
+D4 stdin and exactly four Curator extensions. It never serializes Binary or
+the full inherited environment. Native arguments remain untouched.
+
+`Launch.Run(execution.Options{Boundary: probe, IO: streams, AxBinary: path})`
+starts and waits for a real `os/exec` child on Darwin/Linux. `AxBinary` may be
+an explicit executable path; otherwise `ax` resolves on the launcher's PATH.
+Validation always supplies a compiled **fake ax**, never an installed real ax.
+Tracked transport inherits the launcher environment (with os/exec's working
+`PWD`); it never uses the direct environment as ax's environment. Nonzero or
+not-startable ax returns 1 with `ax_handoff_failed`, then its stderr bytes
+verbatim, and never falls back. Successful ax stdout/stderr are forwarded.
+
+Direct execution uses the composed binary, argv, working directory and exact
+full environment; empty means empty. Bare provider names resolve against the
+composed PATH, relative paths against WorkDir. Unattached stdin shares the
+supplied input; attached empty or binary stdin uses exactly the plan bytes.
+Default stdio shares `os.Stdin`, `os.Stdout`, `os.Stderr`, including terminal
+file descriptors. Normal child exit codes are returned unchanged; signal exits
+return `128 + signal`. The caller must propagate that return code. Incoming
+SIGINT/TERM/HUP/QUIT sent only to the launcher are forwarded to the child
+process group. The child owns a separate foreground group on a controlling
+terminal, avoiding duplicate delivery of terminal-generated interrupts. A child
+stop suspends the launcher and restores its terminal group; continuing the
+launcher restores the child foreground group and resumes it. Terminal ownership
+returns after exit. This is a waited child, without process replacement or PTY
+allocation. Real isolated PTY tests exercise one Ctrl-C, foreground reads,
+Ctrl-Z, continuation and terminal restoration in both routes (five trials each).
+Parent-only TERM and direct signal exit status have separate real-process tests.
+Full interactive shell bg/disown semantics and Linux runtime remain unverified.
+
+Both routes print composition's name-only warnings and require a non-nil typed
+`execution.Boundary`. Immediately before process creation they invoke that
+callback, freshly resolve/check the provider executable and call
+`Value.CheckLaunchBoundary`. Callback errors are terminal; no implicit success
+exists. These pathname probes retain a replacement/permission-change race up
+to process creation; they are not open-handle guarantees. The upstream §5 package and its tests are carried byte-for-byte from
+`adf627607eb334e9839288cfffce63e1268ae688`, with its README section and mutant
+harness preserved. The callback remains the final pipeline's explicit obligation:
+bind `systemprompt.PrepareLaunch` (including `ProbeFiles` and warning formatting)
+rather than a second implementation. Merely carrying that API does not wire it
+into main. The managed branch checkpoint remains
+`84747c326eee9863ddfd7e86ac65be1056718fbc`.
+
+**Pending production wiring belongs to TASK-260908-1o7i8y:** load ax policy
+before usage validation, resolve defaults, obtain an admitted single plan via
+the settled spawn-plane API, select/apply §5 prompt policy, compose once,
+prepare at composition time, bind the real third late probe, run and propagate
+its exit code. Main and SPEC remain untouched by this API task. The current
+executable still refuses `not_implemented`. Pi-shaped process values do not
+claim native Pi admission on module v0.5.10. Independent review and signed
+publication/landing belong to the parent; the managed producer leaves this
+candidate uncommitted for the review snapshot.
 
 ## Install and discovery
 
@@ -143,6 +215,8 @@ or tag workflow yet.
 | `.scripts/mapping-mutants.py` | §4.2 narrowing probes with named production-entry failures; restores candidate bytes after each mutation | `python3 .scripts/mapping-mutants.py [evidence-dir]` | per-mutant logs and `summary.tsv` (default `.temp/mapping-mutants/`) |
 | `.scripts/composition-mutants.py` | §4.5 behavioral narrowing probes for environment ownership, collisions, stdin and launch-boundary file refusal; restores candidate bytes after every mutant | `python3 .scripts/composition-mutants.py [evidence-dir]` | per-mutant logs and `summary.tsv` (default `.temp/composition-mutants/`); permission probe requires a non-root host |
 | `.scripts/systemprompt-mutants.py` | SPEC §5 narrowing probes through exported production APIs; exact source bytes restored after every mutation | `python3 .scripts/systemprompt-mutants.py [evidence-dir]` | per-mutant logs and `summary.tsv` (default `.temp/systemprompt-mutants/`) |
+| `.scripts/execution-mutants.py` | narrowing probes at tracking-policy Load and execution Launch.Run, using actual fake subprocesses; restores candidate bytes | `python3 .scripts/execution-mutants.py [evidence-dir]` | per-mutant logs and `summary.tsv`, default `.temp/execution-mutants/`; permission tests require non-root |
+| execution process helpers | exact document/argv/env/stdin/exit and late-check tests; compiles disposable fake provider/ax and API signal driver; Python 3 supplies isolated POSIX PTY regression | `go test ./internal/axconfig ./internal/execution -count=1` | test stdout; helper binaries use temporary directories and are removed |
 | fragment test corpus | `internal/fragment/testdata/schema-cases` is the `launch-env-fragment-v1` slice of curator-spec `conformance/v1/schema-cases` (index rows copied with their verdicts, source commit recorded in `index.json`); `testdata/a0` holds the three fragments and digests the installed Curator printed during A0 verification | `go test ./internal/fragment` | none; 49 indexed names/verdicts and fixture bytes are pinned by an independently upstream-derived manifest hash in `TestConformanceCorpus`; refresh requires reviewing the upstream rows and updating that pin as well as `index.json` |
 
 ## License
