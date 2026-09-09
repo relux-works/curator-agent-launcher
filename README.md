@@ -46,6 +46,21 @@ Because no `ax.json` is read yet, the binary always parses as an untracked
 machine, so `--ax-profile` is currently always a usage error and `--name`
 is accepted without effect.
 
+SPEC §6 is implemented as a stable contract in `internal/diagnostics`:
+the closed 18-code family table, the exit rule (usage 2, every
+operational failure 1, unknown codes still 1 — never silent success),
+and the deterministic `curator-run: <code>: <detail>` rendering. The
+entry point reports its own families (usage, resolve, environment)
+through it; later families are classified from their owners' real error
+types (`axconfig.Error`, `composition.LayerError`, `systemprompt.Refusal`)
+at their own production APIs. Absence and read failure stay distinct
+(missing layer vs unreadable layer, absent config vs broken config,
+absent home file vs unreadable file), warnings and child stderr are
+never diagnostic code lines, and no failure degrades into a weaker
+launch. The remaining main call-site obligations (ax policy before
+parsing, defaults/lineup, plan and provider limits, late boundary
+binding) are enumerated in `diagnostics.RemainingObligations` and below.
+
 ## Composition API boundary
 
 `internal/composition.Compose` implements the §4.5 value API over an already
@@ -179,6 +194,45 @@ claim native Pi admission on module v0.5.10. Independent review and signed
 publication/landing belong to the parent; the managed producer leaves this
 candidate uncommitted for the review snapshot.
 
+## Diagnostics contract and remaining call sites
+
+`internal/diagnostics` owns the SPEC §6 table (18 codes), `ExitForCode`
+(usage 2, operational 1, unknown 1), `Line`/`Emit` rendering, `CodeOf`
+classification over the owners' concrete error types, and
+`IsDiagnosticLine` transport separation. Each wiring step below must
+choose the named family code at its boundary, render through `Emit`, and
+exit through `ExitForCode`, with no fallback to a weaker launch shape:
+
+1. `axconfig.Load` before `cli.Parse` (`defaults_config_invalid` even
+   when argv is also a usage error) — TASK-260908-1o7i8y.
+2. `defaults.json` read, locked-member refusal, lineup fallback,
+   `defaults_unresolvable`, per-member stderr line-group —
+   TASK-260909-2vy977 (SPEC §4.3 lineup/defaults delivery).
+3. `vendorplugin.BuildLaunch` admission as `plan_refused` and
+   `providerlimits.Store.AvailabilityFor` enforcement as
+   `plan_provider_limited` with verbatim verdict evidence (state,
+   `Until`, `Checked`, `Observed`, `Failures`); indeterminate reads stay
+   terminal refusals, never healthy by inference —
+   TASK-260908-2so46q (SPEC §4.4 plan delivery).
+4. `composition.Value.CheckLaunchBoundary` with the binary check and
+   `systemprompt.PrepareLaunch` as the execution boundary immediately
+   before both handoff and exec — TASK-260908-1o7i8y.
+5. `ax` Structured Error pass-through after the launcher's own
+   `ax_handoff_failed` line (already owned by `execution.Launch.Run`;
+   no untracked fallback) — preserved, not re-implemented here.
+
+`defaults_unresolvable`, `plan_refused`, and `plan_provider_limited`
+have no producer in this build; they are declared bounds, not dropped
+rows. `.scripts/diagnostics-mutants.sh` carries 21 mutants for the new
+gates: 14 narrowing probes (single-member exit/classifier/framing
+weakenings, each requiring its named single-member assertion in the
+log) plus 7 retained broad, drop-one, token-preserving-broad, and
+formatting probes that pin useful failures without proving a bound.
+The narrowing set includes the adopted owner/form gate probes
+(D13–D21: one foreign admission per mutable owner, one joined-owned
+rejection, one rejection per fixed-owner non-direct form, and one
+exact-Detail framing exemption at the real main/resolver entry).
+
 ## Install and discovery
 
 The launcher ships the `curator-run` executable. Curator dispatches
@@ -216,6 +270,7 @@ or tag workflow yet.
 | `.scripts/composition-mutants.py` | §4.5 behavioral narrowing probes for environment ownership, collisions, stdin and launch-boundary file refusal; restores candidate bytes after every mutant | `python3 .scripts/composition-mutants.py [evidence-dir]` | per-mutant logs and `summary.tsv` (default `.temp/composition-mutants/`); permission probe requires a non-root host |
 | `.scripts/systemprompt-mutants.py` | SPEC §5 narrowing probes through exported production APIs; exact source bytes restored after every mutation | `python3 .scripts/systemprompt-mutants.py [evidence-dir]` | per-mutant logs and `summary.tsv` (default `.temp/systemprompt-mutants/`) |
 | `.scripts/execution-mutants.py` | narrowing probes at tracking-policy Load and execution Launch.Run, using actual fake subprocesses; restores candidate bytes | `python3 .scripts/execution-mutants.py [evidence-dir]` | per-mutant logs and `summary.tsv`, default `.temp/execution-mutants/`; permission tests require non-root |
+| `.scripts/diagnostics-mutants.sh` | narrowing mutants for the §6 gates (exit mapping, closed membership, no-invention classification, anchored code-line parsing, entry exits, owner/form registry, exact-Detail framing exemption); restores candidate bytes after every mutant | `.scripts/diagnostics-mutants.sh [evidence-dir]` | per-mutant logs and `summary.tsv` (default `.temp/diagnostics-mutants/`) |
 | execution process helpers | exact document/argv/env/stdin/exit and late-check tests; compiles disposable fake provider/ax and API signal driver; Python 3 supplies isolated POSIX PTY regression | `go test ./internal/axconfig ./internal/execution -count=1` | test stdout; helper binaries use temporary directories and are removed |
 | fragment test corpus | `internal/fragment/testdata/schema-cases` is the `launch-env-fragment-v1` slice of curator-spec `conformance/v1/schema-cases` (index rows copied with their verdicts, source commit recorded in `index.json`); `testdata/a0` holds the three fragments and digests the installed Curator printed during A0 verification | `go test ./internal/fragment` | none; 49 indexed names/verdicts and fixture bytes are pinned by an independently upstream-derived manifest hash in `TestConformanceCorpus`; refresh requires reviewing the upstream rows and updating that pin as well as `index.json` |
 

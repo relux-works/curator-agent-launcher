@@ -13,6 +13,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/relux-works/curator-agent-launcher/internal/diagnostics"
 	"github.com/relux-works/curator-agent-launcher/internal/fragment"
 )
 
@@ -351,6 +352,134 @@ func TestRunUnknownFragmentStillRefusesResolution(t *testing.T) {
 	}
 	if sr.calls != 1 || out.Len() != 0 || !strings.HasPrefix(stderr.String(), name+": resolve_fragment_invalid: ") {
 		t.Fatalf("stderr=%q calls=%d", stderr.String(), sr.calls)
+	}
+}
+
+// TestRunDiagnosticsContract drives every failure this build can produce
+// through the production entry point and pins the SPEC §6 contract there:
+// the exit status for the code, exactly one launcher diagnostic code
+// line on stderr carrying that code, Curator's stderr forwarded verbatim
+// ahead of it (never parsed as a launcher diagnostic), and nothing on
+// stdout. Later pipeline families (defaults, plan, exec, ax, mcp,
+// sysprompt) are covered at their own production APIs in
+// internal/diagnostics; their main call sites are stated obligations,
+// not claimed here.
+func TestRunDiagnosticsContract(t *testing.T) {
+	opencodeLine := strings.ReplaceAll(piFragmentLine, `"environment":"pi"`, `"environment":"opencode"`)
+	opencodeLine = strings.ReplaceAll(opencodeLine, "PI_CODING_AGENT_DIR", fragment.HomeVariable("opencode"))
+	cases := []struct {
+		name     string
+		args     []string
+		stdout   string
+		stderr   string
+		exit     int
+		wantCode string
+		wantExit int
+	}{
+		{"usage missing env", []string{}, "", "", 0, "usage", 2},
+		{"usage stray operand", []string{"codex_cli", "resume"}, "", "", 0, "usage", 2},
+		{"usage unknown flag", []string{"codex_cli", "--unknown"}, "", "", 0, "usage", 2},
+		{"usage ax-profile untracked", []string{"codex_cli", "--ax-profile", "yolo"}, "", "", 0, "usage", 2},
+		{"resolve environment unknown", []string{"pi"}, "", "curator: environment_unknown: unregistered\n", 1, "resolve_environment_unknown", 1},
+		{"resolve profile unknown", []string{"pi"}, "", "curator: profile_unknown: none current\n", 1, "resolve_profile_unknown", 1},
+		{"resolve repair failed", []string{"pi"}, "", "curator: environment_repair_failed: store\n", 1, "resolve_repair_failed", 1},
+		{"resolve lock unavailable", []string{"pi"}, "", "curator: environment_lock_unavailable: busy\n", 1, "resolve_lock_unavailable", 1},
+		{"resolve invocation failed", []string{"pi"}, "", "boom\n", 3, "resolve_invocation_failed", 1},
+		{"resolve fragment invalid", []string{"pi"}, "{}\n", "", 0, "resolve_fragment_invalid", 1},
+		{"env unsupported", []string{"opencode"}, opencodeLine, "", 0, "env_unsupported", 1},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			sr := &scriptedRunner{stdout: c.stdout, stderr: c.stderr, exit: c.exit}
+			var out, errOut strings.Builder
+			resolver := fragment.NewWithRunner("curator", sr)
+			if diagnostics.CodeUsage == c.wantCode {
+				resolver = fragment.NewWithRunner("curator", forbiddenRunner{t})
+			}
+			got := run(context.Background(), c.args, &out, &errOut, resolver)
+			if got != c.wantExit {
+				t.Fatalf("exit = %d, want %d (stderr %q)", got, c.wantExit, errOut.String())
+			}
+			if got != diagnostics.ExitForCode(c.wantCode) {
+				t.Fatalf("exit = %d, want ExitForCode(%q)", got, c.wantCode)
+			}
+			if out.Len() != 0 {
+				t.Fatalf("stdout = %q, want empty", out.String())
+			}
+			lines := strings.Split(strings.TrimSuffix(errOut.String(), "\n"), "\n")
+			found := 0
+			for _, line := range lines {
+				if diagnostics.IsDiagnosticLine(line) {
+					found++
+					if !strings.HasPrefix(line, name+": "+c.wantCode+": ") {
+						t.Fatalf("diagnostic line %q does not carry code %q", line, c.wantCode)
+					}
+				}
+			}
+			if found != 1 {
+				t.Fatalf("stderr has %d diagnostic lines, want exactly 1: %q", found, errOut.String())
+			}
+			if c.stderr != "" && !strings.HasPrefix(errOut.String(), c.stderr) {
+				t.Fatalf("stderr %q does not forward curator stderr %q verbatim first", errOut.String(), c.stderr)
+			}
+		})
+	}
+}
+
+// TestRunDetailInjectionCannotForgeLine is the one-code-line regression:
+// operator bytes that spell a launcher code line still render as exactly
+// one diagnostic code line at the production entry point. The resolve
+// case is the framing regression: the profile value reaches the detail
+// raw through the real fragment Resolver (only the binary is absent).
+// The usage case pins the companion path, where the parser's %q-quoted
+// echo plus the same framing keep a hostile flag token to one line.
+func TestRunDetailInjectionCannotForgeLine(t *testing.T) {
+	injected := "normal\ncurator-run: usage: forged"
+	t.Run("resolve", func(t *testing.T) {
+		var out, errOut strings.Builder
+		resolver := fragment.NewWithRunner(
+			filepath.Join(t.TempDir(), "missing-curator"), fragment.ExecRunner{})
+		got := run(context.Background(),
+			[]string{"pi", "--profile", injected}, &out, &errOut, resolver)
+		if got != 1 {
+			t.Fatalf("exit = %d, want 1 (stderr %q)", got, errOut.String())
+		}
+		assertSingleDiagnostic(t, errOut.String(), "resolve_invocation_failed")
+		if out.Len() != 0 {
+			t.Fatalf("stdout = %q, want empty", out.String())
+		}
+	})
+	t.Run("usage", func(t *testing.T) {
+		var out, errOut strings.Builder
+		got := runNoResolve(t,
+			[]string{"pi", "--bad\ncurator-run: usage: forged"}, &out, &errOut)
+		if got != 2 {
+			t.Fatalf("exit = %d, want 2 (stderr %q)", got, errOut.String())
+		}
+		assertSingleDiagnostic(t, errOut.String(), "usage")
+		if out.Len() != 0 {
+			t.Fatalf("stdout = %q, want empty", out.String())
+		}
+	})
+}
+
+// assertSingleDiagnostic requires exactly one launcher diagnostic code
+// line carrying wantCode; every other stderr line — forwarded transport,
+// usage text, framed continuations — must not parse as one.
+func assertSingleDiagnostic(t *testing.T, stderr, wantCode string) {
+	t.Helper()
+	lines := strings.Split(strings.TrimSuffix(stderr, "\n"), "\n")
+	found := 0
+	for _, line := range lines {
+		if diagnostics.IsDiagnosticLine(line) {
+			found++
+			if !strings.HasPrefix(line, name+": "+wantCode+": ") {
+				t.Fatalf("diagnostic line %q does not carry code %q", line, wantCode)
+			}
+		}
+	}
+	if found != 1 {
+		t.Fatalf("stderr has %d diagnostic lines, want exactly 1: %q", found, stderr)
 	}
 }
 

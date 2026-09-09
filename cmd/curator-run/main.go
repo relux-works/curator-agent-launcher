@@ -15,11 +15,13 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 
 	"github.com/relux-works/curator-agent-launcher/internal/cli"
+	"github.com/relux-works/curator-agent-launcher/internal/diagnostics"
 	"github.com/relux-works/curator-agent-launcher/internal/fragment"
 	"github.com/relux-works/curator-agent-launcher/internal/mapping"
 )
@@ -52,16 +54,27 @@ type fragmentResolver interface {
 // fragment is mapped under §4.2 (unsupported IDs refuse env_unsupported),
 // then refused with exit 1 because no later composition stage
 // exists in this build; nothing is launched.
+//
+// Every failure renders through internal/diagnostics: one deterministic
+// `curator-run: <code>: <detail>` line and the SPEC §6 exit for that code
+// (2 for usage, 1 for every operational failure). The rendering is
+// byte-identical to the stage-owned formats it replaces.
 func run(ctx context.Context, args []string, stdout, stderr io.Writer, resolver fragmentResolver) int {
 	opts := cli.Options{AxConfigured: false}
 	inv, err := cli.Parse(args, opts)
 	if err != nil {
 		if cli.IsUsage(err) {
-			fmt.Fprintf(stderr, "%s: %s\n\n%s", name, err.Error(), cli.Usage)
-			return cli.ExitCode
+			detail := err.Error()
+			var ue *cli.UsageError
+			if errors.As(err, &ue) {
+				detail = ue.Detail
+			}
+			_ = diagnostics.Emit(stderr, diagnostics.CodeUsage, detail)
+			fmt.Fprintf(stderr, "\n%s", cli.Usage)
+			return diagnostics.ExitForCode(diagnostics.CodeUsage)
 		}
 		fmt.Fprintf(stderr, "%s: %v\n", name, err)
-		return 1
+		return diagnostics.ExitOperational
 	}
 	switch inv.Info {
 	case cli.InfoHelp:
@@ -83,17 +96,17 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, resolver 
 	})
 	if err != nil {
 		if re, ok := fragment.IsResolve(err); ok {
-			fmt.Fprintf(stderr, "%s: %s: %s\n", name, re.Code, re.Detail)
-			return 1
+			_ = diagnostics.Emit(stderr, re.Code, re.Detail)
+			return diagnostics.ExitForCode(re.Code)
 		}
-		fmt.Fprintf(stderr, "%s: %s: %v\n", name, fragment.CodeInvocationFailed, err)
-		return 1
+		_ = diagnostics.Emit(stderr, fragment.CodeInvocationFailed, err.Error())
+		return diagnostics.ExitForCode(fragment.CodeInvocationFailed)
 	}
 
 	target, err := mapping.Resolve(frag.Environment)
 	if err != nil {
-		fmt.Fprintf(stderr, "%s: %s: %v\n", name, mapping.CodeUnsupported, err)
-		return 1
+		_ = diagnostics.Emit(stderr, mapping.CodeUnsupported, err.Error())
+		return diagnostics.ExitForCode(mapping.CodeUnsupported)
 	}
 
 	fmt.Fprintf(stderr, "%s: not_implemented: resolved environment %q (profile %q, home %s, fragment digest %s), mapped system %q / provider %q, but composition beyond SPEC §4.2 is not delivered in this build; nothing was launched\n",
