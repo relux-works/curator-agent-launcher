@@ -78,13 +78,134 @@ made from this host's tests.
 
 ## Install and discovery
 
-The launcher ships the `curator-run` executable. Curator dispatches
-umbrella subcommands by the established external-subcommand convention
-(the `git`/`kubectl`/`docker` plugin model): a subcommand Curator does not
-implement resolves to an executable named `curator-<name>` on `PATH`.
-Installing `curator-run` on `PATH` therefore makes `curator run …` work;
-the binary is equally invocable directly as `curator-run …`. Curator
-carries no knowledge of the launcher beyond that discovery rule.
+Build from source with the Go toolchain specified by `go.mod`:
+
+```bash
+git clone https://github.com/relux-works/curator-agent-launcher.git
+cd curator-agent-launcher
+go build -o curator-run ./cmd/curator-run
+sudo install -m 0755 curator-run /usr/local/bin/curator-run
+curator-run --version
+```
+
+This development build reports `0.1.0-dev` (specification `0.3.0-draft`).
+Ensure `/usr/local/bin` is on `PATH`, or install into a dedicated trusted
+operator-owned directory on `PATH`. Do **not** install into Curator's user-bin
+shim directory (`~/.local/bin`), a managed skill bin directory, or beneath the
+environments root: umbrella discovery refuses these locations with
+`subcommand_provider_untrusted` (environments.md §11).
+
+Install Curator and the desired provider separately and make them available on
+`PATH`; configure the provider's credentials and a Curator profile before launch.
+The launcher installs neither providers nor profiles. When tracking is enabled,
+`ax` must also be available and support the launch-plan contract.
+
+Curator discovers unknown subcommands as `curator-<name>` on trusted `PATH`.
+The two invocation forms pass the same launcher arguments:
+
+```bash
+curator run codex_cli --profile companyA -- resume --last
+curator-run codex_cli --profile companyA -- resume --last
+curator run pi --profile companyA --system-prompt append
+curator-run --help
+```
+
+The general umbrella form is `curator run <env> --profile <p> -- <args>`.
+Supported environments are `claude_code`, `codex_cli`, and `pi`; `opencode`
+is currently refused with `env_unsupported`. Without `--profile`, Curator uses
+the current profile for the applicable scope. Resolution always requests repair.
+
+### Launcher options
+
+| Option | Meaning |
+|---|---|
+| `--profile <name>` | Curator profile, forwarded to environment resolution |
+| `--system-prompt <append\|replace>` | Explicit prompt-channel opt-in; unavailable semantics refuse the launch |
+| `--model <model>`, `--effort <effort>` | Explicit spawn-plane selection, subject to admission and machine locks |
+| `--name <session-name>` | Tracked session name; `[A-Za-z0-9][A-Za-z0-9._-]{0,63}`; accepted without effect when untracked |
+| `--ax-profile <standard\|yolo>` | Tracked execution profile; usage error when untracked; absent uses ax's default |
+| `--help`, `-h`, `--version` | Print information and exit, after reading tracking configuration |
+| `--` | End launcher parsing; all following arguments pass through verbatim |
+
+Value flags accept `--flag value` or `--flag=value`. Repeated flags, unknown
+flags, missing values, and extra operands before `--` are usage errors.
+Prompt-file discovery can still apply without the prompt opt-in; see the warnings
+and Pi precedence described above. Pi has no MCP channel.
+
+### Configuration family
+
+The launcher owns `defaults.json` and `ax.json` in the operator directory
+`$XDG_CONFIG_HOME/curator-run` (default `~/.config/curator-run`) and machine
+directory `/etc/curator-run`. These are separate from Curator's configuration.
+Both use closed schemas: unknown members, malformed data and unreadable files
+refuse the invocation; absence alone permits fallback.
+
+Model and effort resolve independently: flags, then operator defaults over
+machine defaults per member, then the admitted lineup. For example, a file
+can select only an effort, leaving model selection to the lineup:
+
+```json
+{
+  "schema": "curator-run-defaults-v1",
+  "locked": false,
+  "defaults": {
+    "codex_cli": { "effort": "high" }
+  }
+}
+```
+
+Each environment entry contains `model`, `effort`, or both; values are passed
+to spawn-plane admission. With `"locked": true` in the machine file, the
+operator entry is ignored for every environment named by that machine file.
+Flags attempting to override a member set by that machine entry are usage
+errors, even if the value matches. Members left unset still use later fallback.
+The selected model, effort and their origins are printed before admission.
+
+Pi fallback uses the ordered convention `pi-anthropic`, `pi-openai`,
+`pi-google`, selecting the first runtime with a driven model and ranking only
+within that runtime. This is an operator convention, not a comparison of vendor
+scores. An explicit/configured model binds its own runtime independently.
+
+### Tracked mode
+
+Enable tracking with this `ax.json` document:
+
+```json
+{ "schema": "curator-run-ax-v1", "enabled": true }
+```
+
+Here **machine wins**: an existing `/etc/curator-run/ax.json` decides;
+the operator file is read only when the machine file is absent. Absence of
+both files or `enabled: false` selects direct execution. This read precedes
+argument validation, including help/version. Invalid configuration is
+`defaults_config_invalid`, never an untracked fallback.
+
+Tracked launches call `ax start <name> --provider <id> --launch-plan -
+[--profile <ax-profile>] --workspace <cwd>`. Without `--name`, the name is
+`<env-id>-<YYYYMMDDTHHMMSSZ>` in UTC. There is no per-launch tracking bypass.
+A failed handoff never starts a direct child. Repository tests use **fake ax
+only**; they do not demonstrate an installed ax integration.
+
+### Diagnostics and exit codes
+
+Launcher failures print a stable code line followed by human-readable detail
+on stderr. Foreign Curator/provider/ax output is forwarded unchanged.
+
+| Result / diagnostic codes | Exit |
+|---|---|
+| Help/version, successful direct execution or ax handoff | 0 |
+| `usage` (invalid arguments or locked-member override) | 2 |
+| `resolve_invocation_failed`, `resolve_environment_unknown`, `resolve_profile_unknown`, `resolve_repair_failed`, `resolve_lock_unavailable`, `resolve_fragment_invalid` | 1 |
+| `defaults_config_invalid`, `defaults_unresolvable` | 1 |
+| `plan_refused`, `plan_provider_limited`, `env_unsupported` | 1 |
+| `exec_provider_missing`, `ax_handoff_failed` | 1 |
+| `mcp_layer_missing`, `mcp_layer_unreadable` | 1 |
+| `sysprompt_channel_unavailable`, `sysprompt_file_unreadable` | 1 |
+| Direct child failure | Child's exit code unchanged |
+| Direct child terminated by signal | `128 + signal` |
+
+See [SPEC §6](SPEC.md#6-errors-and-diagnostics) for each refusal condition.
+No refusal retries with a different model or weaker launch.
 
 ## Development
 
@@ -98,8 +219,12 @@ make check      # all of the above
 ```
 
 CI (`.github/workflows/ci.yml`) runs the same targets on `ubuntu-latest`
-and `macos-latest` with the toolchain from `go.mod`. There is no release
-or tag workflow yet.
+and `macos-latest` with the toolchain from `go.mod`. The optional `Test (rose-air)` job runs `make check` on
+`[self-hosted, macOS, ARM64]` only when the repository variable
+`ROSE_AIR_RUNNER` is exactly `true`. Enable it after registering a matching
+runner. Goldens run as part of `make test` and `make race`. There are no
+release or tag jobs. Windows is not in this launcher's hosted matrix;
+platform execution evidence must come from the corresponding runner.
 
 ### Tools
 

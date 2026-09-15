@@ -63,3 +63,19 @@ jobs:
 
       - name: go test -race
         run: make race
+
+  # Enable only after a matching runner is registered for this repository.
+  test-self-hosted:
+    name: Test (rose-air)
+    if: ${{ vars.ROSE_AIR_RUNNER == 'true' }}
+    runs-on: [self-hosted, macOS, ARM64]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build, lint, test, race and goldens
+        run: make check

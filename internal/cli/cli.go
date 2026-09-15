@@ -45,6 +45,34 @@ options:
   --ax-profile <standard|yolo>      ax execution profile (tracked machines only)
   --help, -h                        print this usage text and exit 0
   --version                         print the launcher name and version, exit 0
+
+Environments: claude_code, codex_cli, pi. opencode is currently unsupported.
+Omitting --profile uses Curator's current profile; resolution always repairs.
+Use curator run <env> --profile <p> -- <args> for umbrella discovery.
+Install curator-run on trusted PATH (e.g. /usr/local/bin), not Curator's
+~/.local/bin shim directory or another managed directory.
+
+Defaults: flags > operator > machine > admitted lineup, per model/effort.
+Files: $XDG_CONFIG_HOME/curator-run/defaults.json (default
+~/.config/curator-run/defaults.json) and /etc/curator-run/defaults.json.
+Machine locked:true ignores operator entries for its named environments and
+rejects flags overriding members it sets. Pi fallback preference is
+pi-anthropic, pi-openai, pi-google; explicit models bind their own runtime.
+Pi has no MCP channel. Prompt opt-in defaults off; native prompt-file
+candidates can still produce warnings without opt-in.
+
+Tracking: sibling ax.json, schema curator-run-ax-v1, enabled:true.
+An existing machine ax.json wins; otherwise use the operator file.
+Missing files or enabled:false select direct execution. Invalid/unreadable
+configuration refuses even --help/--version. No direct fallback on ax failure.
+--name defaults to <env-id>-<YYYYMMDDTHHMMSSZ> (UTC), accepts
+[A-Za-z0-9][A-Za-z0-9._-]{0,63}, and has no effect when untracked.
+--ax-profile is a usage error when untracked; absent uses ax's default.
+Repeated/unknown flags, missing values and extra operands before -- refuse.
+
+Exit codes: 0 success; 2 usage; 1 operational refusal. Direct child exit codes
+propagate unchanged; signal exits are 128 + signal. Stable diagnostic codes
+and details go to stderr; see README.md and SPEC.md section 6.
 `
 
 // Options carries the facts the parser needs from its caller.

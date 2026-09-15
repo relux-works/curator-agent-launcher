@@ -43,6 +43,24 @@ func TestRunInformationalFlags(t *testing.T) {
 	}
 }
 
+// Exercise the displayed help through production dispatch, with resolution
+// forbidden by runNoResolve. The fixture includes the public version header.
+func TestRunHelpGolden(t *testing.T) {
+	want, err := os.ReadFile("testdata/help.golden")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, flag := range []string{"--help", "-h"} {
+		var out, errOut strings.Builder
+		if code := runNoResolve(t, []string{flag}, &out, &errOut); code != 0 {
+			t.Fatalf("%s: exit %d, stderr %q", flag, code, errOut.String())
+		}
+		if out.String() != string(want) || errOut.Len() != 0 {
+			t.Fatalf("%s: help differs from reviewed golden\nstdout: %s\nstderr: %s", flag, out.String(), errOut.String())
+		}
+	}
+}
+
 func TestRunUsageErrorsExit2(t *testing.T) {
 	cases := []struct {
 		args []string
