@@ -14,15 +14,6 @@ import (
 	"github.com/relux-works/skill-agents-management/pkg/agentic"
 )
 
-// stubEnv stands in for the spawn-plane module at the ChildEnv boundary:
-// the composition and probe code under test is real, only the external
-// module's owned literals are stubbed.
-type stubEnv struct{ env []string }
-
-func (s stubEnv) ChildEnv([]string, agentic.LaunchRequest) ([]string, error) {
-	return s.env, nil
-}
-
 func codexFragment(t *testing.T, home, layer string) fragment.Fragment {
 	t.Helper()
 	f := map[string]any{
@@ -55,10 +46,9 @@ func codexBoundary(t *testing.T) (missing, unreadable error) {
 	t.Helper()
 	home := t.TempDir()
 	plan := agentic.Plan{Binary: "codex", WorkDir: home, Argv: []string{}, Env: []string{"PATH=/usr/bin"}}
-	req := agentic.LaunchRequest{}
 	mk := func(layer string) composition.Value {
 		t.Helper()
-		v, err := composition.Compose(plan, stubEnv{env: []string{"PATH=/usr/bin"}}, req, codexFragment(t, home, layer), composition.PromptApplication{}, nil)
+		v, err := composition.Compose(plan, []string{"PATH=/usr/bin"}, codexFragment(t, home, layer), composition.PromptApplication{}, nil)
 		if err != nil {
 			t.Fatal(err)
 		}

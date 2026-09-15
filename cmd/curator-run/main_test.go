@@ -121,6 +121,7 @@ func testDeps(t *testing.T, resolver fragmentResolver) launchDeps {
 	dir := t.TempDir()
 	return launchDeps{
 		resolver: resolver,
+		workdir:  func() (string, error) { return "", fmt.Errorf("early-stage fixture stops before plan admission") },
 		defaults: defaults.Paths{Machine: filepath.Join(dir, "machine.json"), Operator: filepath.Join(dir, "operator.json")},
 		registry: reg,
 	}
@@ -181,9 +182,9 @@ func TestRunPiResolvesNativeLineup(t *testing.T) {
 		if got := run(context.Background(), args, &out, &errOut, testDeps(t, fragment.NewWithRunner("curator", sr))); got != 1 {
 			t.Errorf("run(%v) = %d, want 1 (stderr %q)", args, got, errOut.String())
 		}
-		want := warn + name + ": defaults: model=claude-fable-5 (lineup) effort=high (lineup)\n" + name + ": not_implemented: "
-		if !strings.HasPrefix(errOut.String(), want) || !strings.Contains(errOut.String(), piDigest) {
-			t.Errorf("run(%v) stderr %q: want forwarded warning, then the lineup group and not_implemented with digest", args, errOut.String())
+		want := warn + name + ": defaults: model=claude-fable-5 (lineup) effort=high (lineup)\n" + name + ": plan_refused: "
+		if !strings.HasPrefix(errOut.String(), want) {
+			t.Errorf("run(%v) stderr %q: want forwarded warning, then the lineup group and plan_refused with digest", args, errOut.String())
 		}
 		if out.Len() != 0 {
 			t.Errorf("run(%v) wrote to stdout: %q", args, out.String())
@@ -198,9 +199,9 @@ func TestRunPiResolvesNativeLineup(t *testing.T) {
 		if got := run(context.Background(), args, &out, &errOut, testDeps(t, fragment.NewWithRunner("curator", sr))); got != 1 {
 			t.Errorf("run(%v) = %d, want 1 (stderr %q)", args, got, errOut.String())
 		}
-		want := warn + name + ": defaults: model=m (flag) effort=high (flag)\n" + name + ": not_implemented: "
-		if !strings.HasPrefix(errOut.String(), want) || !strings.Contains(errOut.String(), piDigest) {
-			t.Errorf("run(%v) stderr %q: want group then not_implemented with digest", args, errOut.String())
+		want := warn + name + ": defaults: model=m (flag) effort=high (flag)\n" + name + ": plan_refused: "
+		if !strings.HasPrefix(errOut.String(), want) {
+			t.Errorf("run(%v) stderr %q: want group then plan_refused with digest", args, errOut.String())
 		}
 		if out.Len() != 0 {
 			t.Errorf("run(%v) wrote to stdout: %q", args, out.String())
@@ -231,12 +232,9 @@ func TestRunLineupEnvsPrintGroupBeforeRefusal(t *testing.T) {
 			t.Errorf("run(%v) resolved %d times, want once", args, sr.calls)
 		}
 		stderr := errOut.String()
-		group, refusal, _ := strings.Cut(stderr, name+": not_implemented: ")
+		group, refusal, _ := strings.Cut(stderr, name+": plan_refused: ")
 		if refusal == "" || !strings.Contains(group, c.group+"\n") {
 			t.Errorf("run(%v) stderr %q: want the origin group before the refusal", args, stderr)
-		}
-		if !strings.Contains(refusal, c.group[strings.Index(c.group, "model="):]) {
-			t.Errorf("run(%v) refusal %q does not restate the resolved pair", args, refusal)
 		}
 		if out.Len() != 0 {
 			t.Errorf("run(%v) wrote to stdout: %q", args, out.String())
@@ -275,7 +273,7 @@ func TestRunResolveFailuresExit1(t *testing.T) {
 		if !strings.HasPrefix(errOut.String(), want) {
 			t.Errorf("%s: stderr %q, want prefix %q", c.name, errOut.String(), want)
 		}
-		if strings.Contains(errOut.String(), "not_implemented") || out.Len() != 0 {
+		if strings.Contains(errOut.String(), "plan_refused") || out.Len() != 0 {
 			t.Errorf("%s: a failed resolve must not reach the refusal or stdout: %q %q", c.name, errOut.String(), out.String())
 		}
 	}
@@ -311,7 +309,7 @@ func TestRunProductionResolverAgainstFakeCurator(t *testing.T) {
 	if string(argv) != "env\nresolve\npi\n--profile\ndefault\n--repair\n--format\njson\n" {
 		t.Errorf("subprocess argv %q", argv)
 	}
-	if !strings.HasPrefix(errOut.String(), "warning: environment_tool_version_unverified: pi\n"+name+": defaults: model=claude-fable-5 (lineup) effort=high (lineup)\n"+name+": not_implemented: ") {
+	if !strings.HasPrefix(errOut.String(), "warning: environment_tool_version_unverified: pi\n"+name+": defaults: model=claude-fable-5 (lineup) effort=high (lineup)\n"+name+": plan_refused: ") {
 		t.Errorf("stderr %q", errOut.String())
 	}
 
@@ -359,7 +357,7 @@ func TestExecutableUnicodePathBoundary(t *testing.T) {
 		count int
 		code  string
 	}{
-		{"accept4096", 4096, "not_implemented"},
+		{"accept4096", 4096, "plan_refused"},
 		{"reject4097", 4097, "resolve_fragment_invalid"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -380,7 +378,7 @@ func TestExecutableUnicodePathBoundary(t *testing.T) {
 			// XDG/home inputs, so point both at empty temp dirs rather
 			// than the operator's real configuration.
 			emptyHome := t.TempDir()
-			cmd.Env = append(os.Environ(), "PATH="+dir, "HOME="+emptyHome, "XDG_CONFIG_HOME="+filepath.Join(emptyHome, ".config"))
+			cmd.Env = append(os.Environ(), "PATH="+dir, "HOME="+emptyHome, "XDG_STATE_HOME="+emptyHome, "XDG_CONFIG_HOME="+filepath.Join(emptyHome, ".config"))
 			var out, stderr strings.Builder
 			cmd.Stdout, cmd.Stderr = &out, &stderr
 			err = cmd.Run()
@@ -422,10 +420,10 @@ func TestRunMapping(t *testing.T) {
 				t.Fatalf("native argv changed: %q", args)
 			}
 			if tc.system == "" {
-				if !strings.HasPrefix(stderr.String(), name+": env_unsupported: ") || strings.Contains(stderr.String(), "not_implemented") || strings.Contains(stderr.String(), "defaults: ") {
+				if !strings.HasPrefix(stderr.String(), name+": env_unsupported: ") || strings.Contains(stderr.String(), "plan_refused") || strings.Contains(stderr.String(), "defaults: ") {
 					t.Fatalf("refusal: %q", stderr.String())
 				}
-			} else if !strings.Contains(stderr.String(), name+": defaults: "+tc.group+"\n") || !strings.Contains(stderr.String(), fmt.Sprintf("mapped system %q / provider %q", tc.system, tc.provider)) || !strings.Contains(stderr.String(), name+": not_implemented: ") {
+			} else if !strings.Contains(stderr.String(), name+": defaults: "+tc.group+"\n") || !strings.Contains(stderr.String(), name+": plan_refused: ") {
 				t.Fatalf("mapping: %q", stderr.String())
 			}
 		})
@@ -444,7 +442,7 @@ func TestRunUnknownResolvedMapping(t *testing.T) {
 	if got := run(context.Background(), []string{"future_env"}, &out, &stderr, testDeps(t, resolvedUnknown{})); got != 1 {
 		t.Fatalf("exit=%d", got)
 	}
-	if out.Len() != 0 || !strings.HasPrefix(stderr.String(), name+": env_unsupported: ") || strings.Contains(stderr.String(), "not_implemented") {
+	if out.Len() != 0 || !strings.HasPrefix(stderr.String(), name+": env_unsupported: ") || strings.Contains(stderr.String(), "plan_refused") {
 		t.Fatalf("stdout=%q stderr=%q", out.String(), stderr.String())
 	}
 }
@@ -618,7 +616,7 @@ func TestRunResolveFailurePrecedesMapping(t *testing.T) {
 	if got := run(context.Background(), []string{"opencode"}, &out, &stderr, testDeps(t, fragment.NewWithRunner("curator", sr))); got != 1 {
 		t.Fatalf("exit=%d", got)
 	}
-	if sr.calls != 1 || out.Len() != 0 || !strings.Contains(stderr.String(), name+": resolve_environment_unknown: ") || strings.Contains(stderr.String(), "env_unsupported") || strings.Contains(stderr.String(), "not_implemented") {
+	if sr.calls != 1 || out.Len() != 0 || !strings.Contains(stderr.String(), name+": resolve_environment_unknown: ") || strings.Contains(stderr.String(), "env_unsupported") || strings.Contains(stderr.String(), "plan_refused") {
 		t.Fatalf("stderr=%q calls=%d", stderr.String(), sr.calls)
 	}
 }

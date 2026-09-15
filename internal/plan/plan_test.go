@@ -44,12 +44,12 @@ func healthyVerdict() vendorplugin.Availability {
 
 // realBuild delegates to the real tagged vendorplugin.BuildLaunch after
 // recording the exact request. Production call site: plan.Build.
-func (c *capture) realBuild(ctx context.Context, r *vendorplugin.Registry, req vendorplugin.SpawnRequest, mode agentic.LaunchMode) (agentic.Plan, error) {
+func (c *capture) realBuild(ctx context.Context, r *vendorplugin.Registry, req vendorplugin.SpawnRequest, mode agentic.LaunchMode) (agentic.PlanWithEnvironment, error) {
 	c.count++
 	c.req = req
 	c.mode = mode
 	c.reg = r
-	return vendorplugin.BuildLaunch(ctx, r, req, mode)
+	return vendorplugin.BuildLaunchWithEnvironment(ctx, r, req, mode)
 }
 
 func (a *availStub) read(q providerlimits.VerdictQuery) (vendorplugin.Availability, error) {
@@ -174,14 +174,14 @@ func TestTaggedInteractivePlans(t *testing.T) {
 			if c.count != 1 || count != 1 || c.mode != agentic.LaunchModeInteractive || !reflect.DeepEqual(c.req.Env, req.Env) {
 				t.Fatalf("calls/mode/env: %+v %d", c, count)
 			}
-			if got.System != agentic.SystemID(tc.system) || got.Mode != agentic.LaunchModeInteractive || got.Home != req.Home || got.WorkDir != req.WorkDir || got.Binary != filepath.Join(req.WorkDir, tc.binary) || got.Stdin.Attached {
+			if got.Plan.System != agentic.SystemID(tc.system) || got.Plan.Mode != agentic.LaunchModeInteractive || got.Plan.Home != req.Home || got.Plan.WorkDir != req.WorkDir || got.Plan.Binary != filepath.Join(req.WorkDir, tc.binary) || got.Plan.Stdin.Attached {
 				t.Fatalf("plan shape: %+v", got)
 			}
-			if !reflect.DeepEqual(got.Argv, tc.argv) {
-				t.Fatalf("argv golden: %q != %q", got.Argv, tc.argv)
+			if !reflect.DeepEqual(got.Plan.Argv, tc.argv) {
+				t.Fatalf("argv golden: %q != %q", got.Plan.Argv, tc.argv)
 			}
-			if !strings.Contains(strings.Join(got.Env, "\n"), "PLAN_INHERITED=kept") {
-				t.Fatalf("inherited env lost: %q", got.Env)
+			if !strings.Contains(strings.Join(got.Plan.Env, "\n"), "PLAN_INHERITED=kept") {
+				t.Fatalf("inherited env lost: %q", got.Plan.Env)
 			}
 			if _, err := os.Stat(filepath.Join(req.WorkDir, "started")); !errors.Is(err, os.ErrNotExist) {
 				t.Fatalf("plan started child or observation failed: %v", err)
@@ -222,7 +222,7 @@ func TestTaggedAdmissionRefusals(t *testing.T) {
 			}
 			got, err := plan.Build(ctx, d, req)
 			var refused *plan.RefusedError
-			if !errors.As(err, &refused) || (tc.want != nil && !errors.Is(err, tc.want)) || !reflect.DeepEqual(got, agentic.Plan{}) || c.count != 1 || a.count != 0 {
+			if !errors.As(err, &refused) || (tc.want != nil && !errors.Is(err, tc.want)) || !reflect.DeepEqual(got, agentic.PlanWithEnvironment{}) || c.count != 1 || a.count != 0 {
 				t.Fatalf("refusal: plan=%+v err=%v calls=%d/%d", got, err, c.count, a.count)
 			}
 			if refused.Cause == nil || !strings.Contains(err.Error(), refused.Cause.Error()) {
@@ -266,7 +266,7 @@ func TestRequiredInputs(t *testing.T) {
 			}
 			got, err := plan.Build(context.Background(), d, req)
 			var refused *plan.RefusedError
-			if !errors.As(err, &refused) || !reflect.DeepEqual(got, agentic.Plan{}) || c.count != 0 || a.count != 0 {
+			if !errors.As(err, &refused) || !reflect.DeepEqual(got, agentic.PlanWithEnvironment{}) || c.count != 0 || a.count != 0 {
 				t.Fatalf("required input admitted: %+v %v calls=%d/%d", got, err, c.count, a.count)
 			}
 		})
@@ -289,7 +289,7 @@ func TestProviderVerdicts(t *testing.T) {
 			d.Availability = a.read
 			got, err := plan.Build(context.Background(), d, req)
 			var limited *plan.LimitedError
-			if !errors.As(err, &limited) || !reflect.DeepEqual(limited.Verdict, verdict) || !reflect.DeepEqual(got, agentic.Plan{}) || c.count != 1 || a.count != 1 {
+			if !errors.As(err, &limited) || !reflect.DeepEqual(limited.Verdict, verdict) || !reflect.DeepEqual(got, agentic.PlanWithEnvironment{}) || c.count != 1 || a.count != 1 {
 				t.Fatalf("verdict admitted/lost: %+v %v calls=%d/%d", got, err, c.count, a.count)
 			}
 			for _, word := range []string{state.String(), "source-a", "source-b", "observed-source", "quota evidence", at.Format(time.RFC3339Nano), "failed-source", "read denied"} {
@@ -314,7 +314,7 @@ func TestProviderReadError(t *testing.T) {
 	d.Availability = a.read
 	got, err := plan.Build(context.Background(), d, req)
 	var refused *plan.RefusedError
-	if !errors.As(err, &refused) || !errors.Is(err, sentinel) || !strings.Contains(err.Error(), sentinel.Error()) || !reflect.DeepEqual(got, agentic.Plan{}) || c.count != 1 || a.count != 1 {
+	if !errors.As(err, &refused) || !errors.Is(err, sentinel) || !strings.Contains(err.Error(), sentinel.Error()) || !reflect.DeepEqual(got, agentic.PlanWithEnvironment{}) || c.count != 1 || a.count != 1 {
 		t.Fatalf("read failure admitted/retried: %+v %v calls=%d/%d", got, err, c.count, a.count)
 	}
 }
@@ -393,7 +393,7 @@ func TestModelNotDrivenBySystem(t *testing.T) {
 	if !errors.As(err, &refused) || !errors.Is(err, vendorplugin.ErrModelNotDrivenBySystem) {
 		t.Fatalf("mismatch admitted or sentinel lost: plan=%+v err=%v", got, err)
 	}
-	if !reflect.DeepEqual(got, agentic.Plan{}) {
+	if !reflect.DeepEqual(got, agentic.PlanWithEnvironment{}) {
 		t.Fatalf("refusal returned a plan: %+v", got)
 	}
 	if c.count != 1 || a.count != 0 {
@@ -438,7 +438,7 @@ func TestUnresolvedVendorScope(t *testing.T) {
 	if !errors.As(err, &refused) || !errors.Is(err, vendorplugin.ErrRuntimeSystemUnregistered) {
 		t.Fatalf("unresolved-vendor scope admitted or evidence lost: plan=%+v err=%v", got, err)
 	}
-	if !reflect.DeepEqual(got, agentic.Plan{}) || c.count != 1 || a.count != 0 {
+	if !reflect.DeepEqual(got, agentic.PlanWithEnvironment{}) || c.count != 1 || a.count != 0 {
 		t.Fatalf("refusal shape: plan=%+v err=%v calls=%d/%d", got, err, c.count, a.count)
 	}
 }
@@ -504,11 +504,11 @@ func TestNativePiRuntimes(t *testing.T) {
 			if c.count != 1 || count != 1 || c.mode != agentic.LaunchModeInteractive {
 				t.Fatalf("calls/mode: %+v %d", c, count)
 			}
-			if got.System != "pi-native" || got.Mode != agentic.LaunchModeInteractive || got.Home != req.Home || got.WorkDir != req.WorkDir || got.Binary != filepath.Join(req.WorkDir, "pi") || got.Stdin.Attached {
+			if got.Plan.System != "pi-native" || got.Plan.Mode != agentic.LaunchModeInteractive || got.Plan.Home != req.Home || got.Plan.WorkDir != req.WorkDir || got.Plan.Binary != filepath.Join(req.WorkDir, "pi") || got.Plan.Stdin.Attached {
 				t.Fatalf("plan shape: %+v", got)
 			}
-			if !reflect.DeepEqual(got.Argv, tc.argv) {
-				t.Fatalf("argv golden: %q != %q", got.Argv, tc.argv)
+			if !reflect.DeepEqual(got.Plan.Argv, tc.argv) {
+				t.Fatalf("argv golden: %q != %q", got.Plan.Argv, tc.argv)
 			}
 			if _, err := os.Stat(filepath.Join(req.WorkDir, "started")); !errors.Is(err, os.ErrNotExist) {
 				t.Fatalf("plan started child or observation failed: %v", err)

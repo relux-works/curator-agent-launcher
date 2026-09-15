@@ -1,0 +1,40 @@
+{
+  "Argv": [
+    "start",
+    "pi-20260916T010203Z",
+    "--provider",
+    "pi",
+    "--launch-plan",
+    "-",
+    "--workspace",
+    "<ROOT>"
+  ],
+  "WorkDir": "<ROOT>",
+  "Document": {
+    "argv_suffix": [
+      "--model",
+      "anthropic/claude-opus-5",
+      "--thinking",
+      "high",
+      "--append-system-prompt",
+      "<ROOT>/managed/prompt.md",
+      "",
+      "--model=native",
+      "a\nb"
+    ],
+    "env_literals": {
+      "PI_CODING_AGENT_DIR": "<ROOT>/managed"
+    },
+    "env_names": [],
+    "extensions": {
+      "works.relux.curator.fragment-digest": "\u003cDIGEST\u003e",
+      "works.relux.curator.profile-name": "default",
+      "works.relux.curator.profile-pin": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "works.relux.curator.system-modules": true
+    },
+    "schema": "urn:ax:schema:launch-plan-request",
+    "schema_version": "1.0.0",
+    "stdin": null
+  },
+  "Stderr": "curator warning\n\u0000\ufffdcurator-run: defaults: model=claude-opus-5 (flag) effort=high (flag)\ncurator-run: warning: profile \"default\": applied flag/append system-prompt channel \"--append-system-prompt\". A custom system prefix can change request caching and billing: the default may use shared prompt caching; a custom prefix forms its own cache prefix.\nhelper stderr\n"
+}

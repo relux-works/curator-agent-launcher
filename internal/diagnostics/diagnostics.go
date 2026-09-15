@@ -20,8 +20,8 @@
 //	resolve_fragment_invalid       fragment.ResolveError       fragment.Resolver.Resolve (exit 1)
 //	defaults_config_invalid        axconfig.Error              axconfig.Load (exit 1)
 //	defaults_unresolvable          defaults.Error              defaults.Files.Complete (exit 1)
-//	plan_refused                   (no producer in this build) separately owned (exit 1)
-//	plan_provider_limited          (no producer in this build) separately owned (exit 1)
+//	plan_refused                   plan.Build                 separately owned (exit 1)
+//	plan_provider_limited          plan.Build                 separately owned (exit 1)
 //	env_unsupported                mapping (constant)          mapping.Resolve (exit 1)
 //	exec_provider_missing          execution (sentinel text)   execution.Launch.Run (exit 1)
 //	ax_handoff_failed              execution (sentinel text)   execution.Launch.Run (exit 1)
@@ -50,11 +50,8 @@
 // Error payloads — are written verbatim by their owners and never pass
 // through Line, so this package transforms no foreign bytes.
 //
-// Bound: CodeOf has no production caller in this build; main classifies
-// through the owners' own predicates (cli.IsUsage, fragment.IsResolve)
-// and chooses the mapping/execution codes at their call sites. CodeOf is
-// the API-only statement of the same closed contract for the later
-// pipeline families.
+// Main uses CodeOf for prompt selection; other call sites choose the owning
+// family's code explicitly. Forwarded provider and child bytes remain transport.
 package diagnostics
 
 import (
@@ -79,8 +76,7 @@ const (
 
 // Stable diagnostic codes of SPEC §6, in table order. Owned literals are
 // pinned to their owners in tests; the two separately-owned plan codes
-// have no producer in this build and name their pending call site in
-// RemainingObligations.
+// are selected by main at the plan.Build call site.
 const (
 	CodeUsage = "usage"
 
@@ -299,18 +295,4 @@ func IsDiagnosticLine(line string) bool {
 		return false
 	}
 	return Valid(code)
-}
-
-// RemainingObligations names the production call sites this contract
-// covers but this build does not yet wire into the launcher entry point.
-// Each is owned by the task in parentheses; wiring one means choosing the
-// named family code at that boundary and exiting through ExitForCode, with
-// no fallback to a weaker launch shape.
-func RemainingObligations() []string {
-	return []string{
-		"axconfig.Load before cli.Parse, so a present-but-unreadable ax.json reports defaults_config_invalid even when argv is also a usage error (TASK-260908-1o7i8y)",
-		"vendorplugin.BuildLaunch admission and providerlimits.Store.AvailabilityFor verdict enforcement as plan_refused / plan_provider_limited with verbatim verdict evidence (TASK-260908-2so46q)",
-		"composition.Value.CheckLaunchBoundary immediately before both ax handoff and direct exec, with the binary check and systemprompt.PrepareLaunch as the execution Boundary (TASK-260908-1o7i8y)",
-		"systemprompt.PrepareLaunch selection, file-kind probe, and warning emission on every launch (TASK-260908-1o7i8y)",
-	}
 }

@@ -12,8 +12,8 @@ probe = root / 'internal/composition/probe.go'
 mutants = [
  ('M1', composer, 'literals := maps.Clone(own)', 'literals := maps.Clone(own); literals["SECRET"] = env["SECRET"]', 'TestComposeEnvironmentBoundary', 'admit exactly inherited SECRET as a tracked literal'),
  ('M2', composer, 'if _, collision := literals[name]; collision {', 'if _, collision := literals[name]; collision && name != "OWN" {', 'TestComposeEnvironmentBoundary', 'admit OWN as both literal and lookup'),
- ('M3', composer, 'env := envMap(plan.Env)', 'env := envMap(plan.Env); env["REMOVED"] = envMap(req.Env)["REMOVED"]', 'TestComposeEnvironmentBoundary', 're-admit exactly plugin-removed REMOVED'),
- ('M4', composer, 'if err != nil {', 'if err != nil && err.Error() != "ownership failed" {', 'TestComposeOwnershipFailure', 'admit one ChildEnv failure'),
+ ('M3', composer, 'env := envMap(plan.Env)', 'env := envMap(plan.Env); env["REMOVED"] = "must-not-return"', 'TestComposeEnvironmentBoundary', 're-admit exactly plugin-removed REMOVED'),
+ ('M4', composer, 'own := envMap(ownEnv)', 'own := envMap(ownEnv); delete(own, "OWN")', 'TestComposeEnvironmentBoundary', 'drop one owned snapshot name'),
  ('M5', probe, 'return fail(CodeMCPLayerMissing, err)', 'return nil', 'TestLaunchBoundaryFilesystem/missing', 'admit absent layer while retaining all unreadable gates'),
  ('M6', probe, 'info, err := os.Stat(path)', 'info, err := os.Stat(path); if errors.Is(err, os.ErrNotExist) { return nil }', 'TestLaunchBoundaryFilesystem/dangling', 'admit dangling symlink after successful lstat'),
  ('M7', probe, 'if !info.Mode().IsRegular() {', 'if !info.Mode().IsRegular() && !info.IsDir() {', 'TestLaunchBoundaryFilesystem/directory', 'admit directories but retain other nonregular rejection'),

@@ -11,9 +11,9 @@ path = root / 'internal/plan/plan.go'
 mutants = [
  ('P1', 'strings.TrimSpace(req.Home) == ""', 'req.Home == ""', 'TestRequiredInputs/home_whitespace', 'admit whitespace-only home'),
  ('P2', 'strings.TrimSpace(req.WorkDir) == ""', 'req.WorkDir == ""', 'TestRequiredInputs/workdir_whitespace', 'admit whitespace-only workdir'),
- ('P3', 'if d.BuildLaunch == nil {', 'if d.BuildLaunch == nil && req.Runtime == "codex" { d.BuildLaunch = vendorplugin.BuildLaunch }; if d.BuildLaunch == nil {', 'TestRequiredInputs/build_nil', 'default missing launch dependency for Codex only'),
+ ('P3', 'if d.BuildLaunch == nil {', 'if d.BuildLaunch == nil && req.Runtime == "codex" { d.BuildLaunch = vendorplugin.BuildLaunchWithEnvironment }; if d.BuildLaunch == nil {', 'TestRequiredInputs/build_nil', 'default missing launch dependency for Codex only'),
  ('P4', 'if d.Availability == nil {', 'if d.Availability == nil && req.Runtime == "codex" { d.Availability = func(providerlimits.VerdictQuery) (vendorplugin.Availability, error) { return vendorplugin.Availability{State: vendorplugin.AvailabilityHealthy}, nil } }; if d.Availability == nil {', 'TestRequiredInputs/availability_nil', 'admit missing limits reader for Codex only'),
- ('P5', 'if err != nil {\n\t\treturn agentic.Plan{}, &RefusedError{Detail: "spawn plane refused', 'if err != nil && !errors.Is(err, vendorplugin.ErrEffortMissing) {\n\t\treturn agentic.Plan{}, &RefusedError{Detail: "spawn plane refused', 'TestTaggedAdmissionRefusals/missing_effort', 'admit required-effort refusal only'),
+ ('P5', 'if err != nil {\n\t\treturn agentic.PlanWithEnvironment{}, &RefusedError{Detail: "spawn plane refused', 'if err != nil && !errors.Is(err, vendorplugin.ErrEffortMissing) {\n\t\treturn agentic.PlanWithEnvironment{}, &RefusedError{Detail: "spawn plane refused', 'TestTaggedAdmissionRefusals/missing_effort', 'admit required-effort refusal only'),
  ('P6', 'if !verdict.Serviceable() {', 'if !verdict.Serviceable() && verdict.State != vendorplugin.AvailabilityUnknown {', 'TestProviderVerdicts/unknown', 'admit unknown state only'),
  ('P7', 'if err != nil {\n\t\t// Failure to produce', 'if err != nil && err.Error() != "module read failure" {\n\t\t// Failure to produce', 'TestProviderReadError', 'admit one read-error value while keeping error gate'),
  ('P8', 'Home:    req.Home,\n\t})', 'Home:    "",\n\t})', 'TestTaggedInteractivePlans/claude_code', 'substitute native home for limits query'),
@@ -21,7 +21,7 @@ mutants = [
  ('P10', 'Runtime: req.Runtime,\n\t\tModel:', 'Runtime: "codex",\n\t\tModel:', 'TestTaggedInteractivePlans/claude_code', 'check Codex state for Claude request'),
  ('P11', 'spawn := SpawnRequest(req)', 'spawn := SpawnRequest(req)\n if spawn.Effort == "" && spawn.Model == "claude-opus-5" { spawn.Effort = "medium" }', 'TestTaggedAdmissionRefusals/missing_effort', 'default effort only for one required model'),
  ('P12', 'spawn := SpawnRequest(req)', 'spawn := SpawnRequest(req)\n if spawn.Effort == "bogus" { spawn.Effort = "medium" }', 'TestTaggedAdmissionRefusals/invalid_effort', 'downgrade one invalid effort word'),
- ('P13', 'if err != nil {\n\t\treturn agentic.Plan{}, &RefusedError{Detail: "spawn plane refused', 'if err != nil && !errors.Is(err, vendorplugin.ErrModelNotDrivenBySystem) {\n\t\treturn agentic.Plan{}, &RefusedError{Detail: "spawn plane refused', 'TestModelNotDrivenBySystem', 'admit model-not-driven-by-system refusal only'),
+ ('P13', 'if err != nil {\n\t\treturn agentic.PlanWithEnvironment{}, &RefusedError{Detail: "spawn plane refused', 'if err != nil && !errors.Is(err, vendorplugin.ErrModelNotDrivenBySystem) {\n\t\treturn agentic.PlanWithEnvironment{}, &RefusedError{Detail: "spawn plane refused', 'TestModelNotDrivenBySystem', 'admit model-not-driven-by-system refusal only'),
 ]
 original = path.read_bytes()
 rows = ['mutant\tbound\ttest\texit\tverdict']

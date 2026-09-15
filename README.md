@@ -1,284 +1,80 @@
 # curator-agent-launcher
 
-The Curator agent launcher: the **execution plane** that composes three
-independent contracts into one exec —
+`curator-run` composes Curator's managed environment, agents-management's
+admitted interactive plan, and optional ax tracking. The contract is
+[SPEC 0.3.0-draft](SPEC.md).
 
-- the **spawn plane** (`agents-management`): which agentic system, model,
-  reasoning effort, and vendor, and whether provider limits admit a launch
-  right now — consumed through `vendorplugin.BuildLaunch` for the plan
-  and an explicit `providerlimits.Store.AvailabilityFor` check, never rebuilt;
-- the **context plane** (Curator): the launch environment fragment obtained
-  through `curator env resolve --repair --format json` and merged into the child
-  environment;
-- the **session plane** (`ax`): when the machine's `ax` integration is
-  configured, every launch goes through `ax`'s instrumentation so the
-  session is tracked from birth.
+## Production pipeline
 
-The launcher holds no session state of its own — *fire* is the launcher's
-verb, *manage* is `ax`'s. The full contract, including the CLI surface,
-the composition algorithm, the system-prompt opt-in and its warnings,
-diagnostics, and versioning, lives in [SPEC.md](SPEC.md).
+The executable supports `claude_code`, `codex_cli`, and native `pi`:
 
-## Status
+1. Read machine-first `ax.json` before argument validation. Missing configuration
+   or `enabled:false` selects direct execution. Malformed or unreadable
+   configuration refuses the invocation, including informational flags.
+2. Resolve the fragment with `curator env resolve --repair --format json`,
+   forwarding Curator stderr unchanged, and map its environment to a supported
+   system/provider pair.
+3. Resolve model and effort from flags, operator/machine defaults and the tagged
+   lineup. Emit each member's origin before admission. Pi uses the ordered
+   convention `pi-anthropic`, `pi-openai`, `pi-google`; vendor scores are never
+   compared. Explicit models bind their own runtime.
+4. Call `vendorplugin.BuildLaunchWithEnvironment` in `LaunchModeInteractive`,
+   then enforce a separate `providerlimits.Store.AvailabilityFor` verdict for
+   the same runtime/model/managed home. Unknown and failed reads refuse. No
+   retry, model downgrade or fallback occurs.
+5. Select the requested system-prompt channel and compose argv in plan → prompt
+   → MCP → native order. Native arguments after `--` remain opaque.
+6. Prepare direct execution or the ax launch-plan document. Immediately before
+   either launch, call `systemprompt.PrepareLaunch`, check the provider binary,
+   and check the Codex MCP layer. Emit prompt/discovery warnings. A late refusal
+   starts neither provider nor ax.
 
-**Specification draft — partially implemented.** The specification is
-`0.3.0-draft`. This build implements SPEC.md §3, the closed CLI surface
-(`internal/cli`) — flag grammar, the `--` boundary with a verbatim native
-tail, the `usage` diagnostic family with exit 2, and the informational
-flags — and §4.1, fragment resolution (`internal/fragment`): the
-`curator env resolve <env-id> [--profile <name>] --repair --format json`
-subprocess with Curator's stderr forwarded verbatim, the closed
-`launch-env-fragment-v1` parser (CCJ-1 reader rules, the conformance
-schema, and the adapter channel registry), the CCJ-1 digest computed from
-the parsed object, and the `resolve_*` diagnostic family. §4.2 maps the
-resolved environment to its system/provider pair (`internal/mapping`):
-`claude_code` → `claude-code`/`claude`, `codex_cli` → `codex`/`codex`,
-`pi` → `pi-native`/`pi`. Unsupported IDs (including known `opencode`)
-refuse `env_unsupported` with exit 1 before later stages. The executable wiring for the later
-steps (§4.4–§4.6), main integration of system-prompt policy (§5), and the
-`ax.json` configuration (§4.7) are not delivered: a
-well-formed launch invocation parses, resolves its fragment (repairing the
-managed home when Curator finds it stale), maps its supported system/provider pair, resolves defaults and prints their origins, then is refused with exit 1
-and a `not_implemented` line that reports the mapping, home and fragment digest,
-launching nothing. A resolve failure is reported as its `resolve_*` code
-with exit 1.
-The executable now resolves §4.3 after mapping through `internal/defaults`:
-`Load` strictly reads the machine and operator files, `Files.Resolve` applies
-per-member flags/operator/machine precedence and machine locks, and
-`Files.Complete` supplies only missing members from the real tagged v0.5.11
-module. Unknown members and unreadable files fail; explicit empty strings
-remain present. Both files are validated even when a lock suppresses an
-operator entry. Known `opencode` configuration remains valid, but its launch
-mapping refuses.
+The dependency is the real `skill-agents-management v0.5.13` tag, without a
+replace directive or workspace override. Its admitted result supplies both the
+plan and owned environment literals from the same prepared, alias-projected
+request. Composition never rebuilds the plan or reconstructs that request.
 
-Pi uses the SPEC convention `pi-anthropic`, then `pi-openai`, then `pi-google`:
-take the first runtime carrying driven rows and rank only its vendor's lineup.
-Vendor scores are never compared. Configured models bind their exact runtime
-independently of the preference. Effort comes from that model's recommendation,
-or stays unset for a row without an effort axis. The stderr defaults group
-reports each supplied member's origin before the pending plan stage; no retry
-or launch occurs. Full pipeline wiring belongs to the integration task.
+## Environment and transport
 
-Because no `ax.json` is read yet, the binary always parses as an untracked
-machine, so `--ax-profile` is currently always a usage error and `--name`
-is accepted without effect.
+Direct execution uses the composed full environment, working directory,
+argv and stdin. Tracked transport includes only owned literals, MCP lookup
+names, argv suffix, encoded stdin and the four Curator extensions. It never
+serializes the full inherited environment. Ax inherits the launcher environment.
+Attached empty stdin remains distinct from unattached; binary stdin uses D4
+base64url encoding in the ax document and exact bytes for direct execution.
 
-SPEC §6 is implemented as a stable contract in `internal/diagnostics`:
-the closed 18-code family table, the exit rule (usage 2, every
-operational failure 1, unknown codes still 1 — never silent success),
-and the deterministic `curator-run: <code>: <detail>` rendering. The
-entry point reports its own families (usage, resolve, environment)
-through it; later families are classified from their owners' real error
-types (`axconfig.Error`, `composition.LayerError`, `systemprompt.Refusal`)
-at their own production APIs. Absence and read failure stay distinct
-(missing layer vs unreadable layer, absent config vs broken config,
-absent home file vs unreadable file), warnings and child stderr are
-never diagnostic code lines, and no failure degrades into a weaker
-launch. The remaining main call-site obligations (ax policy before
-parsing, plan and provider limits, late boundary
-binding) are enumerated in `diagnostics.RemainingObligations` and below.
+Pi has no MCP channel. Its selected prompt flag and managed-home
+`APPEND_SYSTEM.md` / `SYSTEM.md` candidates are checked freshly, including when
+no prompt is selected. Warnings distinguish selected flags from conditional
+native discovery. Reserved `path_prepend` remains parsed and hashed without
+changing PATH or claiming managed command-root support.
 
-## Composition API boundary
+Launcher errors render through `internal/diagnostics`; usage exits 2 and
+operational refusals exit 1. Foreign Curator/provider/ax evidence is forwarded
+without diagnostic framing. Direct child exit codes propagate unchanged and
+signal exits return `128 + signal`. An unsuccessful ax handoff returns 1 with
+`ax_handoff_failed` and forwards its stderr unchanged; it never falls back.
 
-`internal/composition.Compose` implements the §4.5 value API over an already
-admitted `agentic.Plan`, its original system/request, a validated fragment,
-and an already selected/encoded `PromptApplication`. It calls only
-`System.ChildEnv(nil, sameRequest)` to obtain owned literals; it never builds
-another plan. Argv retains plan → prompt → MCP → native order. Native arguments
-are uninspected, including duplicate `-p` and operator permission flags.
-`Binary` and `WorkDir` are preserved. Direct `Env` starts from all of `Plan.Env`;
-tracked JSON omits that environment, executable, work directory and raw stdin.
-It includes only argv suffix, owned literals, disjoint lookup names and D4 stdin.
-`RawStdin` preserves bytes for direct execution; attached empty is distinct from
-unattached. `Warnings` contains names only, and both launch modes must print
-these warnings to stderr.
+Execution waits for a child without allocating a PTY or replacing the launcher.
+The execution package owns terminal foreground groups, signal forwarding,
+stop/continue and terminal restoration. Pathname probes retain a race between
+checking and process creation; they are not open-handle guarantees.
 
-The only direct module dependency is the real `skill-agents-management`
-`v0.5.10` release (commit `12f443d10bc217ca7a48e2edab19c739f441df9c`),
-which requires Go 1.25.5. No replacement, workspace override or pseudo-version
-is used. Pi-shaped input values test composition only: they do **not** claim
-native Pi admission in that release. Integration must use the later real
-operator-tagged native Pi release before making that claim.
+## Evidence boundaries
 
-`Value.CheckLaunchBoundary` freshly checks the codex MCP layer for a readable
-regular file, distinguishing missing from dangling, unreadable and nonregular.
-It never repairs or silently drops MCP flags. The execution Story must call it
-**immediately before both direct process creation and ax handoff**, with the
-binary and §5 file-kind checks; calling it during composition is insufficient.
-The pathname check has a residual replacement window before process creation.
-No main call site or execution guarantee is claimed here. Full pipeline tests,
-BuildLaunch admission, model/default resolution, §5 prompt API integration,
-main integration remain later stories' obligations. The execution API below
-now owns tracked schema/extensions, stderr delivery and actual subprocesses.
-The existing executable still refuses `not_implemented`.
+`cmd/curator-run/pipeline_test.go` drives production `run(...)` with the real
+fragment parser, tagged admission, a temporary provider-limit store, and compiled
+fake provider/ax executables. Six adapter/mode goldens cover argv, environment,
+stdin, warning output and side effects. Negative tests cover configuration order,
+forbidden flags, admission, foreign-byte transport, exit status and late checks
+in both modes. Injected attached stdin tests cover transport of a future admitted
+payload; the shipped interactive plugins currently attach no stdin.
 
-Reserved `path_prepend` parsing and hashing remain unchanged. Composition does
-not transform PATH for that reserved field or claim managed command-root
-support; environments §9.4 and the future skill-command-roots proposal bound it.
-
-## Plan and provider-limit API boundary
-
-`internal/plan.Build(ctx, plan.DefaultDeps(store), request)` accepts an
-explicitly resolved Runtime/Model/Effort, managed fragment Home, current WorkDir
-and inherited Env. Integration must supply `os.Environ()` in both modes.
-The API calls the real tagged `vendorplugin.BuildLaunch` with the named
-`LaunchModeInteractive`, empty Composition, zero Run, and no goal, budget,
-service tier or assignment. It then calls `store.AvailabilityFor` with the exact
-Runtime/Model/Home and admits only `Serviceable()` verdicts. Missing managed
-Home or WorkDir and missing dependencies refuse before module calls.
-
-`RefusedError` preserves module errors through `Unwrap` and adds `--effort`
-guidance for missing required effort. `LimitedError.Verdict` preserves the
-complete non-serviceable verdict; its text includes state, Until, Checked,
-Observed (including timestamps) and Failures. `Code()` selects `plan_refused`
-or `plan_provider_limited` for the integration call site. Neither error retries,
-changes the pair, or provides an executable plan. A real store over a temporary
-layout verifies absent versus corrupt state and isolation by managed Home and
-module-owned model group. Tests never run an installed provider or real ax.
-
-This is an unintegrated API candidate on `v0.5.11`: real Claude/Codex plan
-values are covered by exact argv goldens, and all three native-Pi runtimes
-(`pi-anthropic`, `pi-openai`, `pi-google`) are covered the same way through
-the registered `pinative` system plugin — provider-qualified argv, managed
-home, unattached stdin, no child. No legacy Pi wrapper is registered here.
-Both main routes and independent acceptance are pending. Main wiring remains
-TASK-260908-1o7i8y and the executable still refuses `not_implemented` after
-mapping.
-
-## System-prompt API boundary
-
-The reusable `internal/systemprompt` API implements §5 selection and encoding,
-typed `sysprompt_channel_unavailable` / `sysprompt_file_unreadable` refusals,
-and late Pi file validation. `Select` accepts a validated fragment and an
-explicit `fragment.Semantics` (empty means no opt-in), returning only channel
-argv/env for composition. No system-prompt variable channel exists in the
-closed revision-1 registry, so `Selection.Env()` is empty; no adapter support
-is inferred. Codex uses `-c` plus a TOML-quoted `model_instructions_file` value.
-That native override remains **docs-confidence** in the accepted A0 evidence
-(Codex 0.153.4), while encoding is covered by exact-argv tests.
-
-**Execution Story obligation:** main still does not call this API. Immediately
-before **every** tracked handoff or untracked exec it must call
-`systemprompt.PrepareLaunch(fragment, optIn)`, refuse its errors, compose
-`Selection.Argv()` / `Selection.Env()`, and emit every returned warning line
-to stderr. It must not cache the launch-boundary result. The operation rechecks
-Pi's selected polymorphic flag path and both registry home filenames even
-without a system-prompt section. `ProbeFiles` also exposes the independent
-home probe; `FormatWarnings` is pure. Warnings distinguish flag suppression
-from conditional discovery under native-flag and trusted-project precedence.
-The API writes nothing and does not inspect native argv or project files;
-probe-to-exec races and native source selection remain outside its evidence.
-
-## Execution and tracking-policy APIs
-
-`axconfig.Load(machineDir, operatorDir)` reads `ax.json` with closed schema
-`curator-run-ax-v1` and a required boolean `enabled`. Machine policy, including
-false, decides without even inspecting the ignored operator directory. Both
-absent means false. Unknown/duplicate/wrong-typed members, broken ancestors,
-dangling links, nonregular files and read failures return
-`defaults_config_invalid`; the API writes nothing. Supply `/etc/curator-run`
-and the operator's `$XDG_CONFIG_HOME/curator-run` (or
-`~/.config/curator-run`) directories explicitly. Integration must call this
-**before `cli.Parse`**, including invalid argv, and pass `AxConfigured`.
-
-`execution.Prepare(value, fragment, invocation, target, compositionTime)` takes
-an actual `composition.Compose` result, validated fragment, parsed invocation
-and mapped target. It snapshots the D3.2 document and direct argv/env/stdin.
-Pass the composition timestamp; default names use its UTC value. Explicit
-name, profile and workspace become the exact §4.6 ax argv. The closed document
-contains schema/version, the entire argv suffix, owned literals, lookup names,
-D4 stdin and exactly four Curator extensions. It never serializes Binary or
-the full inherited environment. Native arguments remain untouched.
-
-`Launch.Run(execution.Options{Boundary: probe, IO: streams, AxBinary: path})`
-starts and waits for a real `os/exec` child on Darwin/Linux. `AxBinary` may be
-an explicit executable path; otherwise `ax` resolves on the launcher's PATH.
-Validation always supplies a compiled **fake ax**, never an installed real ax.
-Tracked transport inherits the launcher environment (with os/exec's working
-`PWD`); it never uses the direct environment as ax's environment. Nonzero or
-not-startable ax returns 1 with `ax_handoff_failed`, then its stderr bytes
-verbatim, and never falls back. Successful ax stdout/stderr are forwarded.
-
-Direct execution uses the composed binary, argv, working directory and exact
-full environment; empty means empty. Bare provider names resolve against the
-composed PATH, relative paths against WorkDir. Unattached stdin shares the
-supplied input; attached empty or binary stdin uses exactly the plan bytes.
-Default stdio shares `os.Stdin`, `os.Stdout`, `os.Stderr`, including terminal
-file descriptors. Normal child exit codes are returned unchanged; signal exits
-return `128 + signal`. The caller must propagate that return code. Incoming
-SIGINT/TERM/HUP/QUIT sent only to the launcher are forwarded to the child
-process group. The child owns a separate foreground group on a controlling
-terminal, avoiding duplicate delivery of terminal-generated interrupts. A child
-stop suspends the launcher and restores its terminal group; continuing the
-launcher restores the child foreground group and resumes it. Terminal ownership
-returns after exit. This is a waited child, without process replacement or PTY
-allocation. Real isolated PTY tests exercise one Ctrl-C, foreground reads,
-Ctrl-Z, continuation and terminal restoration in both routes (five trials each).
-Parent-only TERM and direct signal exit status have separate real-process tests.
-Full interactive shell bg/disown semantics and Linux runtime remain unverified.
-
-Both routes print composition's name-only warnings and require a non-nil typed
-`execution.Boundary`. Immediately before process creation they invoke that
-callback, freshly resolve/check the provider executable and call
-`Value.CheckLaunchBoundary`. Callback errors are terminal; no implicit success
-exists. These pathname probes retain a replacement/permission-change race up
-to process creation; they are not open-handle guarantees. The upstream §5 package and its tests are carried byte-for-byte from
-`adf627607eb334e9839288cfffce63e1268ae688`, with its README section and mutant
-harness preserved. The callback remains the final pipeline's explicit obligation:
-bind `systemprompt.PrepareLaunch` (including `ProbeFiles` and warning formatting)
-rather than a second implementation. Merely carrying that API does not wire it
-into main. The managed branch checkpoint remains
-`84747c326eee9863ddfd7e86ac65be1056718fbc`.
-
-**Pending production wiring belongs to TASK-260908-1o7i8y:** load ax policy
-before usage validation, resolve defaults, obtain an admitted single plan via
-the settled spawn-plane API, select/apply §5 prompt policy, compose once,
-prepare at composition time, bind the real third late probe, run and propagate
-its exit code. Main and SPEC remain untouched by this API task. The current
-executable still refuses `not_implemented`. Pi-shaped process values do not
-claim native Pi admission on module v0.5.10. Independent review and signed
-publication/landing belong to the parent; the managed producer leaves this
-candidate uncommitted for the review snapshot.
-
-## Diagnostics contract and remaining call sites
-
-`internal/diagnostics` owns the SPEC §6 table (18 codes), `ExitForCode`
-(usage 2, operational 1, unknown 1), `Line`/`Emit` rendering, `CodeOf`
-classification over the owners' concrete error types, and
-`IsDiagnosticLine` transport separation. Each wiring step below must
-choose the named family code at its boundary, render through `Emit`, and
-exit through `ExitForCode`, with no fallback to a weaker launch shape:
-
-1. `axconfig.Load` before `cli.Parse` (`defaults_config_invalid` even
-   when argv is also a usage error) — TASK-260908-1o7i8y.
-2. `defaults.json` read, locked-member refusal, lineup fallback,
-   `defaults_unresolvable`, per-member stderr line-group —
-   TASK-260909-2vy977 (SPEC §4.3 lineup/defaults delivery).
-3. `vendorplugin.BuildLaunch` admission as `plan_refused` and
-   `providerlimits.Store.AvailabilityFor` enforcement as
-   `plan_provider_limited` with verbatim verdict evidence (state,
-   `Until`, `Checked`, `Observed`, `Failures`); indeterminate reads stay
-   terminal refusals, never healthy by inference —
-   TASK-260908-2so46q (SPEC §4.4 plan delivery).
-4. `composition.Value.CheckLaunchBoundary` with the binary check and
-   `systemprompt.PrepareLaunch` as the execution boundary immediately
-   before both handoff and exec — TASK-260908-1o7i8y.
-5. `ax` Structured Error pass-through after the launcher's own
-   `ax_handoff_failed` line (already owned by `execution.Launch.Run`;
-   no untracked fallback) — preserved, not re-implemented here.
-
-`defaults_unresolvable` still has no producer in this build. The plan API
-now produces `plan_refused` and `plan_provider_limited`, with main call-site
-classification still pending; these are declared bounds, not dropped rows.
-`.scripts/diagnostics-mutants.sh` carries 21 mutants for the new
-gates: 14 narrowing probes (single-member exit/classifier/framing
-weakenings, each requiring its named single-member assertion in the
-log) plus 7 retained broad, drop-one, token-preserving-broad, and
-formatting probes that pin useful failures without proving a bound.
-The narrowing set includes the adopted owner/form gate probes
-(D13–D21: one foreign admission per mutable owner, one joined-owned
-rejection, one rejection per fixed-owner non-direct form, and one
-exact-Detail framing exemption at the real main/resolver entry).
+These tests do not install binaries or run real providers/ax. Installed umbrella
+launches, managed-home repair/current status, model/effort output and MCP remain
+the orchestrator's post-landing verification. Independent acceptance and signed
+PR delivery also belong to the orchestrator. No cross-platform runtime claim is
+made from this host's tests.
 
 ## Install and discovery
 
@@ -311,6 +107,7 @@ or tag workflow yet.
 |---|---|---|---|
 | `go` (build, vet, test, race) | build and behavioral suite | `make check` and the targets above | stdout; nothing written to the tree |
 | `python3` defaults mutant harness | weaken defaults gates individually and run the behavioral suite; restore exact candidate bytes | `python3 .scripts/defaults-mutants.py [evidence-dir]` | per-mutant logs and `summary.tsv` (default `.temp/defaults-mutants/`) |
+| production pipeline mutants | narrow the three late checks and ax mode selection at `run(...)`; restore exact candidate bytes | `python3 .scripts/pipeline-mutants.py [evidence-dir]` | per-mutant logs and `summary.tsv`; 9 named narrowing probes |
 | CLI goldens | frozen accepted/rejected §3 shapes | `go test ./internal/cli -run TestGolden -update` to regenerate, then review the diff | `internal/cli/testdata/cases.golden` |
 | `.scripts/cli-mutants.sh` | narrowing-mutant harness for the §3 gates: each mutant weakens one gate to admit one rejected shape and the named test must fail | `.scripts/cli-mutants.sh [evidence-dir]` | per-mutant logs and `summary.tsv` under the evidence dir (default `.temp/cli-mutants/`); the source tree is restored on exit |
 | `.scripts/fragment-mutants.sh` | narrowing-mutant harness for the §4.1 gates (argv, exit mapping, stderr transport, reader rules, schema closure, CCJ-1 emission, entry-point wiring); the behavioral suite runs against every mutant | `.scripts/fragment-mutants.sh [evidence-dir]` (optional `FRAGMENT_MUTANT_IDS="M27 M28" FRAGMENT_TEST_PATTERN="TestExecutableUnicodePathBoundary|TestConformanceCorpus"` for focused rework) | `mutants.log` under the evidence dir (default `.temp/fragment-mutants/`); sources are restored from byte copies on exit |

@@ -49,7 +49,7 @@ func TestRunDefaultsPerMember(t *testing.T) {
 			}
 			var out, stderr strings.Builder
 			code := run(context.Background(), append([]string{tc.env}, tc.flags...), &out, &stderr, deps)
-			if code != 1 || out.Len() != 0 || sr.calls != 1 || !strings.HasPrefix(stderr.String(), "curator-run: defaults: "+tc.want+"\ncurator-run: not_implemented: ") {
+			if code != 1 || out.Len() != 0 || sr.calls != 1 || !strings.HasPrefix(stderr.String(), "curator-run: defaults: "+tc.want+"\ncurator-run: plan_refused: ") {
 				t.Fatalf("exit=%d calls=%d stdout=%q stderr=%q", code, sr.calls, out.String(), stderr.String())
 			}
 		})
@@ -136,10 +136,10 @@ func TestRunPiRuntimePreference(t *testing.T) {
 				if !strings.Contains(stderr.String(), `no preferred Pi runtime (pi-anthropic pi-openai pi-google) declares a driven model`) {
 					t.Fatal(stderr.String())
 				}
-				if strings.Contains(stderr.String(), "not_implemented") || strings.Contains(stderr.String(), "curator-run: defaults:") {
+				if strings.Contains(stderr.String(), "plan_refused") || strings.Contains(stderr.String(), "curator-run: defaults:") {
 					t.Fatal(stderr.String())
 				}
-			} else if !strings.HasPrefix(stderr.String(), "curator-run: defaults: "+tc.want+"\ncurator-run: not_implemented:") {
+			} else if !strings.HasPrefix(stderr.String(), "curator-run: defaults: "+tc.want+"\ncurator-run: plan_refused:") {
 				t.Fatal(stderr.String())
 			}
 		})
@@ -172,7 +172,7 @@ func TestRunDefaultsFailuresStopBeforeGroup(t *testing.T) {
 			}
 			var out, stderr strings.Builder
 			code := run(context.Background(), append([]string{"pi"}, tc.flags...), &out, &stderr, deps)
-			if code != tc.code || sr.calls != 1 || out.Len() != 0 || !strings.Contains(stderr.String(), tc.detail) || strings.Contains(stderr.String(), "not_implemented") || strings.Contains(stderr.String(), "curator-run: defaults:") {
+			if code != tc.code || sr.calls != 1 || out.Len() != 0 || !strings.Contains(stderr.String(), tc.detail) || strings.Contains(stderr.String(), "plan_refused") || strings.Contains(stderr.String(), "curator-run: defaults:") {
 				t.Fatalf("exit=%d stderr=%q", code, stderr.String())
 			}
 		})
@@ -201,7 +201,7 @@ func TestRunDefaultsPathOrdering(t *testing.T) {
 			if code != tc.exit || calls != tc.pathCalls {
 				t.Fatalf("exit=%d path calls=%d stderr=%q", code, calls, stderr.String())
 			}
-			if calls > 0 && (!strings.Contains(stderr.String(), "defaults_config_invalid: cannot locate defaults configuration: path discovery failed") || strings.Contains(stderr.String(), "not_implemented")) {
+			if calls > 0 && (!strings.Contains(stderr.String(), "defaults_config_invalid: cannot locate defaults configuration: path discovery failed") || strings.Contains(stderr.String(), "plan_refused")) {
 				t.Fatal(stderr.String())
 			}
 		})

@@ -1,0 +1,44 @@
+{
+  "Argv": [
+    "start",
+    "codex_cli-20260916T010203Z",
+    "--provider",
+    "codex",
+    "--launch-plan",
+    "-",
+    "--workspace",
+    "<ROOT>"
+  ],
+  "WorkDir": "<ROOT>",
+  "Document": {
+    "argv_suffix": [
+      "-m",
+      "gpt-6-astra",
+      "-c",
+      "model_reasoning_effort=\"medium\"",
+      "-c",
+      "model_instructions_file=\"<ROOT>/managed/prompt.md\"",
+      "-p",
+      "curator-mcp",
+      "",
+      "--model=native",
+      "a\nb"
+    ],
+    "env_literals": {
+      "CODEX_HOME": "<ROOT>/managed"
+    },
+    "env_names": [
+      "FIGMA_API_KEY"
+    ],
+    "extensions": {
+      "works.relux.curator.fragment-digest": "\u003cDIGEST\u003e",
+      "works.relux.curator.profile-name": "default",
+      "works.relux.curator.profile-pin": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "works.relux.curator.system-modules": true
+    },
+    "schema": "urn:ax:schema:launch-plan-request",
+    "schema_version": "1.0.0",
+    "stdin": null
+  },
+  "Stderr": "curator warning\n\u0000\ufffdcurator-run: defaults: model=gpt-6-astra (flag) effort=medium (flag)\ncurator-run: warning: profile \"default\": applied config-key/replace system-prompt channel. Replacement discards the tool's built-in system behavior entirely. A custom system prefix can change request caching and billing: the default may use shared prompt caching; a custom prefix forms its own cache prefix.\nhelper stderr\n"
+}

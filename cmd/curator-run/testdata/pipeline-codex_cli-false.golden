@@ -1,0 +1,28 @@
+{
+  "Child": {
+    "Argv": [
+      "-m",
+      "gpt-6-astra",
+      "-c",
+      "model_reasoning_effort=\"medium\"",
+      "-c",
+      "model_instructions_file=\"<ROOT>/managed/prompt.md\"",
+      "-p",
+      "curator-mcp",
+      "",
+      "--model=native",
+      "a\nb"
+    ],
+    "Env": [
+      "CLAUDECODE=nested",
+      "CODEX_HOME=<ROOT>/managed",
+      "FIGMA_API_KEY=source-secret",
+      "HOME=<ROOT>",
+      "PARENT=direct-only",
+      "PATH=<ROOT>"
+    ],
+    "Stdin": "cGFyZW50IHN0ZGluCgD/",
+    "WorkDir": "<ROOT>"
+  },
+  "Stderr": "curator warning\n\u0000\ufffdcurator-run: defaults: model=gpt-6-astra (flag) effort=medium (flag)\ncurator-run: warning: profile \"default\": applied config-key/replace system-prompt channel. Replacement discards the tool's built-in system behavior entirely. A custom system prefix can change request caching and billing: the default may use shared prompt caching; a custom prefix forms its own cache prefix.\nhelper stderr\n"
+}

@@ -431,20 +431,3 @@ func TestDiagnosticLineDistinguishesTransport(t *testing.T) {
 		}
 	}
 }
-
-// TestRemainingObligationsAreStated bounds the contract: families without
-// a producer in this build are declared, not silently dropped.
-// defaults_unresolvable graduated from this list when defaults.Complete
-// became its producer; its ownership is pinned by
-// TestOwnedCodesMatchOwners and the entry-point contract instead.
-func TestRemainingObligationsAreStated(t *testing.T) {
-	joined := strings.Join(diagnostics.RemainingObligations(), "\n")
-	for _, need := range []string{"axconfig.Load", "plan_refused", "plan_provider_limited", "CheckLaunchBoundary", "PrepareLaunch"} {
-		if !strings.Contains(joined, need) {
-			t.Errorf("obligations missing %q:\n%s", need, joined)
-		}
-	}
-	if len(diagnostics.RemainingObligations()) == 0 {
-		t.Fatal("no obligations stated")
-	}
-}

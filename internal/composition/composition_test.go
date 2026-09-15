@@ -15,22 +15,6 @@ import (
 	"github.com/relux-works/skill-agents-management/pkg/agentic/systems/codex"
 )
 
-type owner struct {
-	t     *testing.T
-	req   agentic.LaunchRequest
-	env   []string
-	err   error
-	calls int
-}
-
-func (o *owner) ChildEnv(parent []string, req agentic.LaunchRequest) ([]string, error) {
-	o.t.Helper()
-	o.calls++
-	if parent != nil || !reflect.DeepEqual(req, o.req) {
-		o.t.Fatal("ownership must use nil parent and exact request")
-	}
-	return o.env, o.err
-}
 func equal(t *testing.T, got, want any) {
 	t.Helper()
 	if !reflect.DeepEqual(got, want) {
@@ -71,8 +55,7 @@ func TestComposeOrderAndChannels(t *testing.T) {
 			p := agentic.Plan{System: "pi-native", Binary: "/exact/bin", WorkDir: "/exact/work", Argv: []string{"--model", "model with spaces", "--effort", "medium"}, Env: []string{"PATH=/sanitized"}}
 			native := []string{"", "-p", "operator", "--dangerously-skip-permissions", "a\nb", "--", "--model=literal"}
 			prompt := composition.PromptApplication{Argv: []string{"--selected-prompt", "verbatim content"}, Env: map[string]string{"PROMPT_CHANNEL": "selected"}}
-			o := &owner{t: t}
-			v, err := composition.Compose(p, o, agentic.LaunchRequest{}, f, prompt, native)
+			v, err := composition.Compose(p, nil, f, prompt, native)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -89,7 +72,6 @@ func TestComposeOrderAndChannels(t *testing.T) {
 			equal(t, v.Argv, want)
 			equal(t, v.Binary, p.Binary)
 			equal(t, v.WorkDir, p.WorkDir)
-			equal(t, o.calls, 1)
 			equal(t, v.EnvLiterals["PROMPT_CHANNEL"], "selected")
 			p.Argv[0] = "changed"
 			native[0] = "changed"
@@ -102,11 +84,10 @@ func TestComposeOrderAndChannels(t *testing.T) {
 	}
 }
 func TestComposeEnvironmentBoundary(t *testing.T) {
-	req := agentic.LaunchRequest{Env: []string{"REMOVED=must-not-return", "PATH=/unsafe", "SECRET=inherited-secret"}, Home: "/same/request"}
 	p := agentic.Plan{Env: []string{"HOME=/parent", "PATH=/sanitized", "SECRET=inherited-secret", "FIGMA_API_KEY=source-secret", "OWN=old=literal", "EMPTY="}}
 	f := parsed(t, "opencode", "/managed/default/tool/mcp.json", []string{"CHANNEL", "FIGMA_API_KEY", "OWN"})
-	o := &owner{t: t, req: req, env: []string{"OWN=owned-value", "XDG_CONFIG_HOME=owned-home", "CHANNEL=owned-channel"}}
-	v, err := composition.Compose(p, o, req, f, composition.PromptApplication{Env: map[string]string{"CHANNEL": "channel-value"}}, nil)
+	owned := []string{"OWN=owned-value", "XDG_CONFIG_HOME=owned-home", "CHANNEL=owned-channel"}
+	v, err := composition.Compose(p, owned, f, composition.PromptApplication{Env: map[string]string{"CHANNEL": "channel-value"}}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -123,11 +104,10 @@ func TestComposeEnvironmentBoundary(t *testing.T) {
 			t.Fatalf("serialized inherited data: %s", secret)
 		}
 	}
-	equal(t, o.calls, 1)
 }
 func TestComposeUnownedOverrideNoWarning(t *testing.T) {
 	f := parsed(t, "pi", "/managed/default/pi/prompt", nil)
-	v, err := composition.Compose(agentic.Plan{Env: []string{"PI_CODING_AGENT_DIR=/inherited"}}, &owner{t: t}, agentic.LaunchRequest{}, f, composition.PromptApplication{}, nil)
+	v, err := composition.Compose(agentic.Plan{Env: []string{"PI_CODING_AGENT_DIR=/inherited"}}, nil, f, composition.PromptApplication{}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -144,7 +124,7 @@ func TestComposeStdin(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			data := append([]byte(nil), tc.data...)
-			v, err := composition.Compose(agentic.Plan{Stdin: agentic.StdinPayload{Attached: tc.attached, Bytes: data}}, &owner{t: t}, agentic.LaunchRequest{}, parsed(t, "pi", "/managed/default/pi/prompt", nil), composition.PromptApplication{}, nil)
+			v, err := composition.Compose(agentic.Plan{Stdin: agentic.StdinPayload{Attached: tc.attached, Bytes: data}}, nil, parsed(t, "pi", "/managed/default/pi/prompt", nil), composition.PromptApplication{}, nil)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -161,16 +141,8 @@ func TestComposeStdin(t *testing.T) {
 		})
 	}
 }
-func TestComposeOwnershipFailure(t *testing.T) {
-	sentinel := errors.New("ownership failed")
-	v, err := composition.Compose(agentic.Plan{}, &owner{t: t, err: sentinel}, agentic.LaunchRequest{}, fragment.Fragment{}, composition.PromptApplication{}, nil)
-	if !errors.Is(err, sentinel) {
-		t.Fatalf("lost failure: %v", err)
-	}
-	equal(t, v, composition.Value{})
-}
 func TestComposeEmptyEnvironment(t *testing.T) {
-	v, err := composition.Compose(agentic.Plan{}, &owner{t: t}, agentic.LaunchRequest{}, fragment.Fragment{}, composition.PromptApplication{}, nil)
+	v, err := composition.Compose(agentic.Plan{}, nil, fragment.Fragment{}, composition.PromptApplication{}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -220,7 +192,7 @@ func TestLaunchBoundaryFilesystem(t *testing.T) {
 				path = filepath.Join(path, "child")
 			}
 			f := parsed(t, "codex_cli", path, nil)
-			v, err := composition.Compose(agentic.Plan{}, &owner{t: t}, agentic.LaunchRequest{}, f, composition.PromptApplication{}, []string{"-p", "operator"})
+			v, err := composition.Compose(agentic.Plan{}, nil, f, composition.PromptApplication{}, []string{"-p", "operator"})
 			if err != nil {
 				t.Fatal("composition must not probe early", err)
 			}
@@ -247,7 +219,7 @@ func TestLaunchBoundaryFilesystem(t *testing.T) {
 }
 func TestLaunchBoundaryLateReplacement(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "layer.toml")
-	v, err := composition.Compose(agentic.Plan{}, &owner{t: t}, agentic.LaunchRequest{}, parsed(t, "codex_cli", path, nil), composition.PromptApplication{}, nil)
+	v, err := composition.Compose(agentic.Plan{}, nil, parsed(t, "codex_cli", path, nil), composition.PromptApplication{}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -274,7 +246,7 @@ func TestLaunchBoundaryLateReplacement(t *testing.T) {
 func TestLaunchBoundaryUnengaged(t *testing.T) {
 	f := parsed(t, "codex_cli", "/missing/layer", nil)
 	f.MCP = nil
-	v, err := composition.Compose(agentic.Plan{}, &owner{t: t}, agentic.LaunchRequest{}, f, composition.PromptApplication{}, []string{"-p", "operator"})
+	v, err := composition.Compose(agentic.Plan{}, nil, f, composition.PromptApplication{}, []string{"-p", "operator"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -292,7 +264,11 @@ func TestComposeReleasedChildEnvironment(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	v, err := composition.Compose(agentic.Plan{Env: env}, sys, req, parsed(t, "codex_cli", "/managed/default/codex/layer.toml", []string{"FIGMA_API_KEY"}), composition.PromptApplication{}, nil)
+	owned, err := sys.ChildEnv(nil, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	v, err := composition.Compose(agentic.Plan{Env: env}, owned, parsed(t, "codex_cli", "/managed/default/codex/layer.toml", []string{"FIGMA_API_KEY"}), composition.PromptApplication{}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -4,7 +4,6 @@ package composition
 
 import (
 	"encoding/base64"
-	"fmt"
 	"maps"
 	"slices"
 	"sort"
@@ -14,13 +13,6 @@ import (
 	"github.com/relux-works/curator-agent-launcher/internal/fragment"
 	"github.com/relux-works/skill-agents-management/pkg/agentic"
 )
-
-// ChildEnvironment is the ownership surface of agentic.System. Pass the same
-// system and request used to obtain Plan. A second BuildPlan is neither needed
-// nor permitted: only ChildEnv over a nil parent defines owned literals.
-type ChildEnvironment interface {
-	ChildEnv(parent []string, req agentic.LaunchRequest) ([]string, error)
-}
 
 // PromptApplication is the already selected and encoded §5 channel application.
 // Its Env contains only engaged variable-channel literals. File channels have
@@ -57,14 +49,9 @@ type Value struct {
 	mcpLayer string
 }
 
-// Compose consumes a validated fragment, an admitted single-process plan, and
-// the same system/request that produced that plan. Native is appended verbatim,
-// including duplicate provider flags. Inputs are not modified or retained.
-func Compose(plan agentic.Plan, system ChildEnvironment, req agentic.LaunchRequest, frag fragment.Fragment, prompt PromptApplication, native []string) (Value, error) {
-	ownEnv, err := system.ChildEnv(nil, req)
-	if err != nil {
-		return Value{}, fmt.Errorf("composition child environment: %w", err)
-	}
+// Compose consumes the owned-environment snapshot of the admitted plan.
+// Native arguments are appended verbatim. Inputs are not retained.
+func Compose(plan agentic.Plan, ownEnv []string, frag fragment.Fragment, prompt PromptApplication, native []string) (Value, error) {
 	own := envMap(ownEnv)
 	env := envMap(plan.Env)
 	literals := maps.Clone(own)

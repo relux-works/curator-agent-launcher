@@ -16,6 +16,7 @@ import (
 
 	"github.com/relux-works/curator-agent-launcher/internal/cli"
 	"github.com/relux-works/curator-agent-launcher/internal/composition"
+	"github.com/relux-works/curator-agent-launcher/internal/diagnostics"
 	"github.com/relux-works/curator-agent-launcher/internal/fragment"
 	"github.com/relux-works/curator-agent-launcher/internal/mapping"
 )
@@ -109,7 +110,14 @@ func (l Launch) Run(opts Options) int {
 	if streams.Stderr == nil {
 		streams.Stderr = os.Stderr
 	}
-	fail := func(err error) int { fmt.Fprintln(streams.Stderr, "curator-run: "+err.Error()); return 1 }
+	fail := func(err error) int {
+		code, detail, ok := strings.Cut(err.Error(), ": ")
+		if !ok {
+			code, detail = diagnostics.CodePlanRefused, err.Error()
+		}
+		_ = diagnostics.Emit(streams.Stderr, code, detail)
+		return diagnostics.ExitForCode(code)
+	}
 	for _, warning := range l.value.Warnings {
 		fmt.Fprintln(streams.Stderr, "curator-run: "+warning)
 	}

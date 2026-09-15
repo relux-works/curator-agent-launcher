@@ -1,0 +1,45 @@
+{
+  "Argv": [
+    "start",
+    "claude_code-20260916T010203Z",
+    "--provider",
+    "claude",
+    "--launch-plan",
+    "-",
+    "--workspace",
+    "<ROOT>"
+  ],
+  "WorkDir": "<ROOT>",
+  "Document": {
+    "argv_suffix": [
+      "--model",
+      "claude-opus-5",
+      "--effort",
+      "medium",
+      "--append-system-prompt-file",
+      "<ROOT>/managed/prompt.md",
+      "--mcp-config",
+      "<ROOT>/managed/mcp.toml",
+      "--strict-mcp-config",
+      "",
+      "--model=native",
+      "a\nb"
+    ],
+    "env_literals": {
+      "CLAUDE_CONFIG_DIR": "<ROOT>/managed"
+    },
+    "env_names": [
+      "FIGMA_API_KEY"
+    ],
+    "extensions": {
+      "works.relux.curator.fragment-digest": "\u003cDIGEST\u003e",
+      "works.relux.curator.profile-name": "default",
+      "works.relux.curator.profile-pin": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "works.relux.curator.system-modules": true
+    },
+    "schema": "urn:ax:schema:launch-plan-request",
+    "schema_version": "1.0.0",
+    "stdin": null
+  },
+  "Stderr": "curator warning\n\u0000\ufffdcurator-run: defaults: model=claude-opus-5 (flag) effort=medium (flag)\ncurator-run: warning: profile \"default\": applied flag/append system-prompt channel \"--append-system-prompt-file\". A custom system prefix can change request caching and billing: the default may use shared prompt caching; a custom prefix forms its own cache prefix.\nhelper stderr\n"
+}

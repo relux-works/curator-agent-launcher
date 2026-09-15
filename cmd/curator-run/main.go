@@ -1,15 +1,3 @@
-// Command curator-run is the Curator agent launcher: the execution plane
-// that composes the spawn plane (agents-management), the context plane
-// (curator env resolve), and the session plane (ax) into one exec.
-//
-// This build implements SPEC.md §3, the closed CLI surface, through
-// internal/cli, §4.1, the fragment resolution, through
-// internal/fragment, §4.2 through internal/mapping, and §4.3, the model
-// and effort defaults, through internal/defaults against the real tagged
-// agents-management module. The later composition steps (§4.4-§4.6),
-// system-prompt application (§5), and the ax configuration file (§4.7)
-// are not delivered yet: a completed launch is refused after the origin
-// line-group with exit 1 and launches nothing.
 package main
 
 import (
@@ -18,14 +6,23 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
+	"strings"
+	"time"
 
+	"github.com/relux-works/skill-agents-management/pkg/providerlimits"
 	"github.com/relux-works/skill-agents-management/pkg/vendorplugin"
 
+	"github.com/relux-works/curator-agent-launcher/internal/axconfig"
 	"github.com/relux-works/curator-agent-launcher/internal/cli"
+	"github.com/relux-works/curator-agent-launcher/internal/composition"
 	"github.com/relux-works/curator-agent-launcher/internal/defaults"
 	"github.com/relux-works/curator-agent-launcher/internal/diagnostics"
+	"github.com/relux-works/curator-agent-launcher/internal/execution"
 	"github.com/relux-works/curator-agent-launcher/internal/fragment"
 	"github.com/relux-works/curator-agent-launcher/internal/mapping"
+	"github.com/relux-works/curator-agent-launcher/internal/plan"
+	"github.com/relux-works/curator-agent-launcher/internal/systemprompt"
 )
 
 const (
@@ -43,9 +40,13 @@ func main() {
 		os.Exit(diagnostics.ExitForCode(diagnostics.CodePlanRefused))
 	}
 	deps := launchDeps{
-		resolver:    fragment.New(),
-		configPaths: processDefaultsPaths,
-		registry:    registry,
+		resolver:     fragment.New(),
+		configPaths:  processDefaultsPaths,
+		axPaths:      processDefaultsPaths,
+		workdir:      os.Getwd,
+		environ:      os.Environ,
+		availability: processAvailability,
+		registry:     registry,
 	}
 	os.Exit(run(context.Background(), os.Args[1:], os.Stdout, os.Stderr, deps))
 }
@@ -59,8 +60,8 @@ type fragmentResolver interface {
 // Tests inject scripted resolvers, temporary configuration paths, and
 // registries built from the real module; main builds them from process
 // state.
-// processDefaultsPaths is evaluated only for a mapped launch. Informational
-// flags and earlier refusals never depend on configuration path discovery.
+// Configuration directories are discovered before parsing for ax policy;
+// defaults file contents are read only after a supported fragment is mapped.
 func processDefaultsPaths() (defaults.Paths, error) {
 	home, err := os.UserHomeDir()
 	if err != nil && os.Getenv("XDG_CONFIG_HOME") == "" {
@@ -69,37 +70,39 @@ func processDefaultsPaths() (defaults.Paths, error) {
 	return defaults.ConfigPaths(os.Getenv("XDG_CONFIG_HOME"), home), nil
 }
 
+// Process boundaries are injectable; production uses the tagged builder and real execution.
 type launchDeps struct {
+	axPaths      func() (defaults.Paths, error)
+	workdir      func() (string, error)
+	environ      func() []string
+	availability func() (plan.AvailabilityFunc, error)
+	build        plan.BuildLaunchFunc
+	axBinary     string
+	stdin        io.Reader
+	now          func() time.Time
+
 	configPaths func() (defaults.Paths, error)
 	resolver    fragmentResolver
 	defaults    defaults.Paths
 	registry    *vendorplugin.Registry
 }
 
-// run is the production entry point behind main. It reads the ax
-// configuration fact (not yet: §4.6 ax.json is owned by a later section,
-// so this build parses against an unconfigured integration), parses argv
-// under §3, prints informational output, and reports usage errors as the
-// §6 usage family on stderr with exit 2. A launch invocation that parses
-// goes to §4.1: the fragment is resolved through the resolver — always
-// with --repair, Curator's stderr forwarded verbatim — and a resolve
-// failure is printed as its §6 resolve-family code line with exit 1. A
-// resolved fragment is mapped under §4.2 (unsupported IDs refuse
-// env_unsupported), then completed under §4.3: the launcher-owned files
-// are read (a locked flag is a usage refusal, an unreadable file is
-// defaults_config_invalid), the tagged module lineup supplies only the
-// members left unset (nothing admittable is defaults_unresolvable), and
-// the resolved pair with its per-member origins is printed on stderr
-// before anything downstream. The plan request of §4.4 belongs to a later
-// stage, so a completed launch is refused with exit 1; nothing is
-// launched.
-//
-// Every failure renders through internal/diagnostics: one deterministic
-// `curator-run: <code>: <detail>` line and the SPEC §6 exit for that code
-// (2 for usage, 1 for every operational failure). The rendering is
-// byte-identical to the stage-owned formats it replaces.
+// run is the production entry point. Configuration precedes argument validation;
+// every admitted launch flows through composition and all late execution checks.
 func run(ctx context.Context, args []string, stdout, stderr io.Writer, deps launchDeps) int {
-	opts := cli.Options{AxConfigured: false}
+	paths := deps.defaults
+	if deps.axPaths != nil {
+		var err error
+		paths, err = deps.axPaths()
+		if err != nil {
+			return emitFailure(stderr, diagnostics.CodeDefaultsInvalid, err)
+		}
+	}
+	configured, err := axconfig.Load(filepath.Dir(paths.Machine), filepath.Dir(paths.Operator))
+	if err != nil {
+		return emitFailure(stderr, diagnostics.CodeDefaultsInvalid, err)
+	}
+	opts := cli.Options{AxConfigured: configured}
 	inv, err := cli.Parse(args, opts)
 	if err != nil {
 		if cli.IsUsage(err) {
@@ -112,8 +115,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, deps laun
 			fmt.Fprintf(stderr, "\n%s", cli.Usage)
 			return diagnostics.ExitForCode(diagnostics.CodeUsage)
 		}
-		fmt.Fprintf(stderr, "%s: %v\n", name, err)
-		return diagnostics.ExitOperational
+		return emitFailure(stderr, diagnostics.CodeUsage, err)
 	}
 	switch inv.Info {
 	case cli.InfoHelp:
@@ -174,9 +176,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, deps laun
 		resolved, err = files.Complete(frag.Environment, flags, deps.registry)
 		if err == nil {
 			_ = defaults.EmitGroup(stderr, resolved)
-			fmt.Fprintf(stderr, "%s: not_implemented: resolved environment %q (profile %q, home %s, fragment digest %s), mapped system %q / provider %q, %s; the plan request beyond SPEC §4.3 is not delivered in this build; nothing was launched\n",
-				name, frag.Environment, frag.Profile.Name, frag.Home(), frag.Digest, target.System, target.Provider, resolved.Describe())
-			return 1
+			return launch(ctx, inv, frag, target, resolved, stdout, stderr, deps)
 		}
 	}
 	if derr := (&defaults.Error{}); errors.As(err, &derr) {
@@ -185,4 +185,79 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, deps laun
 	}
 	_ = diagnostics.Emit(stderr, mapping.CodeUnsupported, err.Error())
 	return diagnostics.ExitForCode(mapping.CodeUnsupported)
+}
+
+// emitFailure frames only launcher-owned diagnostics. Foreign evidence is emitted
+// separately at the plan and execution boundaries.
+func emitFailure(w io.Writer, code string, err error) int {
+	_ = diagnostics.Emit(w, code, strings.TrimPrefix(err.Error(), code+": "))
+	return diagnostics.ExitForCode(code)
+}
+
+func processAvailability() (plan.AvailabilityFunc, error) {
+	layout, err := providerlimits.DefaultLayout()
+	if err != nil {
+		return nil, err
+	}
+	store, err := providerlimits.NewStore(providerlimits.Options{Layout: layout})
+	if err != nil {
+		return nil, err
+	}
+	return store.AvailabilityFor, nil
+}
+
+func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, target mapping.Target, resolved defaults.Resolved, stdout, stderr io.Writer, deps launchDeps) int {
+	wd, err := deps.workdir()
+	if err != nil {
+		return emitFailure(stderr, diagnostics.CodePlanRefused, err)
+	}
+	availability, err := deps.availability()
+	if err != nil {
+		return emitFailure(stderr, diagnostics.CodePlanRefused, err)
+	}
+	build := deps.build
+	if build == nil {
+		build = vendorplugin.BuildLaunchWithEnvironment
+	}
+	admitted, err := plan.Build(ctx, plan.Deps{Registry: deps.registry, BuildLaunch: build, Availability: availability}, plan.Request{
+		Runtime: resolved.Runtime, Model: resolved.Model.Value, Effort: resolved.Effort.Value, Home: frag.Home(), WorkDir: wd, Env: deps.environ(),
+	})
+	if err != nil {
+		code := diagnostics.CodePlanRefused
+		var limited *plan.LimitedError
+		if errors.As(err, &limited) {
+			code = diagnostics.CodePlanProviderLimited
+		}
+		_ = diagnostics.Emit(stderr, code, "spawn-plane admission refused the launch")
+		// Preserve provider/module evidence bytes, including embedded newlines.
+		fmt.Fprintln(stderr, err.Error())
+		return diagnostics.ExitForCode(code)
+	}
+	selection, err := systemprompt.Select(frag, fragment.Semantics(inv.SystemPrompt))
+	if err != nil {
+		code, _ := diagnostics.CodeOf(err)
+		return emitFailure(stderr, code, err)
+	}
+	value, err := composition.Compose(admitted.Plan, admitted.OwnedEnv, *frag, composition.PromptApplication{Argv: selection.Argv(), Env: selection.Env()}, inv.Native)
+	if err != nil {
+		return emitFailure(stderr, diagnostics.CodePlanRefused, err)
+	}
+	now := time.Now
+	if deps.now != nil {
+		now = deps.now
+	}
+	prepared, err := execution.Prepare(value, *frag, inv, target, now())
+	if err != nil {
+		return emitFailure(stderr, diagnostics.CodeAxHandoffFailed, err)
+	}
+	return prepared.Run(execution.Options{AxBinary: deps.axBinary, IO: execution.IO{Stdin: deps.stdin, Stdout: stdout, Stderr: stderr}, Boundary: func() error {
+		prompt, err := systemprompt.PrepareLaunch(frag, fragment.Semantics(inv.SystemPrompt))
+		if err != nil {
+			return err
+		}
+		for _, warning := range prompt.Warnings {
+			fmt.Fprintln(stderr, name+": "+warning)
+		}
+		return nil
+	}})
 }

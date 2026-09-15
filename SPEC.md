@@ -1016,6 +1016,8 @@ reordered.
 
 ## Specification changelog
 
+- 2026-09-16, 0.3.0-draft §4.5 erratum: the owned environment literals are supplied by the admitted plan's snapshot (`BuildLaunchWithEnvironment`, agents-management v0.5.13). No second build or reconstruction of the effective request is required.
+
 - 2026-09-15, 0.3.0-draft §4.3: record the orchestrator-authorized Pi
   runtime preference as a pure convention (defaults-lineup-brief.md).
   The v0.5.11 Lineup contract ranks within one vendor; the previous text

@@ -58,9 +58,6 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-type owner []string
-
-func (o owner) ChildEnv([]string, agentic.LaunchRequest) ([]string, error) { return o, nil }
 func equal(t *testing.T, got, want any) {
 	t.Helper()
 	if !reflect.DeepEqual(got, want) {
@@ -156,7 +153,7 @@ func run(t *testing.T, l execution.Launch, b execution.Boundary) (int, capture, 
 }
 func compose(t *testing.T, f fragment.Fragment, dir string, stdin agentic.StdinPayload) composition.Value {
 	t.Helper()
-	v, err := composition.Compose(agentic.Plan{Binary: helper, WorkDir: dir, Argv: []string{"first plugin argument", "--model", "model with spaces"}, Env: []string{"FIGMA_API_KEY=inherited-secret", "OWN=old", "PARENT=only-direct"}, Stdin: stdin}, owner{"OWN=old"}, agentic.LaunchRequest{}, f, composition.PromptApplication{Argv: []string{"prompt channel"}, Env: map[string]string{"OWN": "override"}}, []string{"", "-p", "native", "--dangerously-skip-permissions", "a\nb"})
+	v, err := composition.Compose(agentic.Plan{Binary: helper, WorkDir: dir, Argv: []string{"first plugin argument", "--model", "model with spaces"}, Env: []string{"FIGMA_API_KEY=inherited-secret", "OWN=old", "PARENT=only-direct"}, Stdin: stdin}, []string{"OWN=old"}, f, composition.PromptApplication{Argv: []string{"prompt channel"}, Env: map[string]string{"OWN": "override"}}, []string{"", "-p", "native", "--dangerously-skip-permissions", "a\nb"})
 	if err != nil {
 		t.Fatal(err)
 	}

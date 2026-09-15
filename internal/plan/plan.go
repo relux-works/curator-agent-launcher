@@ -1,6 +1,6 @@
 // Package plan implements SPEC §4.4, the spawn-plane step of the launcher:
 // an explicitly resolved runtime/model/effort triple is admitted through
-// the real tagged vendorplugin.BuildLaunch in agentic.LaunchModeInteractive,
+// the real tagged vendorplugin.BuildLaunchWithEnvironment in agentic.LaunchModeInteractive,
 // then gated on a separate explicit providerlimits.Store.AvailabilityFor
 // read over the same runtime/model/managed home.
 //
@@ -83,10 +83,10 @@ type Request struct {
 	Env     []string
 }
 
-// BuildLaunchFunc is vendorplugin.BuildLaunch's shape, injectable so tests
+// BuildLaunchFunc is vendorplugin.BuildLaunchWithEnvironment's shape, injectable so tests
 // can capture the exact SpawnRequest while still driving the real tagged
-// admission. Production passes vendorplugin.BuildLaunch.
-type BuildLaunchFunc func(ctx context.Context, r *vendorplugin.Registry, req vendorplugin.SpawnRequest, mode agentic.LaunchMode) (agentic.Plan, error)
+// admission. Production passes vendorplugin.BuildLaunchWithEnvironment.
+type BuildLaunchFunc func(ctx context.Context, r *vendorplugin.Registry, req vendorplugin.SpawnRequest, mode agentic.LaunchMode) (agentic.PlanWithEnvironment, error)
 
 // AvailabilityFunc is providerlimits.Store.AvailabilityFor's shape.
 // Production passes a real store's method; tests pass fakes or a real
@@ -102,9 +102,9 @@ type Deps struct {
 }
 
 // DefaultDeps wires the real tagged contracts: the default registry, the
-// real vendorplugin.BuildLaunch, and the given store's AvailabilityFor.
+// real vendorplugin.BuildLaunchWithEnvironment, and the given store's AvailabilityFor.
 func DefaultDeps(store *providerlimits.Store) Deps {
-	d := Deps{Registry: vendorplugin.Default, BuildLaunch: vendorplugin.BuildLaunch}
+	d := Deps{Registry: vendorplugin.Default, BuildLaunch: vendorplugin.BuildLaunchWithEnvironment}
 	if store != nil {
 		d.Availability = store.AvailabilityFor
 	}
@@ -207,18 +207,18 @@ func SpawnRequest(req Request) vendorplugin.SpawnRequest {
 //
 // A nil BuildLaunch/Availability in Deps is a caller bug and is refused as
 // plan_refused without touching the other boundary.
-func Build(ctx context.Context, d Deps, req Request) (agentic.Plan, error) {
+func Build(ctx context.Context, d Deps, req Request) (agentic.PlanWithEnvironment, error) {
 	if strings.TrimSpace(req.Home) == "" {
-		return agentic.Plan{}, &RefusedError{Detail: "managed home is required; an empty home must not fall back to a native default"}
+		return agentic.PlanWithEnvironment{}, &RefusedError{Detail: "managed home is required; an empty home must not fall back to a native default"}
 	}
 	if strings.TrimSpace(req.WorkDir) == "" {
-		return agentic.Plan{}, &RefusedError{Detail: "working directory is required"}
+		return agentic.PlanWithEnvironment{}, &RefusedError{Detail: "working directory is required"}
 	}
 	if d.BuildLaunch == nil {
-		return agentic.Plan{}, &RefusedError{Detail: "no BuildLaunch implementation wired"}
+		return agentic.PlanWithEnvironment{}, &RefusedError{Detail: "no BuildLaunch implementation wired"}
 	}
 	if d.Availability == nil {
-		return agentic.Plan{}, &RefusedError{Detail: "no provider-limits read wired"}
+		return agentic.PlanWithEnvironment{}, &RefusedError{Detail: "no provider-limits read wired"}
 	}
 	spawn := SpawnRequest(req)
 	// The mode is spelled by name. Never a numeric literal, never a bare
@@ -226,7 +226,7 @@ func Build(ctx context.Context, d Deps, req Request) (agentic.Plan, error) {
 	// this path and must not be bypassed.
 	built, err := d.BuildLaunch(ctx, d.Registry, spawn, agentic.LaunchModeInteractive)
 	if err != nil {
-		return agentic.Plan{}, &RefusedError{Detail: "spawn plane refused the launch", Cause: err}
+		return agentic.PlanWithEnvironment{}, &RefusedError{Detail: "spawn plane refused the launch", Cause: err}
 	}
 	verdict, err := d.Availability(providerlimits.VerdictQuery{
 		Runtime: req.Runtime,
@@ -236,10 +236,10 @@ func Build(ctx context.Context, d Deps, req Request) (agentic.Plan, error) {
 	if err != nil {
 		// Failure to produce a verdict is terminal plan_refused with the
 		// module error, never healthy by inference.
-		return agentic.Plan{}, &RefusedError{Detail: "provider-limits read produced no verdict", Cause: err}
+		return agentic.PlanWithEnvironment{}, &RefusedError{Detail: "provider-limits read produced no verdict", Cause: err}
 	}
 	if !verdict.Serviceable() {
-		return agentic.Plan{}, &LimitedError{Verdict: verdict}
+		return agentic.PlanWithEnvironment{}, &LimitedError{Verdict: verdict}
 	}
 	return built, nil
 }
