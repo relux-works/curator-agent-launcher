@@ -35,13 +35,30 @@ resolved environment to its system/provider pair (`internal/mapping`):
 `claude_code` → `claude-code`/`claude`, `codex_cli` → `codex`/`codex`,
 `pi` → `pi-native`/`pi`. Unsupported IDs (including known `opencode`)
 refuse `env_unsupported` with exit 1 before later stages. The executable wiring for the later
-steps (§4.3–§4.6), main integration of system-prompt policy (§5), and the
-`defaults.json`/`ax.json` file family (§4.7) are not delivered: a
+steps (§4.4–§4.6), main integration of system-prompt policy (§5), and the
+`ax.json` configuration (§4.7) are not delivered: a
 well-formed launch invocation parses, resolves its fragment (repairing the
-managed home when Curator finds it stale), maps its supported system/provider pair, and is then refused with exit 1
+managed home when Curator finds it stale), maps its supported system/provider pair, resolves defaults and prints their origins, then is refused with exit 1
 and a `not_implemented` line that reports the mapping, home and fragment digest,
 launching nothing. A resolve failure is reported as its `resolve_*` code
 with exit 1.
+The executable now resolves §4.3 after mapping through `internal/defaults`:
+`Load` strictly reads the machine and operator files, `Files.Resolve` applies
+per-member flags/operator/machine precedence and machine locks, and
+`Files.Complete` supplies only missing members from the real tagged v0.5.11
+module. Unknown members and unreadable files fail; explicit empty strings
+remain present. Both files are validated even when a lock suppresses an
+operator entry. Known `opencode` configuration remains valid, but its launch
+mapping refuses.
+
+Pi uses the SPEC convention `pi-anthropic`, then `pi-openai`, then `pi-google`:
+take the first runtime carrying driven rows and rank only its vendor's lineup.
+Vendor scores are never compared. Configured models bind their exact runtime
+independently of the preference. Effort comes from that model's recommendation,
+or stays unset for a row without an effort axis. The stderr defaults group
+reports each supplied member's origin before the pending plan stage; no retry
+or launch occurs. Full pipeline wiring belongs to the integration task.
+
 Because no `ax.json` is read yet, the binary always parses as an untracked
 machine, so `--ax-profile` is currently always a usage error and `--name`
 is accepted without effect.
@@ -58,7 +75,7 @@ at their own production APIs. Absence and read failure stay distinct
 absent home file vs unreadable file), warnings and child stderr are
 never diagnostic code lines, and no failure degrades into a weaker
 launch. The remaining main call-site obligations (ax policy before
-parsing, defaults/lineup, plan and provider limits, late boundary
+parsing, plan and provider limits, late boundary
 binding) are enumerated in `diagnostics.RemainingObligations` and below.
 
 ## Composition API boundary
@@ -293,6 +310,7 @@ or tag workflow yet.
 | Tool | Purpose | Entry point | Output |
 |---|---|---|---|
 | `go` (build, vet, test, race) | build and behavioral suite | `make check` and the targets above | stdout; nothing written to the tree |
+| `python3` defaults mutant harness | weaken defaults gates individually and run the behavioral suite; restore exact candidate bytes | `python3 .scripts/defaults-mutants.py [evidence-dir]` | per-mutant logs and `summary.tsv` (default `.temp/defaults-mutants/`) |
 | CLI goldens | frozen accepted/rejected §3 shapes | `go test ./internal/cli -run TestGolden -update` to regenerate, then review the diff | `internal/cli/testdata/cases.golden` |
 | `.scripts/cli-mutants.sh` | narrowing-mutant harness for the §3 gates: each mutant weakens one gate to admit one rejected shape and the named test must fail | `.scripts/cli-mutants.sh [evidence-dir]` | per-mutant logs and `summary.tsv` under the evidence dir (default `.temp/cli-mutants/`); the source tree is restored on exit |
 | `.scripts/fragment-mutants.sh` | narrowing-mutant harness for the §4.1 gates (argv, exit mapping, stderr transport, reader rules, schema closure, CCJ-1 emission, entry-point wiring); the behavioral suite runs against every mutant | `.scripts/fragment-mutants.sh [evidence-dir]` (optional `FRAGMENT_MUTANT_IDS="M27 M28" FRAGMENT_TEST_PATTERN="TestExecutableUnicodePathBoundary|TestConformanceCorpus"` for focused rework) | `mutants.log` under the evidence dir (default `.temp/fragment-mutants/`); sources are restored from byte copies on exit |

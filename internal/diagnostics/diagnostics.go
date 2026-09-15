@@ -19,7 +19,7 @@
 //	resolve_lock_unavailable       fragment.ResolveError       fragment.Resolver.Resolve (exit 1)
 //	resolve_fragment_invalid       fragment.ResolveError       fragment.Resolver.Resolve (exit 1)
 //	defaults_config_invalid        axconfig.Error              axconfig.Load (exit 1)
-//	defaults_unresolvable          (no producer in this build) separately owned (exit 1)
+//	defaults_unresolvable          defaults.Error              defaults.Files.Complete (exit 1)
 //	plan_refused                   (no producer in this build) separately owned (exit 1)
 //	plan_provider_limited          (no producer in this build) separately owned (exit 1)
 //	env_unsupported                mapping (constant)          mapping.Resolve (exit 1)
@@ -78,8 +78,8 @@ const (
 )
 
 // Stable diagnostic codes of SPEC §6, in table order. Owned literals are
-// pinned to their owners in tests; the three separately-owned codes have
-// no producer in this build and name their pending call site in
+// pinned to their owners in tests; the two separately-owned plan codes
+// have no producer in this build and name their pending call site in
 // RemainingObligations.
 const (
 	CodeUsage = "usage"
@@ -309,7 +309,6 @@ func IsDiagnosticLine(line string) bool {
 func RemainingObligations() []string {
 	return []string{
 		"axconfig.Load before cli.Parse, so a present-but-unreadable ax.json reports defaults_config_invalid even when argv is also a usage error (TASK-260908-1o7i8y)",
-		"defaults.json read, locked-member usage refusal, lineup fallback, defaults_unresolvable, and the per-member stderr line-group (TASK-260909-2vy977)",
 		"vendorplugin.BuildLaunch admission and providerlimits.Store.AvailabilityFor verdict enforcement as plan_refused / plan_provider_limited with verbatim verdict evidence (TASK-260908-2so46q)",
 		"composition.Value.CheckLaunchBoundary immediately before both ax handoff and direct exec, with the binary check and systemprompt.PrepareLaunch as the execution Boundary (TASK-260908-1o7i8y)",
 		"systemprompt.PrepareLaunch selection, file-kind probe, and warning emission on every launch (TASK-260908-1o7i8y)",

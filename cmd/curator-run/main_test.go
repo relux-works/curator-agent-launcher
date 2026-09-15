@@ -13,6 +13,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/relux-works/skill-agents-management/pkg/agentic"
+	"github.com/relux-works/skill-agents-management/pkg/vendorplugin"
+
+	"github.com/relux-works/curator-agent-launcher/internal/defaults"
 	"github.com/relux-works/curator-agent-launcher/internal/diagnostics"
 	"github.com/relux-works/curator-agent-launcher/internal/fragment"
 )
@@ -20,8 +24,9 @@ import (
 // run is the production dispatch site: main exits with its return value.
 // These tests drive SPEC §3 shapes through it end to end: informational
 // flags exit 0 on stdout, usage errors exit 2 with the "usage" code line
-// and the usage text on stderr, and a parsed launch is refused with exit 1
-// because this build carries no composition stage.
+// and the usage text on stderr, and a parsed launch resolves its §4.1
+// fragment, completes its §4.3 pair, and is refused with exit 1 because
+// the plan request belongs to a later stage.
 
 func TestRunInformationalFlags(t *testing.T) {
 	for _, args := range [][]string{{"--help"}, {"-h"}, {"--version"}, {"codex_cli", "--profile", "p", "--help"}, {"--version", "--", "x"}} {
@@ -104,22 +109,47 @@ func (f forbiddenRunner) Run(context.Context, string, []string, string, []string
 	return nil, 1, nil
 }
 
+// testDeps builds production-shaped dependencies with isolated
+// configuration paths (absent files) and a registry from the real tagged
+// module. No test reads ambient /etc or home configuration.
+func testDeps(t *testing.T, resolver fragmentResolver) launchDeps {
+	t.Helper()
+	reg, err := defaults.NewRegistry()
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	return launchDeps{
+		resolver: resolver,
+		defaults: defaults.Paths{Machine: filepath.Join(dir, "machine.json"), Operator: filepath.Join(dir, "operator.json")},
+		registry: reg,
+	}
+}
+
 func runNoResolve(t *testing.T, args []string, stdout, stderr io.Writer) int {
 	t.Helper()
-	return run(context.Background(), args, stdout, stderr, fragment.NewWithRunner("curator", forbiddenRunner{t}))
+	return run(context.Background(), args, stdout, stderr, testDeps(t, fragment.NewWithRunner("curator", forbiddenRunner{t})))
+}
+
+// fragmentLineFor replays the pi fragment fixture for another known
+// environment, swapping the env-id and its home variable together.
+func fragmentLineFor(env string) string {
+	line := strings.ReplaceAll(piFragmentLine, `"environment":"pi"`, `"environment":"`+env+`"`)
+	return strings.ReplaceAll(line, "PI_CODING_AGENT_DIR", fragment.HomeVariable(env))
 }
 
 const piFragmentLine = `{"env":{"PI_CODING_AGENT_DIR":"/Users/iv/.curator/environments/default/pi"},"environment":"pi","fragment":"launch-env-fragment-v1","precedence":{"placement":"winner-last","winner":"higher-weight"},"profile":{"lock_sha256":"726310f80f442428a9a640d2d49ad9b635f22857fb4ad22167832c7c6ff30e19","name":"default"}}` + "\n"
 
 const piDigest = "sha256:c0512f558f8dc93780288db597a1a8250c0403a175c95fe988e0e8c0991701bf"
 
-// TestRunParsedLaunchResolvesThenRefuses: a well-formed launch, including a
+// TestRunPiResolvesNativeLineup: a well-formed pi launch, including a
 // native tail that collides with launcher flags, parses, resolves its
-// fragment exactly once through SPEC §4.1 with the exact argv, and is then
-// refused with exit 1 — never 2 (not a usage error) and never 0 (nothing
-// launched). Curator's stderr warning is forwarded verbatim before the
-// refusal line.
-func TestRunParsedLaunchResolvesThenRefuses(t *testing.T) {
+// fragment exactly once through SPEC §4.1 with the exact argv, completes
+// its §4.3 pair from the native-Pi lineup, prints the origin line-group,
+// and is then refused with exit 1 only because the plan request belongs
+// to a later stage. Curator's stderr warning is forwarded verbatim
+// before the group line.
+func TestRunPiResolvesNativeLineup(t *testing.T) {
 	warn := "warning: environment_tool_version_unverified: pi detected 0.84.3, recorded 0.84.2\n"
 	cases := []struct {
 		args     []string
@@ -132,17 +162,84 @@ func TestRunParsedLaunchResolvesThenRefuses(t *testing.T) {
 	for _, c := range cases {
 		sr := &scriptedRunner{stdout: piFragmentLine, stderr: warn}
 		var out, errOut strings.Builder
-		if got := run(context.Background(), c.args, &out, &errOut, fragment.NewWithRunner("curator", sr)); got != 1 {
+		if got := run(context.Background(), c.args, &out, &errOut, testDeps(t, fragment.NewWithRunner("curator", sr))); got != 1 {
 			t.Errorf("run(%v) = %d, want 1 (stderr %q)", c.args, got, errOut.String())
 		}
 		if sr.calls != 1 || strings.Join(sr.argv, " ") != strings.Join(c.wantArgv, " ") {
 			t.Errorf("run(%v) resolved %d times with argv %q, want once with %q", c.args, sr.calls, sr.argv, c.wantArgv)
 		}
-		if !strings.HasPrefix(errOut.String(), warn+name+": not_implemented: ") || !strings.Contains(errOut.String(), piDigest) || !strings.Contains(errOut.String(), "/Users/iv/.curator/environments/default/pi") {
-			t.Errorf("run(%v) stderr %q: want forwarded warning, then not_implemented with digest and home", c.args, errOut.String())
-		}
 		if out.Len() != 0 {
 			t.Errorf("run(%v) wrote to stdout: %q", c.args, out.String())
+		}
+	}
+	// Without flags the preferred native-Pi lineup supplies the pair: the
+	// group prints with lineup origins, then the pending plan stage
+	// refuses.
+	for _, args := range [][]string{{"pi"}, {"pi", "--system-prompt", "append", "--name", "ok-name", "--", "--help", "", "--ax-profile", "yolo", "--profile", "x"}} {
+		sr := &scriptedRunner{stdout: piFragmentLine, stderr: warn}
+		var out, errOut strings.Builder
+		if got := run(context.Background(), args, &out, &errOut, testDeps(t, fragment.NewWithRunner("curator", sr))); got != 1 {
+			t.Errorf("run(%v) = %d, want 1 (stderr %q)", args, got, errOut.String())
+		}
+		want := warn + name + ": defaults: model=claude-fable-5 (lineup) effort=high (lineup)\n" + name + ": not_implemented: "
+		if !strings.HasPrefix(errOut.String(), want) || !strings.Contains(errOut.String(), piDigest) {
+			t.Errorf("run(%v) stderr %q: want forwarded warning, then the lineup group and not_implemented with digest", args, errOut.String())
+		}
+		if out.Len() != 0 {
+			t.Errorf("run(%v) wrote to stdout: %q", args, out.String())
+		}
+	}
+	// Fully flag-supplied, the pair resolves from level 1 with no lineup:
+	// the group prints and the pending plan stage refuses.
+	{
+		sr := &scriptedRunner{stdout: piFragmentLine, stderr: warn}
+		var out, errOut strings.Builder
+		args := []string{"pi", "--profile", "default", "--model", "m", "--effort", "high", "--", "resume", "--last"}
+		if got := run(context.Background(), args, &out, &errOut, testDeps(t, fragment.NewWithRunner("curator", sr))); got != 1 {
+			t.Errorf("run(%v) = %d, want 1 (stderr %q)", args, got, errOut.String())
+		}
+		want := warn + name + ": defaults: model=m (flag) effort=high (flag)\n" + name + ": not_implemented: "
+		if !strings.HasPrefix(errOut.String(), want) || !strings.Contains(errOut.String(), piDigest) {
+			t.Errorf("run(%v) stderr %q: want group then not_implemented with digest", args, errOut.String())
+		}
+		if out.Len() != 0 {
+			t.Errorf("run(%v) wrote to stdout: %q", args, out.String())
+		}
+	}
+}
+
+// TestRunLineupEnvsPrintGroupBeforeRefusal drives the three environments
+// the real module admits: with no files the lineup completes the pair,
+// the origin line-group prints on stderr, and only then does the pending
+// plan stage refuse with exit 1. The group precedes the refusal line.
+func TestRunLineupEnvsPrintGroupBeforeRefusal(t *testing.T) {
+	cases := []struct {
+		env, group string
+	}{
+		{"claude_code", name + ": defaults: model=claude-fable-5-1 (lineup) effort=high (lineup)"},
+		{"codex_cli", name + ": defaults: model=gpt-6-astra (lineup) effort=max (lineup)"},
+		{"pi", name + ": defaults: model=claude-fable-5 (lineup) effort=high (lineup)"},
+	}
+	for _, c := range cases {
+		sr := &scriptedRunner{stdout: fragmentLineFor(c.env)}
+		var out, errOut strings.Builder
+		args := []string{c.env, "--", "resume", "--last"}
+		if got := run(context.Background(), args, &out, &errOut, testDeps(t, fragment.NewWithRunner("curator", sr))); got != 1 {
+			t.Errorf("run(%v) = %d, want 1 (stderr %q)", args, got, errOut.String())
+		}
+		if sr.calls != 1 {
+			t.Errorf("run(%v) resolved %d times, want once", args, sr.calls)
+		}
+		stderr := errOut.String()
+		group, refusal, _ := strings.Cut(stderr, name+": not_implemented: ")
+		if refusal == "" || !strings.Contains(group, c.group+"\n") {
+			t.Errorf("run(%v) stderr %q: want the origin group before the refusal", args, stderr)
+		}
+		if !strings.Contains(refusal, c.group[strings.Index(c.group, "model="):]) {
+			t.Errorf("run(%v) refusal %q does not restate the resolved pair", args, refusal)
+		}
+		if out.Len() != 0 {
+			t.Errorf("run(%v) wrote to stdout: %q", args, out.String())
 		}
 	}
 }
@@ -168,7 +265,7 @@ func TestRunResolveFailuresExit1(t *testing.T) {
 	for _, c := range cases {
 		sr := &scriptedRunner{stdout: c.stdout, stderr: c.stderr, exit: c.exit}
 		var out, errOut strings.Builder
-		if got := run(context.Background(), []string{"pi"}, &out, &errOut, fragment.NewWithRunner("curator", sr)); got != 1 {
+		if got := run(context.Background(), []string{"pi"}, &out, &errOut, testDeps(t, fragment.NewWithRunner("curator", sr))); got != 1 {
 			t.Errorf("%s: exit %d, want 1", c.name, got)
 		}
 		if sr.calls != 1 {
@@ -204,7 +301,7 @@ func TestRunProductionResolverAgainstFakeCurator(t *testing.T) {
 	t.Setenv("PATH", dir)
 
 	var out, errOut strings.Builder
-	if got := run(context.Background(), []string{"pi", "--profile", "default", "--", "x"}, &out, &errOut, fragment.New()); got != 1 {
+	if got := run(context.Background(), []string{"pi", "--profile", "default", "--", "x"}, &out, &errOut, testDeps(t, fragment.New())); got != 1 {
 		t.Fatalf("exit %d, want 1 (stderr %q)", got, errOut.String())
 	}
 	argv, err := os.ReadFile(filepath.Join(dir, "argv.txt"))
@@ -214,14 +311,14 @@ func TestRunProductionResolverAgainstFakeCurator(t *testing.T) {
 	if string(argv) != "env\nresolve\npi\n--profile\ndefault\n--repair\n--format\njson\n" {
 		t.Errorf("subprocess argv %q", argv)
 	}
-	if !strings.HasPrefix(errOut.String(), "warning: environment_tool_version_unverified: pi\n"+name+": not_implemented: ") || !strings.Contains(errOut.String(), piDigest) {
+	if !strings.HasPrefix(errOut.String(), "warning: environment_tool_version_unverified: pi\n"+name+": defaults: model=claude-fable-5 (lineup) effort=high (lineup)\n"+name+": not_implemented: ") {
 		t.Errorf("stderr %q", errOut.String())
 	}
 
 	// Without curator on PATH the launch fails as resolve_invocation_failed.
 	t.Setenv("PATH", t.TempDir())
 	errOut.Reset()
-	if got := run(context.Background(), []string{"pi"}, &out, &errOut, fragment.New()); got != 1 || !strings.HasPrefix(errOut.String(), name+": resolve_invocation_failed: ") {
+	if got := run(context.Background(), []string{"pi"}, &out, &errOut, testDeps(t, fragment.New())); got != 1 || !strings.HasPrefix(errOut.String(), name+": resolve_invocation_failed: ") {
 		t.Errorf("missing curator: exit %d stderr %q", got, errOut.String())
 	}
 }
@@ -279,14 +376,21 @@ func TestExecutableUnicodePathBoundary(t *testing.T) {
 				t.Fatal(err)
 			}
 			cmd := exec.Command(binary, "pi")
-			cmd.Env = append(os.Environ(), "PATH="+dir)
+			// Hermetic configuration: the built binary reads process
+			// XDG/home inputs, so point both at empty temp dirs rather
+			// than the operator's real configuration.
+			emptyHome := t.TempDir()
+			cmd.Env = append(os.Environ(), "PATH="+dir, "HOME="+emptyHome, "XDG_CONFIG_HOME="+filepath.Join(emptyHome, ".config"))
 			var out, stderr strings.Builder
 			cmd.Stdout, cmd.Stderr = &out, &stderr
 			err = cmd.Run()
 			if e, ok := err.(*exec.ExitError); !ok || e.ExitCode() != 1 {
 				t.Fatalf("exit: %v", err)
 			}
-			if out.Len() != 0 || !strings.HasPrefix(stderr.String(), name+": "+tc.code+": ") {
+			// The accepted fragment resolves its defaults, so the
+			// origin group precedes the pending-stage refusal line;
+			// the rejected fragment never reaches defaults.
+			if out.Len() != 0 || !strings.Contains(stderr.String(), name+": "+tc.code+": ") {
 				t.Fatalf("stdout %q stderr %q", out.String(), stderr.String())
 			}
 		})
@@ -294,22 +398,23 @@ func TestExecutableUnicodePathBoundary(t *testing.T) {
 }
 
 // TestRunMapping drives the production entry point with the real fragment
-// parser. Unsupported mappings must not reach the later-stage stub.
+// parser. Unsupported mappings must not reach the defaults stage; mapped
+// environments resolve their §4.3 pair before the pending plan stage.
 func TestRunMapping(t *testing.T) {
-	for _, tc := range []struct{ env, system, provider string }{
-		{"claude_code", "claude-code", "claude"},
-		{"codex_cli", "codex", "codex"},
-		{"pi", "pi-native", "pi"},
-		{"opencode", "", ""},
+	for _, tc := range []struct {
+		env, system, provider, group string
+	}{
+		{"claude_code", "claude-code", "claude", "model=claude-fable-5-1 (lineup) effort=high (lineup)"},
+		{"codex_cli", "codex", "codex", "model=gpt-6-astra (lineup) effort=max (lineup)"},
+		{"pi", "pi-native", "pi", "model=claude-fable-5 (lineup) effort=high (lineup)"},
+		{"opencode", "", "", ""},
 	} {
 		t.Run(tc.env, func(t *testing.T) {
-			line := strings.ReplaceAll(piFragmentLine, `"environment":"pi"`, `"environment":"`+tc.env+`"`)
-			line = strings.ReplaceAll(line, "PI_CODING_AGENT_DIR", fragment.HomeVariable(tc.env))
-			sr := &scriptedRunner{stdout: line}
+			sr := &scriptedRunner{stdout: fragmentLineFor(tc.env)}
 			var out, stderr strings.Builder
 			args := []string{tc.env, "--", "", "--help", "--profile", "native", "--"}
 			before := append([]string(nil), args...)
-			code := run(context.Background(), args, &out, &stderr, fragment.NewWithRunner("curator", sr))
+			code := run(context.Background(), args, &out, &stderr, testDeps(t, fragment.NewWithRunner("curator", sr)))
 			if code != 1 || out.Len() != 0 || sr.calls != 1 {
 				t.Fatalf("exit=%d stdout=%q resolves=%d", code, out.String(), sr.calls)
 			}
@@ -317,10 +422,10 @@ func TestRunMapping(t *testing.T) {
 				t.Fatalf("native argv changed: %q", args)
 			}
 			if tc.system == "" {
-				if !strings.HasPrefix(stderr.String(), name+": env_unsupported: ") || strings.Contains(stderr.String(), "not_implemented") {
+				if !strings.HasPrefix(stderr.String(), name+": env_unsupported: ") || strings.Contains(stderr.String(), "not_implemented") || strings.Contains(stderr.String(), "defaults: ") {
 					t.Fatalf("refusal: %q", stderr.String())
 				}
-			} else if !strings.HasPrefix(stderr.String(), name+": not_implemented: ") || !strings.Contains(stderr.String(), fmt.Sprintf("mapped system %q / provider %q", tc.system, tc.provider)) {
+			} else if !strings.Contains(stderr.String(), name+": defaults: "+tc.group+"\n") || !strings.Contains(stderr.String(), fmt.Sprintf("mapped system %q / provider %q", tc.system, tc.provider)) || !strings.Contains(stderr.String(), name+": not_implemented: ") {
 				t.Fatalf("mapping: %q", stderr.String())
 			}
 		})
@@ -336,7 +441,7 @@ func (resolvedUnknown) Resolve(context.Context, fragment.Request) (*fragment.Fra
 }
 func TestRunUnknownResolvedMapping(t *testing.T) {
 	var out, stderr strings.Builder
-	if got := run(context.Background(), []string{"future_env"}, &out, &stderr, resolvedUnknown{}); got != 1 {
+	if got := run(context.Background(), []string{"future_env"}, &out, &stderr, testDeps(t, resolvedUnknown{})); got != 1 {
 		t.Fatalf("exit=%d", got)
 	}
 	if out.Len() != 0 || !strings.HasPrefix(stderr.String(), name+": env_unsupported: ") || strings.Contains(stderr.String(), "not_implemented") {
@@ -347,7 +452,7 @@ func TestRunUnknownResolvedMapping(t *testing.T) {
 func TestRunUnknownFragmentStillRefusesResolution(t *testing.T) {
 	sr := &scriptedRunner{stdout: strings.ReplaceAll(piFragmentLine, `"environment":"pi"`, `"environment":"future_env"`)}
 	var out, stderr strings.Builder
-	if got := run(context.Background(), []string{"future_env"}, &out, &stderr, fragment.NewWithRunner("curator", sr)); got != 1 {
+	if got := run(context.Background(), []string{"future_env"}, &out, &stderr, testDeps(t, fragment.NewWithRunner("curator", sr))); got != 1 {
 		t.Fatalf("exit=%d", got)
 	}
 	if sr.calls != 1 || out.Len() != 0 || !strings.HasPrefix(stderr.String(), name+": resolve_fragment_invalid: ") {
@@ -360,43 +465,67 @@ func TestRunUnknownFragmentStillRefusesResolution(t *testing.T) {
 // the exit status for the code, exactly one launcher diagnostic code
 // line on stderr carrying that code, Curator's stderr forwarded verbatim
 // ahead of it (never parsed as a launcher diagnostic), and nothing on
-// stdout. Later pipeline families (defaults, plan, exec, ax, mcp,
-// sysprompt) are covered at their own production APIs in
-// internal/diagnostics; their main call sites are stated obligations,
-// not claimed here.
+// stdout. The defaults family is produced here; the plan, exec, ax, mcp,
+// and sysprompt families are covered at their own production APIs in
+// internal/diagnostics, and their main call sites remain stated
+// obligations, not claims.
 func TestRunDiagnosticsContract(t *testing.T) {
 	opencodeLine := strings.ReplaceAll(piFragmentLine, `"environment":"pi"`, `"environment":"opencode"`)
 	opencodeLine = strings.ReplaceAll(opencodeLine, "PI_CODING_AGENT_DIR", fragment.HomeVariable("opencode"))
+	const lockedMachine = `{"schema":"curator-run-defaults-v1","locked":true,"defaults":{"pi":{"model":"machine"}}}`
 	cases := []struct {
 		name     string
 		args     []string
 		stdout   string
 		stderr   string
 		exit     int
+		machine  string
+		operator string
 		wantCode string
 		wantExit int
+		// bareRegistry swaps the production registry for one with no
+		// declarations, so the defaults stage admits nothing. Every
+		// mapped environment resolves against the production registry,
+		// so only a declaration-free registry still reaches
+		// defaults_unresolvable at the entry point.
+		bareRegistry bool
 	}{
-		{"usage missing env", []string{}, "", "", 0, "usage", 2},
-		{"usage stray operand", []string{"codex_cli", "resume"}, "", "", 0, "usage", 2},
-		{"usage unknown flag", []string{"codex_cli", "--unknown"}, "", "", 0, "usage", 2},
-		{"usage ax-profile untracked", []string{"codex_cli", "--ax-profile", "yolo"}, "", "", 0, "usage", 2},
-		{"resolve environment unknown", []string{"pi"}, "", "curator: environment_unknown: unregistered\n", 1, "resolve_environment_unknown", 1},
-		{"resolve profile unknown", []string{"pi"}, "", "curator: profile_unknown: none current\n", 1, "resolve_profile_unknown", 1},
-		{"resolve repair failed", []string{"pi"}, "", "curator: environment_repair_failed: store\n", 1, "resolve_repair_failed", 1},
-		{"resolve lock unavailable", []string{"pi"}, "", "curator: environment_lock_unavailable: busy\n", 1, "resolve_lock_unavailable", 1},
-		{"resolve invocation failed", []string{"pi"}, "", "boom\n", 3, "resolve_invocation_failed", 1},
-		{"resolve fragment invalid", []string{"pi"}, "{}\n", "", 0, "resolve_fragment_invalid", 1},
-		{"env unsupported", []string{"opencode"}, opencodeLine, "", 0, "env_unsupported", 1},
+		{"usage missing env", []string{}, "", "", 0, "", "", "usage", 2, false},
+		{"usage stray operand", []string{"codex_cli", "resume"}, "", "", 0, "", "", "usage", 2, false},
+		{"usage unknown flag", []string{"codex_cli", "--unknown"}, "", "", 0, "", "", "usage", 2, false},
+		{"usage ax-profile untracked", []string{"codex_cli", "--ax-profile", "yolo"}, "", "", 0, "", "", "usage", 2, false},
+		{"usage locked flag", []string{"pi", "--model", "flag"}, piFragmentLine, "", 0, lockedMachine, "", "usage", 2, false},
+		{"resolve environment unknown", []string{"pi"}, "", "curator: environment_unknown: unregistered\n", 1, "", "", "resolve_environment_unknown", 1, false},
+		{"resolve profile unknown", []string{"pi"}, "", "curator: profile_unknown: none current\n", 1, "", "", "resolve_profile_unknown", 1, false},
+		{"resolve repair failed", []string{"pi"}, "", "curator: environment_repair_failed: store\n", 1, "", "", "resolve_repair_failed", 1, false},
+		{"resolve lock unavailable", []string{"pi"}, "", "curator: environment_lock_unavailable: busy\n", 1, "", "", "resolve_lock_unavailable", 1, false},
+		{"resolve invocation failed", []string{"pi"}, "", "boom\n", 3, "", "", "resolve_invocation_failed", 1, false},
+		{"resolve fragment invalid", []string{"pi"}, "{}\n", "", 0, "", "", "resolve_fragment_invalid", 1, false},
+		{"env unsupported", []string{"opencode"}, opencodeLine, "", 0, "", "", "env_unsupported", 1, false},
+		{"defaults config invalid", []string{"pi"}, piFragmentLine, "", 0, "", "{", "defaults_config_invalid", 1, false},
+		{"defaults unresolvable", []string{"pi"}, piFragmentLine, "", 0, "", "", "defaults_unresolvable", 1, true},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			sr := &scriptedRunner{stdout: c.stdout, stderr: c.stderr, exit: c.exit}
 			var out, errOut strings.Builder
 			resolver := fragment.NewWithRunner("curator", sr)
-			if diagnostics.CodeUsage == c.wantCode {
+			if diagnostics.CodeUsage == c.wantCode && c.machine == "" {
 				resolver = fragment.NewWithRunner("curator", forbiddenRunner{t})
 			}
-			got := run(context.Background(), c.args, &out, &errOut, resolver)
+			deps := testDeps(t, resolver)
+			if c.bareRegistry {
+				deps.registry = vendorplugin.NewRegistry(agentic.NewRegistry())
+			}
+			for path, data := range map[string]string{deps.defaults.Machine: c.machine, deps.defaults.Operator: c.operator} {
+				if data == "" {
+					continue
+				}
+				if err := os.WriteFile(path, []byte(data), 0o600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			got := run(context.Background(), c.args, &out, &errOut, deps)
 			if got != c.wantExit {
 				t.Fatalf("exit = %d, want %d (stderr %q)", got, c.wantExit, errOut.String())
 			}
@@ -440,7 +569,7 @@ func TestRunDetailInjectionCannotForgeLine(t *testing.T) {
 		resolver := fragment.NewWithRunner(
 			filepath.Join(t.TempDir(), "missing-curator"), fragment.ExecRunner{})
 		got := run(context.Background(),
-			[]string{"pi", "--profile", injected}, &out, &errOut, resolver)
+			[]string{"pi", "--profile", injected}, &out, &errOut, testDeps(t, resolver))
 		if got != 1 {
 			t.Fatalf("exit = %d, want 1 (stderr %q)", got, errOut.String())
 		}
@@ -486,7 +615,7 @@ func assertSingleDiagnostic(t *testing.T, stderr, wantCode string) {
 func TestRunResolveFailurePrecedesMapping(t *testing.T) {
 	sr := &scriptedRunner{exit: 1, stderr: "curator: environment_unknown: missing\n"}
 	var out, stderr strings.Builder
-	if got := run(context.Background(), []string{"opencode"}, &out, &stderr, fragment.NewWithRunner("curator", sr)); got != 1 {
+	if got := run(context.Background(), []string{"opencode"}, &out, &stderr, testDeps(t, fragment.NewWithRunner("curator", sr))); got != 1 {
 		t.Fatalf("exit=%d", got)
 	}
 	if sr.calls != 1 || out.Len() != 0 || !strings.Contains(stderr.String(), name+": resolve_environment_unknown: ") || strings.Contains(stderr.String(), "env_unsupported") || strings.Contains(stderr.String(), "not_implemented") {

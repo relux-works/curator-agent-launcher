@@ -14,6 +14,7 @@ import (
 	"github.com/relux-works/curator-agent-launcher/internal/axconfig"
 	"github.com/relux-works/curator-agent-launcher/internal/cli"
 	"github.com/relux-works/curator-agent-launcher/internal/composition"
+	"github.com/relux-works/curator-agent-launcher/internal/defaults"
 	"github.com/relux-works/curator-agent-launcher/internal/diagnostics"
 	"github.com/relux-works/curator-agent-launcher/internal/fragment"
 	sp "github.com/relux-works/curator-agent-launcher/internal/systemprompt"
@@ -128,6 +129,7 @@ func TestOwnedCodesMatchOwners(t *testing.T) {
 		{diagnostics.CodeResolveLockUnavailable, fragment.CodeLockUnavailable},
 		{diagnostics.CodeResolveFragmentInvalid, fragment.CodeFragmentInvalid},
 		{diagnostics.CodeDefaultsInvalid, axconfig.CodeInvalid},
+		{diagnostics.CodeDefaultsUnresolvable, defaults.CodeUnresolvable},
 		{diagnostics.CodeEnvUnsupported, "env_unsupported"},
 		{diagnostics.CodeMCPLayerMissing, composition.CodeMCPLayerMissing},
 		{diagnostics.CodeMCPLayerUnreadable, composition.CodeMCPLayerUnreadable},
@@ -432,9 +434,12 @@ func TestDiagnosticLineDistinguishesTransport(t *testing.T) {
 
 // TestRemainingObligationsAreStated bounds the contract: families without
 // a producer in this build are declared, not silently dropped.
+// defaults_unresolvable graduated from this list when defaults.Complete
+// became its producer; its ownership is pinned by
+// TestOwnedCodesMatchOwners and the entry-point contract instead.
 func TestRemainingObligationsAreStated(t *testing.T) {
 	joined := strings.Join(diagnostics.RemainingObligations(), "\n")
-	for _, need := range []string{"axconfig.Load", "defaults_unresolvable", "plan_refused", "plan_provider_limited", "CheckLaunchBoundary", "PrepareLaunch"} {
+	for _, need := range []string{"axconfig.Load", "plan_refused", "plan_provider_limited", "CheckLaunchBoundary", "PrepareLaunch"} {
 		if !strings.Contains(joined, need) {
 			t.Errorf("obligations missing %q:\n%s", need, joined)
 		}

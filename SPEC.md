@@ -299,8 +299,9 @@ native-Pi design (TASK-260908-ggxfte) is now landed in
 [agents-management PR23](https://github.com/relux-works/skill-agents-management/pull/23),
 commit `a2a6e9f377f62a5872d99ecdfff0d1690e385f2a`: system `pi-native`
 provides native interactive Pi plans for managed homes. This mapping does
-not require a Go import. The operator-only v0.5.11 tag is pending; this
-revision neither pins an unreleased module nor implements §4.3/§4.4.
+not require a Go import. The published v0.5.11 tag (tag object
+`0ea486e46765ecf12fff7c2ac526e12da02e95ed`) carries that commit and is
+pinned by this revision. §4.3 registers the real native-Pi plugin.
 
 An env-id outside this table that Curator nevertheless resolves is
 `env_unsupported`: the launcher refuses rather than guessing a system or
@@ -362,6 +363,20 @@ with no configured effort takes the lineup's effort for that model.
    `EffortSupport` is `EffortSupportNone`. When the lineup admits no model
    for the system, the launch fails with `defaults_unresolvable` — the
    launcher never invents a model name.
+
+   For native Pi, select the first runtime in the following ordered
+   convention whose declaration carries at least one driven model, then
+   apply `Lineup` to that runtime's own models only and bind its contributor.
+   Vendor scales are never compared. If no preferred runtime has a driven
+   row, report `defaults_unresolvable` with that reason and the preference.
+
+   | System | Ordered runtime preference (pure convention) |
+   |---|---|
+   | `pi-native` | `pi-anthropic`, then `pi-openai`, then `pi-google` |
+
+   Flags and files retain per-member precedence. A configured model binds
+   the frozen runtime whose vendor carries its exact id, independently of
+   this fallback preference.
 
 The resolved pair and the level that produced each member are printed on
 stderr at **every** launch, before the plan request, in one line-group —
@@ -998,3 +1013,12 @@ reordered.
   resolve time and not re-verified before exec; the launcher MAY re-verify
   the marker-recorded hashes under a later revision, as §10.1 permits,
   and this revision does not.
+
+## Specification changelog
+
+- 2026-09-15, 0.3.0-draft §4.3: record the orchestrator-authorized Pi
+  runtime preference as a pure convention (defaults-lineup-brief.md).
+  The v0.5.11 Lineup contract ranks within one vendor; the previous text
+  left selection across three Pi vendors undefined. Select a runtime
+  before ranking, preserving per-member overrides. §4.2 records the
+  published tag; no protocol version or Pi MCP scope changes.

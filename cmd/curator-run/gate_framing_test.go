@@ -63,7 +63,7 @@ func TestGateFramingSingleDetailAtRealResolver(t *testing.T) {
 	var out, errOut strings.Builder
 	resolver := fragment.NewWithRunner(gateFixedBinary, fragment.ExecRunner{})
 	got := run(context.Background(),
-		[]string{"pi", "--profile", gateInjectedProfile}, &out, &errOut, resolver)
+		[]string{"pi", "--profile", gateInjectedProfile}, &out, &errOut, testDeps(t, resolver))
 	if got != 1 {
 		t.Fatalf("exit = %d, want 1 (stderr %q)", got, errOut.String())
 	}
