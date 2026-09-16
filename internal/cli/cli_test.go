@@ -54,6 +54,11 @@ var acceptedShapes = []shape{
 	{"version before help: first wins", []string{"--version", "--help"}, false},
 	{"help without env-id", []string{"--model", "m", "-h"}, false},
 	{"env-id lookalike is not validated here", []string{"not_registered"}, false},
+	{"alias claude normalizes to claude_code", []string{"claude"}, false},
+	{"alias codex normalizes to codex_cli", []string{"codex"}, false},
+	{"alias claude with flags and native tail", []string{"claude", "--profile", "p", "--", "resume", "--last"}, false},
+	{"alias codex with flags before env", []string{"--model", "m", "codex"}, false},
+	{"native tail alias spellings untouched", []string{"pi", "--", "claude", "codex"}, false},
 }
 
 // rejected shapes; each must yield a *UsageError. want is a substring of
@@ -139,6 +144,78 @@ func TestParseRejected(t *testing.T) {
 				t.Fatalf("Parse(%q) code = %q, want usage", s.args, err.(*UsageError).Code())
 			}
 		})
+	}
+}
+
+// TestNormalizeEnvID pins the closed alias table: the two aliases map to
+// their canonical ids, and every other spelling (including near-misses,
+// case variants, and whitespace) passes through for the later stages to
+// refuse as today.
+func TestNormalizeEnvID(t *testing.T) {
+	for _, tc := range []struct{ in, want string }{
+		{"claude", "claude_code"},
+		{"codex", "codex_cli"},
+		{"claude_code", "claude_code"},
+		{"codex_cli", "codex_cli"},
+		{"pi", "pi"},
+		{"opencode", "opencode"},
+		{"not_registered", "not_registered"},
+		{"Claude", "Claude"},
+		{"CODEX", "CODEX"},
+		{"claude_code ", "claude_code "},
+		{" claude", " claude"},
+		{"claudes", "claudes"},
+		{"codexx", "codexx"},
+		{"", ""},
+	} {
+		if got := NormalizeEnvID(tc.in); got != tc.want {
+			t.Errorf("NormalizeEnvID(%q) = %q, want %q", tc.in, got, tc.want)
+		}
+		if got := NormalizeEnvID(NormalizeEnvID(tc.in)); got != tc.want {
+			t.Errorf("NormalizeEnvID is not idempotent for %q: %q", tc.in, got)
+		}
+	}
+}
+
+// TestParseNormalizesAliases drives both spellings through Parse, the
+// production call site, and requires the canonical id in the result. The
+// native tail is never normalized.
+func TestParseNormalizesAliases(t *testing.T) {
+	for _, tc := range []struct {
+		args     []string
+		wantEnv  string
+		wantTail []string
+	}{
+		{[]string{"claude"}, "claude_code", []string{}},
+		{[]string{"codex"}, "codex_cli", []string{}},
+		{[]string{"claude", "--profile", "p", "--", "resume", "--last"}, "claude_code", []string{"resume", "--last"}},
+		{[]string{"--model", "m", "codex"}, "codex_cli", []string{}},
+		{[]string{"pi", "--", "claude", "codex"}, "pi", []string{"claude", "codex"}},
+		{[]string{"claude", "--", "claude", "codex"}, "claude_code", []string{"claude", "codex"}},
+	} {
+		inv, err := Parse(tc.args, untracked)
+		if err != nil {
+			t.Errorf("Parse(%q) error = %v", tc.args, err)
+			continue
+		}
+		if inv.EnvID != tc.wantEnv {
+			t.Errorf("Parse(%q).EnvID = %q, want %q", tc.args, inv.EnvID, tc.wantEnv)
+		}
+		if fmt.Sprintf("%q", inv.Native) != fmt.Sprintf("%q", tc.wantTail) {
+			t.Errorf("Parse(%q).Native = %q, want %q", tc.args, inv.Native, tc.wantTail)
+		}
+	}
+	// Near-miss spellings are not aliases: they pass through for the later
+	// stages to refuse, and never normalize to a canonical id.
+	for _, alias := range []string{"Claude", "CODEX", "claudes", "codexx"} {
+		inv, err := Parse([]string{alias}, untracked)
+		if err != nil {
+			t.Errorf("Parse(%q) error = %v, want nil (refusal is later)", alias, err)
+			continue
+		}
+		if inv.EnvID != alias {
+			t.Errorf("Parse(%q).EnvID = %q, want verbatim %q", alias, inv.EnvID, alias)
+		}
 	}
 }
 

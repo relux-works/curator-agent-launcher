@@ -6,14 +6,18 @@ admitted interactive plan, and optional ax tracking. The contract is
 
 ## Production pipeline
 
-The executable supports `claude_code`, `codex_cli`, and native `pi`:
+The executable supports `claude_code` (alias `claude`), `codex_cli`
+(alias `codex`), and native `pi`:
 
 1. Read machine-first `ax.json` before argument validation. Missing configuration
    or `enabled:false` selects direct execution. Malformed or unreadable
    configuration refuses the invocation, including informational flags.
-2. Resolve the fragment with `curator env resolve --repair --format json`,
-   forwarding Curator stderr unchanged, and map its environment to a supported
-   system/provider pair.
+2. Normalize the `<env-id>` operand (`claude` → `claude_code`,
+   `codex` → `codex_cli`) before validation or lookup, then resolve the
+   fragment with `curator env resolve --repair --format json`, forwarding
+   Curator stderr unchanged, and map its environment to a supported
+   system/provider pair. Outputs carry the canonical id only; aliases are
+   never persisted.
 3. Resolve model and effort from flags, operator/machine defaults and the tagged
    lineup. Emit each member's origin before admission. Pi uses the ordered
    convention `pi-anthropic`, `pi-openai`, `pi-google`; vendor scores are never
@@ -111,9 +115,15 @@ curator-run --help
 ```
 
 The general umbrella form is `curator run <env> --profile <p> -- <args>`.
-Supported environments are `claude_code`, `codex_cli`, and `pi`; `opencode`
-is currently refused with `env_unsupported`. Without `--profile`, Curator uses
-the current profile for the applicable scope. Resolution always requests repair.
+Supported environments are `claude_code` (alias `claude`), `codex_cli`
+(alias `codex`), and `pi`; `opencode` is currently refused with
+`env_unsupported`. The operand normalizes to the canonical id before
+validation or lookup, so `curator-run claude` behaves exactly as
+`curator-run claude_code` (and `codex` as `codex_cli`); provenance lines,
+the default ax session name, and the `curator env resolve` call carry the
+canonical id, and any other unknown spelling keeps the existing refusal.
+Without `--profile`, Curator uses the current profile for the applicable
+scope. Resolution always requests repair.
 
 ### Launcher options
 
@@ -182,7 +192,9 @@ argument validation, including help/version. Invalid configuration is
 
 Tracked launches call `ax start <name> --provider <id> --launch-plan -
 [--profile <ax-profile>] --workspace <cwd>`. Without `--name`, the name is
-`<env-id>-<YYYYMMDDTHHMMSSZ>` in UTC. There is no per-launch tracking bypass.
+`<env-id>-<YYYYMMDDTHHMMSSZ>` in UTC, with the canonical `<env-id>`: an
+alias launch names the session `claude_code-…` or `codex_cli-…`. There is
+no per-launch tracking bypass.
 A failed handoff never starts a direct child. Repository tests use **fake ax
 only**; they do not demonstrate an installed ax integration.
 

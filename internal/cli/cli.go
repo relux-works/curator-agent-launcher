@@ -12,7 +12,9 @@
 //
 // Environment identifiers are not validated against a registry here: an
 // unsupported environment is env_unsupported or resolve_environment_unknown
-// in the later stages that own those facts (SPEC §4.1, §4.2).
+// in the later stages that own those facts (SPEC §4.1, §4.2). The two CLI
+// aliases (SPEC §3) are normalized here, before any validation or lookup,
+// so every later stage sees only canonical ids.
 package cli
 
 import (
@@ -46,7 +48,9 @@ options:
   --help, -h                        print this usage text and exit 0
   --version                         print the launcher name and version, exit 0
 
-Environments: claude_code, codex_cli, pi. opencode is currently unsupported.
+Environments: claude_code (alias claude), codex_cli (alias codex), pi.
+opencode is currently unsupported. Aliases normalize to the canonical id
+before validation or lookup; outputs carry the canonical id only.
 Omitting --profile uses Curator's current profile; resolution always repairs.
 Use curator run <env> --profile <p> -- <args> for umbrella discovery.
 Install curator-run on trusted PATH (e.g. /usr/local/bin), not Curator's
@@ -124,14 +128,31 @@ const (
 // sessionNamePattern is the ax §2.1 session-name grammar, anchored.
 var sessionNamePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`)
 
+// NormalizeEnvID maps the two SPEC §3 CLI aliases to their canonical
+// environment ids: claude -> claude_code, codex -> codex_cli. Every other
+// spelling, including unknown ids, is returned unchanged so the later
+// stages that own those facts refuse it as today. The mapping is exact
+// and case-sensitive; it never trims, folds, or prefixes.
+func NormalizeEnvID(id string) string {
+	switch id {
+	case "claude":
+		return "claude_code"
+	case "codex":
+		return "codex_cli"
+	default:
+		return id
+	}
+}
+
 // Invocation is a successfully parsed command line. Every member is as
-// typed; nothing is resolved, defaulted, or validated beyond §3.
+// typed, except EnvID which carries the normalized canonical id (SPEC §3);
+// nothing is resolved, defaulted, or validated beyond §3.
 type Invocation struct {
 	// Info is non-zero for --help / -h / --version; every other member is
 	// then zero and the caller prints and exits 0.
 	Info Info
 
-	// EnvID is the required operand, verbatim.
+	// EnvID is the required operand, normalized through NormalizeEnvID.
 	EnvID string
 	// Profile is the --profile value; ProfileSet tells absence from a
 	// value that was never given (an empty value is a usage error, so
@@ -208,6 +229,8 @@ var valueFlags = map[string]bool{
 //     is a missing value. A repeated flag is a usage error, never last-wins.
 //   - The first token not beginning with "-" is <env-id>; a second one is a
 //     stray operand. Any other token beginning with "-" is an unknown flag.
+//     The operand is normalized through NormalizeEnvID before it is stored,
+//     so an alias never reaches validation, lookup, or output.
 //   - "--system-prompt" and "--ax-profile" accept only their vocabularies;
 //     "--name" must match the ax §2.1 grammar; "--ax-profile" requires
 //     opts.AxConfigured.
@@ -237,7 +260,7 @@ func Parse(args []string, opts Options) (Invocation, error) {
 			if tok == "" {
 				return inv, usageErr("empty operand before --: <env-id> must not be empty")
 			}
-			inv.EnvID = tok
+			inv.EnvID = NormalizeEnvID(tok)
 			envSet = true
 			continue
 		}

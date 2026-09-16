@@ -132,7 +132,7 @@ change, not a flag addition.
 
 | Element | Plane | Meaning |
 |---|---|---|
-| `<env-id>` | context + spawn + session | Required operand. A registered Curator environment identifier (`claude_code`, `codex_cli`, `opencode`, `pi`). Selects the fragment to resolve and, through the closed mapping of §4.2, both the agentic system to plan and the `ax` provider id to hand off to. |
+| `<env-id>` | context + spawn + session | Required operand. A registered Curator environment identifier (`claude_code`, `codex_cli`, `opencode`, `pi`), with `claude` and `codex` accepted as aliases of `claude_code` and `codex_cli`. The operand normalizes to the canonical id before any validation or lookup; outputs, diagnostics, fragments, configuration records, and locks carry the canonical id only, and an alias is never persisted. Selects the fragment to resolve and, through the closed mapping of §4.2, both the agentic system to plan and the `ax` provider id to hand off to. |
 | `--profile <name>` | context | Forwarded verbatim to `curator env resolve` as its `--profile` operand. Absent, resolution uses the current profile for the applicable scope. |
 | `--system-prompt <append\|replace>` | execution | Explicit opt-in that engages the fragment's system-prompt channel with the given semantics. The value is required: the opt-in states what it wants, and the launcher never chooses replacement by default. See §5. |
 | `--model <model>` | spawn | Level 1 of the §4.3 default precedence: passed through to the spawn plane's plan request as declared. The launcher does not validate model names; admission is the spawn plane's verdict. |
@@ -150,7 +150,10 @@ Parsing rules, closed:
 - The first non-flag operand before `--` is `<env-id>`. Any further
   non-flag operand before `--` is a usage error: native arguments MUST
   follow `--`, so that the boundary between the launcher's surface and
-  the tool's is visible in the command line itself.
+  the tool's is visible in the command line itself. The operand
+  normalizes through the §3 alias table (`claude` → `claude_code`,
+  `codex` → `codex_cli`) before validation or lookup; any other
+  spelling outside the registry keeps the existing refusal.
 - An unrecognized flag before `--` is a usage error. It is never
   forwarded: silent forwarding would let a typo in a launcher flag reach
   the tool as tool input.
@@ -182,9 +185,12 @@ The launcher runs, as a subprocess:
 curator env resolve <env-id> [--profile <name>] --repair --format json
 ```
 
-and parses the closed `launch-env-fragment-v1` object per environments.md
-§10.2 as revised by Decision 0012 D8, rejecting unknown fields, unknown
-kinds, and unknown semantics values.
+with the canonical `<env-id>` of §3: the launcher normalizes the `claude`
+and `codex` aliases before invoking the subprocess, so the alias never
+reaches Curator's lookup. The launcher then parses the closed
+`launch-env-fragment-v1` object per environments.md §10.2 as revised by
+Decision 0012 D8, rejecting unknown fields, unknown kinds, and unknown
+semantics values.
 
 `--repair` is **always** passed (environments.md §9.2 step 5, §10.1;
 `profiles/manager.md` §12.5): the launcher is the one caller that repairs.
@@ -612,9 +618,10 @@ writing the document to `ax`'s standard input (`--launch-plan -` reads
 the plan document, never the child's stdin). The operands and flags:
 
 - `<name>`: `--name` when given, else `<env-id>-<utc-stamp>` with the
-  stamp `YYYYMMDDTHHMMSSZ` in UTC at composition time (for example
-  `codex_cli-20260905T073254Z`). The default always fits the `ax` §2.1
-  grammar: the longest §4.2 env-id is 11 characters and the stamp is 16.
+  canonical `<env-id>` of §3 and the stamp `YYYYMMDDTHHMMSSZ` in UTC at
+  composition time (for example `codex_cli-20260905T073254Z`). The
+  default always fits the `ax` §2.1 grammar: the longest §4.2 env-id is
+  11 characters and the stamp is 16.
   The profile name is deliberately not part of it — it travels in the
   `profile-name` extension, and an ordinary profile name would push the
   session name past 64 characters. Same-second collisions are Decision

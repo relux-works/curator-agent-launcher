@@ -126,6 +126,12 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, deps laun
 		return 0
 	}
 
+	// SPEC §3: the operand is already normalized by cli.Parse; normalize
+	// again at this boundary so the resolve argv and the default ax session
+	// name (execution.Prepare) always carry the canonical id even if the
+	// parser is ever bypassed. Aliases never persist beyond this point.
+	inv.EnvID = cli.NormalizeEnvID(inv.EnvID)
+
 	// SPEC §4.1: obtain the fragment. The subprocess inherits the
 	// launcher's working directory and environment; Curator's stderr goes
 	// to the operator unchanged.

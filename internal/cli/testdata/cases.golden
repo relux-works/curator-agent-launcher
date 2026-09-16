@@ -148,6 +148,31 @@ args: ["not_registered"]
 ax: false
 result: env="not_registered" tracked=false native=[]
 
+# alias claude normalizes to claude_code
+args: ["claude"]
+ax: false
+result: env="claude_code" tracked=false native=[]
+
+# alias codex normalizes to codex_cli
+args: ["codex"]
+ax: false
+result: env="codex_cli" tracked=false native=[]
+
+# alias claude with flags and native tail
+args: ["claude" "--profile" "p" "--" "resume" "--last"]
+ax: false
+result: env="claude_code" tracked=false profile="p" native=["resume" "--last"]
+
+# alias codex with flags before env
+args: ["--model" "m" "codex"]
+ax: false
+result: env="codex_cli" tracked=false model="m" native=[]
+
+# native tail alias spellings untouched
+args: ["pi" "--" "claude" "codex"]
+ax: false
+result: env="pi" tracked=false native=["claude" "codex"]
+
 # no arguments
 args: []
 ax: false

@@ -638,3 +638,90 @@ func TestRunResolveFailurePrecedesMapping(t *testing.T) {
 		t.Fatalf("stderr=%q calls=%d", stderr.String(), sr.calls)
 	}
 }
+
+// TestRunAliasesBehaveAsCanonical drives both spellings through run, the
+// production entry point, with the real closed fragment parser. Each alias
+// must resolve with the canonical argv, print the same origin group as the
+// canonical spelling, and produce byte-identical stdout/stderr.
+func TestRunAliasesBehaveAsCanonical(t *testing.T) {
+	pairs := []struct{ alias, canonical string }{
+		{"claude", "claude_code"},
+		{"codex", "codex_cli"},
+	}
+	for _, p := range pairs {
+		t.Run(p.alias, func(t *testing.T) {
+			runOnce := func(args []string) (int, string, string, []string) {
+				sr := &scriptedRunner{stdout: fragmentLineFor(p.canonical)}
+				var out, stderr strings.Builder
+				code := run(context.Background(), args, &out, &stderr, testDeps(t, fragment.NewWithRunner("curator", sr)))
+				return code, out.String(), stderr.String(), append([]string(nil), sr.argv...)
+			}
+			aliasCode, aliasOut, aliasErr, aliasArgv := runOnce([]string{p.alias})
+			canonCode, canonOut, canonErr, canonArgv := runOnce([]string{p.canonical})
+			if aliasCode != 1 || canonCode != 1 {
+				t.Fatalf("alias exit=%d canonical exit=%d, want 1/1 (alias stderr %q)", aliasCode, canonCode, aliasErr)
+			}
+			wantArgv := []string{"env", "resolve", p.canonical, "--repair", "--format", "json"}
+			if strings.Join(aliasArgv, " ") != strings.Join(wantArgv, " ") {
+				t.Fatalf("alias resolve argv %q, want canonical %q", aliasArgv, wantArgv)
+			}
+			if strings.Join(canonArgv, " ") != strings.Join(wantArgv, " ") {
+				t.Fatalf("canonical resolve argv %q, want %q", canonArgv, wantArgv)
+			}
+			if aliasOut != canonOut || aliasErr != canonErr {
+				t.Fatalf("alias and canonical differ:\nalias out=%q err=%q\ncanon out=%q err=%q", aliasOut, aliasErr, canonOut, canonErr)
+			}
+			if !strings.Contains(aliasErr, name+": defaults: ") || !strings.Contains(aliasErr, name+": plan_refused: ") {
+				t.Fatalf("alias stderr missing origin group before refusal: %q", aliasErr)
+			}
+			// With flags and a native tail, the profile still forwards
+			// verbatim while the env operand stays canonical.
+			sr := &scriptedRunner{stdout: fragmentLineFor(p.canonical)}
+			var out, stderr strings.Builder
+			args := []string{p.alias, "--profile", "companyA", "--", "resume", "--last"}
+			if got := run(context.Background(), args, &out, &stderr, testDeps(t, fragment.NewWithRunner("curator", sr))); got != 1 {
+				t.Fatalf("flagged alias exit=%d, want 1 (stderr %q)", got, stderr.String())
+			}
+			want := []string{"env", "resolve", p.canonical, "--profile", "companyA", "--repair", "--format", "json"}
+			if strings.Join(sr.argv, " ") != strings.Join(want, " ") {
+				t.Fatalf("flagged alias resolve argv %q, want %q", sr.argv, want)
+			}
+		})
+	}
+}
+
+// TestRunAliasFragmentNeverAccepted proves the wire is unchanged: a fragment
+// naming the alias is not a valid launch-env-fragment-v1 and is refused as
+// resolve_fragment_invalid, never launched.
+func TestRunAliasFragmentNeverAccepted(t *testing.T) {
+	for _, alias := range []string{"claude", "codex"} {
+		sr := &scriptedRunner{stdout: strings.ReplaceAll(piFragmentLine, `"environment":"pi"`, `"environment":"`+alias+`"`)}
+		var out, stderr strings.Builder
+		if got := run(context.Background(), []string{alias}, &out, &stderr, testDeps(t, fragment.NewWithRunner("curator", sr))); got != 1 {
+			t.Fatalf("%s: exit=%d, want 1", alias, got)
+		}
+		if sr.calls != 1 || out.Len() != 0 || !strings.HasPrefix(stderr.String(), name+": resolve_fragment_invalid: ") {
+			t.Fatalf("%s: stderr=%q calls=%d", alias, stderr.String(), sr.calls)
+		}
+	}
+}
+
+// TestRunUnknownSpellingsStillRefused proves the alias table is closed:
+// near-miss spellings pass through verbatim to curator and keep the
+// existing refusal; they never normalize to a canonical id.
+func TestRunUnknownSpellingsStillRefused(t *testing.T) {
+	for _, unknown := range []string{"Claude", "CODEX", "claudes", "codexx", "not_registered"} {
+		sr := &scriptedRunner{stderr: "curator: environment_unknown: unregistered environment\n", exit: 1}
+		var out, stderr strings.Builder
+		if got := run(context.Background(), []string{unknown}, &out, &stderr, testDeps(t, fragment.NewWithRunner("curator", sr))); got != 1 {
+			t.Fatalf("%s: exit=%d, want 1", unknown, got)
+		}
+		want := []string{"env", "resolve", unknown, "--repair", "--format", "json"}
+		if strings.Join(sr.argv, " ") != strings.Join(want, " ") {
+			t.Fatalf("%s: resolve argv %q, want verbatim %q", unknown, sr.argv, want)
+		}
+		if out.Len() != 0 || !strings.HasPrefix(stderr.String(), "curator: environment_unknown: unregistered environment\n"+name+": resolve_environment_unknown: ") {
+			t.Fatalf("%s: stderr=%q", unknown, stderr.String())
+		}
+	}
+}

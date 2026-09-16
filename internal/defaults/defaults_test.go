@@ -102,6 +102,40 @@ func TestLoadKnownEnvironmentsAndPresence(t *testing.T) {
 	code(t, err, defaults.CodeInvalid)
 }
 
+// TestLoadRejectsAliasKeys is the reader-side bound on configuration keys:
+// defaults.json keys stay the canonical §4.2 ids, and the CLI aliases are
+// rejected as unknown environments at load in both files, and refused by
+// Resolve. It proves reader rejection only; launch-time persistence is proven
+// separately through the production entry point in
+// TestProductionAliasPersistedBytesEqual (cmd/curator-run).
+func TestLoadRejectsAliasKeys(t *testing.T) {
+	for _, alias := range []string{"claude", "codex"} {
+		for _, operator := range []bool{false, true} {
+			p := paths(t)
+			target := p.Machine
+			if operator {
+				target = p.Operator
+			}
+			write(t, target, doc(`{"`+alias+`":{"model":"m"}}`, false))
+			_, err := defaults.Load(p)
+			code(t, err, defaults.CodeInvalid)
+			if err == nil || !strings.Contains(err.Error(), "unknown environment") {
+				t.Fatalf("%s operator=%v: error %v does not name the unknown environment", alias, operator, err)
+			}
+		}
+		empty := paths(t)
+		f, err := defaults.Load(empty)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := f.Resolve(alias, defaults.Pair{}); err == nil {
+			t.Fatalf("Resolve(%q) accepted an alias", alias)
+		} else {
+			code(t, err, defaults.CodeInvalid)
+		}
+	}
+}
+
 func TestResolvePrecedence(t *testing.T) {
 	// All 64 member-presence combinations independently select each source.
 	for mask := 0; mask < 64; mask++ {
