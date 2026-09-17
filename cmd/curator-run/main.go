@@ -27,7 +27,7 @@ import (
 
 const (
 	name        = cli.Name
-	specVersion = "0.3.0-draft"
+	specVersion = "0.4.0-draft"
 	// buildVersion is the launcher's own version; the specification
 	// version is reported beside it (SPEC §8).
 	buildVersion = "0.1.0-dev"
@@ -80,6 +80,10 @@ type launchDeps struct {
 	axBinary     string
 	stdin        io.Reader
 	now          func() time.Time
+	// providerPath supplies the §4.3 provider-line path. Production
+	// leaves it nil so EmitGroup resolves os.Executable; tests inject
+	// a deterministic path so goldens stay stable across machines.
+	providerPath func() string
 
 	configPaths func() (defaults.Paths, error)
 	resolver    fragmentResolver
@@ -159,8 +163,9 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, deps laun
 	// SPEC §4.3: resolve model and effort defaults. A locked flag is a
 	// usage refusal, an unreadable file is defaults_config_invalid, and
 	// a system the lineup admits nothing for is defaults_unresolvable —
-	// every one terminal with nothing launched. The resolved pair and
-	// its per-member origins print on stderr before the plan request.
+	// every one terminal with nothing launched. The provider path and
+	// the resolved pair with its per-member origins print on stderr as
+	// one line-group before the plan request.
 	if deps.configPaths != nil {
 		paths, err := deps.configPaths()
 		if err != nil {
@@ -181,7 +186,11 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, deps laun
 		var resolved defaults.Resolved
 		resolved, err = files.Complete(frag.Environment, flags, deps.registry)
 		if err == nil {
-			_ = defaults.EmitGroup(stderr, resolved)
+			provider := defaults.ResolveProviderPath()
+			if deps.providerPath != nil {
+				provider = deps.providerPath()
+			}
+			_ = defaults.EmitGroupWithProvider(stderr, resolved, provider)
 			return launch(ctx, inv, frag, target, resolved, stdout, stderr, deps)
 		}
 	}

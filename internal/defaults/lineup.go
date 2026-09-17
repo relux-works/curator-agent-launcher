@@ -29,6 +29,8 @@ package defaults
 import (
 	"fmt"
 	"io"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/relux-works/skill-agents-management/pkg/agentic"
@@ -276,16 +278,75 @@ func (r Resolved) Describe() string {
 	return "model=" + foldValue(r.Model.Value) + " (" + string(r.Model.Origin) + ") " + effort
 }
 
-// Line is the stderr origin line-group body: one line naming each
-// resolved value and its origin.
+// Line is the stderr defaults line of the §4.3 line-group: one line
+// naming each resolved value and its origin.
 func (r Resolved) Line() string {
 	return cli.Name + ": defaults: " + r.Describe()
 }
 
-// EmitGroup writes the origin line-group to stderr. It runs at every
-// launch after resolution and before the plan request, so an operator
-// always sees which model is about to run and why.
+// ProviderUnavailable is the SPEC §4.3 diagnostic-safe fallback carried
+// by the provider line when the executable path cannot be resolved. It
+// is a bare token, never a path, so it cannot be mistaken for a location
+// and never parses as a diagnostic line.
+const ProviderUnavailable = "unavailable"
+
+// ResolveProviderPath reports the launcher's own executable path as the
+// umbrella resolved it: os.Executable resolved through symlinks,
+// absolute. On any failure — the lookup fails, symlink evaluation
+// fails, or the result is empty or not absolute — it returns
+// ProviderUnavailable. Callers never fail the launch on this value.
+func ResolveProviderPath() string {
+	return ResolveProviderPathWith(os.Executable, filepath.EvalSymlinks)
+}
+
+// ResolveProviderPathWith is the injectable form of ResolveProviderPath:
+// executable supplies the own-binary path, evalSymlinks resolves it. It
+// exists so tests can drive every fallback without touching the process
+// binary. Production passes os.Executable and filepath.EvalSymlinks.
+func ResolveProviderPathWith(executable func() (string, error), evalSymlinks func(string) (string, error)) string {
+	if executable == nil || evalSymlinks == nil {
+		return ProviderUnavailable
+	}
+	exe, err := executable()
+	if err != nil || exe == "" {
+		return ProviderUnavailable
+	}
+	resolved, err := evalSymlinks(exe)
+	if err != nil || resolved == "" || !filepath.IsAbs(resolved) {
+		return ProviderUnavailable
+	}
+	return resolved
+}
+
+// ProviderLine renders the SPEC §4.3 provider line for one resolved
+// path. The value is folded with the same framing rule as the defaults
+// line, so a hostile path never splits the line-group into a second
+// parseable line. An empty path carries the fallback.
+func ProviderLine(path string) string {
+	if path == "" {
+		path = ProviderUnavailable
+	}
+	return cli.Name + ": provider: path=" + foldValue(path)
+}
+
+// EmitGroup writes the §4.3 line-group to stderr: the provider line
+// first, then the defaults line. It runs at every launch after
+// resolution and before the plan request, so an operator always sees
+// which binary is about to run, and which model, and why. Path
+// resolution never fails the launch: on failure the provider line
+// carries the fallback.
 func EmitGroup(stderr io.Writer, r Resolved) error {
+	return EmitGroupWithProvider(stderr, r, ResolveProviderPath())
+}
+
+// EmitGroupWithProvider writes the §4.3 line-group with an explicit
+// provider path. Production resolves the path via ResolveProviderPath;
+// tests inject a deterministic path so goldens stay stable across
+// machines. An empty path carries the fallback.
+func EmitGroupWithProvider(stderr io.Writer, r Resolved, providerPath string) error {
+	if _, err := fmt.Fprintln(stderr, ProviderLine(providerPath)); err != nil {
+		return err
+	}
 	_, err := fmt.Fprintln(stderr, r.Line())
 	return err
 }

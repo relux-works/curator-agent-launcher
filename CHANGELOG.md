@@ -3,7 +3,7 @@
 ## 0.1.0 — unreleased
 
 Release-readiness candidate; source builds report `0.1.0-dev`, against
-SPEC `0.3.0-draft`. No tag or release is created by this work.
+SPEC `0.4.0-draft`. No tag or release is created by this work.
 
 ### Added
 
@@ -27,6 +27,11 @@ SPEC `0.3.0-draft`. No tag or release is created by this work.
   composition and direct/tracked execution, with entry-point goldens (PR #15).
 - Installation/configuration help and an opt-in `Test (rose-air)` ARM64 CI lane;
   hosted build, formatting, vet, tests, race and goldens remain enabled.
+- E4: the §4.3 stderr line-group reports the resolved provider path
+  (`curator-run: provider: path=<absolute path>`, symlink-resolved own
+  executable, `path=unavailable` fallback that never fails the launch)
+  before the defaults line at every launch; path-only in this revision
+  (SPEC `0.4.0-draft`).
 
 ### Corrected
 

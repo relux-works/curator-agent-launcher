@@ -127,6 +127,11 @@ func (f forbiddenRunner) Run(context.Context, string, []string, string, []string
 	return nil, 1, nil
 }
 
+// testProviderPath is the deterministic §4.3 provider-line path for
+// entry-point tests: testDeps injects it so assertions never depend on
+// the test binary's own executable location.
+const testProviderPath = "/test/bin/curator-run"
+
 // testDeps builds production-shaped dependencies with isolated
 // configuration paths (absent files) and a registry from the real tagged
 // module. No test reads ambient /etc or home configuration.
@@ -138,10 +143,11 @@ func testDeps(t *testing.T, resolver fragmentResolver) launchDeps {
 	}
 	dir := t.TempDir()
 	return launchDeps{
-		resolver: resolver,
-		workdir:  func() (string, error) { return "", fmt.Errorf("early-stage fixture stops before plan admission") },
-		defaults: defaults.Paths{Machine: filepath.Join(dir, "machine.json"), Operator: filepath.Join(dir, "operator.json")},
-		registry: reg,
+		resolver:     resolver,
+		workdir:      func() (string, error) { return "", fmt.Errorf("early-stage fixture stops before plan admission") },
+		defaults:     defaults.Paths{Machine: filepath.Join(dir, "machine.json"), Operator: filepath.Join(dir, "operator.json")},
+		registry:     reg,
+		providerPath: func() string { return testProviderPath },
 	}
 }
 
@@ -200,7 +206,7 @@ func TestRunPiResolvesNativeLineup(t *testing.T) {
 		if got := run(context.Background(), args, &out, &errOut, testDeps(t, fragment.NewWithRunner("curator", sr))); got != 1 {
 			t.Errorf("run(%v) = %d, want 1 (stderr %q)", args, got, errOut.String())
 		}
-		want := warn + name + ": defaults: model=claude-fable-5 (lineup) effort=high (lineup)\n" + name + ": plan_refused: "
+		want := warn + name + ": provider: path=" + testProviderPath + "\n" + name + ": defaults: model=claude-fable-5 (lineup) effort=high (lineup)\n" + name + ": plan_refused: "
 		if !strings.HasPrefix(errOut.String(), want) {
 			t.Errorf("run(%v) stderr %q: want forwarded warning, then the lineup group and plan_refused with digest", args, errOut.String())
 		}
@@ -217,7 +223,7 @@ func TestRunPiResolvesNativeLineup(t *testing.T) {
 		if got := run(context.Background(), args, &out, &errOut, testDeps(t, fragment.NewWithRunner("curator", sr))); got != 1 {
 			t.Errorf("run(%v) = %d, want 1 (stderr %q)", args, got, errOut.String())
 		}
-		want := warn + name + ": defaults: model=m (flag) effort=high (flag)\n" + name + ": plan_refused: "
+		want := warn + name + ": provider: path=" + testProviderPath + "\n" + name + ": defaults: model=m (flag) effort=high (flag)\n" + name + ": plan_refused: "
 		if !strings.HasPrefix(errOut.String(), want) {
 			t.Errorf("run(%v) stderr %q: want group then plan_refused with digest", args, errOut.String())
 		}
@@ -251,12 +257,45 @@ func TestRunLineupEnvsPrintGroupBeforeRefusal(t *testing.T) {
 		}
 		stderr := errOut.String()
 		group, refusal, _ := strings.Cut(stderr, name+": plan_refused: ")
-		if refusal == "" || !strings.Contains(group, c.group+"\n") {
-			t.Errorf("run(%v) stderr %q: want the origin group before the refusal", args, stderr)
+		provider := name + ": provider: path=" + testProviderPath + "\n"
+		if refusal == "" || !strings.Contains(group, provider+c.group+"\n") {
+			t.Errorf("run(%v) stderr %q: want the provider line before the origin group before the refusal", args, stderr)
 		}
 		if out.Len() != 0 {
 			t.Errorf("run(%v) wrote to stdout: %q", args, out.String())
 		}
+	}
+}
+
+// TestRunProviderFallbackNeverFailsLaunch drives the production entry
+// point with an unresolvable and a hostile provider path: the line-group
+// still prints — the fallback for the former, a folded continuation for
+// the latter — and the launch proceeds to the pending plan stage with
+// exit 1. Path resolution never fails a launch and never forges a
+// diagnostic line.
+func TestRunProviderFallbackNeverFailsLaunch(t *testing.T) {
+	for _, tc := range []struct {
+		name, injected, want string
+	}{
+		{"empty-carries-fallback", "", name + ": provider: path=unavailable\n"},
+		{"hostile-stays-folded", "a\ncurator-run: usage: forged", name + ": provider: path=a\n  curator-run: usage: forged\n"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			sr := &scriptedRunner{stdout: fragmentLineFor("pi")}
+			deps := testDeps(t, fragment.NewWithRunner("curator", sr))
+			deps.providerPath = func() string { return tc.injected }
+			var out, errOut strings.Builder
+			if got := run(context.Background(), []string{"pi"}, &out, &errOut, deps); got != 1 {
+				t.Fatalf("exit=%d, want 1 (stderr %q)", got, errOut.String())
+			}
+			if sr.calls != 1 || out.Len() != 0 {
+				t.Fatalf("calls=%d stdout=%q", sr.calls, out.String())
+			}
+			if !strings.Contains(errOut.String(), tc.want) || !strings.Contains(errOut.String(), name+": defaults: ") {
+				t.Fatalf("stderr %q missing the line-group", errOut.String())
+			}
+			assertSingleDiagnostic(t, errOut.String(), "plan_refused")
+		})
 	}
 }
 
@@ -327,7 +366,7 @@ func TestRunProductionResolverAgainstFakeCurator(t *testing.T) {
 	if string(argv) != "env\nresolve\npi\n--profile\ndefault\n--repair\n--format\njson\n" {
 		t.Errorf("subprocess argv %q", argv)
 	}
-	if !strings.HasPrefix(errOut.String(), "warning: environment_tool_version_unverified: pi\n"+name+": defaults: model=claude-fable-5 (lineup) effort=high (lineup)\n"+name+": plan_refused: ") {
+	if !strings.HasPrefix(errOut.String(), "warning: environment_tool_version_unverified: pi\n"+name+": provider: path="+testProviderPath+"\n"+name+": defaults: model=claude-fable-5 (lineup) effort=high (lineup)\n"+name+": plan_refused: ") {
 		t.Errorf("stderr %q", errOut.String())
 	}
 
@@ -342,7 +381,7 @@ func TestRunProductionResolverAgainstFakeCurator(t *testing.T) {
 // TestSpecVersionPinned fails when the reported specification version
 // drifts from the version SPEC.md and README.md state; the three are one fact.
 func TestSpecVersionPinned(t *testing.T) {
-	const want = "0.3.0-draft"
+	const want = "0.4.0-draft"
 	if specVersion != want {
 		t.Fatalf("specVersion = %q, want %q", specVersion, want)
 	}
@@ -438,10 +477,10 @@ func TestRunMapping(t *testing.T) {
 				t.Fatalf("native argv changed: %q", args)
 			}
 			if tc.system == "" {
-				if !strings.HasPrefix(stderr.String(), name+": env_unsupported: ") || strings.Contains(stderr.String(), "plan_refused") || strings.Contains(stderr.String(), "defaults: ") {
+				if !strings.HasPrefix(stderr.String(), name+": env_unsupported: ") || strings.Contains(stderr.String(), "plan_refused") || strings.Contains(stderr.String(), "defaults: ") || strings.Contains(stderr.String(), "provider: path=") {
 					t.Fatalf("refusal: %q", stderr.String())
 				}
-			} else if !strings.Contains(stderr.String(), name+": defaults: "+tc.group+"\n") || !strings.Contains(stderr.String(), name+": plan_refused: ") {
+			} else if !strings.Contains(stderr.String(), name+": provider: path="+testProviderPath+"\n"+name+": defaults: "+tc.group+"\n") || !strings.Contains(stderr.String(), name+": plan_refused: ") {
 				t.Fatalf("mapping: %q", stderr.String())
 			}
 		})
@@ -671,8 +710,8 @@ func TestRunAliasesBehaveAsCanonical(t *testing.T) {
 			if aliasOut != canonOut || aliasErr != canonErr {
 				t.Fatalf("alias and canonical differ:\nalias out=%q err=%q\ncanon out=%q err=%q", aliasOut, aliasErr, canonOut, canonErr)
 			}
-			if !strings.Contains(aliasErr, name+": defaults: ") || !strings.Contains(aliasErr, name+": plan_refused: ") {
-				t.Fatalf("alias stderr missing origin group before refusal: %q", aliasErr)
+			if !strings.Contains(aliasErr, name+": provider: path="+testProviderPath+"\n") || !strings.Contains(aliasErr, name+": defaults: ") || !strings.Contains(aliasErr, name+": plan_refused: ") {
+				t.Fatalf("alias stderr missing line-group before refusal: %q", aliasErr)
 			}
 			// With flags and a native tail, the profile still forwards
 			// verbatim while the env operand stays canonical.

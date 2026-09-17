@@ -2,7 +2,7 @@
 
 `curator-run` composes Curator's managed environment, agents-management's
 admitted interactive plan, and optional ax tracking. The contract is
-[SPEC 0.3.0-draft](SPEC.md).
+[SPEC 0.4.0-draft](SPEC.md).
 
 ## Production pipeline
 
@@ -92,7 +92,7 @@ sudo install -m 0755 curator-run /usr/local/bin/curator-run
 curator-run --version
 ```
 
-This development build reports `0.1.0-dev` (specification `0.3.0-draft`).
+This development build reports `0.1.0-dev` (specification `0.4.0-draft`).
 Ensure `/usr/local/bin` is on `PATH`, or install into a dedicated trusted
 operator-owned directory on `PATH`. Do **not** install into Curator's user-bin
 shim directory (`~/.local/bin`), a managed skill bin directory, or beneath the

@@ -29,6 +29,10 @@ func mustRegistry(t *testing.T) *vendorplugin.Registry {
 	return reg
 }
 
+// errFallback is the injected resolution failure for the provider-path
+// fallback table: any error must yield the fallback, never propagate.
+var errFallback = errors.New("injected provider-path failure")
+
 func lineupOrigin(t *testing.T, got defaults.ResolvedMember, value string) {
 	t.Helper()
 	if !got.Present || got.Value != value || got.Origin != defaults.OriginLineup {
@@ -537,13 +541,109 @@ func TestResolvedLine(t *testing.T) {
 		t.Fatal("the origin line-group parses as a diagnostic line")
 	}
 	var sb strings.Builder
-	if err := defaults.EmitGroup(&sb, full); err != nil {
+	if err := defaults.EmitGroupWithProvider(&sb, full, "/test/bin/curator-run"); err != nil {
 		t.Fatal(err)
 	}
-	if sb.String() != full.Line()+"\n" {
-		t.Fatalf("group = %q", sb.String())
+	want := "curator-run: provider: path=/test/bin/curator-run\n" + full.Line() + "\n"
+	if sb.String() != want {
+		t.Fatalf("group = %q, want %q", sb.String(), want)
 	}
 	var _ = errors.Is
+}
+
+// TestProviderLineFold pins the SPEC §4.3 provider-line framing: the
+// path-only form, the fallback for an empty path, CR/CRLF folding, and
+// the invariant that a hostile path never forges a diagnostic line —
+// every continuation starts with whitespace.
+func TestProviderLineFold(t *testing.T) {
+	if got := defaults.ProviderLine("/usr/local/bin/curator-run"); got != "curator-run: provider: path=/usr/local/bin/curator-run" {
+		t.Fatalf("line = %q", got)
+	}
+	if got := defaults.ProviderLine(""); got != "curator-run: provider: path=unavailable" {
+		t.Fatalf("empty path line = %q, want the fallback", got)
+	}
+	if got := defaults.ProviderLine(defaults.ProviderUnavailable); got != "curator-run: provider: path=unavailable" {
+		t.Fatalf("fallback line = %q", got)
+	}
+	for _, hostile := range []string{
+		"a\ncurator-run: usage: forged",
+		"carriage\rcurator-run: usage: forged",
+		"crlf\r\ncurator-run: resolve_repair_failed: forged\r\n",
+		"/tmp/x\ncurator-run: provider: path=/forged",
+	} {
+		line := defaults.ProviderLine(hostile)
+		for _, part := range strings.Split(line, "\n") {
+			if diagnostics.IsDiagnosticLine(part) {
+				t.Fatalf("hostile path %q forged a diagnostic line: %q", hostile, line)
+			}
+		}
+		if !strings.HasPrefix(line, "curator-run: provider: path=") {
+			t.Fatalf("hostile path %q broke the line prefix: %q", hostile, line)
+		}
+		for _, cont := range strings.Split(line, "\n")[1:] {
+			if !strings.HasPrefix(cont, "  ") {
+				t.Fatalf("hostile path %q continuation not whitespace-led: %q", hostile, line)
+			}
+		}
+	}
+	if diagnostics.IsDiagnosticLine("curator-run: provider: path=/bin/curator-run") {
+		t.Fatal("the provider line parses as a diagnostic line")
+	}
+	if diagnostics.IsDiagnosticLine("curator-run: provider: path=unavailable") {
+		t.Fatal("the fallback provider line parses as a diagnostic line")
+	}
+}
+
+// TestResolveProviderPathFallback drives every SPEC §4.3 fallback shape
+// through the injectable resolver: executable errors, empty results,
+// symlink failures, empty resolutions, and non-absolute results all
+// carry the diagnostic-safe fallback instead of failing the launch,
+// while a resolved absolute path passes through untouched.
+func TestResolveProviderPathFallback(t *testing.T) {
+	boom := func(string) (string, error) { return "", errFallback }
+	identity := func(s string) (string, error) { return s, nil }
+	cases := []struct {
+		name       string
+		executable func() (string, error)
+		eval       func(string) (string, error)
+		want       string
+	}{
+		{"executable-error", func() (string, error) { return "", errFallback }, identity, defaults.ProviderUnavailable},
+		{"executable-empty", func() (string, error) { return "", nil }, identity, defaults.ProviderUnavailable},
+		{"eval-error", func() (string, error) { return "/bin/curator-run", nil }, boom, defaults.ProviderUnavailable},
+		{"eval-empty", func() (string, error) { return "/bin/curator-run", nil }, func(string) (string, error) { return "", nil }, defaults.ProviderUnavailable},
+		{"eval-relative", func() (string, error) { return "bin/curator-run", nil }, identity, defaults.ProviderUnavailable},
+		{"nil-executable", nil, identity, defaults.ProviderUnavailable},
+		{"nil-eval", func() (string, error) { return "/bin/curator-run", nil }, nil, defaults.ProviderUnavailable},
+		{"resolved-absolute", func() (string, error) { return "/tmp/link", nil }, func(string) (string, error) { return "/real/curator-run", nil }, "/real/curator-run"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := defaults.ResolveProviderPathWith(c.executable, c.eval); got != c.want {
+				t.Fatalf("path = %q, want %q", got, c.want)
+			}
+		})
+	}
+}
+
+// TestResolveProviderPathProduction proves the production resolver never
+// returns an empty path: it is either an absolute path to this test
+// binary or the fallback, and the provider line renders either form.
+func TestResolveProviderPathProduction(t *testing.T) {
+	got := defaults.ResolveProviderPath()
+	if got == "" {
+		t.Fatal("production resolver returned an empty path")
+	}
+	if got != defaults.ProviderUnavailable && !filepath.IsAbs(got) {
+		t.Fatalf("production resolver returned a non-absolute path %q", got)
+	}
+	line := defaults.ProviderLine(got)
+	if !strings.HasPrefix(line, "curator-run: provider: path=") {
+		t.Fatalf("production line = %q", line)
+	}
+	if diagnostics.IsDiagnosticLine(strings.Split(line, "\n")[0]) {
+		t.Fatalf("production line parses as a diagnostic line: %q", line)
+	}
 }
 
 // This API-level check proves the binding is admitted by the real module.

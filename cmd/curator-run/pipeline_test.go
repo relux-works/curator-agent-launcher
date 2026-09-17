@@ -111,6 +111,10 @@ func entryFixture(t *testing.T, environment string, tracked bool) *pipelineFixtu
 	}
 	f.resolver = &scriptedRunner{stdout: string(raw) + "\n", stderr: "curator warning\n\x00\xff"}
 	f.deps = testDeps(t, fragment.NewWithRunner("curator", f.resolver))
+	// Deterministic §4.3 provider-line path under the fixture root, so
+	// the golden normalizes it to <ROOT> like every other host path.
+	provider := filepath.Join(f.dir, "curator-run")
+	f.deps.providerPath = func() string { return provider }
 	f.deps.defaults = defaults.Paths{Machine: filepath.Join(f.dir, "machine", "defaults.json"), Operator: filepath.Join(f.dir, "operator", "defaults.json")}
 	if err := os.Mkdir(filepath.Dir(f.deps.defaults.Operator), 0700); err != nil {
 		t.Fatal(err)

@@ -1,6 +1,6 @@
 # Curator Agent Launcher — Specification
 
-**Specification version:** `0.3.0-draft`
+**Specification version:** `0.4.0-draft`
 **Status:** in-repository draft (see [Versioning](#8-versioning))
 
 The launcher is the **execution plane** of the four-plane composition fixed
@@ -114,6 +114,24 @@ invocation are therefore the same surface, and this specification is
 written against the executable's own argv. Curator carries no knowledge
 of the launcher beyond the discovery rule, and nothing in profile,
 marker, or fragment data influences dispatch.
+
+Under environments.md §11 with E4 trust roots (curator-spec `0da4020`,
+PR #62), the manager resolves `curator-<name>` providers from trust
+roots — its install directory, then the machine knob
+`provider_directories` — warns under revision A when the
+`PATH`-selected provider lies outside the roots, refuses under
+revision B, and reports the resolved absolute provider path in
+`env status`. The launcher is dispatched through that same
+trust-root resolution: whether invoked as `curator run …` (umbrella)
+or directly as `curator-run …`, the binary that runs is the
+resolved provider, and at every launch the launcher reports its own
+resolved executable path in the §4.3 line-group — absolute,
+symlinks resolved — so an operator sees which `curator-run` binary
+is about to run and where it lives. The umbrella passes no
+distinguishing argv or environment marker today: the two invocation
+shapes are indistinguishable to the launcher beyond the resolved
+path itself, so the §4.3 provider line carries the path only, with
+no origin suffix in this revision.
 
 ## 3. CLI surface
 
@@ -384,14 +402,41 @@ with no configured effort takes the lineup's effort for that model.
    the frozen runtime whose vendor carries its exact id, independently of
    this fallback preference.
 
-The resolved pair and the level that produced each member are printed on
-stderr at **every** launch, before the plan request, in one line-group —
-so an operator always sees which model is about to run and why. A
-refusal from the spawn plane for the resolved pair (`ErrEffortMissing`
-when a required effort is still unset after all three levels) is
-`plan_refused`, and the launcher completes the module's message — model,
-vocabulary, recommendation — with its own flag spelling, `--effort`.
-The launcher MUST NOT retry with a different pair.
+The §4.3 stderr line-group prints at **every** launch, before the plan
+request, in this order — so an operator always sees which binary is
+about to run, and which model, and why:
+
+1. `curator-run: provider: path=<absolute path>` — the launcher's own
+   executable path as the umbrella resolved it: `os.Executable`
+   resolved through symlinks (`filepath.EvalSymlinks`), absolute. On
+   any resolution failure (the executable lookup fails, symlink
+   evaluation fails, or the result is empty or not absolute) the line
+   carries the diagnostic-safe fallback `path=unavailable` instead,
+   and the launch proceeds: path resolution never fails a launch.
+   The line carries no origin suffix in this revision: the umbrella
+   passes no distinguishing argv or environment marker (§2), so
+   umbrella-dispatched and directly invoked launches are
+   indistinguishable beyond the resolved path itself. A future
+   revision MAY add a closed origin set (for example
+   `(umbrella|direct)`) once the umbrella passes a marker that
+   distinguishes them; until then the path-only form is the whole
+   contract.
+2. `curator-run: defaults: model=<model> (<level>) effort=<effort>
+   (<level>)` — the resolved pair and the level that produced each
+   member (`effort unset` when no level yielded one).
+
+Both values are folded with the existing framing rule (CR and CRLF
+fold to LF, every LF becomes LF plus two spaces), so a hostile path
+or model/effort word never splits the line-group into a second
+parseable line. Neither line is a §6 diagnostic line: `provider`
+and `defaults` are not diagnostic codes, and a folded continuation
+starts with whitespace, so `IsDiagnosticLine` never recognizes any
+line of the group. A refusal from the spawn plane for the resolved
+pair (`ErrEffortMissing` when a required effort is still unset after
+all three levels) is `plan_refused`, and the launcher completes the
+module's message — model, vocabulary, recommendation — with its own
+flag spelling, `--effort`. The launcher MUST NOT retry with a
+different pair.
 
 ### 4.4 Obtain the launch plan (spawn plane)
 
@@ -927,7 +972,7 @@ reordered.
 ## 8. Versioning
 
 - This specification is versioned semantically; the current version is
-  **`0.3.0-draft`**. Draft versions may change incompatibly between
+  **`0.4.0-draft`**. Draft versions may change incompatibly between
   commits; the `-draft` suffix is the signal that nothing downstream may
   pin them.
 - The `curator-run` binary reports both its build version and the
@@ -944,6 +989,7 @@ reordered.
 | Version | Change |
 |---|---|
 | `0.3.0-draft` | §4.2: correct the Pi system to `pi-native` using accepted A0 E1/E2 and landed native-Pi support (PR23, `a2a6e9f`). Other API/environment errata remain separately tracked. |
+| `0.4.0-draft` | E4 provider path (TASK-260916-16ys92). §2: the launcher is dispatched through the environments.md §11 trust-root resolution (curator-spec `0da4020`, PR #62) and reports its resolved executable path. §4.3: the stderr line-group grows to two lines — `curator-run: provider: path=<absolute path>` (own executable via `os.Executable` + `filepath.EvalSymlinks`, fallback `path=unavailable`, never fails the launch, folded with the existing framing rule) printed before the `defaults:` line at every launch; path-only in this revision because the umbrella passes no distinguishing marker, with the closed origin set deferred to a future revision. |
 | `0.2.1-draft` | Follow-ups against environments.md 1.1 and the cycle-2 review. §4.1: the resolve invocation always passes `--repair`, with the read-only/fail-closed semantics of environments.md §10.1 stated, `resolve_repair_failed` kept, `resolve_lock_unavailable` added for `environment_lock_unavailable`, and `environment_home_stale` declared unreachable. §4.5: the codex layer file `<home>/curator-mcp.config.toml` MUST be stat-ed immediately before handoff or exec whenever the argv carries `-p curator-mcp` (a missing layer is silently ignored by codex, under `--strict-config` too), with `mcp_layer_missing` / `mcp_layer_unreadable`; `-p` takes exactly one value, so an operator `-p` after `--` fails the launch (Decision 0012 open question 3 closed). §4.6: `ax.json` `enabled: false` is not configured; the machine-over-operator precedence explained; the configuration read fires before a usage error. New §4.7 names the `defaults.json`/`ax.json` file family as launcher-owned knobs against the environments.md §12.1 manager knob table. §6: `defaults` row names §4.6/`ax.json`, `mcp` family added, invariant 1 extended. §9: docs-confidence item covers both files; codex `-p` item closed; residual-window item added. |
 | `0.2.0-draft` | Decision 0013 D6 applied. §4 reordered fragment-first and grown to six steps: the managed home from the fragment is `LaunchRequest.Home` (D6.1, M7); the plan is requested as `LaunchModeInteractive` with an empty `Composition` and the launcher spells no provider flag (D5, M2); launcher-owned model/effort default precedence — flags, lockable `defaults.json` machine configuration, lineup fallback — with the resolved pair printed every launch (D6.2, M8); the composition rule with argv order as contract, the MCP channel applied by the launcher, the four-layer environment, and the literal-versus-lookup `env_names` collision rule (D6.3, F5); tracked mode specified as `ax start <name> --provider <id> --launch-plan - [--profile] --workspace <cwd>` with the request document, the four `works.relux.curator.*` extension keys, the `profile-pin` as the lock hash, session-name derivation, and Structured Error pass-through (D6.4). §3 gains `--name` and `--ax-profile`; §4.2 gains the `ax` provider-id column; §6 gains the `defaults` family; §7 requires the interactive-mode module release; §1 non-goals restated (D6.5). §5 unchanged apart from renumbered cross-references. |
 | `0.1.2-draft` | §5.1 probe re-keyed from the fragment's descriptor list to the environment adapter's closed file-channel filename set, run on every launch into a managed home regardless of the fragment's `system_prompt` section; false stray-file drift-and-repair claim removed — a stray file at a registry filename is unmanaged, no automated contract removes it, and every launcher-mediated launch warns until the operator removes it; native/hand-launch and probe-to-exec race residuals recorded in §9. |
@@ -1022,6 +1068,8 @@ reordered.
   and this revision does not.
 
 ## Specification changelog
+
+- 2026-09-17, 0.4.0-draft §2/§4.3 (E4, TASK-260916-16ys92): the launcher is dispatched through the environments.md §11 trust-root resolution and reports its own resolved executable path. §4.3 line-group grows to two lines: `curator-run: provider: path=<absolute path>` (os.Executable + filepath.EvalSymlinks; fallback `path=unavailable`, never fails the launch, folded with the existing framing rule) printed before the `defaults:` line at every launch. Path-only in this revision: the umbrella passes no distinguishing argv/env marker, so no closed origin set is defined yet.
 
 - 2026-09-16, 0.3.0-draft §4.5 erratum: the owned environment literals are supplied by the admitted plan's snapshot (`BuildLaunchWithEnvironment`, agents-management v0.5.13). No second build or reconstruction of the effective request is required.
 
