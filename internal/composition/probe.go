@@ -23,7 +23,8 @@ func (e *LayerError) Unwrap() error { return e.Err }
 
 // CheckLaunchBoundary probes the codex MCP layer afresh on every invocation.
 // The execution Story MUST call this immediately before BOTH direct process
-// creation and ax handoff, alongside binary and §5 file-kind checks. Compose
+// creation and ax handoff, after the binary check and before the §5
+// boundary (SPEC §4.6 order). Compose
 // deliberately never calls it: a successful early check is stale evidence.
 // This read-only check never removes flags, repairs files, or falls back.
 // As with any pathname probe, a replacement after this check remains a TOCTOU

@@ -1,6 +1,6 @@
 # Curator Agent Launcher — Specification
 
-**Specification version:** `0.4.0-draft`
+**Specification version:** `0.4.1-draft`
 **Status:** in-repository draft (see [Versioning](#8-versioning))
 
 The launcher is the **execution plane** of the four-plane composition fixed
@@ -275,6 +275,18 @@ launch:
   repair could not take Curator's mutation lock within its bounded wait —
   a retry later is the remedy, and the launcher does not retry on its
   own); any other non-zero exit is `resolve_invocation_failed`.
+  Making `--repair` unconditional widens the resolve failure surface
+  beyond the mapped four: a journaled mutation transaction can fail
+  with diagnostics environments.md §10.4 does not list and this
+  document therefore does not map (`environment_marker_invalid`,
+  `environment_surface_unmanaged_conflict`, `environment_backup_exists`
+  per §8.5, `environment_seed_unreadable` per §7.7). Every such exit
+  collapses into `resolve_invocation_failed`, and Curator's own
+  diagnostic code and message are printed verbatim with the launcher's
+  code line — streamed before it, the resolve transport's form of the
+  pass-through `ax_handoff_failed` gives `ax`'s Structured Error after
+  its line. The launcher's line names only the family; the operator
+  reads Curator's line for the remedy.
   `environment_home_stale` cannot arise from a `--repair` invocation; a
   Curator that nevertheless reports it is not the Curator this document
   is written against, and the exit falls under `resolve_invocation_failed`
@@ -728,9 +740,10 @@ is `exec_provider_missing`, reported with the exact executable name and
 installation guidance; in tracked mode the launcher checks this before
 the handoff so that `ax` is never asked to record a session for a binary
 that is not there. The three pre-launch checks — this binary check, the
-§4.5 codex layer stat, and the §5.1 file-kind probe — all run immediately
-before the handoff or exec, in both modes, so that `ax` is never asked to
-record a session the launcher already knows is wrong.
+§4.5 codex layer stat, and the §5.1 file-kind probe — run in this order,
+immediately before the handoff or exec, in both modes, and the first
+failure is the one reported, so that `ax` is never asked to record a
+session the launcher already knows is wrong.
 
 ### 4.7 The launcher's configuration file family
 
@@ -929,7 +942,7 @@ contract. Usage errors exit 2; every operational failure exits 1.
 | Family | Codes | Condition |
 |---|---|---|
 | usage | `usage` | unknown flag, missing `<env-id>`, stray operand before `--`, repeated flag, invalid `--system-prompt` or `--ax-profile` value, `--name` outside the `ax` §2.1 grammar or over 64 characters, `--ax-profile` on an untracked machine, a flag overriding a locked default — exit 2, nothing resolved, nothing launched |
-| resolve | `resolve_invocation_failed`, `resolve_environment_unknown`, `resolve_profile_unknown`, `resolve_repair_failed`, `resolve_lock_unavailable`, `resolve_fragment_invalid` | §4.1: the context plane could not produce a usable fragment — `curator` not startable or an unexpected non-zero exit; unregistered environment; uninstalled profile; the store cannot restore the stale home; the repair could not take Curator's mutation lock within its bounded wait; or the output is not a valid closed fragment |
+| resolve | `resolve_invocation_failed`, `resolve_environment_unknown`, `resolve_profile_unknown`, `resolve_repair_failed`, `resolve_lock_unavailable`, `resolve_fragment_invalid` | §4.1: the context plane could not produce a usable fragment — `curator` not startable, or a non-zero exit with an unmapped diagnostic, Curator's own code and message passed through verbatim; unregistered environment; uninstalled profile; the store cannot restore the stale home; the repair could not take Curator's mutation lock within its bounded wait; or the output is not a valid closed fragment |
 | defaults | `defaults_config_invalid`, `defaults_unresolvable` | §4.3 and §4.6: a launcher-owned configuration file — `defaults.json` or `ax.json` (§4.7) — exists but cannot be read or parsed, or names an unknown env-id or member — a read failure, never an absence; the lineup admits no model for the mapped system after the flag and configuration levels left it unset |
 | plan | `plan_refused`, `plan_provider_limited` | §4.4: the spawn plane refused the request (unknown system/runtime or model, model not driven by the system, mode not declared by the system, invalid or missing required effort, unresolved vendor, or failure to produce a provider-limits verdict), or the explicit provider-limits verdict was not serviceable (`AvailabilityHealthy`) — the verdict's structure and evidence are surfaced verbatim |
 | environment | `env_unsupported` | §4.2: the environment has no spawn-plane or `ax` provider mapping in this revision |
@@ -972,7 +985,7 @@ reordered.
 ## 8. Versioning
 
 - This specification is versioned semantically; the current version is
-  **`0.4.0-draft`**. Draft versions may change incompatibly between
+  **`0.4.1-draft`**. Draft versions may change incompatibly between
   commits; the `-draft` suffix is the signal that nothing downstream may
   pin them.
 - The `curator-run` binary reports both its build version and the
@@ -988,6 +1001,7 @@ reordered.
 
 | Version | Change |
 |---|---|
+| `0.4.1-draft` | Four 0.2.1-review minors (TASK-260906-2t2t6w). §4.1/§6: the resolve pass-through clause — unmapped `--repair` diagnostics (`environment_marker_invalid`, `environment_surface_unmanaged_conflict`, `environment_backup_exists`, `environment_seed_unreadable`) collapse into `resolve_invocation_failed` with Curator's own code and message passed through verbatim, and the §6 gloss no longer leads with "`curator` not startable" for that class. §4.6: the three pre-launch checks run in the listed order — binary check first — and the first failure is the one reported. §9: the silent-MCP-absence residual for `claude_code` and `opencode` recorded. `TestSpecVersionPinned` now reads SPEC.md and README.md. |
 | `0.3.0-draft` | §4.2: correct the Pi system to `pi-native` using accepted A0 E1/E2 and landed native-Pi support (PR23, `a2a6e9f`). Other API/environment errata remain separately tracked. |
 | `0.4.0-draft` | E4 provider path (TASK-260916-16ys92). §2: the launcher is dispatched through the environments.md §11 trust-root resolution (curator-spec `0da4020`, PR #62) and reports its resolved executable path. §4.3: the stderr line-group grows to two lines — `curator-run: provider: path=<absolute path>` (own executable via `os.Executable` + `filepath.EvalSymlinks`, fallback `path=unavailable`, never fails the launch, folded with the existing framing rule) printed before the `defaults:` line at every launch; path-only in this revision because the umbrella passes no distinguishing marker, with the closed origin set deferred to a future revision. |
 | `0.2.1-draft` | Follow-ups against environments.md 1.1 and the cycle-2 review. §4.1: the resolve invocation always passes `--repair`, with the read-only/fail-closed semantics of environments.md §10.1 stated, `resolve_repair_failed` kept, `resolve_lock_unavailable` added for `environment_lock_unavailable`, and `environment_home_stale` declared unreachable. §4.5: the codex layer file `<home>/curator-mcp.config.toml` MUST be stat-ed immediately before handoff or exec whenever the argv carries `-p curator-mcp` (a missing layer is silently ignored by codex, under `--strict-config` too), with `mcp_layer_missing` / `mcp_layer_unreadable`; `-p` takes exactly one value, so an operator `-p` after `--` fails the launch (Decision 0012 open question 3 closed). §4.6: `ax.json` `enabled: false` is not configured; the machine-over-operator precedence explained; the configuration read fires before a usage error. New §4.7 names the `defaults.json`/`ax.json` file family as launcher-owned knobs against the environments.md §12.1 manager knob table. §6: `defaults` row names §4.6/`ax.json`, `mcp` family added, invariant 1 extended. §9: docs-confidence item covers both files; codex `-p` item closed; residual-window item added. |
@@ -1066,8 +1080,19 @@ reordered.
   resolve time and not re-verified before exec; the launcher MAY re-verify
   the marker-recorded hashes under a later revision, as §10.1 permits,
   and this revision does not.
+- **Silent MCP absence beyond codex is unverified.** The §4.5 stat rule
+  exists because codex demonstrably swallows a missing `-p` layer —
+  exit 0, under `--strict-config` too. Whether `claude_code`
+  (`--mcp-config <missing path> --strict-mcp-config`) and `opencode`
+  (`OPENCODE_CONFIG` naming a missing file) also proceed silently when
+  their MCP configuration file is absent is **unverified** at the
+  pinned releases; if either does, the §4.5 stat rule generalizes to
+  it. The per-adapter rows of environments.md §7.8 are where such
+  facts belong upstream.
 
 ## Specification changelog
+
+- 2026-09-22, 0.4.1-draft §§4.1/4.6/6/9 (TASK-260906-2t2t6w): fold the four 0.2.1-review minors. §4.1 gains the resolve pass-through clause — the widened `--repair` surface (`environment_marker_invalid`, `environment_surface_unmanaged_conflict`, `environment_backup_exists`, `environment_seed_unreadable`) collapses into `resolve_invocation_failed` with Curator's own code and message passed through verbatim — and the §6 gloss is fixed to match. §4.6 states the pre-launch check order (binary check first, first failure reported). §9 records the silent-MCP-absence residual for `claude_code` and `opencode`.
 
 - 2026-09-17, 0.4.0-draft §2/§4.3 (E4, TASK-260916-16ys92): the launcher is dispatched through the environments.md §11 trust-root resolution and reports its own resolved executable path. §4.3 line-group grows to two lines: `curator-run: provider: path=<absolute path>` (os.Executable + filepath.EvalSymlinks; fallback `path=unavailable`, never fails the launch, folded with the existing framing rule) printed before the `defaults:` line at every launch. Path-only in this revision: the umbrella passes no distinguishing argv/env marker, so no closed origin set is defined yet.
 

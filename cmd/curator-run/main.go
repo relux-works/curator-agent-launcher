@@ -27,7 +27,7 @@ import (
 
 const (
 	name        = cli.Name
-	specVersion = "0.4.0-draft"
+	specVersion = "0.4.1-draft"
 	// buildVersion is the launcher's own version; the specification
 	// version is reported beside it (SPEC §8).
 	buildVersion = "0.1.0-dev"

@@ -143,14 +143,17 @@ func (l Launch) Run(opts Options) int {
 	}
 	cmd.Dir = l.value.WorkDir
 	cmd.Stdout = streams.Stdout
-	if err := opts.Boundary(); err != nil {
-		return fail(err)
-	}
+	// SPEC §4.6 order: the binary check first, then the §4.5 codex layer
+	// stat, then the §5 boundary (the §5.1 file-kind probe); the first
+	// failure is the one reported.
 	binary, err := executable(l.value.Binary, l.value.WorkDir, l.value.Env)
 	if err != nil {
 		return fail(fmt.Errorf("exec_provider_missing: %s: install the provider executable and make it available on the launch PATH: %w", l.value.Binary, err))
 	}
 	if err := l.value.CheckLaunchBoundary(); err != nil {
+		return fail(err)
+	}
+	if err := opts.Boundary(); err != nil {
 		return fail(err)
 	}
 	if !l.tracked {

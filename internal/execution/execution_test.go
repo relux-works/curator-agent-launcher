@@ -20,6 +20,7 @@ import (
 
 	"github.com/relux-works/curator-agent-launcher/internal/cli"
 	"github.com/relux-works/curator-agent-launcher/internal/composition"
+	"github.com/relux-works/curator-agent-launcher/internal/diagnostics"
 	"github.com/relux-works/curator-agent-launcher/internal/execution"
 	"github.com/relux-works/curator-agent-launcher/internal/fragment"
 	"github.com/relux-works/curator-agent-launcher/internal/mapping"
@@ -332,6 +333,65 @@ func TestLateChecksBothModes(t *testing.T) {
 				equal(t, c, capture{})
 				if !strings.Contains(stderr, want) {
 					t.Fatalf("missing %s: %q", want, stderr)
+				}
+			})
+		}
+	}
+}
+
+// TestPrelaunchCheckOrder pins SPEC §4.6: the binary check runs first,
+// then the §4.5 codex layer stat, then the §5 boundary (the §5.1
+// file-kind probe), and the first failure is the one reported — exactly
+// one diagnostic code line on stderr. All three failures provoked at
+// once report the binary check.
+func TestPrelaunchCheckOrder(t *testing.T) {
+	for _, tracked := range []bool{false, true} {
+		for _, tc := range []struct {
+			name                    string
+			breakBinary, breakLayer bool
+			breakBoundary           bool
+			want                    string
+		}{
+			{"all three fail", true, true, true, "exec_provider_missing"},
+			{"stat before probe", false, true, true, "mcp_layer_missing"},
+			{"probe last", false, false, true, "sysprompt_file_unreadable"},
+		} {
+			t.Run(fmt.Sprintf("tracked=%v/%s", tracked, tc.name), func(t *testing.T) {
+				f, dir := fixture(t, "codex_cli", false)
+				v := compose(t, f, dir, agentic.StdinPayload{})
+				copyPath := filepath.Join(dir, "provider")
+				data, err := os.ReadFile(helper)
+				if err != nil {
+					t.Fatal(err)
+				}
+				write(t, copyPath, data)
+				os.Chmod(copyPath, 0700)
+				v.Binary = copyPath
+				if tc.breakBinary {
+					os.Remove(copyPath)
+				}
+				if tc.breakLayer {
+					os.Remove(f.MCP.Path)
+				}
+				boundary := execution.Boundary(func() error { return nil })
+				if tc.breakBoundary {
+					boundary = func() error { return errors.New("sysprompt_file_unreadable: \"SYSTEM.md\": probe refused") }
+				}
+				code, c, stderr := run(t, prepare(t, v, f, tracked, false), boundary)
+				equal(t, code, 1)
+				equal(t, c, capture{})
+				lines := strings.Split(strings.TrimSuffix(stderr, "\n"), "\n")
+				found := 0
+				for _, line := range lines {
+					if diagnostics.IsDiagnosticLine(line) {
+						found++
+						if !strings.HasPrefix(line, "curator-run: "+tc.want+": ") {
+							t.Fatalf("diagnostic line %q does not carry code %q", line, tc.want)
+						}
+					}
+				}
+				if found != 1 {
+					t.Fatalf("stderr has %d diagnostic lines, want exactly 1: %q", found, stderr)
 				}
 			})
 		}

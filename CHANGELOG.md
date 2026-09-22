@@ -3,7 +3,7 @@
 ## 0.1.0 — unreleased
 
 Release-readiness candidate; source builds report `0.1.0-dev`, against
-SPEC `0.4.0-draft`. No tag or release is created by this work.
+SPEC `0.4.1-draft`. No tag or release is created by this work.
 
 ### Added
 
@@ -37,6 +37,13 @@ SPEC `0.4.0-draft`. No tag or release is created by this work.
 
 - Plan/environment value-contract errata (PR #7) and Pi prompt precedence
   errata (PR #8). Pi has no MCP channel.
+- SPEC `0.4.1-draft`: fold the four 0.2.1-review minors
+  (TASK-260906-2t2t6w) — the resolve pass-through clause for unmapped
+  `--repair` diagnostics (§4.1/§6), the ordered pre-launch checks with
+  the binary check first (§4.6; the implementation now runs
+  binary → layer stat → §5 probe and reports the first failure), the
+  silent-MCP-absence residual for `claude_code`/`opencode` (§9), and a
+  version-pin test that reads SPEC.md and README.md.
 
 ### Dependencies
 

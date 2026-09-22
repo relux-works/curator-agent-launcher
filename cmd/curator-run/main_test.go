@@ -306,16 +306,26 @@ func TestRunResolveFailuresExit1(t *testing.T) {
 		name, stdout, stderr string
 		exit                 int
 		wantCode             string
+		// wantInDetail pins the remedy pointer for the widened --repair
+		// surface: the unmapped Curator code the launcher's own line names.
+		wantInDetail string
 	}{
-		{"environment_unknown", "", "curator: environment_unknown: unregistered environment \"pi\"\n", 1, "resolve_environment_unknown"},
-		{"profile_unknown", "", "curator: profile_unknown: no profile is current\n", 1, "resolve_profile_unknown"},
-		{"repair_failed", "", "curator: environment_repair_failed: x\n", 1, "resolve_repair_failed"},
-		{"lock_unavailable", "", "curator: environment_lock_unavailable: x\n", 1, "resolve_lock_unavailable"},
-		{"home_stale is unexpected", "", "curator: environment_home_stale: x\n", 1, "resolve_invocation_failed"},
-		{"no diagnostic", "", "boom\n", 3, "resolve_invocation_failed"},
-		{"invalid fragment", "{\"fragment\":\"launch-env-fragment-v1\"}\n", "", 0, "resolve_fragment_invalid"},
-		{"empty stdout is not absence", "", "", 0, "resolve_fragment_invalid"},
-		{"other environment's fragment", strings.Replace(strings.Replace(piFragmentLine, `"environment":"pi"`, `"environment":"codex_cli"`, 1), "PI_CODING_AGENT_DIR", "CODEX_HOME", 1), "", 0, "resolve_fragment_invalid"},
+		{"environment_unknown", "", "curator: environment_unknown: unregistered environment \"pi\"\n", 1, "resolve_environment_unknown", ""},
+		{"profile_unknown", "", "curator: profile_unknown: no profile is current\n", 1, "resolve_profile_unknown", ""},
+		{"repair_failed", "", "curator: environment_repair_failed: x\n", 1, "resolve_repair_failed", ""},
+		{"lock_unavailable", "", "curator: environment_lock_unavailable: x\n", 1, "resolve_lock_unavailable", ""},
+		{"home_stale is unexpected", "", "curator: environment_home_stale: x\n", 1, "resolve_invocation_failed", ""},
+		{"no diagnostic", "", "boom\n", 3, "resolve_invocation_failed", ""},
+		// The widened --repair surface of SPEC §4.1: unmapped Curator
+		// diagnostics collapse into resolve_invocation_failed with
+		// Curator's own line forwarded verbatim ahead of the launcher's.
+		{"repair marker invalid", "", "curator: environment_marker_invalid: marker unreadable\n", 1, "resolve_invocation_failed", "environment_marker_invalid"},
+		{"repair unmanaged conflict", "", "curator: environment_surface_unmanaged_conflict: unmanaged file blocks repair\n", 1, "resolve_invocation_failed", "environment_surface_unmanaged_conflict"},
+		{"repair backup exists", "", "curator: environment_backup_exists: stale backup blocks repair\n", 1, "resolve_invocation_failed", "environment_backup_exists"},
+		{"repair seed unreadable", "", "curator: environment_seed_unreadable: seed unreadable\n", 1, "resolve_invocation_failed", "environment_seed_unreadable"},
+		{"invalid fragment", "{\"fragment\":\"launch-env-fragment-v1\"}\n", "", 0, "resolve_fragment_invalid", ""},
+		{"empty stdout is not absence", "", "", 0, "resolve_fragment_invalid", ""},
+		{"other environment's fragment", strings.Replace(strings.Replace(piFragmentLine, `"environment":"pi"`, `"environment":"codex_cli"`, 1), "PI_CODING_AGENT_DIR", "CODEX_HOME", 1), "", 0, "resolve_fragment_invalid", ""},
 	}
 	for _, c := range cases {
 		sr := &scriptedRunner{stdout: c.stdout, stderr: c.stderr, exit: c.exit}
@@ -329,6 +339,9 @@ func TestRunResolveFailuresExit1(t *testing.T) {
 		want := c.stderr + name + ": " + c.wantCode + ": "
 		if !strings.HasPrefix(errOut.String(), want) {
 			t.Errorf("%s: stderr %q, want prefix %q", c.name, errOut.String(), want)
+		}
+		if c.wantInDetail != "" && !strings.Contains(errOut.String(), c.wantInDetail) {
+			t.Errorf("%s: stderr %q does not name the unmapped diagnostic %q", c.name, errOut.String(), c.wantInDetail)
 		}
 		if strings.Contains(errOut.String(), "plan_refused") || out.Len() != 0 {
 			t.Errorf("%s: a failed resolve must not reach the refusal or stdout: %q %q", c.name, errOut.String(), out.String())
@@ -381,9 +394,18 @@ func TestRunProductionResolverAgainstFakeCurator(t *testing.T) {
 // TestSpecVersionPinned fails when the reported specification version
 // drifts from the version SPEC.md and README.md state; the three are one fact.
 func TestSpecVersionPinned(t *testing.T) {
-	const want = "0.4.0-draft"
+	const want = "0.4.1-draft"
 	if specVersion != want {
 		t.Fatalf("specVersion = %q, want %q", specVersion, want)
+	}
+	for _, doc := range []string{"../../SPEC.md", "../../README.md"} {
+		data, err := os.ReadFile(doc)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(data), specVersion) {
+			t.Fatalf("%s does not state specVersion %q", doc, specVersion)
+		}
 	}
 	var out, errOut strings.Builder
 	if got := runNoResolve(t, []string{"--version"}, &out, &errOut); got != 0 {
@@ -555,6 +577,7 @@ func TestRunDiagnosticsContract(t *testing.T) {
 		{"resolve repair failed", []string{"pi"}, "", "curator: environment_repair_failed: store\n", 1, "", "", "resolve_repair_failed", 1, false},
 		{"resolve lock unavailable", []string{"pi"}, "", "curator: environment_lock_unavailable: busy\n", 1, "", "", "resolve_lock_unavailable", 1, false},
 		{"resolve invocation failed", []string{"pi"}, "", "boom\n", 3, "", "", "resolve_invocation_failed", 1, false},
+		{"resolve invocation failed unmapped", []string{"pi"}, "", "curator: environment_marker_invalid: marker unreadable\n", 1, "", "", "resolve_invocation_failed", 1, false},
 		{"resolve fragment invalid", []string{"pi"}, "{}\n", "", 0, "", "", "resolve_fragment_invalid", 1, false},
 		{"env unsupported", []string{"opencode"}, opencodeLine, "", 0, "", "", "env_unsupported", 1, false},
 		{"defaults config invalid", []string{"pi"}, piFragmentLine, "", 0, "", "{", "defaults_config_invalid", 1, false},
