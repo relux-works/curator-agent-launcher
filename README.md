@@ -94,22 +94,19 @@ made from this host's tests.
 
 ## Install and discovery
 
-Build from source with the Go toolchain specified by `go.mod`:
+Install the tagged release with the Go toolchain specified by `go.mod`:
 
 ```bash
-git clone https://github.com/relux-works/curator-agent-launcher.git
-cd curator-agent-launcher
-go build -o curator-run ./cmd/curator-run
-sudo install -m 0755 curator-run /usr/local/bin/curator-run
+go install github.com/relux-works/curator-agent-launcher/cmd/curator-run@v0.1.0
 curator-run --version
 ```
 
-This development build reports `0.1.0-dev` (specification `0.5.0-draft`).
-Ensure `/usr/local/bin` is on `PATH`, or install into a dedicated trusted
-operator-owned directory on `PATH`. Do **not** install into Curator's user-bin
-shim directory (`~/.local/bin`), a managed skill bin directory, or beneath the
-environments root: umbrella discovery refuses these locations with
-`subcommand_provider_untrusted` (environments.md §11).
+The v0.1.0 release reports `0.1.0` (specification `0.5.0-draft`).
+Ensure `$(go env GOPATH)/bin` is on `PATH`, or set `GOBIN` to a dedicated
+trusted operator-owned directory on `PATH`. Do **not** install into Curator's
+user-bin shim directory (`~/.local/bin`), a managed skill bin directory, or
+beneath the environments root: umbrella discovery refuses these locations
+with `subcommand_provider_untrusted` (environments.md §11).
 
 Install Curator and the desired provider separately and make them available on
 `PATH`; configure the provider's credentials and a Curator profile before launch.

@@ -1,4 +1,4 @@
-curator-run 0.1.0-dev (specification 0.5.0-draft)
+curator-run 0.1.0 (specification 0.5.0-draft)
 
 usage: curator-run <env-id> [--profile <name>] [--system-prompt <append|replace>]
                    [--model <model>] [--effort <effort>]

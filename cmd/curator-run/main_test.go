@@ -391,27 +391,41 @@ func TestRunProductionResolverAgainstFakeCurator(t *testing.T) {
 	}
 }
 
-// TestSpecVersionPinned fails when the reported specification version
-// drifts from the version SPEC.md and README.md state; the three are one fact.
-func TestSpecVersionPinned(t *testing.T) {
-	const want = "0.5.0-draft"
-	if specVersion != want {
-		t.Fatalf("specVersion = %q, want %q", specVersion, want)
+// TestReleaseVersionPinned fails when the reported release or specification
+// version drifts from the changelog and install documentation.
+func TestReleaseVersionPinned(t *testing.T) {
+	const (
+		wantBuild = "0.1.0"
+		wantSpec  = "0.5.0-draft"
+	)
+	if buildVersion != wantBuild {
+		t.Fatalf("buildVersion = %q, want %q", buildVersion, wantBuild)
 	}
-	for _, doc := range []string{"../../SPEC.md", "../../README.md"} {
-		data, err := os.ReadFile(doc)
+	if specVersion != wantSpec {
+		t.Fatalf("specVersion = %q, want %q", specVersion, wantSpec)
+	}
+	for _, check := range []struct {
+		path    string
+		content string
+	}{
+		{path: "../../SPEC.md", content: specVersion},
+		{path: "../../README.md", content: specVersion},
+		{path: "../../README.md", content: "github.com/relux-works/curator-agent-launcher/cmd/curator-run@v0.1.0"},
+		{path: "../../CHANGELOG.md", content: "## 0.1.0"},
+	} {
+		data, err := os.ReadFile(check.path)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !strings.Contains(string(data), specVersion) {
-			t.Fatalf("%s does not state specVersion %q", doc, specVersion)
+		if !strings.Contains(string(data), check.content) {
+			t.Fatalf("%s does not state %q", check.path, check.content)
 		}
 	}
 	var out, errOut strings.Builder
 	if got := runNoResolve(t, []string{"--version"}, &out, &errOut); got != 0 {
 		t.Fatalf("run(--version) = %d, want 0", got)
 	}
-	if out.String() != name+" "+buildVersion+" (specification "+want+")\n" {
+	if out.String() != name+" "+wantBuild+" (specification "+wantSpec+")\n" {
 		t.Fatalf("run(--version) stdout = %q", out.String())
 	}
 }

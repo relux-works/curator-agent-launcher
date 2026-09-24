@@ -31,7 +31,7 @@ const (
 	specVersion = "0.5.0-draft"
 	// buildVersion is the launcher's own version; the specification
 	// version is reported beside it (SPEC §8).
-	buildVersion = "0.1.0-dev"
+	buildVersion = "0.1.0"
 )
 
 func main() {

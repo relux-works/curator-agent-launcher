@@ -1,9 +1,15 @@
 # Changelog
 
-## 0.1.0 — unreleased
+## 0.1.0
 
-Release-readiness candidate; source builds report `0.1.0-dev`, against
-SPEC `0.5.0-draft`. No tag or release is created by this work.
+First tagged release. The binary reports `0.1.0`; the specification remains
+`0.5.0-draft`.
+
+### Release
+
+- Install the versioned Go module with
+  `go install github.com/relux-works/curator-agent-launcher/cmd/curator-run@v0.1.0`.
+- No prebuilt binaries are published; the tagged module is built locally by Go.
 
 ### Added
 
