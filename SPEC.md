@@ -1,6 +1,6 @@
 # Curator Agent Launcher — Specification
 
-**Specification version:** `0.4.1-draft`
+**Specification version:** `0.5.0-draft`
 **Status:** in-repository draft (see [Versioning](#8-versioning))
 
 The launcher is the **execution plane** of the four-plane composition fixed
@@ -138,6 +138,7 @@ no origin suffix in this revision.
 ```text
 curator-run <env-id> [--profile <name>] [--system-prompt <append|replace>]
             [--model <model>] [--effort <effort>]
+            [--permissions <native|yolo> | --yolo]
             [--name <session-name>] [--ax-profile <standard|yolo>]
             [--] <native args...>
 curator-run --help | -h
@@ -155,6 +156,9 @@ change, not a flag addition.
 | `--system-prompt <append\|replace>` | execution | Explicit opt-in that engages the fragment's system-prompt channel with the given semantics. The value is required: the opt-in states what it wants, and the launcher never chooses replacement by default. See §5. |
 | `--model <model>` | spawn | Level 1 of the §4.3 default precedence: passed through to the spawn plane's plan request as declared. The launcher does not validate model names; admission is the spawn plane's verdict. |
 | `--effort <effort>` | spawn | Level 1 of the §4.3 default precedence: passed through as declared. Effort is per-model and the spawn plane injects no default; when no §4.3 level yields one for a model that requires it, the plane's refusal names the model, the accepted vocabulary, and the recommendation, and the launcher completes that error with its own flag spelling, `--effort`. |
+| `--permissions <native\|yolo>` | spawn | Permission mode resolved by §4.3. The launcher passes the selected mode to `LaunchRequest.PermissionMode` for `LaunchModeInteractive`; agents-management owns the mapping. |
+| `--yolo` | spawn | Exact alias of `--permissions yolo`, shipped in the same increment and occupying the same precedence level. Supplying both forms is a repeated permission request and a `usage` error. |
+| `-d`, `--danger` | — | Rejected before `--` as `usage`; neither spelling is an alias. After `--`, arguments remain opaque native arguments under the normal boundary rule. |
 | `--name <session-name>` | session | Tracked mode only (§4.6): the `ax` session name, replacing the default `<env-id>-<utc-stamp>`. MUST satisfy the `ax` §2.1 grammar `[A-Za-z0-9][A-Za-z0-9._-]{0,63}`; a longer or ill-formed value is a `usage` error naming `--name`, never a silent truncation. On an untracked machine the flag is accepted and has no effect. |
 | `--ax-profile <standard\|yolo>` | session | Tracked mode only (§4.6): the `ax` execution profile, forwarded as `ax start --profile <value>`. Absent, no `--profile` is passed and `ax`'s own default applies. This flag is the **only** way `--profile yolo` reaches `ax` from a launcher-mediated launch (Decision 0013 D6.4); the launcher never derives it from the fragment, the plan, or the native arguments. On an untracked machine the flag is a `usage` error: an execution profile is `ax`'s concept, and a value that would be silently discarded is a value the operator was misled about. |
 | `--` | — | Terminates launcher argument parsing. Everything after it is native argv, forwarded to the tool verbatim, in order, uninspected. |
@@ -176,9 +180,14 @@ Parsing rules, closed:
   forwarded: silent forwarding would let a typo in a launcher flag reach
   the tool as tool input.
 - Every value-taking flag takes exactly one value; a repeated flag is a
-  usage error, not last-wins. `--system-prompt` and `--ax-profile` accept
-  only their closed vocabularies; `--name` is validated against the `ax`
-  §2.1 grammar at parse time, before anything is resolved.
+  usage error, not last-wins. `--permissions` accepts only `native` or
+  `yolo`; `--yolo` is the no-value exact alias of `--permissions yolo`,
+  and the two forms cannot be combined or repeated. `-d` and `--danger`
+  are unrecognized launcher flags before `--` and therefore produce
+  `usage`; after `--`, the launcher does not interpret any native argument.
+  `--system-prompt` and `--ax-profile` accept only their closed
+  vocabularies; `--name` is validated against the `ax` §2.1 grammar at
+  parse time, before anything is resolved.
 - Usage errors exit 2 and print usage; they launch nothing and resolve
   nothing.
 
@@ -205,10 +214,18 @@ curator env resolve <env-id> [--profile <name>] --repair --format json
 
 with the canonical `<env-id>` of §3: the launcher normalizes the `claude`
 and `codex` aliases before invoking the subprocess, so the alias never
-reaches Curator's lookup. The launcher then parses the closed
-`launch-env-fragment-v1` object per environments.md §10.2 as revised by
-Decision 0012 D8, rejecting unknown fields, unknown kinds, and unknown
-semantics values.
+reaches Curator's lookup. The required `fragment` member names the fragment
+revision. The launcher parses the closed v1 or v2 object per environments.md
+§10.2 as revised by Decisions 0012 and 0018 and F-S2
+(curator-spec `ec8dc656`), rejecting unknown fields, unknown kinds,
+unknown semantics values, and contradictory permission data.
+`launch-env-fragment-v2` is the minimum permission-transport token: support
+is established when the revision is v2 or later and retains this contract.
+A v2 fragment MUST carry the required closed `permissions` object; a v1
+fragment carrying that member is invalid. A v1 fragment without it remains
+usable for legacy `native` launches but cannot establish permission or lock
+transport, so a launch that would resolve `yolo` fails closed as specified
+in §4.3 and §4.6.
 
 `--repair` is **always** passed (environments.md §9.2 step 5, §10.1;
 `profiles/manager.md` §12.5): the launcher is the one caller that repairs.
@@ -228,9 +245,19 @@ to inspect staleness without repairing runs `curator env resolve` or
 
 The members this document consumes:
 
+- `fragment` — the required fragment-revision token;
+  `launch-env-fragment-v2` is the minimum version that carries the
+  permission policy and force-native lock engagement;
 - `profile.name` and `profile.lock_sha256` — the profile and its
   effective pin (Decision 0012 D3: the lock hash is the identity
   everywhere Decision 0010 used a commit);
+- `permissions` — required in v2, a closed object with exactly
+  `mode: native|yolo`, `locked: true|false`, and
+  `source: profile|global|default`. Its consistency rules are:
+  `locked` is true iff `source` is `global`; `mode` is `native` for
+  `source` `global` or `default`; `source=profile` carries the
+  per-profile setting, while `source=default` means that level is
+  silent and the launcher continues to its own global default;
 - `env` — the registry-declared variable names mapped to managed-home
   paths (environments.md §10.3); the value of the adapter's **home
   variable** (`CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `PI_CODING_AGENT_DIR`;
@@ -365,33 +392,35 @@ with no configured effort takes the lineup's effort for that model.
 
    ```json
    {
-     "schema": "curator-run-defaults-v1",
+     "schema": "curator-run-defaults-v2",
      "locked": false,
      "defaults": {
        "claude_code": { "model": "claude-opus-5", "effort": "high" },
-       "codex_cli":   { "model": "gpt-5.3-codex" }
+       "codex_cli":   { "model": "gpt-5.3-codex", "permissions": "yolo" }
      }
    }
    ```
 
    `defaults` keys are env-ids of the §4.2 table (an unknown key is
-   `defaults_config_invalid`); each value is an object of at most the two
-   members `model` and `effort`, at least one present, both strings that
-   are passed through unvalidated — admission stays the spawn plane's.
+   `defaults_config_invalid`); each value is an object of at most three
+   members: `model`, `effort`, and `permissions`. The first two are
+   strings passed through unvalidated to admission; `permissions`, when
+   present, is exactly `native` or `yolo` and supplies the launcher-global
+   mode level. At least one member must be present.
    **Lockable:** when the machine file carries `"locked": true`, the
    operator file is ignored for every env-id the machine file names, and
-   a `--model`/`--effort` flag for a member the machine entry sets is a
-   `usage` error naming the locked member, so a locked default is never
-   silently overridden and never silently applied. Otherwise the operator
-   file overrides the machine file per member: an operator entry that sets
-   only `model` leaves a machine `effort` for the same env-id in force, the
-   same per-member resolution as the rest of this section. A file that is
-   absent is a legitimate absence and the
-   level yields nothing; a file that exists but cannot be read or parsed
-   is `defaults_config_invalid` — a read failure is not an absence, and
-   the lineup fallback MUST NOT fire past it. The file and its sibling
-   `ax.json` (§4.6) are the **launcher's configuration file family**,
-   delimited against Curator's machine configuration in §4.7.
+   a flag for a member the machine entry sets is a `usage` error naming
+   the locked member, even if the requested value matches. Otherwise the
+   operator file overrides the machine file per member: an operator entry
+   that sets only `model` leaves a machine `effort` for the same env-id in
+   force, and permission mode follows the same per-member merge. A v2
+   reader accepts a v1 file with no `permissions` member; a v1 reader
+   rejects that new member under its closed schema. A missing file is a
+   legitimate absence; a read or parse failure is `defaults_config_invalid`
+   and the next level MUST NOT be used. The file and its sibling `ax.json`
+   (§4.6) are the **launcher's configuration file family**, delimited
+   against Curator's machine configuration in §4.7.
+
 3. **Lineup fallback.** The highest-ranked model of `vendorplugin.Lineup`
    (capability score descending) among the models the module's runtime
    compatibility registry admits for the mapped system, with that model's
@@ -413,6 +442,45 @@ with no configured effort takes the lineup's effort for that model.
    Flags and files retain per-member precedence. A configured model binds
    the frozen runtime whose vendor carries its exact id, independently of
    this fallback preference.
+
+**Permission-mode resolution (separate from model and effort).** The
+resolved mode follows this precedence, with the force-native lock of
+§4.6 above the entire ladder:
+
+1. `--permissions native|yolo`, or its exact `--yolo` alias;
+2. the Curator per-profile setting carried by `fragment.permissions`
+   when `source=profile`;
+3. the launcher-global `defaults.json` `permissions` member for the
+   env-id, after the operator-over-machine merge;
+4. the built-in interactive default, `yolo` with
+   `source=default-interactive`, for interactive untracked silence;
+5. the built-in headless default, `native` with
+   `source=default-headless`, for headless, CI, or tracked silence.
+
+The fragment's `source=global` means Curator's force-native lock and
+carries `mode=native`; it is not the launcher-global file level. In the
+stderr provenance line below, `source=global` instead names the winning
+launcher-global `defaults.json` level.
+`source=default` means the profile level is silent; its `mode=native`
+is a placeholder and the launcher falls through. Explicit `native` means
+no launcher override and does not promise a prompting posture. In
+untracked native mode the launcher does not inspect policy selectors in
+the native suffix; arguments after `--` are forwarded verbatim and may
+request their own native policy by design. The typed interface is not a
+security boundary. `yolo` requests the agents-management-declared native
+permission mode within the tool's own policy. The launcher never derives
+this mode from model,
+prompt, credentials, environment values, or tracking configuration.
+After resolving a mode, every untracked launch prints this provenance line before admission:
+
+```text
+curator-run: permissions=<native|yolo> source=<flag|profile|global|default-interactive|default-headless> mapped=<flag or none>
+```
+
+The `mapped` value is supplied by agents-management; this SPEC names no
+provider flag. The headless argument-shape check selects only the built-in
+default; it does not modify native arguments or claim that they are safe. See
+§4.6 for the closed headless marker set, the lock rule, and tracked refusals.
 
 The §4.3 stderr line-group prints at **every** launch, before the plan
 request, in this order — so an operator always sees which binary is
@@ -454,7 +522,7 @@ different pair.
 
 The launcher obtains the plan through
 `vendorplugin.BuildLaunch(ctx, registry, request, agentic.LaunchModeInteractive)`,
-the entry point verified at `agents-management` tag `v0.5.10` (A0 E3).
+the entry point verified at `agents-management` tag `v0.5.18`.
 `BuildLaunch` resolves the runtime and vendor model row, admits the model
 and effort word against that row, and calls `agentic.BuildPlan` with the
 resulting `LaunchRequest`. The launcher MUST NOT bypass that admission
@@ -468,6 +536,14 @@ by calling `BuildPlan` with a bare model id or reconstructing the row's
 - `Home`: the managed home from the fragment's home variable (§4.1),
   passed through to `LaunchRequest.Home`;
 - `WorkDir`: the launcher's current working directory;
+- `PermissionMode`: the §4.3 resolved `native` or `yolo` value, passed
+  through `LaunchRequest.PermissionMode` for `LaunchModeInteractive`;
+- `ToolRelease`: the exact tool release required by the module's
+  release-bound permission capability;
+- `NativeArgs`: the opaque suffix after `--`, supplied to the module's
+  `permission-grammar-v1` conflict check when the resolved mode is `yolo`;
+  the launcher does not own or restate that grammar. Native mode does not run
+  permission-conflict inspection and preserves the raw suffix;
 - `Env`: `os.Environ()` in **both** tracked and untracked modes, supplied
   as the parent environment for `LaunchRequest.Env`. The resulting
   `Plan.Env` is the plugin's complete filtered child environment over
@@ -479,9 +555,16 @@ by calling `BuildPlan` with a bare model id or reconstructing the row's
   Goal, budget, service tier, and assignment prompt remain unset.
 
 The mode is requested **by name**, `agentic.LaunchModeInteractive`
-(Decision 0013 D5). The launcher never spells a provider flag; model
-selection and effort transport belong to the system plugin. A system
-that does not declare the mode is refused by the module with
+(Decision 0013 D5). `LaunchRequest.PermissionMode` carries the resolved
+mode. In agents-management v0.5.18, `LaunchRequest.ToolRelease` and
+`LaunchRequest.NativeArgs` bind the request to the release-specific
+`permission-grammar-v1`; agents-management owns the permission mapping,
+argv grammar, and capability table. The launcher passes the request and
+composes the admitted plan without spelling or reconstructing a provider
+mapping. An unverified yolo mapping returns
+`ErrPermissionModeUnverifiedRelease` and fails closed as `plan_refused`;
+native mode remains verbatim. A system that does not declare
+`LaunchModeInteractive` is refused by the module with
 `ErrUnsupportedLaunchMode` → `plan_refused`.
 
 The plan is a value — `Binary`, `Argv`, `Env`, `Stdin`, `WorkDir` — and
@@ -515,9 +598,14 @@ replace them.
 
 The composed launch is one plan (Decision 0013 D6.3). Its members, closed:
 
+The §4.3 permission mode is already carried in the agents-management
+`LaunchRequest.PermissionMode`; any admitted mapping is part of the
+module's plan. The launcher never turns the mode into argv itself.
+
 **argv** — in this order, each part verbatim:
 
-1. the interactive plan's `Argv` (model selection, effort transport);
+1. the interactive plan's `Argv` (model selection, effort transport, and
+   any admitted permission-mode mapping);
 2. the system-prompt channel flags — only under the §5 opt-in, from the
    fragment's `system_prompt` descriptor of the requested semantics;
 3. the MCP channel flags, whenever the fragment carries an `mcp` section
@@ -702,7 +790,7 @@ The document, `schema` `urn:ax:schema:launch-plan-request`,
 | `env_names` | as composed, with the §4.5 collision rule already applied — disjoint from `env_literals` before `ax` sees the document. Sorted, unique. |
 | `env_literals` | the **composer's own names only**: the plan's own names and values (`System.ChildEnv(nil, req)`) ⊕ fragment `env` ⊕ the engaged variable-kind channel (§4.5). Never serialize `Plan.Env` or copy inherited `HOME`, `PATH`, or secrets. The inherited layer of a tracked launch is whatever `ax`'s terminal backend gives the child on the destination. |
 | `stdin` | as composed (§4.5). |
-| `extensions` | exactly the four `works.relux.curator.*` keys below. |
+| `extensions` | the four base `works.relux.curator.*` keys below, plus the conditionally present launcher-SPEC-owned `works.relux.curator.effective-native-policy` key. |
 
 The extension keys, set by the composer and copied verbatim by `ax` into
 the Session Record's top-level `extensions` (Decision 0013 D6.4, D7):
@@ -713,6 +801,7 @@ the Session Record's top-level `extensions` (Decision 0013 D6.4, D7):
 | `works.relux.curator.profile-pin` | the fragment's `profile.lock_sha256`, spelled `sha256:<64 lowercase hex>` — the profile's effective pin under Decision 0012 D3 |
 | `works.relux.curator.fragment-digest` | the §4.1 digest: `sha256:` over the CCJ-1 canonical bytes of the parsed fragment object |
 | `works.relux.curator.system-modules` | boolean, `true` exactly when the fragment carries a `system_prompt` section — environments.md §10.2 makes that presence equivalent to "the resolved chain carries at least one applicable system module" |
+| `works.relux.curator.effective-native-policy` | Conditional: present only for a tracked `native` request when inspection finds known relaxations. Value: `{"relaxations":["<selector>",...],"source":"<settings-source>"}`; selectors are sorted and unique, and the source is the detector's stable identifier. It records only detected facts. |
 
 These are what resume fidelity rests on: `ax` re-resolves the profile on
 resume and compares the pin, and refuses by default when
@@ -745,6 +834,47 @@ immediately before the handoff or exec, in both modes, and the first
 failure is the one reported, so that `ax` is never asked to record a
 session the launcher already knows is wrong.
 
+**Permission headless detector and refusal rules (Decision 0018).** A
+launch is headless when stdin or stdout is not a TTY, when
+`permission-grammar-v1` recognizes a non-interactive native-argument
+form, when a non-interactive marker from the closed set
+{`CI`, `GITHUB_ACTIONS`} is present, or whenever tracking is enabled.
+This marker set is versioned here in SPEC `0.5.0-draft` §4.6 and mirrored
+in environments §10.1; additions require a later paired specification
+revision and the list changes only in that revision.
+
+Interactive untracked silence resolves to `yolo` with
+`source=default-interactive`. Headless, CI, or tracked silence resolves
+to `native` with `source=default-headless`; explicit flag, profile, or
+launcher-global values still participate in §4.3 precedence. The
+force-native lock is above that whole ladder: if the v2 fragment says
+`permissions.locked=true`, any launcher-visible `yolo` from a flag or
+launcher-global setting is a `usage` error; silence resolves to `native`.
+The fragment's closed lattice makes a profile-level `yolo` with this lock
+invalid.
+
+With established v2 permission transport, a tracked launch whose
+effective mode is `yolo` from any precedence level fails with
+`permission_mode_tracked_unsupported` and exit 1. It never retries as an
+untracked launch. If permission transport is not established, any launch
+that would resolve `yolo` fails with `permission_policy_unsupported`
+instead; native launches, including legacy-fragment headless or tracked
+silence, proceed as native. A `yolo` mode for an environment with no
+declared mapping fails with `permission_mode_unsupported` and exit 1.
+
+When a native request's best-effort inspection finds known stored
+settings that relax native posture, emit this exact stderr line:
+
+```text
+curator-run: effective-native-policy: relaxation=<selector[,selector...]> source=<settings-source>
+```
+
+Selectors are sorted and unique; the line names only inspected selectors
+and their settings source. In tracked mode, record the same values under
+`works.relux.curator.effective-native-policy` as an object with
+`relaxations` and `source`. In untracked mode the line is stderr
+provenance only and creates no persistent record.
+
 ### 4.7 The launcher's configuration file family
 
 The launcher owns exactly two configuration files, both in the §4.3
@@ -754,7 +884,7 @@ machine), each with its own closed schema:
 
 | File | Owns | Precedence |
 |---|---|---|
-| `defaults.json` (`curator-run-defaults-v1`, §4.3) | model and effort defaults per env-id; the `locked` rule | operator over machine per member, unless the machine file is locked |
+| `defaults.json` (`curator-run-defaults-v2`, §4.3) | model and effort defaults plus the launcher-global permission default per env-id; the `locked` rule | operator over machine per member, unless the machine file is locked |
 | `ax.json` (`curator-run-ax-v1`, §4.6) | whether the `ax` integration is configured | machine over operator; `enabled: false` is not configured |
 
 These are **launcher-owned knobs, not manager knobs**. Curator's machine
@@ -770,9 +900,11 @@ fragment's `mcp.env_names` before the launcher sees them (§10.3);
 materialized, which the §5.1 probe detects on disk; `current_profile` and
 `scoped_current` select the profile when `--profile` is absent;
 `isolation`, `forms`, `in_place_mode`, and the rest shape the managed
-home the fragment's `env` map points at. The launcher never opens
-`manager-config`, never resolves a `curator` knob itself, and never
-duplicates a §12.1 value into its own files. The one open item is
+home the fragment's `env` map points at. Curator's `permissions.<profile>`
+knob reaches the launcher only as `fragment.permissions`; its value is never
+copied into `defaults.json`. The launcher never opens `manager-config`, never
+resolves a `curator` knob itself, and never duplicates a §12.1 value into its
+own files. The one open item is
 recorded in §9: should Curator's machine configuration ever grow a
 launcher section, both files move there by specification revision and
 their schemas stay.
@@ -941,11 +1073,12 @@ contract. Usage errors exit 2; every operational failure exits 1.
 
 | Family | Codes | Condition |
 |---|---|---|
-| usage | `usage` | unknown flag, missing `<env-id>`, stray operand before `--`, repeated flag, invalid `--system-prompt` or `--ax-profile` value, `--name` outside the `ax` §2.1 grammar or over 64 characters, `--ax-profile` on an untracked machine, a flag overriding a locked default — exit 2, nothing resolved, nothing launched |
+| usage | `usage` | unknown flag, missing `<env-id>`, stray operand before `--`, repeated flag, invalid permission value, repeated or combined permission forms, rejected `-d`/`--danger`, invalid `--system-prompt` or `--ax-profile` value, `--name` outside the `ax` §2.1 grammar or over 64 characters, `--ax-profile` on an untracked machine, a flag overriding a member set by a locked machine `defaults.json`, or visible `yolo` under an established force-native lock — exit 2, nothing resolved, nothing launched |
 | resolve | `resolve_invocation_failed`, `resolve_environment_unknown`, `resolve_profile_unknown`, `resolve_repair_failed`, `resolve_lock_unavailable`, `resolve_fragment_invalid` | §4.1: the context plane could not produce a usable fragment — `curator` not startable, or a non-zero exit with an unmapped diagnostic, Curator's own code and message passed through verbatim; unregistered environment; uninstalled profile; the store cannot restore the stale home; the repair could not take Curator's mutation lock within its bounded wait; or the output is not a valid closed fragment |
-| defaults | `defaults_config_invalid`, `defaults_unresolvable` | §4.3 and §4.6: a launcher-owned configuration file — `defaults.json` or `ax.json` (§4.7) — exists but cannot be read or parsed, or names an unknown env-id or member — a read failure, never an absence; the lineup admits no model for the mapped system after the flag and configuration levels left it unset |
-| plan | `plan_refused`, `plan_provider_limited` | §4.4: the spawn plane refused the request (unknown system/runtime or model, model not driven by the system, mode not declared by the system, invalid or missing required effort, unresolved vendor, or failure to produce a provider-limits verdict), or the explicit provider-limits verdict was not serviceable (`AvailabilityHealthy`) — the verdict's structure and evidence are surfaced verbatim |
+| defaults | `defaults_config_invalid`, `defaults_unresolvable` | §4.3 and §4.6: a launcher-owned configuration file — `defaults.json` or `ax.json` (§4.7) — exists but cannot be read or parsed, or names an unknown env-id or member; this includes a v1 file carrying the v2-only `permissions` member — a read failure is never absence; the lineup admits no model for the mapped system after earlier model levels are silent |
+| plan | `plan_refused`, `plan_provider_limited` | §4.4: the spawn plane refused the request (unknown system/runtime or model, model not driven by the system, mode not declared by the system, invalid or missing required effort, unresolved vendor, an unverified release-specific permission mapping, or failure to produce a provider-limits verdict), or the explicit provider-limits verdict was not serviceable (`AvailabilityHealthy`) — the verdict's structure and evidence are surfaced verbatim |
 | environment | `env_unsupported` | §4.2: the environment has no spawn-plane or `ax` provider mapping in this revision |
+| permission | `permission_policy_unsupported`, `permission_mode_tracked_unsupported`, `permission_mode_unsupported` | §4.1/§4.6: the fragment cannot establish v2 permission and lock transport for a would-be `yolo`; or a tracked launch resolves `yolo` from any level; or the environment has no declared `yolo` mapping — exit 1, terminal refusal with no fallback to untracked execution |
 | exec | `exec_provider_missing` | §4.6: the plan's binary does not exist — reported with the executable name and installation guidance |
 | ax | `ax_handoff_failed` | §4.6: the configured `ax` could not take the launch — `ax` not startable, or `ax start` exited non-zero, its Structured Error passed through; no untracked fallback |
 | mcp | `mcp_layer_missing`, `mcp_layer_unreadable` | §4.5: the composed argv carries `-p curator-mcp` and the pre-launch stat of the fragment's `mcp.path` finds no file, or finds something it cannot read as a regular file — codex would silently launch without the profile's MCP set, so neither degrades to a launch without `-p`; the two are distinct facts and are reported as such |
@@ -965,27 +1098,22 @@ invocation, and the operator retries deliberately.
 
 ## 7. Planned dependency
 
-The stub imports nothing beyond the standard library. The implementation
-will consume `github.com/relux-works/skill-agents-management` as its one
-Go module dependency (public module, no replace, no vendoring; sibling
-development through a gitignored `go.work`), and Curator and `ax` as CLI
-contracts only. The module version that carries `LaunchModeInteractive`,
-`ErrCompositionNotInteractive`, and the per-system interactive goldens
-(Decision 0013 D5) is **required**: this specification cannot be
-implemented against `91bf945` or any earlier main, whose closed
-`LaunchMode` set is exec, dry-run, and managed-session only. The exact
-version requirement is pinned in `go.mod` and restated here when that
-release exists. The module's own invariants — plans as values, argv
-parity goldens, frozen admitted-pair digests, per-model effort with no
-injected default, fail-open limit state with indeterminate-read-is-unknown
-— are relied upon, not re-implemented; `vendorplugin.Lineup` and the
-runtime compatibility registry are consumed for §4.3 level 3 and never
-reordered.
+The permission interface requires
+`github.com/relux-works/skill-agents-management v0.5.18` (F-M1 release `149569d`), which carries
+`LaunchModeInteractive`, `LaunchRequest.PermissionMode`,
+`LaunchRequest.ToolRelease`, `LaunchRequest.NativeArgs`, the
+`permission-grammar-v1` token, and `ErrPermissionModeUnverifiedRelease`.
+The module owns the release-bound permission mapping, grammar, and
+capability table; this SPEC deliberately contains no provider permission
+flag spelling. The pinned module's plans-as-values contract, argv
+parity goldens, frozen admitted-pair digests, per-model effort rules,
+and provider-limit verdicts remain module-owned. `vendorplugin.Lineup`
+and the runtime compatibility registry supply §4.3 model/effort fallback.
 
 ## 8. Versioning
 
 - This specification is versioned semantically; the current version is
-  **`0.4.1-draft`**. Draft versions may change incompatibly between
+  **`0.5.0-draft`**. Draft versions may change incompatibly between
   commits; the `-draft` suffix is the signal that nothing downstream may
   pin them.
 - The `curator-run` binary reports both its build version and the
@@ -1001,6 +1129,7 @@ reordered.
 
 | Version | Change |
 |---|---|
+| `0.5.0-draft` | Decision 0018 permission interface. §3 adds typed permission mode, its exact alias, and rejected legacy spellings; §§4.1/4.3 define v2 fragment transport and mode precedence; §§4.5/4.6 pass the mode through agents-management, define headless and tracked refusals, and record native-policy relaxation; §4.7 and §6 update file and diagnostic contracts. Updated README and version pins. |
 | `0.4.1-draft` | Four 0.2.1-review minors (TASK-260906-2t2t6w). §4.1/§6: the resolve pass-through clause — unmapped `--repair` diagnostics (`environment_marker_invalid`, `environment_surface_unmanaged_conflict`, `environment_backup_exists`, `environment_seed_unreadable`) collapse into `resolve_invocation_failed` with Curator's own code and message passed through verbatim, and the §6 gloss no longer leads with "`curator` not startable" for that class. §4.6: the three pre-launch checks run in the listed order — binary check first — and the first failure is the one reported. §9: the silent-MCP-absence residual for `claude_code` and `opencode` recorded. `TestSpecVersionPinned` now reads SPEC.md and README.md. |
 | `0.3.0-draft` | §4.2: correct the Pi system to `pi-native` using accepted A0 E1/E2 and landed native-Pi support (PR23, `a2a6e9f`). Other API/environment errata remain separately tracked. |
 | `0.4.0-draft` | E4 provider path (TASK-260916-16ys92). §2: the launcher is dispatched through the environments.md §11 trust-root resolution (curator-spec `0da4020`, PR #62) and reports its resolved executable path. §4.3: the stderr line-group grows to two lines — `curator-run: provider: path=<absolute path>` (own executable via `os.Executable` + `filepath.EvalSymlinks`, fallback `path=unavailable`, never fails the launch, folded with the existing framing rule) printed before the `defaults:` line at every launch; path-only in this revision because the umbrella passes no distinguishing marker, with the closed origin set deferred to a future revision. |
@@ -1091,6 +1220,8 @@ reordered.
   facts belong upstream.
 
 ## Specification changelog
+
+- 2026-09-23, 0.5.0-draft §§3, 4.1, 4.3, 4.5–4.7, and 6 (TASK-260922-1zfqq0): adopt Decision 0018 choices 1, 4, 5, and 7, with the v2 fragment contract from F-S2 and permission-mode members from agents-management v0.5.18. This is a SPEC/README revision; permission behavior is implemented by the companion F-L1b leaf.
 
 - 2026-09-22, 0.4.1-draft §§4.1/4.6/6/9 (TASK-260906-2t2t6w): fold the four 0.2.1-review minors. §4.1 gains the resolve pass-through clause — the widened `--repair` surface (`environment_marker_invalid`, `environment_surface_unmanaged_conflict`, `environment_backup_exists`, `environment_seed_unreadable`) collapses into `resolve_invocation_failed` with Curator's own code and message passed through verbatim — and the §6 gloss is fixed to match. §4.6 states the pre-launch check order (binary check first, first failure reported). §9 records the silent-MCP-absence residual for `claude_code` and `opencode`.
 

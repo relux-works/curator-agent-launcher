@@ -4,6 +4,7 @@ package composition
 
 import (
 	"encoding/base64"
+	"fmt"
 	"maps"
 	"slices"
 	"sort"
@@ -47,6 +48,25 @@ type Value struct {
 	// paths must print them to stderr before launch.
 	Warnings []string `json:"-"`
 	mcpLayer string
+}
+
+// ComposeAdmittedPlan preserves the launcher's §4.5 placement while consuming
+// NativeArgs already admitted into the upstream plan. The module appends the
+// opaque suffix after its own arguments; this boundary moves that exact suffix
+// after prompt and MCP additions. A mismatch means the admitted plan no longer
+// reproduces the request, so composition refuses instead of guessing.
+func ComposeAdmittedPlan(plan agentic.Plan, ownEnv []string, frag fragment.Fragment, prompt PromptApplication, native []string) (Value, error) {
+	if len(native) > len(plan.Argv) {
+		return Value{}, fmt.Errorf("admitted plan does not carry the requested native argument suffix")
+	}
+	cut := len(plan.Argv) - len(native)
+	for i, arg := range native {
+		if plan.Argv[cut+i] != arg {
+			return Value{}, fmt.Errorf("admitted plan does not carry the requested native argument suffix")
+		}
+	}
+	plan.Argv = slices.Clone(plan.Argv[:cut])
+	return Compose(plan, ownEnv, frag, prompt, native)
 }
 
 // Compose consumes the owned-environment snapshot of the admitted plan.

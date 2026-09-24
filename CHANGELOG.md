@@ -3,9 +3,19 @@
 ## 0.1.0 — unreleased
 
 Release-readiness candidate; source builds report `0.1.0-dev`, against
-SPEC `0.4.1-draft`. No tag or release is created by this work.
+SPEC `0.5.0-draft`. No tag or release is created by this work.
 
 ### Added
+
+- SPEC 0.5.0-draft and README permission interface per Decision 0018
+  (TASK-260922-1zfqq0): typed permission mode, fragment-v2 transport,
+  precedence, headless/tracked rules, diagnostics, and native-policy
+  provenance. Runtime behavior and its tests are the companion F-L1b leaf.
+
+- F-L1b permission-mode resolution and transport (TASK-260922-2u5jzw):
+  CLI modes and alias, source-aware precedence, v2 fragment transport, tracked
+  and force-native refusals, release-bound agents-management composition,
+  headless classification, and effective-native-policy reporting.
 
 - Closed launcher CLI parsing, opaque native arguments, usage diagnostics and
   initial hosted CI (PR #4).
@@ -47,6 +57,6 @@ SPEC `0.4.1-draft`. No tag or release is created by this work.
 
 ### Dependencies
 
-- `github.com/relux-works/skill-agents-management v0.5.13`, the upstream
+- `github.com/relux-works/skill-agents-management v0.5.22`, the upstream
   agents-management module, with no replace directive or workspace override.
   Curator and ax remain CLI contracts.

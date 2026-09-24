@@ -1,7 +1,8 @@
-curator-run 0.1.0-dev (specification 0.4.1-draft)
+curator-run 0.1.0-dev (specification 0.5.0-draft)
 
 usage: curator-run <env-id> [--profile <name>] [--system-prompt <append|replace>]
                    [--model <model>] [--effort <effort>]
+                   [--permissions <native|yolo> | --yolo]
                    [--name <session-name>] [--ax-profile <standard|yolo>]
                    [--] <native args...>
        curator-run --help | -h
@@ -15,6 +16,9 @@ options:
   --system-prompt <append|replace>  engage the fragment's system-prompt channel
   --model <model>                   model passed to the spawn plane as declared
   --effort <effort>                 reasoning effort passed as declared
+  --permissions <native|yolo>        permission mode passed to the spawn plane
+  --yolo                             alias for --permissions yolo
+  -d, --danger                       rejected; use --permissions explicitly
   --name <session-name>             ax session name (tracked machines only)
   --ax-profile <standard|yolo>      ax execution profile (tracked machines only)
   --help, -h                        print this usage text and exit 0

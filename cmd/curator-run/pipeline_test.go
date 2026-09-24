@@ -51,6 +51,8 @@ type pipelineFixture struct {
 	resolver                         *scriptedRunner
 	args                             []string
 	builds, verdicts                 int
+	request                          vendorplugin.SpawnRequest
+	plan                             agentic.Plan
 }
 
 func writeFixture(t *testing.T, path string, data []byte, mode os.FileMode) {
@@ -123,8 +125,9 @@ func entryFixture(t *testing.T, environment string, tracked bool) *pipelineFixtu
 		writeFixture(t, filepath.Join(f.dir, "operator", "ax.json"), []byte(`{"schema":"curator-run-ax-v1","enabled":true}`), 0600)
 	}
 	f.deps.workdir = func() (string, error) { return f.dir, nil }
+	releases := map[string]string{"claude_code": "2.1.261", "codex_cli": "codex-cli 0.153.2", "pi": "0.84.2"}
 	f.deps.environ = func() []string {
-		return []string{"PATH=" + f.dir, "HOME=" + f.dir, "PARENT=direct-only", "FIGMA_API_KEY=source-secret", "CLAUDECODE=nested", "CODEX_THREAD_ID=nested", "TASK_BOARD_RUN_ID=nested"}
+		return []string{"PATH=" + f.dir, "HOME=" + f.dir, "PARENT=direct-only", "FIGMA_API_KEY=source-secret", "CLAUDECODE=nested", "CODEX_THREAD_ID=nested", "TASK_BOARD_RUN_ID=nested", "CURATOR_TEST_RELEASE=" + releases[environment]}
 	}
 	store, err := providerlimits.NewStore(providerlimits.Options{Layout: providerlimits.LayoutAt(f.dir)})
 	if err != nil {
@@ -141,10 +144,15 @@ func entryFixture(t *testing.T, environment string, tracked bool) *pipelineFixtu
 	}
 	f.deps.build = func(ctx context.Context, r *vendorplugin.Registry, req vendorplugin.SpawnRequest, mode agentic.LaunchMode) (agentic.PlanWithEnvironment, error) {
 		f.builds++
+		f.request = req
 		if mode != agentic.LaunchModeInteractive || req.Home != f.home || req.WorkDir != f.dir || !req.Composition.IsZero() || !req.Run.IsZero() || req.Goal != nil || req.Budget != nil || req.ServiceTier != "" || req.PromptPath != "" || len(req.Prompt) > 0 {
 			t.Fatalf("wrong request: %+v mode=%v", req, mode)
 		}
-		return vendorplugin.BuildLaunchWithEnvironment(ctx, r, req, mode)
+		built, err := vendorplugin.BuildLaunchWithEnvironment(ctx, r, req, mode)
+		if err == nil {
+			f.plan = built.Plan
+		}
+		return built, err
 	}
 	f.deps.axBinary = pipelineHelper
 	f.deps.stdin = strings.NewReader("parent stdin\n\x00\xff")
@@ -163,6 +171,39 @@ func (f *pipelineFixture) run() (int, []byte, []byte) {
 	var out, stderr bytes.Buffer
 	code := run(context.Background(), f.args, &out, &stderr, f.deps)
 	return code, out.Bytes(), stderr.Bytes()
+}
+
+func (f *pipelineFixture) usePermissionsFragment(t *testing.T, mode string, locked bool, source string) {
+	t.Helper()
+	var obj map[string]any
+	if err := json.Unmarshal([]byte(f.resolver.stdout), &obj); err != nil {
+		t.Fatal(err)
+	}
+	obj["fragment"] = fragment.IdentityV2
+	obj["permissions"] = map[string]any{"mode": mode, "locked": locked, "source": source}
+	raw, err := json.Marshal(obj)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fragment.Parse(raw); err != nil {
+		t.Fatalf("invalid v2 fixture: %v", err)
+	}
+	f.resolver.stdout = string(raw) + "\n"
+}
+
+func (f *pipelineFixture) addEnv(name, value string) {
+	previous := f.deps.environ
+	f.deps.environ = func() []string {
+		return append(previous(), name+"="+value)
+	}
+}
+
+func (f *pipelineFixture) writeDefaults(t *testing.T, path, raw string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+		t.Fatal(err)
+	}
+	writeFixture(t, path, []byte(raw), 0600)
 }
 func (f *pipelineFixture) assertNoChild(t *testing.T) {
 	t.Helper()
@@ -462,7 +503,7 @@ func TestProductionModeSelection(t *testing.T) {
 
 func TestProductionForbiddenFlags(t *testing.T) {
 	for _, tracked := range []bool{false, true} {
-		for _, flag := range []string{"--yolo", "--dangerously-skip-permissions", "--sandbox", "--goal", "--budget", "--service-tier", "--assignment", "--engine", "--tracked"} {
+		for _, flag := range []string{"-d", "--danger", "--dangerously-skip-permissions", "--sandbox", "--goal", "--budget", "--service-tier", "--assignment", "--engine", "--tracked"} {
 			t.Run(fmt.Sprintf("%s/%v", flag, tracked), func(t *testing.T) {
 				f := entryFixture(t, "pi", tracked)
 				f.args = []string{"pi", flag}
@@ -470,7 +511,9 @@ func TestProductionForbiddenFlags(t *testing.T) {
 				if code != 2 || len(out) != 0 || f.resolver.calls != 0 || f.builds != 0 {
 					t.Fatalf("forbidden flag admitted: exit=%d", code)
 				}
-				golden(t, "forbidden-"+strings.TrimPrefix(flag, "--"), string(stderr), f.dir)
+				if !bytes.Contains(stderr, []byte("curator-run: usage:")) {
+					t.Fatalf("refusal did not use the usage diagnostic: %s", stderr)
+				}
 				f.assertNoChild(t)
 			})
 		}

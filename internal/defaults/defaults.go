@@ -12,6 +12,7 @@ import (
 )
 
 const Schema = "curator-run-defaults-v1"
+const SchemaV2 = "curator-run-defaults-v2"
 const CodeInvalid = "defaults_config_invalid"
 const CodeUsage = "usage"
 
@@ -30,7 +31,7 @@ type Member struct {
 	Value   string
 	Present bool
 }
-type Pair struct{ Model, Effort Member }
+type Pair struct{ Model, Effort, Permissions Member }
 
 // Files is validated configuration. Its zero value represents absent files.
 // Keeping entries private prevents callers bypassing schema validation.
@@ -126,11 +127,19 @@ func parse(data []byte) (file, error) {
 	if root.Kind != fragment.KindObject {
 		return file{}, fmt.Errorf("root must be an object")
 	}
+	schemaValue, hasSchema := root.Get("schema")
+	if !hasSchema || schemaValue.Kind != fragment.KindString {
+		return file{}, fmt.Errorf("schema must be a string")
+	}
+	schema := schemaValue.Str
+	if schema != Schema && schema != SchemaV2 {
+		return file{}, fmt.Errorf("invalid schema")
+	}
 	f := file{entries: map[string]Pair{}}
 	for _, m := range root.Obj {
 		switch m.Key {
 		case "schema":
-			if m.Value.Kind != fragment.KindString || m.Value.Str != Schema {
+			if m.Value.Kind != fragment.KindString || m.Value.Str != schema {
 				return file{}, fmt.Errorf("invalid schema")
 			}
 		case "locked":
@@ -147,7 +156,7 @@ func parse(data []byte) (file, error) {
 					return file{}, fmt.Errorf("unknown environment %q", env.Key)
 				}
 				if env.Value.Kind != fragment.KindObject || len(env.Value.Obj) == 0 {
-					return file{}, fmt.Errorf("%s must contain model or effort", env.Key)
+					return file{}, fmt.Errorf("%s must contain model, effort, or permissions", env.Key)
 				}
 				var pair Pair
 				for _, member := range env.Value.Obj {
@@ -160,6 +169,14 @@ func parse(data []byte) (file, error) {
 						pair.Model = value
 					case "effort":
 						pair.Effort = value
+					case "permissions":
+						if schema != SchemaV2 {
+							return file{}, fmt.Errorf("%s.permissions requires %s", env.Key, SchemaV2)
+						}
+						if value.Value != "native" && value.Value != "yolo" {
+							return file{}, fmt.Errorf("%s.permissions must be native or yolo", env.Key)
+						}
+						pair.Permissions = value
 					default:
 						return file{}, fmt.Errorf("unknown member %s.%s", env.Key, member.Key)
 					}
@@ -191,7 +208,7 @@ type ResolvedMember struct {
 	Member
 	Origin Origin
 }
-type Partial struct{ Model, Effort ResolvedMember }
+type Partial struct{ Model, Effort, Permissions ResolvedMember }
 
 // Resolve applies per-member precedence and refuses flags for locked members,
 // even if the flag repeats the machine value. Operator locked has no effect.
@@ -214,6 +231,7 @@ func (f Files) Resolve(environment string, flags Pair) (Partial, error) {
 	}{
 		{"model", flags.Model, operator.Model, machine.Model, &result.Model},
 		{"effort", flags.Effort, operator.Effort, machine.Effort, &result.Effort},
+		{"permissions", flags.Permissions, operator.Permissions, machine.Permissions, &result.Permissions},
 	} {
 		if locked && row.flag.Present && row.machine.Present {
 			return Partial{}, &Error{CodeUsage, fmt.Errorf("--%s overrides locked %s for %s", row.name, row.name, environment)}
@@ -226,4 +244,23 @@ func (f Files) Resolve(environment string, flags Pair) (Partial, error) {
 		}
 	}
 	return result, nil
+}
+
+// PermissionDefault returns the merged launcher-global permission value for
+// one canonical environment, before the higher Curator profile level and CLI
+// flag are applied. The machine lock has the same named-environment scope as
+// the model and effort lock.
+func (f Files) PermissionDefault(environment string) (Member, error) {
+	if fragment.HomeVariable(environment) == "" {
+		return Member{}, invalid(fmt.Errorf("unknown environment %q", environment))
+	}
+	machine, named := f.machine.entries[environment]
+	if f.machine.locked && named {
+		return machine.Permissions, nil
+	}
+	operator := f.operator.entries[environment]
+	if operator.Permissions.Present {
+		return operator.Permissions, nil
+	}
+	return machine.Permissions, nil
 }

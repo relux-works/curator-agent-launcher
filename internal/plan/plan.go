@@ -75,12 +75,15 @@ const (
 // engine member: those stay zero/unset by construction and no caller can
 // supply them.
 type Request struct {
-	Runtime string
-	Model   string
-	Effort  string
-	Home    string
-	WorkDir string
-	Env     []string
+	Runtime        string
+	Model          string
+	Effort         string
+	PermissionMode agentic.PermissionMode
+	ToolRelease    string
+	NativeArgs     []string
+	Home           string
+	WorkDir        string
+	Env            []string
 }
 
 // BuildLaunchFunc is vendorplugin.BuildLaunchWithEnvironment's shape, injectable so tests
@@ -190,12 +193,15 @@ func (e *LimitedError) Code() string { return CodeLimited }
 // unset. It calls nothing and starts no child.
 func SpawnRequest(req Request) vendorplugin.SpawnRequest {
 	return vendorplugin.SpawnRequest{
-		Runtime: vendorplugin.RuntimeID(req.Runtime),
-		Model:   vendorplugin.ModelID(req.Model),
-		Effort:  req.Effort,
-		Home:    req.Home,
-		WorkDir: req.WorkDir,
-		Env:     req.Env,
+		Runtime:        vendorplugin.RuntimeID(req.Runtime),
+		Model:          vendorplugin.ModelID(req.Model),
+		Effort:         req.Effort,
+		PermissionMode: req.PermissionMode,
+		ToolRelease:    req.ToolRelease,
+		NativeArgs:     append([]string{}, req.NativeArgs...),
+		Home:           req.Home,
+		WorkDir:        req.WorkDir,
+		Env:            req.Env,
 	}
 }
 

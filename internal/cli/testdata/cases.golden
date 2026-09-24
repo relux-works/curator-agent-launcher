@@ -58,6 +58,36 @@ args: ["codex_cli" "--profile=a=b"]
 ax: false
 result: env="codex_cli" tracked=false profile="a=b" native=[]
 
+# permissions native separate
+args: ["codex_cli" "--permissions" "native"]
+ax: false
+result: env="codex_cli" tracked=false permissions="native" native=[]
+
+# permissions yolo separate
+args: ["codex_cli" "--permissions" "yolo"]
+ax: false
+result: env="codex_cli" tracked=false permissions="yolo" native=[]
+
+# permissions native equals
+args: ["--permissions=native" "codex_cli"]
+ax: false
+result: env="codex_cli" tracked=false permissions="native" native=[]
+
+# permissions yolo equals
+args: ["--permissions=yolo" "codex_cli"]
+ax: false
+result: env="codex_cli" tracked=false permissions="yolo" native=[]
+
+# yolo alias
+args: ["--yolo" "codex_cli"]
+ax: false
+result: env="codex_cli" tracked=false permissions="yolo" native=[]
+
+# native tail keeps permission spellings
+args: ["pi" "--" "--permissions" "yolo" "--yolo" "-d" "--danger"]
+ax: false
+result: env="pi" tracked=false native=["--permissions" "yolo" "--yolo" "-d" "--danger"]
+
 # system prompt append
 args: ["pi" "--system-prompt" "append"]
 ax: false
@@ -252,6 +282,56 @@ error: usage: flag --model given more than once
 args: ["codex_cli" "--effort" "a" "--effort" "a"]
 ax: false
 error: usage: flag --effort given more than once
+
+# repeated permissions
+args: ["codex_cli" "--permissions=native" "--permissions" "yolo"]
+ax: false
+error: usage: --permissions and --yolo are one permission request and cannot be repeated or combined
+
+# permissions and yolo alias
+args: ["codex_cli" "--permissions" "native" "--yolo"]
+ax: false
+error: usage: --permissions and --yolo are one permission request and cannot be repeated or combined
+
+# yolo alias and permissions
+args: ["codex_cli" "--yolo" "--permissions=yolo"]
+ax: false
+error: usage: --permissions and --yolo are one permission request and cannot be repeated or combined
+
+# yolo alias equals value
+args: ["codex_cli" "--yolo=true"]
+ax: false
+error: usage: --yolo is an alias without a value
+
+# unknown permissions mode
+args: ["codex_cli" "--permissions=automatic"]
+ax: false
+error: usage: --permissions accepts native or yolo, got "automatic"
+
+# unknown permissions mode separate
+args: ["codex_cli" "--permissions" "auto"]
+ax: false
+error: usage: --permissions accepts native or yolo, got "auto"
+
+# legacy short danger
+args: ["codex_cli" "-d"]
+ax: false
+error: usage: -d is rejected; use --permissions native or --permissions yolo
+
+# legacy short danger equals
+args: ["codex_cli" "-d=true"]
+ax: false
+error: usage: -d is rejected; use --permissions native or --permissions yolo
+
+# legacy danger
+args: ["codex_cli" "--danger"]
+ax: false
+error: usage: --danger is rejected; use --permissions native or --permissions yolo
+
+# legacy danger equals
+args: ["codex_cli" "--danger=true"]
+ax: false
+error: usage: --danger is rejected; use --permissions native or --permissions yolo
 
 # repeated system prompt
 args: ["pi" "--system-prompt" "append" "--system-prompt" "replace"]

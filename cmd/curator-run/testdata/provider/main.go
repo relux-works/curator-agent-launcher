@@ -3,6 +3,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"strconv"
@@ -12,10 +13,21 @@ import (
 )
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "--version" {
+		fmt.Fprintln(os.Stdout, os.Getenv("CURATOR_TEST_RELEASE"))
+		return
+	}
 	_ = os.WriteFile("started", []byte("started"), 0600)
 	data, _ := io.ReadAll(os.Stdin)
 	cwd, _ := os.Getwd()
 	env := os.Environ()
+	filtered := env[:0]
+	for _, entry := range env {
+		if !strings.HasPrefix(entry, "CURATOR_TEST_RELEASE=") {
+			filtered = append(filtered, entry)
+		}
+	}
+	env = filtered
 	// Fake ax inherits the real launcher environment. Capture only the harmless
 	// test marker, so a failed refusal test cannot print host credentials.
 	if len(os.Args) > 1 && os.Args[1] == "start" {

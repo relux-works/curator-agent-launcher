@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/relux-works/skill-agents-management/pkg/agentic"
 	"github.com/relux-works/skill-agents-management/pkg/providerlimits"
 	"github.com/relux-works/skill-agents-management/pkg/vendorplugin"
 
@@ -27,7 +28,7 @@ import (
 
 const (
 	name        = cli.Name
-	specVersion = "0.4.1-draft"
+	specVersion = "0.5.0-draft"
 	// buildVersion is the launcher's own version; the specification
 	// version is reported beside it (SPEC §8).
 	buildVersion = "0.1.0-dev"
@@ -84,6 +85,9 @@ type launchDeps struct {
 	// leaves it nil so EmitGroup resolves os.Executable; tests inject
 	// a deterministic path so goldens stay stable across machines.
 	providerPath func() string
+	// isTerminal is injectable for deterministic default-mode tests. Production
+	// checks both process stdin and stdout with the platform terminal API.
+	isTerminal func() bool
 
 	configPaths func() (defaults.Paths, error)
 	resolver    fragmentResolver
@@ -183,6 +187,9 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, deps laun
 		if inv.EffortSet {
 			flags.Effort = defaults.Member{Value: inv.Effort, Present: true}
 		}
+		if inv.PermissionSet {
+			flags.Permissions = defaults.Member{Value: string(inv.PermissionMode), Present: true}
+		}
 		var resolved defaults.Resolved
 		resolved, err = files.Complete(frag.Environment, flags, deps.registry)
 		if err == nil {
@@ -191,7 +198,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, deps laun
 				provider = deps.providerPath()
 			}
 			_ = defaults.EmitGroupWithProvider(stderr, resolved, provider)
-			return launch(ctx, inv, frag, target, resolved, stdout, stderr, deps)
+			return launch(ctx, inv, frag, target, resolved, files, stdout, stderr, deps)
 		}
 	}
 	if derr := (&defaults.Error{}); errors.As(err, &derr) {
@@ -221,10 +228,15 @@ func processAvailability() (plan.AvailabilityFunc, error) {
 	return store.AvailabilityFor, nil
 }
 
-func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, target mapping.Target, resolved defaults.Resolved, stdout, stderr io.Writer, deps launchDeps) int {
+func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, target mapping.Target, resolved defaults.Resolved, files defaults.Files, stdout, stderr io.Writer, deps launchDeps) int {
 	wd, err := deps.workdir()
 	if err != nil {
 		return emitFailure(stderr, diagnostics.CodePlanRefused, err)
+	}
+	parentEnv := deps.environ()
+	decision, toolRelease, system, err := resolvePermission(ctx, inv, frag, target, files, parentEnv, stderr, deps)
+	if err != nil {
+		return emitPermissionFailure(stderr, err)
 	}
 	availability, err := deps.availability()
 	if err != nil {
@@ -235,25 +247,40 @@ func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, ta
 		build = vendorplugin.BuildLaunchWithEnvironment
 	}
 	admitted, err := plan.Build(ctx, plan.Deps{Registry: deps.registry, BuildLaunch: build, Availability: availability}, plan.Request{
-		Runtime: resolved.Runtime, Model: resolved.Model.Value, Effort: resolved.Effort.Value, Home: frag.Home(), WorkDir: wd, Env: deps.environ(),
+		Runtime: resolved.Runtime, Model: resolved.Model.Value, Effort: resolved.Effort.Value,
+		PermissionMode: decision.Mode, ToolRelease: toolRelease, NativeArgs: inv.Native,
+		Home: frag.Home(), WorkDir: wd, Env: parentEnv,
 	})
 	if err != nil {
 		code := diagnostics.CodePlanRefused
 		var limited *plan.LimitedError
 		if errors.As(err, &limited) {
 			code = diagnostics.CodePlanProviderLimited
+		} else if errors.Is(err, agentic.ErrPermissionModeUnsupported) {
+			code = diagnostics.CodePermissionModeUnsupported
+		} else if errors.Is(err, agentic.ErrNativePolicyUnknown) || errors.Is(err, agentic.ErrPermissionModeDuplicate) {
+			code = diagnostics.CodeUsage
+		}
+		if code == diagnostics.CodeUsage {
+			_ = diagnostics.Emit(stderr, code, err.Error())
+			fmt.Fprintf(stderr, "\n%s", cli.Usage)
+			return diagnostics.ExitForCode(code)
 		}
 		_ = diagnostics.Emit(stderr, code, "spawn-plane admission refused the launch")
 		// Preserve provider/module evidence bytes, including embedded newlines.
 		fmt.Fprintln(stderr, err.Error())
 		return diagnostics.ExitForCode(code)
 	}
+	var nativePolicy *execution.EffectiveNativePolicy
+	if decision.Mode == agentic.PermissionModeNative {
+		nativePolicy = execution.ReportEffectiveNativePolicy(stderr, agentic.InspectStoredPolicy(system, admitted.Plan), inv.Tracked)
+	}
 	selection, err := systemprompt.Select(frag, fragment.Semantics(inv.SystemPrompt))
 	if err != nil {
 		code, _ := diagnostics.CodeOf(err)
 		return emitFailure(stderr, code, err)
 	}
-	value, err := composition.Compose(admitted.Plan, admitted.OwnedEnv, *frag, composition.PromptApplication{Argv: selection.Argv(), Env: selection.Env()}, inv.Native)
+	value, err := composition.ComposeAdmittedPlan(admitted.Plan, admitted.OwnedEnv, *frag, composition.PromptApplication{Argv: selection.Argv(), Env: selection.Env()}, inv.Native)
 	if err != nil {
 		return emitFailure(stderr, diagnostics.CodePlanRefused, err)
 	}
@@ -261,7 +288,7 @@ func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, ta
 	if deps.now != nil {
 		now = deps.now
 	}
-	prepared, err := execution.Prepare(value, *frag, inv, target, now())
+	prepared, err := execution.PrepareWithNativePolicy(value, *frag, inv, target, now(), nativePolicy)
 	if err != nil {
 		return emitFailure(stderr, diagnostics.CodeAxHandoffFailed, err)
 	}
@@ -275,4 +302,93 @@ func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, ta
 		}
 		return nil
 	}})
+}
+
+func resolvePermission(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, target mapping.Target, files defaults.Files, parentEnv []string, stderr io.Writer, deps launchDeps) (execution.PermissionDecision, string, agentic.System, error) {
+	global, err := files.PermissionDefault(inv.EnvID)
+	if err != nil {
+		return execution.PermissionDecision{}, "", nil, err
+	}
+	system, ok := agentic.Default.Lookup(agentic.SystemID(target.System))
+	if !ok {
+		return execution.PermissionDecision{}, "", nil, fmt.Errorf("%s: permission system %q is not registered", diagnostics.CodePlanRefused, target.System)
+	}
+
+	profileSet := frag.Permissions != nil && frag.Permissions.Source == "profile"
+	locked := frag.Permissions != nil && frag.Permissions.Locked
+	needsDefault := !inv.PermissionSet && !profileSet && !global.Present && !locked
+	terminal := execution.InteractiveStdio(os.Stdin, os.Stdout)
+	if deps.isTerminal != nil {
+		terminal = deps.isTerminal()
+	}
+	headless := inv.Tracked || execution.HasNonInteractiveMarker(parentEnv) || !terminal
+
+	toolRelease := ""
+	var probeErr error
+	if needsDefault && !headless {
+		toolRelease, probeErr = agentic.ProbeToolRelease(ctx, system, parentEnv)
+		if probeErr != nil {
+			return execution.PermissionDecision{}, "", nil, fmt.Errorf("%s: cannot classify native arguments without a verified tool release: %w", diagnostics.CodePlanRefused, probeErr)
+		}
+		classification, classifyErr := agentic.Default.ClassifyNonInteractiveArgs(agentic.SystemID(target.System), toolRelease, inv.Native)
+		if classifyErr != nil {
+			return execution.PermissionDecision{}, "", nil, fmt.Errorf("%s: cannot classify native arguments: %w", diagnostics.CodePlanRefused, classifyErr)
+		}
+		headless = classification.IsNonInteractive()
+	}
+	decision, err := execution.ResolvePermission(execution.PermissionRequest{
+		Flag: inv.PermissionMode, FlagPresent: inv.PermissionSet, Profile: frag.Permissions,
+		Global: global, Headless: headless, Tracked: inv.Tracked,
+		Transport: frag.Revision == fragment.IdentityV2,
+	})
+	if err != nil {
+		return execution.PermissionDecision{}, "", nil, err
+	}
+	if toolRelease == "" {
+		toolRelease, probeErr = agentic.ProbeToolRelease(ctx, system, parentEnv)
+	}
+	permissionMapping, mappingErr := agentic.Default.PermissionMapping(agentic.SystemID(target.System), toolRelease, decision.Mode)
+	if mappingErr != nil {
+		if errors.Is(mappingErr, agentic.ErrPermissionModeUnsupported) {
+			return execution.PermissionDecision{}, "", nil, &execution.PermissionError{Code: diagnostics.CodePermissionModeUnsupported, Detail: mappingErr.Error()}
+		}
+		if decision.Mode != agentic.PermissionModeNative || !errors.Is(mappingErr, agentic.ErrPermissionModeUnverifiedRelease) {
+			return execution.PermissionDecision{}, "", nil, fmt.Errorf("%s: permission mapping was not established: %w", diagnostics.CodePlanRefused, mappingErr)
+		}
+		// The module defines native as no permission override. A failed release
+		// probe leaves ToolRelease empty, which remains valid for a native
+		// request and makes no provider-mapping claim.
+		permissionMapping.Flag = ""
+	}
+	if decision.Mode == agentic.PermissionModeYolo && probeErr != nil {
+		return execution.PermissionDecision{}, "", nil, fmt.Errorf("%s: tool release was not established: %v: %w", diagnostics.CodePlanRefused, probeErr, agentic.ErrPermissionModeUnverifiedRelease)
+	}
+	if !inv.Tracked {
+		mapped := permissionMapping.Flag
+		if mapped == "" {
+			mapped = "none"
+		}
+		fmt.Fprintf(stderr, "curator-run: permissions=%s source=%s mapped=%s\n", decision.Mode, decision.Source, mapped)
+	}
+	return decision, toolRelease, system, nil
+}
+
+func emitPermissionFailure(stderr io.Writer, err error) int {
+	var permissionErr *execution.PermissionError
+	if errors.As(err, &permissionErr) {
+		_ = diagnostics.Emit(stderr, permissionErr.Code, permissionErr.Detail)
+		if permissionErr.Code == diagnostics.CodeUsage {
+			fmt.Fprintf(stderr, "\n%s", cli.Usage)
+		}
+		return diagnostics.ExitForCode(permissionErr.Code)
+	}
+	code, detail, ok := strings.Cut(err.Error(), ": ")
+	if !ok || !diagnostics.Valid(code) {
+		code, detail = diagnostics.CodePlanRefused, err.Error()
+	}
+	_ = diagnostics.Emit(stderr, code, detail)
+	if code == diagnostics.CodeUsage {
+		fmt.Fprintf(stderr, "\n%s", cli.Usage)
+	}
+	return diagnostics.ExitForCode(code)
 }

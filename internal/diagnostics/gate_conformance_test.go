@@ -24,10 +24,12 @@
 // the owner constants, never hand-enumerated. Each mutable owner gate has
 // its own named test so a single-foreign-code weakening fails exactly one
 // name. The remaining normative codes (defaults_unresolvable,
-// plan_refused, plan_provider_limited, env_unsupported, exec_provider_missing,
-// ax_handoff_failed) are call-site-selected with no CodeOf classification in
-// this tree; they appear here only as rejected foreign values and as
-// Codes() members, with production call sites pinned in vectors.
+// plan_refused, plan_provider_limited, env_unsupported,
+// permission_policy_unsupported, permission_mode_tracked_unsupported,
+// permission_mode_unsupported, exec_provider_missing, ax_handoff_failed)
+// are call-site-selected with no CodeOf classification in this tree; they
+// appear here only as rejected foreign values and as Codes() members, with
+// production call sites pinned in vectors where implemented.
 package diagnostics_test
 
 import (
@@ -457,20 +459,22 @@ func TestGateOwnerFormNil(t *testing.T) {
 }
 
 // TestGateCoverageCounts pins the complete coverage arithmetic derived from
-// the single registry: 5 owners, 3 forms, 18 normative codes; mutable-Code
-// families resolve 6 / layer 2 / refusal 2 with foreign sets 12 / 16 / 16
-// (44 normative rejection pairs); 4 extra strangers; 56 codes x 3 forms =
-// 168 rejection cases; 12 owned slots (10 mutable + 2 fixed) x 3 forms =
+// the single registry: 5 owners, 3 forms, 21 normative codes; mutable-Code
+// families resolve 6 / layer 2 / refusal 2 with foreign sets 15 / 19 / 19
+// (53 normative rejection pairs); 4 extra strangers per family add 12
+// pairs, for 65 owner/code pairs x 3 forms = 195 rejection cases; 12 owned
+// slots (10 mutable + 2 fixed) x 3 forms =
 // 36 positive cases (30 mutable + 6 fixed); 5 owners x 4 nil forms + 3
 // absence extras = 23 nil cases. Fixed-code owners (usage, axconfig) carry
 // no mutable-Code gate by construction; their constant mappings are pinned
 // here and their positives asserted in TestGateOwnerFormPositives.
-// Call-site-selected codes carry no CodeOf classification; they are asserted
-// as Codes() members and rejected foreign values elsewhere here.
+// Permission codes are declaration-only in this leaf: they carry no CodeOf
+// owner form yet. Call-site-selected codes are asserted as Codes() members
+// and rejected foreign values elsewhere here.
 func TestGateCoverageCounts(t *testing.T) {
 	normative := gateSpecSection6Codes(t)
-	if len(normative) != 18 {
-		t.Fatalf("normative codes = %d, want 18: %q", len(normative), normative)
+	if len(normative) != 21 {
+		t.Fatalf("normative codes = %d, want 21: %q", len(normative), normative)
 	}
 	if len(gateOwnerRegistry) != 5 {
 		t.Fatalf("owner registry rows = %d, want 5 (usage, resolve, layer, refusal, axconfig)", len(gateOwnerRegistry))
@@ -558,18 +562,18 @@ func TestGateCoverageCounts(t *testing.T) {
 			t.Fatalf("%s owned = %d, want %d", f.name, f.own, f.want)
 		}
 		foreign := gateForeign(normative, gateOwnedByName(f.name))
-		wantForeign := 18 - f.want + len(gateExtraStrangers())
+		wantForeign := 21 - f.want + len(gateExtraStrangers())
 		if len(foreign) != wantForeign {
 			t.Fatalf("%s foreign+extras = %d, want %d: %q", f.name, len(foreign), wantForeign, foreign)
 		}
 	}
-	normPairs := 12 + 16 + 16
-	if normPairs != 44 {
-		t.Fatalf("normative rejection pairs = %d, want 44", normPairs)
+	normPairs := 15 + 19 + 19
+	if normPairs != 53 {
+		t.Fatalf("normative rejection pairs = %d, want 53", normPairs)
 	}
-	withExtras := (12 + 4) + (16 + 4) + (16 + 4)
-	if withExtras*3 != 168 {
-		t.Fatalf("rejection cases with extras x forms = %d, want 168", withExtras*3)
+	withExtras := (15 + 4) + (19 + 4) + (19 + 4)
+	if withExtras*3 != 195 {
+		t.Fatalf("rejection cases with extras x forms = %d, want 195", withExtras*3)
 	}
 }
 

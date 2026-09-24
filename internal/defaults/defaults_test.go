@@ -79,6 +79,45 @@ func TestLoadRejectsInvalid(t *testing.T) {
 	}
 }
 
+func TestPermissionDefaultsV2MergeAndClosedSchema(t *testing.T) {
+	t.Run("v1-rejects-permissions-member", func(t *testing.T) {
+		p := paths(t)
+		write(t, p.Operator, `{"schema":"curator-run-defaults-v1","defaults":{"pi":{"permissions":"yolo"}}}`)
+		_, err := defaults.Load(p)
+		code(t, err, defaults.CodeInvalid)
+	})
+	t.Run("v2-rejects-unknown-mode", func(t *testing.T) {
+		p := paths(t)
+		write(t, p.Operator, `{"schema":"curator-run-defaults-v2","defaults":{"pi":{"permissions":"automatic"}}}`)
+		_, err := defaults.Load(p)
+		code(t, err, defaults.CodeInvalid)
+	})
+	t.Run("operator-over-machine-and-machine-lock", func(t *testing.T) {
+		p := paths(t)
+		write(t, p.Machine, `{"schema":"curator-run-defaults-v2","locked":false,"defaults":{"pi":{"permissions":"native"}}}`)
+		write(t, p.Operator, `{"schema":"curator-run-defaults-v2","defaults":{"pi":{"permissions":"yolo"}}}`)
+		f, err := defaults.Load(p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got, err := f.PermissionDefault("pi")
+		if err != nil || got != member("yolo") {
+			t.Fatalf("permission default = %+v, %v; want operator yolo", got, err)
+		}
+		write(t, p.Machine, `{"schema":"curator-run-defaults-v2","locked":true,"defaults":{"pi":{"permissions":"native"}}}`)
+		f, err = defaults.Load(p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got, err = f.PermissionDefault("pi")
+		if err != nil || got != member("native") {
+			t.Fatalf("locked permission default = %+v, %v; want machine native", got, err)
+		}
+		_, err = f.Resolve("pi", defaults.Pair{Permissions: member("native")})
+		code(t, err, defaults.CodeUsage)
+	})
+}
+
 func TestLoadKnownEnvironmentsAndPresence(t *testing.T) {
 	p := paths(t)
 	// Normative registry set from SPEC §4.2, including the known unsupported ID.

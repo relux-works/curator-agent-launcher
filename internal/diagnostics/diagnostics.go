@@ -23,6 +23,9 @@
 //	plan_refused                   plan.Build                 separately owned (exit 1)
 //	plan_provider_limited          plan.Build                 separately owned (exit 1)
 //	env_unsupported                mapping (constant)          mapping.Resolve (exit 1)
+//	permission_policy_unsupported  permission policy          call-site selected (exit 1)
+//	permission_mode_tracked_unsupported permission policy      call-site selected (exit 1)
+//	permission_mode_unsupported    permission policy          call-site selected (exit 1)
 //	exec_provider_missing          execution (sentinel text)   execution.Launch.Run (exit 1)
 //	ax_handoff_failed              execution (sentinel text)   execution.Launch.Run (exit 1)
 //	mcp_layer_missing              composition.LayerError      composition.Value.CheckLaunchBoundary (exit 1)
@@ -95,6 +98,10 @@ const (
 
 	CodeEnvUnsupported = "env_unsupported"
 
+	CodePermissionPolicyUnsupported      = "permission_policy_unsupported"
+	CodePermissionModeTrackedUnsupported = "permission_mode_tracked_unsupported"
+	CodePermissionModeUnsupported        = "permission_mode_unsupported"
+
 	CodeExecMissing = "exec_provider_missing"
 
 	CodeAxHandoffFailed = "ax_handoff_failed"
@@ -121,6 +128,9 @@ func Codes() []string {
 		CodePlanRefused,
 		CodePlanProviderLimited,
 		CodeEnvUnsupported,
+		CodePermissionPolicyUnsupported,
+		CodePermissionModeTrackedUnsupported,
+		CodePermissionModeUnsupported,
 		CodeExecMissing,
 		CodeAxHandoffFailed,
 		CodeMCPLayerMissing,

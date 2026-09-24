@@ -2,7 +2,7 @@
 
 `curator-run` composes Curator's managed environment, agents-management's
 admitted interactive plan, and optional ax tracking. The contract is
-[SPEC 0.4.1-draft](SPEC.md).
+[SPEC 0.5.0-draft](SPEC.md).
 
 ## Production pipeline
 
@@ -19,13 +19,19 @@ The executable supports `claude_code` (alias `claude`), `codex_cli`
    system/provider pair. Outputs carry the canonical id only; aliases are
    never persisted.
 3. Resolve model and effort from flags, operator/machine defaults and the tagged
-   lineup. Emit each member's origin before admission. Pi uses the ordered
-   convention `pi-anthropic`, `pi-openai`, `pi-google`; vendor scores are never
-   compared. Explicit models bind their own runtime.
-4. Call `vendorplugin.BuildLaunchWithEnvironment` in `LaunchModeInteractive`,
-   then enforce a separate `providerlimits.Store.AvailabilityFor` verdict for
-   the same runtime/model/managed home. Unknown and failed reads refuse. No
-   retry, model downgrade or fallback occurs.
+   lineup. Resolve permission mode by flag, Curator profile setting, launcher
+   global default, then the built-in default. The mode is passed to
+   `LaunchRequest.PermissionMode`; emit model/effort origins and the module's
+   release-bound permission mapping before admission.
+   Pi uses the ordered convention `pi-anthropic`, `pi-openai`, `pi-google`; vendor
+   scores are never compared. Explicit models bind their own runtime.
+4. Call `vendorplugin.BuildLaunchWithEnvironment` in `LaunchModeInteractive`
+   with `LaunchRequest.ToolRelease` and `LaunchRequest.NativeArgs` for the
+   release-bound permission grammar (v2 for Claude Code and Codex CLI, v1 for
+   Pi), then enforce a separate
+   `providerlimits.Store.AvailabilityFor` verdict for the same runtime/model/
+   managed home. Unknown and failed reads refuse. No retry, model downgrade or
+   fallback occurs.
 5. Select the requested system-prompt channel and compose argv in plan → prompt
    → MCP → native order. Native arguments after `--` remain opaque.
 6. Prepare direct execution or the ax launch-plan document. Immediately before
@@ -33,17 +39,23 @@ The executable supports `claude_code` (alias `claude`), `codex_cli`
    and check the Codex MCP layer. Emit prompt/discovery warnings. A late refusal
    starts neither provider nor ax.
 
-The dependency is the real `skill-agents-management v0.5.13` tag, without a
-replace directive or workspace override. Its admitted result supplies both the
-plan and owned environment literals from the same prepared, alias-projected
-request. Composition never rebuilds the plan or reconstructs that request.
+The permission interface is implemented against upstream
+`skill-agents-management v0.5.22` (F-M1). It owns
+`LaunchRequest.PermissionMode`, the release-bound mapping, versioned native
+argument classification, stored-policy inspection, and the capability table.
+Claude Code and Codex CLI use `permission-grammar-v2`; Pi uses
+`permission-grammar-v1`. The admitted result supplies
+the plan and owned environment literals from the same prepared,
+alias-projected request; composition never rebuilds the plan.
 
 ## Environment and transport
 
 Direct execution uses the composed full environment, working directory,
 argv and stdin. Tracked transport includes only owned literals, MCP lookup
-names, argv suffix, encoded stdin and the four Curator extensions. It never
-serializes the full inherited environment. Ax inherits the launcher environment.
+names, argv suffix, encoded stdin and the four base Curator extensions. A
+tracked native launch can also include the optional
+`works.relux.curator.effective-native-policy` extension. It never serializes the
+full inherited environment. Ax inherits the launcher environment.
 Attached empty stdin remains distinct from unattached; binary stdin uses D4
 base64url encoding in the ax document and exact bytes for direct execution.
 
@@ -92,7 +104,7 @@ sudo install -m 0755 curator-run /usr/local/bin/curator-run
 curator-run --version
 ```
 
-This development build reports `0.1.0-dev` (specification `0.4.1-draft`).
+This development build reports `0.1.0-dev` (specification `0.5.0-draft`).
 Ensure `/usr/local/bin` is on `PATH`, or install into a dedicated trusted
 operator-owned directory on `PATH`. Do **not** install into Curator's user-bin
 shim directory (`~/.local/bin`), a managed skill bin directory, or beneath the
@@ -132,13 +144,19 @@ scope. Resolution always requests repair.
 | `--profile <name>` | Curator profile, forwarded to environment resolution |
 | `--system-prompt <append\|replace>` | Explicit prompt-channel opt-in; unavailable semantics refuse the launch |
 | `--model <model>`, `--effort <effort>` | Explicit spawn-plane selection, subject to admission and machine locks |
+| `--permissions <native\|yolo>` | Resolve the launcher permission mode |
+| `--yolo` | Exact alias of `--permissions yolo` at the same precedence level |
+| `-d`, `--danger` | Rejected as usage errors before `--`; after `--`, arguments are native input |
 | `--name <session-name>` | Tracked session name; `[A-Za-z0-9][A-Za-z0-9._-]{0,63}`; accepted without effect when untracked |
 | `--ax-profile <standard\|yolo>` | Tracked execution profile; usage error when untracked; absent uses ax's default |
 | `--help`, `-h`, `--version` | Print information and exit, after reading tracking configuration |
 | `--` | End launcher parsing; all following arguments pass through verbatim |
 
 Value flags accept `--flag value` or `--flag=value`. Repeated flags, unknown
-flags, missing values, and extra operands before `--` are usage errors.
+flags, missing values, and extra operands before `--` are usage errors. The
+permission flag accepts only `native` or `yolo`; `--yolo` is the no-value exact
+alias, and the two forms cannot be combined. `-d` and `--danger` are rejected
+launcher flags before the native-argument boundary.
 Prompt-file discovery can still apply without the prompt opt-in; see the warnings
 and Pi precedence described above. Pi has no MCP channel.
 
@@ -151,25 +169,43 @@ Both use closed schemas: unknown members, malformed data and unreadable files
 refuse the invocation; absence alone permits fallback.
 
 Model and effort resolve independently: flags, then operator defaults over
-machine defaults per member, then the admitted lineup. For example, a file
-can select only an effort, leaving model selection to the lineup:
+machine defaults per member, then the admitted lineup. Permission mode has its
+own precedence: `--permissions` or `--yolo`, Curator's per-profile setting in the
+fragment, the launcher-global file value, then the built-in default. A v2 file
+can set an effort for one environment and a permission default for another:
 
 ```json
 {
-  "schema": "curator-run-defaults-v1",
+  "schema": "curator-run-defaults-v2",
   "locked": false,
   "defaults": {
-    "codex_cli": { "effort": "high" }
+    "codex_cli": { "effort": "high" },
+    "claude_code": { "permissions": "yolo" }
   }
 }
 ```
 
-Each environment entry contains `model`, `effort`, or both; values are passed
-to spawn-plane admission. With `"locked": true` in the machine file, the
-operator entry is ignored for every environment named by that machine file.
-Flags attempting to override a member set by that machine entry are usage
-errors, even if the value matches. Members left unset still use later fallback.
-The selected model, effort and their origins are printed before admission.
+Each environment entry may contain `model`, `effort`, and/or `permissions`;
+permission values are exactly `native` or `yolo`. A v2 reader accepts a v1 file
+without `permissions`, while a v1 reader rejects that new member. The permission
+fragment member uses the F-S2 names `permissions.mode`, `permissions.locked`,
+and `permissions.source`; `source=default` means the profile level is silent.
+Interactive untracked silence defaults to `yolo`; headless, CI, and tracked
+silence defaults to `native` with `source=default-headless`. `native` adds no
+launcher override and does not guarantee prompting; untracked native arguments
+after `--` remain verbatim. The closed headless marker set is versioned in SPEC
+§4.6 and mirrored by environments §10.1.
+Curator's force-native lock is above all permission levels: visible `yolo` is a
+`usage` error, silence resolves to `native`. A tracked `yolo` request from any
+level fails with `permission_mode_tracked_unsupported`; the launcher never
+falls back to untracked execution. When the machine defaults file is locked,
+operator entries are ignored for its environments and flags overriding any
+member it sets are usage errors. Model and effort origins are printed before
+admission. Native launches use the upstream stored-policy inspector and report
+known relaxations only from files it fully inspected. The report is not a claim
+that a setting won provider precedence or that uninspected managed policy is
+clear. Tracked launches record the same selectors and their inspected source.
+Long `permissions.allow` lists are summarized by rule count in stderr.
 
 Pi fallback uses the ordered convention `pi-anthropic`, `pi-openai`,
 `pi-google`, selecting the first runtime with a driven model and ranking only
@@ -206,9 +242,10 @@ on stderr. Foreign Curator/provider/ax output is forwarded unchanged.
 | Result / diagnostic codes | Exit |
 |---|---|
 | Help/version, successful direct execution or ax handoff | 0 |
-| `usage` (invalid arguments or locked-member override) | 2 |
+| `usage` (invalid arguments, locked-member override, or visible `yolo` under Curator's force-native lock) | 2 |
 | `resolve_invocation_failed`, `resolve_environment_unknown`, `resolve_profile_unknown`, `resolve_repair_failed`, `resolve_lock_unavailable`, `resolve_fragment_invalid` | 1 |
 | `defaults_config_invalid`, `defaults_unresolvable` | 1 |
+| `permission_policy_unsupported`, `permission_mode_tracked_unsupported`, `permission_mode_unsupported` | 1 |
 | `plan_refused`, `plan_provider_limited`, `env_unsupported` | 1 |
 | `exec_provider_missing`, `ax_handoff_failed` | 1 |
 | `mcp_layer_missing`, `mcp_layer_unreadable` | 1 |

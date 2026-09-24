@@ -83,6 +83,22 @@ func TestComposeOrderAndChannels(t *testing.T) {
 		})
 	}
 }
+
+func TestComposeAdmittedPlanRepositionsNativeSuffixAndRefusesDrift(t *testing.T) {
+	f := parsed(t, "claude_code", "/managed/default/claude/mcp.json", nil)
+	native := []string{"resume", "--last"}
+	plan := agentic.Plan{Argv: []string{"--model", "m", "resume", "--last"}}
+	v, err := composition.ComposeAdmittedPlan(plan, nil, f, composition.PromptApplication{Argv: []string{"--prompt", "p"}}, native)
+	if err != nil {
+		t.Fatal(err)
+	}
+	equal(t, v.Argv, []string{"--model", "m", "--prompt", "p", "--mcp-config", f.MCP.Path, "--strict-mcp-config", "resume", "--last"})
+	_, err = composition.ComposeAdmittedPlan(agentic.Plan{Argv: []string{"--model", "m", "resume", "different"}}, nil, f, composition.PromptApplication{}, native)
+	if err == nil || !strings.Contains(err.Error(), "requested native argument suffix") {
+		t.Fatalf("suffix drift error = %v", err)
+	}
+}
+
 func TestComposeEnvironmentBoundary(t *testing.T) {
 	p := agentic.Plan{Env: []string{"HOME=/parent", "PATH=/sanitized", "SECRET=inherited-secret", "FIGMA_API_KEY=source-secret", "OWN=old=literal", "EMPTY="}}
 	f := parsed(t, "opencode", "/managed/default/tool/mcp.json", []string{"CHANNEL", "FIGMA_API_KEY", "OWN"})

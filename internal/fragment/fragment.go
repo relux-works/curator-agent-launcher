@@ -1,9 +1,10 @@
 // Package fragment implements SPEC.md §4.1, the context-plane step of the
 // launcher: it runs `curator env resolve <env-id> [--profile <name>]
 // --repair --format json` as a subprocess, parses the closed
-// launch-env-fragment-v1 object (curator-spec environments.md §10.2 as
+// launch-env-fragment-v1 and launch-env-fragment-v2 objects (curator-spec environments.md §10.2 as
 // revised by Decision 0012 D8, conformance schema
-// launch-env-fragment-v1.schema.json), and computes the CCJ-1 digest
+// launch-env-fragment-v1.schema.json plus the draft v2 permissions member,
+// and computes the CCJ-1 digest
 // (registry.md §1) from the parsed object.
 //
 // The package resolves and nothing else: it applies no channel, writes no
@@ -21,6 +22,10 @@ import (
 
 // Identity is the required value of the "fragment" member.
 const Identity = "launch-env-fragment-v1"
+
+// IdentityV2 adds the closed permissions member and establishes permission
+// and force-native-lock transport.
+const IdentityV2 = "launch-env-fragment-v2"
 
 // Environment identifiers of the closed adapter registry (environments.md
 // §7.1). The launcher's own support for a launch into one of them is a §4.2
@@ -85,6 +90,15 @@ type Profile struct {
 	LockSHA256 string
 }
 
+// Permissions carries the v2 fragment's resolved profile-level mode and
+// Curator force-native lock state. Source "default" is a silence placeholder;
+// source "global" identifies an engaged force-native lock.
+type Permissions struct {
+	Mode   string
+	Locked bool
+	Source string
+}
+
 // Precedence carries the two primitives (Decision 0012 D4); the launcher
 // accepts and does not consume them.
 type Precedence struct {
@@ -106,11 +120,15 @@ type MCP struct {
 	Channels []Channel
 }
 
-// Fragment is a parsed, validated launch-env-fragment-v1.
+// Fragment is a parsed, validated launch-env-fragment-v1 or v2.
 type Fragment struct {
+	// Revision is the exact fragment token and the only permission-transport
+	// signal. Only v2 can carry Permissions.
+	Revision    string
 	Environment string
 	Profile     Profile
 	Precedence  Precedence
+	Permissions *Permissions
 	// Env maps the adapter's registry-declared variable name to the managed
 	// home path. Revision 1 declares exactly one variable per adapter.
 	Env map[string]string
@@ -201,7 +219,7 @@ func invalid(path, format string, a ...any) error {
 	return &InvalidError{Path: path, Msg: fmt.Sprintf(format, a...)}
 }
 
-// Parse validates data as one closed launch-env-fragment-v1 object and
+// Parse validates data as one closed launch-env-fragment-v1 or v2 object and
 // returns it with its CCJ-1 bytes and digest. Everything the reader rules
 // of registry.md §1 reject (invalid UTF-8, duplicate keys, lone surrogates,
 // non-integers, trailing content) is an error, as is every departure from
@@ -304,19 +322,53 @@ func checkFlagToken(path, s string) error {
 }
 
 func fromValue(root Value) (*Fragment, error) {
-	if err := closedObject("", root, []string{"fragment", "environment", "profile", "precedence", "env"}, []string{"system_prompt", "mcp", "path_prepend"}); err != nil {
+	revision, err := enumMember("", root, "fragment", Identity, IdentityV2)
+	if err != nil {
 		return nil, err
 	}
-	f := &Fragment{}
+	required := []string{"fragment", "environment", "profile", "precedence", "env"}
+	optional := []string{"system_prompt", "mcp", "path_prepend"}
+	if revision == IdentityV2 {
+		required = append(required, "permissions")
+	} else {
+		// A v1 reader rejects the v2 member, even when its value looks valid.
+	}
+	if err := closedObject("", root, required, optional); err != nil {
+		return nil, err
+	}
+	f := &Fragment{Revision: revision}
 
-	if _, err := enumMember("", root, "fragment", Identity); err != nil {
-		return nil, err
-	}
 	env, err := enumMember("", root, "environment", EnvClaudeCode, EnvCodexCLI, EnvOpenCode, EnvPi)
 	if err != nil {
 		return nil, err
 	}
 	f.Environment = env
+
+	if revision == IdentityV2 {
+		value, _ := root.Get("permissions")
+		if err := closedObject("/permissions", value, []string{"mode", "locked", "source"}, nil); err != nil {
+			return nil, err
+		}
+		permissions := &Permissions{}
+		if permissions.Mode, err = enumMember("/permissions", value, "mode", "native", "yolo"); err != nil {
+			return nil, err
+		}
+		locked, _ := value.Get("locked")
+		if locked.Kind != KindBool {
+			return nil, invalid("/permissions/locked", "expected a boolean, got %s", locked.Kind)
+		}
+		permissions.Locked = locked.Bool
+		if permissions.Source, err = enumMember("/permissions", value, "source", "profile", "global", "default"); err != nil {
+			return nil, err
+		}
+		if permissions.Locked != (permissions.Source == "global") {
+			return nil, invalid("/permissions", "locked must be true iff source is global")
+		}
+		if permissions.Source != "profile" && permissions.Mode != "native" {
+			return nil, invalid("/permissions/mode", "source %s must carry native mode", permissions.Source)
+		}
+		f.Permissions = permissions
+	}
 
 	// profile
 	prof, _ := root.Get("profile")

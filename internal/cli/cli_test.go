@@ -36,6 +36,12 @@ var acceptedShapes = []shape{
 	{"flags after env", []string{"codex_cli", "--model", "gpt-5.3-codex", "--effort", "high"}, false},
 	{"equals form", []string{"codex_cli", "--profile=companyA", "--effort=medium"}, false},
 	{"equals form value containing equals", []string{"codex_cli", "--profile=a=b"}, false},
+	{"permissions native separate", []string{"codex_cli", "--permissions", "native"}, false},
+	{"permissions yolo separate", []string{"codex_cli", "--permissions", "yolo"}, false},
+	{"permissions native equals", []string{"--permissions=native", "codex_cli"}, false},
+	{"permissions yolo equals", []string{"--permissions=yolo", "codex_cli"}, false},
+	{"yolo alias", []string{"--yolo", "codex_cli"}, false},
+	{"native tail keeps permission spellings", []string{"pi", "--", "--permissions", "yolo", "--yolo", "-d", "--danger"}, false},
 	{"system prompt append", []string{"pi", "--system-prompt", "append"}, false},
 	{"system prompt replace", []string{"pi", "--system-prompt", "replace"}, false},
 	{"name on tracked machine", []string{"codex_cli", "--name", "work.1_a-b"}, true},
@@ -83,6 +89,16 @@ var rejectedShapes = []struct {
 	{shape{"repeated profile", []string{"codex_cli", "--profile", "a", "--profile", "b"}, false}, "--profile given more than once"},
 	{shape{"repeated model mixed forms", []string{"codex_cli", "--model=a", "--model", "b"}, false}, "--model given more than once"},
 	{shape{"repeated effort", []string{"codex_cli", "--effort", "a", "--effort", "a"}, false}, "--effort given more than once"},
+	{shape{"repeated permissions", []string{"codex_cli", "--permissions=native", "--permissions", "yolo"}, false}, "cannot be repeated or combined"},
+	{shape{"permissions and yolo alias", []string{"codex_cli", "--permissions", "native", "--yolo"}, false}, "cannot be repeated or combined"},
+	{shape{"yolo alias and permissions", []string{"codex_cli", "--yolo", "--permissions=yolo"}, false}, "cannot be repeated or combined"},
+	{shape{"yolo alias equals value", []string{"codex_cli", "--yolo=true"}, false}, "alias without a value"},
+	{shape{"unknown permissions mode", []string{"codex_cli", "--permissions=automatic"}, false}, "accepts native or yolo"},
+	{shape{"unknown permissions mode separate", []string{"codex_cli", "--permissions", "auto"}, false}, "accepts native or yolo"},
+	{shape{"legacy short danger", []string{"codex_cli", "-d"}, false}, "is rejected"},
+	{shape{"legacy short danger equals", []string{"codex_cli", "-d=true"}, false}, "is rejected"},
+	{shape{"legacy danger", []string{"codex_cli", "--danger"}, false}, "is rejected"},
+	{shape{"legacy danger equals", []string{"codex_cli", "--danger=true"}, false}, "is rejected"},
 	{shape{"repeated system prompt", []string{"pi", "--system-prompt", "append", "--system-prompt", "replace"}, false}, "--system-prompt given more than once"},
 	{shape{"repeated name", []string{"codex_cli", "--name", "a", "--name", "b"}, true}, "--name given more than once"},
 	{shape{"repeated ax profile", []string{"codex_cli", "--ax-profile", "yolo", "--ax-profile", "standard"}, true}, "--ax-profile given more than once"},
@@ -122,6 +138,27 @@ func TestParseAccepted(t *testing.T) {
 			}
 			if inv.Tracked != s.ax && inv.Info == InfoNone {
 				t.Fatalf("Parse(%q).Tracked = %v, want %v", s.args, inv.Tracked, s.ax)
+			}
+		})
+	}
+}
+
+func TestPermissionModeFormsResolveToOneMember(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		args []string
+		want PermissionMode
+	}{
+		{"separate native", []string{"pi", "--permissions", "native"}, PermissionNative},
+		{"equals native", []string{"--permissions=native", "pi"}, PermissionNative},
+		{"separate yolo", []string{"pi", "--permissions", "yolo"}, PermissionYolo},
+		{"equals yolo", []string{"--permissions=yolo", "pi"}, PermissionYolo},
+		{"alias", []string{"--yolo", "pi"}, PermissionYolo},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			inv, err := Parse(tc.args, untracked)
+			if err != nil || !inv.PermissionSet || inv.PermissionMode != tc.want {
+				t.Fatalf("Parse(%q) = %+v, %v; want permission %q", tc.args, inv, err, tc.want)
 			}
 		})
 	}
@@ -346,6 +383,9 @@ func renderInvocation(inv Invocation) string {
 	}
 	if inv.EffortSet {
 		parts = append(parts, fmt.Sprintf("effort=%q", inv.Effort))
+	}
+	if inv.PermissionSet {
+		parts = append(parts, fmt.Sprintf("permissions=%q", inv.PermissionMode))
 	}
 	if inv.NameSet {
 		parts = append(parts, fmt.Sprintf("name=%q", inv.Name))

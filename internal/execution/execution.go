@@ -50,10 +50,18 @@ type document struct {
 	Extensions    extensions         `json:"extensions"`
 }
 type extensions struct {
-	ProfileName    string `json:"works.relux.curator.profile-name"`
-	ProfilePin     string `json:"works.relux.curator.profile-pin"`
-	FragmentDigest string `json:"works.relux.curator.fragment-digest"`
-	SystemModules  bool   `json:"works.relux.curator.system-modules"`
+	ProfileName           string                 `json:"works.relux.curator.profile-name"`
+	ProfilePin            string                 `json:"works.relux.curator.profile-pin"`
+	FragmentDigest        string                 `json:"works.relux.curator.fragment-digest"`
+	SystemModules         bool                   `json:"works.relux.curator.system-modules"`
+	EffectiveNativePolicy *EffectiveNativePolicy `json:"works.relux.curator.effective-native-policy,omitempty"`
+}
+
+// EffectiveNativePolicy is the launcher-SPEC tracked record of inspected
+// relaxations. Source contains only paths whose policy contents were read.
+type EffectiveNativePolicy struct {
+	Relaxations []string `json:"relaxations"`
+	Source      string   `json:"source"`
 }
 
 // Launch is a prepared snapshot. Prepare belongs at composition time, so the
@@ -69,10 +77,17 @@ type Launch struct {
 // invocation with its mapped target. These are trusted typed pipeline inputs;
 // this layer does not reimplement fragment/CLI/admission validation.
 func Prepare(v composition.Value, f fragment.Fragment, inv cli.Invocation, target mapping.Target, at time.Time) (Launch, error) {
+	return PrepareWithNativePolicy(v, f, inv, target, at, nil)
+}
+
+// PrepareWithNativePolicy snapshots the effective-native-policy result into
+// the optional tracked extension. Direct launches retain it only as stderr
+// provenance, as required by SPEC §4.6.
+func PrepareWithNativePolicy(v composition.Value, f fragment.Fragment, inv cli.Invocation, target mapping.Target, at time.Time, policy *EffectiveNativePolicy) (Launch, error) {
 	// Marshal now both snapshots the tracked transport and prevents later input
 	// mutations changing it. Copy direct slices separately for the same reason.
 	doc, err := json.Marshal(document{"urn:ax:schema:launch-plan-request", "1.0.0", v.Argv, v.EnvNames, v.EnvLiterals, v.Stdin,
-		extensions{f.Profile.Name, "sha256:" + f.Profile.LockSHA256, f.Digest, f.SystemPrompt != nil}})
+		extensions{f.Profile.Name, "sha256:" + f.Profile.LockSHA256, f.Digest, f.SystemPrompt != nil, policy}})
 	if err != nil {
 		return Launch{}, err
 	}

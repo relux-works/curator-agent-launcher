@@ -30,6 +30,7 @@ const Name = "curator-run"
 // Usage is the usage text printed after every usage error and by --help.
 const Usage = `usage: curator-run <env-id> [--profile <name>] [--system-prompt <append|replace>]
                    [--model <model>] [--effort <effort>]
+                   [--permissions <native|yolo> | --yolo]
                    [--name <session-name>] [--ax-profile <standard|yolo>]
                    [--] <native args...>
        curator-run --help | -h
@@ -43,6 +44,9 @@ options:
   --system-prompt <append|replace>  engage the fragment's system-prompt channel
   --model <model>                   model passed to the spawn plane as declared
   --effort <effort>                 reasoning effort passed as declared
+  --permissions <native|yolo>        permission mode passed to the spawn plane
+  --yolo                             alias for --permissions yolo
+  -d, --danger                       rejected; use --permissions explicitly
   --name <session-name>             ax session name (tracked machines only)
   --ax-profile <standard|yolo>      ax execution profile (tracked machines only)
   --help, -h                        print this usage text and exit 0
@@ -125,6 +129,14 @@ const (
 	AxProfileYolo AxProfile = "yolo"
 )
 
+// PermissionMode is the closed vocabulary of --permissions and its alias.
+type PermissionMode string
+
+const (
+	PermissionNative PermissionMode = "native"
+	PermissionYolo   PermissionMode = "yolo"
+)
+
 // sessionNamePattern is the ax §2.1 session-name grammar, anchored.
 var sessionNamePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`)
 
@@ -164,6 +176,9 @@ type Invocation struct {
 	// Model and Effort are §4.3 level 1, verbatim and unvalidated.
 	Model, Effort       string
 	ModelSet, EffortSet bool
+	// PermissionMode is the explicit §4.3 mode or its --yolo alias.
+	PermissionMode PermissionMode
+	PermissionSet  bool
 	// Name is the --name value, already validated against the ax §2.1
 	// grammar. NameSet reports presence. On an untracked machine
 	// (Tracked false) the value is accepted and has no effect.
@@ -210,6 +225,7 @@ var valueFlags = map[string]bool{
 	"--system-prompt": true,
 	"--model":         true,
 	"--effort":        true,
+	"--permissions":   true,
 	"--name":          true,
 	"--ax-profile":    true,
 }
@@ -239,6 +255,7 @@ func Parse(args []string, opts Options) (Invocation, error) {
 	inv := Invocation{Tracked: opts.AxConfigured}
 	seen := map[string]bool{}
 	envSet := false
+	permissionSeen := false
 
 	i := 0
 	for ; i < len(args); i++ {
@@ -266,6 +283,26 @@ func Parse(args []string, opts Options) (Invocation, error) {
 		}
 
 		flag, value, hasEq := strings.Cut(tok, "=")
+		if flag == "-d" || flag == "--danger" {
+			return inv, usageErr("%s is rejected; use --permissions native or --permissions yolo", flag)
+		}
+		if flag == "--yolo" {
+			if hasEq {
+				return inv, usageErr("--yolo is an alias without a value")
+			}
+			if permissionSeen {
+				return inv, usageErr("--permissions and --yolo are one permission request and cannot be repeated or combined")
+			}
+			permissionSeen = true
+			inv.PermissionMode, inv.PermissionSet = PermissionYolo, true
+			continue
+		}
+		if flag == "--permissions" {
+			if permissionSeen {
+				return inv, usageErr("--permissions and --yolo are one permission request and cannot be repeated or combined")
+			}
+			permissionSeen = true
+		}
 		if !valueFlags[flag] {
 			return inv, usageErr("unknown flag %q before --", tok)
 		}
@@ -304,6 +341,13 @@ func (inv *Invocation) set(flag, value string, opts Options) error {
 		inv.Model, inv.ModelSet = value, true
 	case "--effort":
 		inv.Effort, inv.EffortSet = value, true
+	case "--permissions":
+		switch PermissionMode(value) {
+		case PermissionNative, PermissionYolo:
+			inv.PermissionMode, inv.PermissionSet = PermissionMode(value), true
+		default:
+			return usageErr("--permissions accepts native or yolo, got %q", value)
+		}
 	case "--system-prompt":
 		switch SystemPrompt(value) {
 		case SystemPromptAppend, SystemPromptReplace:

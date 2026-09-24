@@ -241,7 +241,7 @@ func TestRunLineupEnvsPrintGroupBeforeRefusal(t *testing.T) {
 	cases := []struct {
 		env, group string
 	}{
-		{"claude_code", name + ": defaults: model=claude-fable-5-1 (lineup) effort=high (lineup)"},
+		{"claude_code", name + ": defaults: model=claude-opus-5-5 (lineup) effort=high (lineup)"},
 		{"codex_cli", name + ": defaults: model=gpt-6-astra (lineup) effort=max (lineup)"},
 		{"pi", name + ": defaults: model=claude-fable-5 (lineup) effort=high (lineup)"},
 	}
@@ -394,7 +394,7 @@ func TestRunProductionResolverAgainstFakeCurator(t *testing.T) {
 // TestSpecVersionPinned fails when the reported specification version
 // drifts from the version SPEC.md and README.md state; the three are one fact.
 func TestSpecVersionPinned(t *testing.T) {
-	const want = "0.4.1-draft"
+	const want = "0.5.0-draft"
 	if specVersion != want {
 		t.Fatalf("specVersion = %q, want %q", specVersion, want)
 	}
@@ -481,7 +481,7 @@ func TestRunMapping(t *testing.T) {
 	for _, tc := range []struct {
 		env, system, provider, group string
 	}{
-		{"claude_code", "claude-code", "claude", "model=claude-fable-5-1 (lineup) effort=high (lineup)"},
+		{"claude_code", "claude-code", "claude", "model=claude-opus-5-5 (lineup) effort=high (lineup)"},
 		{"codex_cli", "codex", "codex", "model=gpt-6-astra (lineup) effort=max (lineup)"},
 		{"pi", "pi-native", "pi", "model=claude-fable-5 (lineup) effort=high (lineup)"},
 		{"opencode", "", "", ""},

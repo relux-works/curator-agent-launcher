@@ -69,7 +69,7 @@ func TestNewRegistryResolvesLaunchableSystems(t *testing.T) {
 	}
 }
 
-// TestCompleteLineupTops pins the observed v0.5.11 fallback values. The
+// TestCompleteLineupTops pins the observed v0.5.22 fallback values. The
 // model is the Lineup leader by capability score, not the vendor's
 // display Recommended row (claude-opus-5 for anthropic); re-verify these
 // pins when the module pin changes. Pi ranks only the preferred runtime
@@ -77,7 +77,7 @@ func TestNewRegistryResolvesLaunchableSystems(t *testing.T) {
 func TestCompleteLineupTops(t *testing.T) {
 	reg := mustRegistry(t)
 	for env, want := range map[string][3]string{
-		"claude_code": {"claude-fable-5-1", "high", "claude"},
+		"claude_code": {"claude-opus-5-5", "high", "claude"},
 		"codex_cli":   {"gpt-6-astra", "max", "codex"},
 		"pi":          {"claude-fable-5", "high", "pi-anthropic"},
 	} {
