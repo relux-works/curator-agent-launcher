@@ -5,9 +5,9 @@ package defaults
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 
+	"github.com/relux-works/curator-agent-launcher/internal/configfile"
 	"github.com/relux-works/curator-agent-launcher/internal/fragment"
 )
 
@@ -70,53 +70,18 @@ func Load(paths Paths) (Files, error) {
 }
 
 func loadFile(path string) (file, error) {
-	if path == "" {
-		return file{}, invalid(fmt.Errorf("empty defaults path"))
-	}
-	// Inspect each component without following symlinks when classifying absence.
-	// Lstat on only the final path would misclassify a dangling parent link.
-	if err := inspect(path); err != nil {
-		if os.IsNotExist(err) {
-			return file{}, nil
-		}
-		return file{}, invalid(fmt.Errorf("%s: %w", path, err))
-	}
-	info, err := os.Stat(path)
+	data, present, err := configfile.Read(path)
 	if err != nil {
 		return file{}, invalid(fmt.Errorf("%s: %w", path, err))
 	}
-	if !info.Mode().IsRegular() {
-		return file{}, invalid(fmt.Errorf("%s: defaults must be a regular file", path))
-	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return file{}, invalid(fmt.Errorf("%s: %w", path, err))
+	if !present {
+		return file{}, nil
 	}
 	f, err := parse(data)
 	if err != nil {
 		return file{}, invalid(fmt.Errorf("%s: %w", path, err))
 	}
 	return f, nil
-}
-
-func inspect(path string) error {
-	parent := filepath.Dir(path)
-	if parent != path && parent != "." {
-		if err := inspect(parent); err != nil {
-			return err
-		}
-	}
-	info, err := os.Lstat(path)
-	if err != nil {
-		return err
-	}
-	if info.Mode()&os.ModeSymlink != 0 {
-		if _, err := os.Stat(path); err != nil {
-			// Deliberately do not wrap ENOENT: the link exists, so this is not absence.
-			return fmt.Errorf("unreadable symlink %s: %v", path, err)
-		}
-	}
-	return nil
 }
 
 func parse(data []byte) (file, error) {

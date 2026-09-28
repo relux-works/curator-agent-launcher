@@ -887,6 +887,23 @@ machine), each with its own closed schema:
 | `defaults.json` (`curator-run-defaults-v2`, §4.3) | model and effort defaults plus the launcher-global permission default per env-id; the `locked` rule | operator over machine per member, unless the machine file is locked |
 | `ax.json` (`curator-run-ax-v1`, §4.6) | whether the `ax` integration is configured | machine over operator; `enabled: false` is not configured |
 
+Before either file is parsed or used, the reader MUST open it without
+following a final-component symlink and validate the opened file. It MUST be
+a regular file owned by the same identity as its containing configuration
+directory. On POSIX systems, any group-write or other-write mode bit is a
+refusal. On Windows, a missing or null DACL is a refusal, as is an allow ACE
+that grants file-write, delete, or security-control rights to an identity
+other than the file owner (including its OWNER RIGHTS and CREATOR OWNER
+aliases), LocalSystem, or Builtin Administrators. The
+diagnostic detail names the refusal reason
+(`symlinked configuration file`, `configuration file owner`,
+`group/world-writable configuration file`, or `Windows DACL`). A failed open,
+metadata query, DACL query, or read is `defaults_config_invalid`; it MUST NOT
+be treated as an absent file. Only an absent file or a genuinely absent
+configuration directory keeps the absence behavior defined by §4.3 and §4.6.
+These checks apply independently to machine and operator files before their
+respective precedence rules.
+
 These are **launcher-owned knobs, not manager knobs**. Curator's machine
 configuration is the closed knob table of environments.md §12.1, carried
 by `manager-config` schema 2 under one `environments` object, and none of
@@ -1075,7 +1092,7 @@ contract. Usage errors exit 2; every operational failure exits 1.
 |---|---|---|
 | usage | `usage` | unknown flag, missing `<env-id>`, stray operand before `--`, repeated flag, invalid permission value, repeated or combined permission forms, rejected `-d`/`--danger`, invalid `--system-prompt` or `--ax-profile` value, `--name` outside the `ax` §2.1 grammar or over 64 characters, `--ax-profile` on an untracked machine, a flag overriding a member set by a locked machine `defaults.json`, or visible `yolo` under an established force-native lock — exit 2, nothing resolved, nothing launched |
 | resolve | `resolve_invocation_failed`, `resolve_environment_unknown`, `resolve_profile_unknown`, `resolve_repair_failed`, `resolve_lock_unavailable`, `resolve_fragment_invalid` | §4.1: the context plane could not produce a usable fragment — `curator` not startable, or a non-zero exit with an unmapped diagnostic, Curator's own code and message passed through verbatim; unregistered environment; uninstalled profile; the store cannot restore the stale home; the repair could not take Curator's mutation lock within its bounded wait; or the output is not a valid closed fragment |
-| defaults | `defaults_config_invalid`, `defaults_unresolvable` | §4.3 and §4.6: a launcher-owned configuration file — `defaults.json` or `ax.json` (§4.7) — exists but cannot be read or parsed, or names an unknown env-id or member; this includes a v1 file carrying the v2-only `permissions` member — a read failure is never absence; the lineup admits no model for the mapped system after earlier model levels are silent |
+| defaults | `defaults_config_invalid`, `defaults_unresolvable` | §4.3, §4.6, and §4.7: a launcher-owned configuration file — `defaults.json` or `ax.json` — is symlinked, non-regular, owned by a different identity than its configuration directory, group/world-writable on POSIX, grants a non-owner/non-owner-alias/non-system/non-administrators Windows DACL identity write/delete/security-control access, or cannot be read or parsed, or names an unknown env-id or member; this includes a v1 file carrying the v2-only `permissions` member — a read failure is never absence; the lineup admits no model for the mapped system after earlier model levels are silent |
 | plan | `plan_refused`, `plan_provider_limited` | §4.4: the spawn plane refused the request (unknown system/runtime or model, model not driven by the system, mode not declared by the system, invalid or missing required effort, unresolved vendor, an unverified release-specific permission mapping, or failure to produce a provider-limits verdict), or the explicit provider-limits verdict was not serviceable (`AvailabilityHealthy`) — the verdict's structure and evidence are surfaced verbatim |
 | environment | `env_unsupported` | §4.2: the environment has no spawn-plane or `ax` provider mapping in this revision |
 | permission | `permission_policy_unsupported`, `permission_mode_tracked_unsupported`, `permission_mode_unsupported` | §4.1/§4.6: the fragment cannot establish v2 permission and lock transport for a would-be `yolo`; or a tracked launch resolves `yolo` from any level; or the environment has no declared `yolo` mapping — exit 1, terminal refusal with no fallback to untracked execution |

@@ -3,9 +3,9 @@ package axconfig
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 
+	"github.com/relux-works/curator-agent-launcher/internal/configfile"
 	"github.com/relux-works/curator-agent-launcher/internal/fragment"
 )
 
@@ -26,16 +26,12 @@ func (e *Error) Unwrap() error { return e.Err }
 func Load(machineDir, operatorDir string) (bool, error) {
 	for _, dir := range []string{machineDir, operatorDir} {
 		path := filepath.Join(dir, "ax.json")
-		present, err := exists(path)
+		data, present, err := configfile.Read(path)
 		if err != nil {
 			return false, &Error{path, err}
 		}
 		if !present {
 			continue
-		}
-		data, err := os.ReadFile(path)
-		if err != nil {
-			return false, &Error{path, err}
 		}
 		enabled, err := parse(data)
 		if err != nil {
@@ -44,61 +40,6 @@ func Load(machineDir, operatorDir string) (bool, error) {
 		return enabled, nil
 	}
 	return false, nil
-}
-
-func exists(path string) (bool, error) {
-	// Walk ancestors first so ENOENT through a dangling link cannot become absence.
-	parent := filepath.Dir(path)
-	if parent != path {
-		present, err := directory(parent)
-		if err != nil || !present {
-			return false, err
-		}
-	}
-	info, err := os.Lstat(path)
-	if os.IsNotExist(err) {
-		return false, nil
-	}
-	if err != nil {
-		return false, err
-	}
-	if info.Mode()&os.ModeSymlink != 0 {
-		info, err = os.Stat(path)
-	}
-	if err != nil {
-		return false, err
-	}
-	if !info.Mode().IsRegular() {
-		return false, fmt.Errorf("not a regular file")
-	}
-	return true, nil
-}
-
-func directory(path string) (bool, error) {
-	parent := filepath.Dir(path)
-	if parent != path {
-		present, err := directory(parent)
-		if err != nil || !present {
-			return false, err
-		}
-	}
-	info, err := os.Lstat(path)
-	if os.IsNotExist(err) {
-		return false, nil
-	}
-	if err != nil {
-		return false, err
-	}
-	if info.Mode()&os.ModeSymlink != 0 {
-		info, err = os.Stat(path)
-	}
-	if err != nil {
-		return false, err
-	}
-	if !info.IsDir() {
-		return false, fmt.Errorf("ancestor %s is not a directory", path)
-	}
-	return true, nil
 }
 
 func parse(data []byte) (bool, error) {

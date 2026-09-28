@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+### Security
+
+- Validate `defaults.json` and `ax.json` before use: reject symlinks, files
+  owned by a different identity than their configuration directory, and
+  group/world-writable POSIX files; inspect Windows DACL write grants
+  (TASK-260916-1ihonr).
+
 ## 0.1.0
 
 First tagged release. The binary reports `0.1.0`; the specification remains

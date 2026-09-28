@@ -334,19 +334,16 @@ func TestLoadFilesystem(t *testing.T) {
 			code(t, err, defaults.CodeInvalid)
 		})
 	}
-	t.Run("valid-link", func(t *testing.T) {
+	t.Run("linked-file-is-refused", func(t *testing.T) {
 		p := paths(t)
 		write(t, p.Machine, doc(`{"pi":{"model":"m"}}`, false))
 		if err := os.Symlink(p.Machine, p.Operator); err != nil {
 			t.Fatal(err)
 		}
-		f, err := defaults.Load(p)
-		if err != nil {
-			t.Fatal(err)
-		}
-		got, err := f.Resolve("pi", defaults.Pair{})
-		if err != nil || got.Model != resolved("m", defaults.OriginOperator) {
-			t.Fatalf("%+v %v", got, err)
+		_, err := defaults.Load(p)
+		code(t, err, defaults.CodeInvalid)
+		if !strings.Contains(err.Error(), "symlinked configuration file") {
+			t.Fatalf("linked file refusal has no named reason: %v", err)
 		}
 	})
 	t.Run("empty-path", func(t *testing.T) { _, err := defaults.Load(defaults.Paths{}); code(t, err, defaults.CodeInvalid) })
