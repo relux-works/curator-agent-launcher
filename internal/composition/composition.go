@@ -53,7 +53,8 @@ type Value struct {
 // ComposeAdmittedPlan preserves the launcher's §4.5 placement while consuming
 // NativeArgs already admitted into the upstream plan. The module appends the
 // opaque suffix after its own arguments; this boundary moves that exact suffix
-// after prompt and MCP additions. A mismatch means the admitted plan no longer
+// after the Pi prompt addition; Claude/Codex context is already constructed
+// by the plugin. A mismatch means the admitted plan no longer
 // reproduces the request, so composition refuses instead of guessing.
 func ComposeAdmittedPlan(plan agentic.Plan, ownEnv []string, frag fragment.Fragment, prompt PromptApplication, native []string) (Value, error) {
 	if len(native) > len(plan.Argv) {
@@ -91,19 +92,6 @@ func Compose(plan agentic.Plan, ownEnv []string, frag fragment.Fragment, prompt 
 	v.Argv = append(v.Argv, prompt.Argv...)
 	overlay(prompt.Env)
 	if frag.MCP != nil {
-		for _, ch := range frag.MCP.Channels {
-			switch ch.Kind {
-			case fragment.KindFlag:
-				arg := frag.MCP.Path
-				if ch.Argument == fragment.ArgumentName {
-					arg = ch.Name
-				}
-				v.Argv = append(v.Argv, ch.Flag, arg)
-				v.Argv = append(v.Argv, ch.With...)
-			case fragment.KindVariable:
-				overlay(map[string]string{ch.Variable: frag.MCP.Path})
-			}
-		}
 		if frag.Environment == fragment.EnvCodexCLI {
 			v.mcpLayer = frag.MCP.Path
 		}

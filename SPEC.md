@@ -161,7 +161,7 @@ change, not a flag addition.
 | `-d`, `--danger` | — | Rejected before `--` as `usage`; neither spelling is an alias. After `--`, arguments remain opaque native arguments under the normal boundary rule. |
 | `--name <session-name>` | session | Tracked mode only (§4.6): the `ax` session name, replacing the default `<env-id>-<utc-stamp>`. MUST satisfy the `ax` §2.1 grammar `[A-Za-z0-9][A-Za-z0-9._-]{0,63}`; a longer or ill-formed value is a `usage` error naming `--name`, never a silent truncation. On an untracked machine the flag is accepted and has no effect. |
 | `--ax-profile <standard\|yolo>` | session | Tracked mode only (§4.6): the `ax` execution profile, forwarded as `ax start --profile <value>`. Absent, no `--profile` is passed and `ax`'s own default applies. This flag is the **only** way `--profile yolo` reaches `ax` from a launcher-mediated launch (Decision 0013 D6.4); the launcher never derives it from the fragment, the plan, or the native arguments. On an untracked machine the flag is a `usage` error: an execution profile is `ax`'s concept, and a value that would be silently discarded is a value the operator was misled about. |
-| `--` | — | Terminates launcher argument parsing. Everything after it is native argv, forwarded to the tool verbatim, in order, uninspected. |
+| `--` | — | Terminates launcher argument parsing. Everything after it is native argv, forwarded last and verbatim when admitted by the shared permission and context-channel grammar. |
 | `--help`, `-h`, `--version` | — | Informational; print and exit 0. |
 
 Parsing rules, closed:
@@ -567,8 +567,13 @@ by calling `BuildPlan` with a bare model id or reconstructing the row's
   as the parent environment for `LaunchRequest.Env`. The resulting
   `Plan.Env` is the plugin's complete filtered child environment over
   that parent, not a delta;
-- `Composition`: **empty**. The fragment's MCP channel is applied by the
-  launcher in §4.5. A non-empty composition in interactive mode is
+- `Composition`: **empty**. Claude/Codex fragment context channels are supplied through
+  `Context`, carrying the profile pin, precedence, managed home, MCP metadata
+  and selected system-prompt intent. v2/v3 context uses the v1-compatible
+  subset; the launcher retains the permission member and original fragment
+  digest. Reserved members are excluded. Muse declares no prompt/MCP channels
+  and uses a nil context carrier for its interactive root plan. A non-empty
+  composition in interactive mode is
   refused with `ErrCompositionNotInteractive`;
 - `Run`: zero; this terminal launch supplies no task-board run context.
   Goal, budget, service tier, and assignment prompt remain unset.
@@ -621,22 +626,17 @@ The §4.3 permission mode is already carried in the agents-management
 `LaunchRequest.PermissionMode`; any admitted mapping is part of the
 module's plan. The launcher never turns the mode into argv itself.
 
-**argv** — in this order, each part verbatim:
+**argv** — the agents-management plugin constructs Claude/Codex context
+channels through `SpawnRequest.Context`. Claude orders model/effort, MCP, prompt,
+then native arguments; Codex orders prompt, MCP, model/effort, then native
+arguments. The native suffix is last and verbatim. The launcher never spells
+these context-channel flags. Pi retains plan → selected prompt → native order.
 
-1. the interactive plan's `Argv` (model selection, effort transport, and
-   any admitted permission-mode mapping);
-2. the system-prompt channel flags — only under the §5 opt-in, from the
-   fragment's `system_prompt` descriptor of the requested semantics;
-3. the MCP channel flags, whenever the fragment carries an `mcp` section
-   whose descriptor is argv-carried, from that descriptor: for
-   `claude_code` the `flag` with its `argument: path` and the `with`
-   companions — `--mcp-config <path> --strict-mcp-config`; for
-   `codex_cli` the `flag` with `argument: name` — `-p curator-mcp`; for
-   `opencode` nothing — its channel is a variable and goes to the
-   environment. No opt-in governs this part: a managed home launched
-   without the channel carries no MCP configuration, and the profile's
-   MCP set is the profile's context;
-4. the native arguments after `--`, verbatim, uninspected.
+Native prompt/MCP overrides that collide with fragment channels are refused
+by the shared typed `ContextDescriptorConflictError`, surfaced as `plan_refused`
+with the native arguments and fragment channel. Non-colliding native arguments
+pass through. This context refusal applies in native permission mode too;
+permission mapping otherwise remains unchanged.
 
 **The codex layer file MUST be stat-ed before launch.** Two verified
 facts about codex (environments.md §7.8, codex 0.153.2) shape the
@@ -665,18 +665,10 @@ launcher, not Curator:
   NOT write, restore, or repair the file: a missing layer after a
   successful resolve is a fact to report, and the remedy is another
   `curator run`, whose `--repair` re-materializes it.
-- `-p` accepts **exactly one** value; a second occurrence is codex's own
-  argument error, not last-wins. The composed argv already carries the
-  launcher's `-p curator-mcp` whenever the fragment has an `mcp` section,
-  so an operator `-p <name>` after `--` **fails the launch** — at the tool,
-  with the tool's error, after the handoff or exec. The launcher does not
-  inspect the native arguments to prevent this (§3: everything after `--`
-  is uninspected) and does not merge, drop, or reorder either `-p`:
-  operator profile layering is unavailable in a managed `codex_cli` launch
-  whose profile carries an MCP set, a recorded consequence that closes
-  Decision 0012 open question 3. When the fragment has no `mcp` section
-  the launcher spells no `-p` and an operator `-p` after `--` is the
-  tool's to honor.
+- `-p` accepts **exactly one** profile. A native `-p`/`--profile` colliding
+  with the fragment MCP layer now refuses before launch through the shared
+  context API. With no fragment MCP channel, the tool honors native profile
+  arguments.
 
 The interactive plan's `Binary` is the executable. **Order is contract:**
 for some tools everything after the last recognized flag is the user
@@ -950,8 +942,9 @@ their schemas stay.
 Resolving a fragment activates nothing: the fragment's `system_prompt`
 section is data about a channel — the inert materialized file's path and
 the adapter's declared channel descriptors — never an applied override.
-The launcher is the one component that applies a `flag`, `config-key`, or
-`variable` channel, and only behind the explicit
+Claude/Codex `flag` and `config-key` context channels are constructed by
+the shared API. The launcher selects the intent and retains the Pi path;
+system-prompt application happens only behind the explicit
 `--system-prompt <append|replace>` opt-in. `file`-kind channels are the
 one exception: the launcher never applies them — the tool does, on its
 own, subject to native discovery precedence — so the launcher's whole
@@ -962,7 +955,7 @@ environments.md §7.3 and are not restated here):
 
 - **flag-class** (`claude_code`, `pi`): append the descriptor's flag with
   the fragment's system-prompt path to the plan argv, before the native
-  arguments.
+  arguments. Claude flags are constructed by the shared API.
 - **config-key** (`codex_cli`): apply the descriptor's key
   (`model_instructions_file`) with the fragment's path through the tool's
   declared configuration-override mechanism. The exact override spelling
@@ -1211,11 +1204,10 @@ and the runtime compatibility registry supply §4.3 model/effort fallback.
   `caller_launch_plan` capability, and the `ax` version that carries them
   (proposed v0.6.0) are the PR #1 revision's, and a change the `ax`
   maintainer makes there is a change here.
-- **Per-tool argv boundary.** The §4.5 order — plan argv, system-prompt
-  flags, MCP flags, native arguments — is verified against each pinned
-  tool release before the conformance vectors freeze: that the channel
-  flags are recognized after the plan's model and effort flags, and that
-  the first native argument is where the tool's own parsing begins
+- **Per-tool argv boundary.** The plugin-owned §4.5 order and the final native
+  suffix are verified against each pinned tool release before the conformance
+  vectors freeze: context and model/effort flags precede the native suffix,
+  and the first native argument is where the tool's own parsing begins
   (environments.md §7.3 discipline). The codex_cli `-p curator-mcp` layer
   against an operator `-p` after `--` is no longer open: environments.md
   §7.8 verified on codex 0.153.2 that `-p` takes exactly one value, and

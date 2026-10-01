@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/relux-works/curator-agent-launcher/internal/fragment"
 )
@@ -57,12 +56,14 @@ func Select(f *fragment.Fragment, opt fragment.Semantics) (Selection, error) {
 				if c.Argument != fragment.ArgumentPath {
 					continue
 				}
-				s.argv = append([]string{c.Flag, s.path}, c.With...)
+				if f.Environment == fragment.EnvPi {
+					s.argv = append([]string{c.Flag, s.path}, c.With...)
+				}
 			case fragment.KindConfigKey:
 				if f.Environment != fragment.EnvCodexCLI {
 					continue
 				}
-				s.argv = []string{"-c", c.Key + "=" + tomlString(s.path)}
+				// The Codex plugin encodes the selected channel through CuratorContext.
 			default:
 				// No variable channel or contents/name prompt flag exists in the closed
 				// registry. New adapters require a protocol revision, not a fallback.
@@ -72,25 +73,6 @@ func Select(f *fragment.Fragment, opt fragment.Semantics) (Selection, error) {
 		}
 	}
 	return Selection{}, &Refusal{Code: CodeUnavailable, Cause: fmt.Errorf("no non-file system-prompt channel for %q", opt)}
-}
-
-// Codex -c parses a TOML value, not shell text. Go's \x escapes are not TOML.
-func tomlString(s string) string {
-	var b strings.Builder
-	b.WriteByte('"')
-	for _, r := range s {
-		switch {
-		case r == '"' || r == '\\':
-			b.WriteByte('\\')
-			b.WriteRune(r)
-		case r < 0x20 || r == 0x7f:
-			fmt.Fprintf(&b, "\\u%04X", r)
-		default:
-			b.WriteRune(r)
-		}
-	}
-	b.WriteByte('"')
-	return b.String()
 }
 
 // Observation records a readable regular managed-home file, not application.

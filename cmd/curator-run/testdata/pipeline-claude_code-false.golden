@@ -5,11 +5,11 @@
       "claude-opus-5",
       "--effort",
       "medium",
-      "--append-system-prompt-file",
-      "<ROOT>/managed/prompt.md",
       "--mcp-config",
       "<ROOT>/managed/mcp.toml",
       "--strict-mcp-config",
+      "--append-system-prompt-file",
+      "<ROOT>/managed/prompt.md",
       "",
       "--model=native",
       "a\nb"

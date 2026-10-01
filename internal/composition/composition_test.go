@@ -60,14 +60,6 @@ func TestComposeOrderAndChannels(t *testing.T) {
 				t.Fatal(err)
 			}
 			want := []string{"--model", "model with spaces", "--effort", "medium", "--selected-prompt", "verbatim content"}
-			switch env {
-			case "claude_code":
-				want = append(want, "--mcp-config", f.MCP.Path, "--strict-mcp-config")
-			case "codex_cli":
-				want = append(want, "-p", "curator-mcp")
-			case "opencode":
-				equal(t, v.EnvLiterals["OPENCODE_CONFIG"], f.MCP.Path)
-			}
 			want = append(want, native...)
 			equal(t, v.Argv, want)
 			equal(t, v.Binary, p.Binary)
@@ -92,7 +84,7 @@ func TestComposeAdmittedPlanRepositionsNativeSuffixAndRefusesDrift(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	equal(t, v.Argv, []string{"--model", "m", "--prompt", "p", "--mcp-config", f.MCP.Path, "--strict-mcp-config", "resume", "--last"})
+	equal(t, v.Argv, []string{"--model", "m", "--prompt", "p", "resume", "--last"})
 	_, err = composition.ComposeAdmittedPlan(agentic.Plan{Argv: []string{"--model", "m", "resume", "different"}}, nil, f, composition.PromptApplication{}, native)
 	if err == nil || !strings.Contains(err.Error(), "requested native argument suffix") {
 		t.Fatalf("suffix drift error = %v", err)
@@ -108,8 +100,8 @@ func TestComposeEnvironmentBoundary(t *testing.T) {
 		t.Fatal(err)
 	}
 	equal(t, v.EnvNames, []string{"FIGMA_API_KEY"})
-	equal(t, v.EnvLiterals, map[string]string{"OWN": "owned-value", "CHANNEL": "channel-value", "XDG_CONFIG_HOME": "/managed/default/tool", "OPENCODE_CONFIG": f.MCP.Path})
-	equal(t, v.Env, []string{"CHANNEL=channel-value", "EMPTY=", "FIGMA_API_KEY=source-secret", "HOME=/parent", "OPENCODE_CONFIG=" + f.MCP.Path, "OWN=old=literal", "PATH=/sanitized", "SECRET=inherited-secret", "XDG_CONFIG_HOME=/managed/default/tool"})
+	equal(t, v.EnvLiterals, map[string]string{"OWN": "owned-value", "CHANNEL": "channel-value", "XDG_CONFIG_HOME": "/managed/default/tool"})
+	equal(t, v.Env, []string{"CHANNEL=channel-value", "EMPTY=", "FIGMA_API_KEY=source-secret", "HOME=/parent", "OWN=old=literal", "PATH=/sanitized", "SECRET=inherited-secret", "XDG_CONFIG_HOME=/managed/default/tool"})
 	equal(t, v.Warnings, []string{"environment override: XDG_CONFIG_HOME", "environment override: CHANNEL", "environment literal replaces lookup: CHANNEL", "environment literal replaces lookup: OWN"})
 	b, err := json.Marshal(v)
 	if err != nil {
@@ -229,7 +221,7 @@ func TestLaunchBoundaryFilesystem(t *testing.T) {
 				equal(t, layer.Code, code)
 				equal(t, layer.Path, path)
 			}
-			equal(t, v.Argv, []string{"-p", "curator-mcp", "-p", "operator"})
+			equal(t, v.Argv, []string{"-p", "operator"})
 		})
 	}
 }

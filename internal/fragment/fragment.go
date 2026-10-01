@@ -140,8 +140,9 @@ type Fragment struct {
 	SystemPrompt *SystemPrompt
 	// MCP is nil when the section is absent.
 	MCP *MCP
-	// PathPrepend is the reserved optional member, empty when absent.
-	PathPrepend string
+	// Reserved members are marked with their wire name in the reserved tag.
+	// They remain parsed and hashed, but are never execution context channels.
+	PathPrepend string `reserved:"path_prepend"`
 
 	// Canonical is the CCJ-1 byte form of the parsed object and Digest is
 	// "sha256:<hex>" over it (SPEC §4.1).

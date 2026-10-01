@@ -206,3 +206,54 @@ func TestMuseV3DuplicateYoloRefusedThroughRun(t *testing.T) {
 		})
 	}
 }
+
+// Production call sites: run -> launch -> plan.Context/plan.Build -> real
+// BuildLaunchWithEnvironment -> composition -> execution. Muse v3 declares no
+// prompt/MCP descriptors, so its interactive root launch has no context carrier.
+func TestMuseV3InteractiveReservedContextAndNativeSuffix(t *testing.T) {
+	for _, mode := range []agentic.PermissionMode{agentic.PermissionModeNative, agentic.PermissionModeYolo} {
+		t.Run(string(mode), func(t *testing.T) {
+			f, frag := museFixture(t)
+			path := filepath.Join(f.dir, "muse-fragment.json")
+			raw, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var wire map[string]any
+			if err := json.Unmarshal(raw, &wire); err != nil {
+				t.Fatal(err)
+			}
+			wire["path_prepend"] = f.home + "/reserved-bin"
+			raw, err = json.Marshal(wire)
+			if err != nil {
+				t.Fatal(err)
+			}
+			writeFixture(t, path, raw, 0600)
+			native := []string{"", "literal\nvalue", "--system-prompt-file=literal"}
+			f.args = append([]string{"muse", "--permissions", string(mode), "--"}, native...)
+			code, out, stderr := f.run()
+			if code != 0 || f.builds != 1 || f.verdicts != 1 {
+				t.Fatalf("interactive Muse launch: exit=%d builds=%d verdicts=%d stderr=%s", code, f.builds, f.verdicts, stderr)
+			}
+			if f.request.Context != nil {
+				t.Fatalf("Muse has no context descriptors: %+v", f.request.Context)
+			}
+			if _, present := f.plan.CuratorContextProvenanceSnapshot(); present {
+				t.Fatal("Muse plan must not attest a context carrier")
+			}
+			var child childCapture
+			if err := json.Unmarshal(out, &child); err != nil {
+				t.Fatal(err)
+			}
+			want := append(museArgv(f.dir, mode), native...)
+			if !reflect.DeepEqual(child.Argv, want) || !reflect.DeepEqual(f.plan.Argv, want) {
+				t.Fatalf("Muse native suffix changed: child=%q plan=%q want=%q", child.Argv, f.plan.Argv, want)
+			}
+			assertMuseEnv(t, child.Env, f.dir, frag)
+			unchanged, err := os.ReadFile(path)
+			if err != nil || !reflect.DeepEqual(unchanged, raw) {
+				t.Fatalf("reserved fragment changed: %v", err)
+			}
+		})
+	}
+}

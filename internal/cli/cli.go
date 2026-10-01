@@ -277,6 +277,9 @@ func Parse(args []string, opts Options) (Invocation, error) {
 			if tok == "" {
 				return inv, usageErr("empty operand before --: <env-id> must not be empty")
 			}
+			if tok == "openai-infra" || tok == "anthropic-infra" {
+				return inv, usageErr("deprecated launcher alias %q is not an environment id; use claude_code or codex_cli", tok)
+			}
 			inv.EnvID = NormalizeEnvID(tok)
 			envSet = true
 			continue

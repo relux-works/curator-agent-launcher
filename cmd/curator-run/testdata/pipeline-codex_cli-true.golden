@@ -12,14 +12,14 @@
   "WorkDir": "<ROOT>",
   "Document": {
     "argv_suffix": [
-      "-m",
-      "gpt-6-astra",
-      "-c",
-      "model_reasoning_effort=\"medium\"",
       "-c",
       "model_instructions_file=\"<ROOT>/managed/prompt.md\"",
       "-p",
       "curator-mcp",
+      "-m",
+      "gpt-6-astra",
+      "-c",
+      "model_reasoning_effort=\"medium\"",
       "",
       "--model=native",
       "a\nb"

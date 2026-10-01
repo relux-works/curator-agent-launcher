@@ -71,10 +71,10 @@ func TestSelectExactArgv(t *testing.T) {
 		opt  fragment.Semantics
 		want []string
 	}{
-		{"claude_code", fragment.SemanticsAppend, []string{"--append-system-prompt-file", path}},
-		{"claude_code", fragment.SemanticsReplace, []string{"--system-prompt-file", path}},
+		{"claude_code", fragment.SemanticsAppend, nil},
+		{"claude_code", fragment.SemanticsReplace, nil},
 		{"pi", fragment.SemanticsAppend, []string{"--append-system-prompt", path}},
-		{"codex_cli", fragment.SemanticsReplace, []string{"-c", "model_instructions_file=\"/tmp/a \\\"quote\\\" \\\\ ' $()`\\u000A\\u0009\\u0001\\u007F—.md\""}},
+		{"codex_cli", fragment.SemanticsReplace, nil},
 	} {
 		t.Run(tc.env+"/"+string(tc.opt), func(t *testing.T) {
 			f := fixture(t, tc.env, t.TempDir(), path, true)
@@ -86,7 +86,9 @@ func TestSelectExactArgv(t *testing.T) {
 				t.Fatalf("argv=%q env=%v", s.Argv(), s.Env())
 			}
 			args := s.Argv()
-			args[0] = "mutated"
+			if len(args) > 0 {
+				args[0] = "mutated"
+			}
 			if !reflect.DeepEqual(s.Argv(), tc.want) {
 				t.Fatal("aliased argv")
 			}

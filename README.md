@@ -14,7 +14,9 @@ Muse has a registered `muse` system/provider mapping and accepts
 preserving inherited `HOME`. The pinned agents-management v0.5.37 plugin
 declares interactive mode, probes the installed release, and maps native/yolo
 permissions for its verified releases (1.4.1 and 1.4.2). `curator-run muse` builds
-an interactive plan with XDG overrides and inherited `HOME`; native adds no
+an interactive plan with XDG overrides and inherited `HOME`; it supplies no
+context carrier because Muse v3 declares no prompt or MCP channels. Reserved
+members remain non-operative. Native adds no
 posture flag and yolo adds exactly one `--yolo`. Unlisted releases fail closed.
 
 The launch pipeline follows these steps:
@@ -42,8 +44,15 @@ The launch pipeline follows these steps:
    `providerlimits.Store.AvailabilityFor` verdict for the same runtime/model/
    managed home. Unknown and failed reads refuse. No retry, model downgrade or
    fallback occurs.
-5. Select the requested system-prompt channel and compose argv in plan → prompt
-   → MCP → native order. Native arguments after `--` remain opaque.
+5. Pass Claude/Codex profile context and file-backed system-prompt/MCP channels
+   through `SpawnRequest.Context` into the shared agents-management construction
+   API. The plugin owns argv order: Claude model/effort → MCP → prompt → native;
+   Codex prompt → MCP → model/effort → native. Native arguments stay last and
+   verbatim. Colliding native prompt, MCP or Codex profile overrides refuse with
+   `plan_refused`, naming the native arguments and fragment channel. Non-colliding
+   arguments pass through. Pi retains its existing prompt/discovery path.
+   v2/v3 Claude/Codex fragments project their v1-compatible context subset;
+   permission mapping and original fragment transport metadata remain unchanged.
 6. Prepare direct execution or the ax launch-plan document. Immediately before
    either launch, call `systemprompt.PrepareLaunch`, check the provider binary,
    and check the Codex MCP layer. Emit prompt/discovery warnings. A late refusal
@@ -73,7 +82,9 @@ Pi has no MCP channel. Its selected prompt flag and managed-home
 `APPEND_SYSTEM.md` / `SYSTEM.md` candidates are checked freshly, including when
 no prompt is selected. Warnings distinguish selected flags from conditional
 native discovery. Reserved `path_prepend` remains parsed and hashed without
-changing PATH or claiming managed command-root support.
+changing PATH or claiming managed command-root support. Reserved members are
+marked in the fragment type and excluded from the execution context carrier;
+tracked provenance retains the original fragment digest.
 
 Launcher errors render through `internal/diagnostics`; usage exits 2 and
 operational refusals exit 1. Foreign Curator/provider/ax evidence is forwarded
@@ -288,6 +299,7 @@ platform execution evidence must come from the corresponding runner.
 |---|---|---|---|
 | `go` (build, vet, test, race) | build and behavioral suite | `make check` and the targets above | stdout; nothing written to the tree |
 | `python3` defaults mutant harness | weaken defaults gates individually and run the behavioral suite; restore exact candidate bytes | `python3 .scripts/defaults-mutants.py [evidence-dir]` | per-mutant logs and `summary.tsv` (default `.temp/defaults-mutants/`) |
+| `.scripts/context-mutants.py` | narrow carrier engagement, reserved-member exclusion, permissions, deprecated-alias refusal, native suffix and release configuration in an isolated candidate copy | `python3 .scripts/context-mutants.py [evidence-dir]` | isolated copy, per-mutant logs and `summary.tsv`, default `.temp/context-mutants/` |
 | production pipeline mutants | narrow the three late checks and ax mode selection at `run(...)`; restore exact candidate bytes | `python3 .scripts/pipeline-mutants.py [evidence-dir]` | per-mutant logs and `summary.tsv`; 9 named narrowing probes |
 | CLI goldens | frozen accepted/rejected §3 shapes | `go test ./internal/cli -run TestGolden -update` to regenerate, then review the diff | `internal/cli/testdata/cases.golden` |
 | `.scripts/cli-mutants.sh` | narrowing-mutant harness for the §3 gates: each mutant weakens one gate to admit one rejected shape and the named test must fail | `.scripts/cli-mutants.sh [evidence-dir]` | per-mutant logs and `summary.tsv` under the evidence dir (default `.temp/cli-mutants/`); the source tree is restored on exit |

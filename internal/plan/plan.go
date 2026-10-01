@@ -72,7 +72,7 @@ const (
 // the §4.2 mapping, Model/Effort are the §4.3 resolved pair, Home is the
 // managed fragment home, WorkDir is the launcher's current directory, and
 // Env is os.Environ() in production in both modes. There is deliberately
-// no Composition, Run, goal, budget, service-tier, profile, prompt, or
+// no Composition, Run, goal, budget, service-tier, prompt text, or
 // engine member: those stay zero/unset by construction and no caller can
 // supply them.
 type Request struct {
@@ -82,6 +82,7 @@ type Request struct {
 	PermissionMode agentic.PermissionMode
 	ToolRelease    string
 	NativeArgs     []string
+	Context        *agentic.CuratorContext
 	Home           string
 	WorkDir        string
 	Env            []string
@@ -200,6 +201,7 @@ func SpawnRequest(req Request) vendorplugin.SpawnRequest {
 		PermissionMode: req.PermissionMode,
 		ToolRelease:    req.ToolRelease,
 		NativeArgs:     append([]string{}, req.NativeArgs...),
+		Context:        req.Context,
 		Home:           req.Home,
 		WorkDir:        req.WorkDir,
 		Env:            req.Env,

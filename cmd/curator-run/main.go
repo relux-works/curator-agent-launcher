@@ -246,10 +246,16 @@ func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, ta
 	if build == nil {
 		build = vendorplugin.BuildLaunchWithEnvironment
 	}
+	selection, err := systemprompt.Select(frag, fragment.Semantics(inv.SystemPrompt))
+	if err != nil {
+		code, _ := diagnostics.CodeOf(err)
+		return emitFailure(stderr, code, err)
+	}
+	launchContext := plan.Context(frag, fragment.Semantics(inv.SystemPrompt))
 	admitted, err := plan.Build(ctx, plan.Deps{Registry: deps.registry, BuildLaunch: build, Availability: availability}, plan.Request{
 		Runtime: resolved.Runtime, Model: resolved.Model.Value, Effort: resolved.Effort.Value,
 		PermissionMode: decision.Mode, ToolRelease: toolRelease, NativeArgs: inv.Native,
-		Home: frag.Home(), WorkDir: wd, Env: parentEnv,
+		Home: frag.Home(), WorkDir: wd, Env: parentEnv, Context: launchContext,
 	})
 	if err != nil {
 		code := diagnostics.CodePlanRefused
@@ -260,6 +266,10 @@ func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, ta
 			code = diagnostics.CodePermissionModeUnsupported
 		} else if errors.Is(err, agentic.ErrNativePolicyUnknown) || errors.Is(err, agentic.ErrPermissionModeDuplicate) {
 			code = diagnostics.CodeUsage
+		}
+		var conflict *agentic.ContextDescriptorConflictError
+		if errors.As(err, &conflict) {
+			return emitFailure(stderr, diagnostics.CodePlanRefused, fmt.Errorf("native arguments %q conflict with fragment channel %s: %w", inv.Native, conflict.Channel, err))
 		}
 		if code == diagnostics.CodeUsage {
 			_ = diagnostics.Emit(stderr, code, err.Error())
@@ -274,11 +284,6 @@ func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, ta
 	var nativePolicy *execution.EffectiveNativePolicy
 	if decision.Mode == agentic.PermissionModeNative {
 		nativePolicy = execution.ReportEffectiveNativePolicy(stderr, agentic.InspectStoredPolicy(system, admitted.Plan), inv.Tracked)
-	}
-	selection, err := systemprompt.Select(frag, fragment.Semantics(inv.SystemPrompt))
-	if err != nil {
-		code, _ := diagnostics.CodeOf(err)
-		return emitFailure(stderr, code, err)
 	}
 	value, err := composition.ComposeAdmittedPlan(admitted.Plan, admitted.OwnedEnv, *frag, composition.PromptApplication{Argv: selection.Argv(), Env: selection.Env()}, inv.Native)
 	if err != nil {

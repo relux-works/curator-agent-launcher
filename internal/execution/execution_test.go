@@ -154,7 +154,15 @@ func run(t *testing.T, l execution.Launch, b execution.Boundary) (int, capture, 
 }
 func compose(t *testing.T, f fragment.Fragment, dir string, stdin agentic.StdinPayload) composition.Value {
 	t.Helper()
-	v, err := composition.Compose(agentic.Plan{Binary: helper, WorkDir: dir, Argv: []string{"first plugin argument", "--model", "model with spaces"}, Env: []string{"FIGMA_API_KEY=inherited-secret", "OWN=old", "PARENT=only-direct"}, Stdin: stdin}, []string{"OWN=old"}, f, composition.PromptApplication{Argv: []string{"prompt channel"}, Env: map[string]string{"OWN": "override"}}, []string{"", "-p", "native", "--dangerously-skip-permissions", "a\nb"})
+	// Execution consumes context argv already constructed in an admitted plan.
+	args := []string{"first plugin argument", "--model", "model with spaces", "prompt channel"}
+	if f.Environment == "claude_code" {
+		args = append(args, "--mcp-config", f.MCP.Path, "--strict-mcp-config")
+	}
+	if f.Environment == "codex_cli" {
+		args = append(args, "-p", "curator-mcp")
+	}
+	v, err := composition.Compose(agentic.Plan{Binary: helper, WorkDir: dir, Argv: args, Env: []string{"FIGMA_API_KEY=inherited-secret", "OWN=old", "PARENT=only-direct"}, Stdin: stdin}, []string{"OWN=old"}, f, composition.PromptApplication{Env: map[string]string{"OWN": "override"}}, []string{"", "-p", "native", "--dangerously-skip-permissions", "a\nb"})
 	if err != nil {
 		t.Fatal(err)
 	}

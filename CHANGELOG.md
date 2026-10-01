@@ -18,6 +18,25 @@
   tracked Claude goldens, delivering the launcher half of curator#102.
   Existing argv and other existing goldens are unchanged from v0.5.22.
 
+### Changed
+
+- Keep reserved fragment members out of the shared execution context carrier.
+  A valid `path_prepend` still parses and contributes to the original digest,
+  without changing PATH or causing Claude/Codex launches to refuse.
+- Claude/Codex file-backed prompt and MCP channels use the shared typed Curator
+  construction API. Plugins own argv order; native arguments stay last and
+  verbatim. Native overrides colliding with fragment prompt/MCP channels now
+  refuse with a diagnostic naming the arguments and channel. Codex profile
+  overrides conflict with a fragment MCP layer. Non-colliding arguments retain
+  pass-through behavior. v2/v3 context projects the v1 subset while preserving
+  permission mapping and transport metadata.
+- The candidate agents-management environment adds
+  `CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false` (upstream #46); direct and tracked
+  Claude goldens record that intentional change.
+- Refuse `openai-infra` and `anthropic-infra` as deprecated launcher aliases at
+  the `curator-run` entry point; canonical environment ids and `claude`/`codex`
+  aliases keep their existing behavior.
+
 ### Security
 
 - Validate `defaults.json` and `ax.json` before use: reject symlinks, files
