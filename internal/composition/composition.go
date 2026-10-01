@@ -12,6 +12,8 @@ import (
 	"unicode/utf8"
 
 	"github.com/relux-works/curator-agent-launcher/internal/fragment"
+	"github.com/relux-works/curator-agent-launcher/internal/network"
+	"github.com/relux-works/curator-network-profiles/pkg/envpatch"
 	"github.com/relux-works/skill-agents-management/pkg/agentic"
 )
 
@@ -70,9 +72,52 @@ func ComposeAdmittedPlan(plan agentic.Plan, ownEnv []string, frag fragment.Fragm
 	return Compose(plan, ownEnv, frag, prompt, native)
 }
 
+// ComposeAdmittedPlanWithNetwork is ComposeAdmittedPlan with the §4.4b
+// network patch applied last in Compose. Production calls this form;
+// the patch is empty when the launch is unmanaged.
+func ComposeAdmittedPlanWithNetwork(plan agentic.Plan, ownEnv []string, frag fragment.Fragment, prompt PromptApplication, native []string, patch envpatch.Patch) (Value, error) {
+	if len(native) > len(plan.Argv) {
+		return Value{}, fmt.Errorf("admitted plan does not carry the requested native argument suffix")
+	}
+	cut := len(plan.Argv) - len(native)
+	for i, arg := range native {
+		if plan.Argv[cut+i] != arg {
+			return Value{}, fmt.Errorf("admitted plan does not carry the requested native argument suffix")
+		}
+	}
+	plan.Argv = slices.Clone(plan.Argv[:cut])
+	return ComposeWithNetwork(plan, ownEnv, frag, prompt, native, patch)
+}
+
 // Compose consumes the owned-environment snapshot of the admitted plan.
-// Native arguments are appended verbatim. Inputs are not retained.
+// Native arguments are appended verbatim. Inputs are not retained. It is
+// the unmanaged form of ComposeWithNetwork: an empty patch changes
+// nothing, so unmanaged behavior stays byte-identical.
 func Compose(plan agentic.Plan, ownEnv []string, frag fragment.Fragment, prompt PromptApplication, native []string) (Value, error) {
+	return ComposeWithNetwork(plan, ownEnv, frag, prompt, native, envpatch.Unmanaged())
+}
+
+// ComposeWithNetwork is Compose with the §4.4b network patch applied
+// LAST, after frag.Env, prompt.Env and the MCP overlays and before Env
+// is materialized: the patch's Unset names are removed
+// case-insensitively from both env and literals, then its Set pairs are
+// added to both, through the library's Patch.Apply. While managed (a
+// non-empty patch), a proxy-family name in any earlier overlay —
+// frag.Env, prompt.Env, or MCP env_names — is a
+// network_configuration_conflict, refused before anything is composed;
+// network.Prepare runs the same check before the preflight, so this
+// recheck only fires when the patch arrived by another path.
+// Disjointness is rechecked after the literals land: a patch literal
+// wins over a destination-local lookup with the same warning the
+// literal-versus-lookup rule prints. Patch application itself is silent:
+// the §4.4b provenance line already announces it. Inputs are not retained.
+func ComposeWithNetwork(plan agentic.Plan, ownEnv []string, frag fragment.Fragment, prompt PromptApplication, native []string, patch envpatch.Patch) (Value, error) {
+	managed := !patch.Empty()
+	if managed {
+		if err := refuseProxyOverlays(frag, prompt); err != nil {
+			return Value{}, err
+		}
+	}
 	own := envMap(ownEnv)
 	env := envMap(plan.Env)
 	literals := maps.Clone(own)
@@ -109,6 +154,18 @@ func Compose(plan agentic.Plan, ownEnv []string, frag fragment.Fragment, prompt 
 		}
 	}
 	sort.Strings(v.EnvNames)
+	if managed {
+		applyNetworkPatch(env, literals, patch)
+		kept := v.EnvNames[:0]
+		for _, name := range v.EnvNames {
+			if _, collision := literals[name]; collision {
+				v.Warnings = append(v.Warnings, "environment literal replaces lookup: "+name)
+			} else {
+				kept = append(kept, name)
+			}
+		}
+		v.EnvNames = kept
+	}
 	v.Argv = append(v.Argv, native...)
 	for _, name := range sortedKeys(env) {
 		v.Env = append(v.Env, name+"="+env[name])
@@ -144,4 +201,41 @@ func sortedKeys(m map[string]string) []string {
 	}
 	sort.Strings(names)
 	return names
+}
+
+// refuseProxyOverlays rejects a proxy-family name in any overlay that the
+// §4.4b patch follows: frag.Env, prompt.Env, or MCP env_names. It
+// delegates to network.CheckOverlays — the same check Prepare runs
+// before the preflight — so the two cannot drift.
+func refuseProxyOverlays(frag fragment.Fragment, prompt PromptApplication) error {
+	var mcpNames []string
+	if frag.MCP != nil {
+		mcpNames = frag.MCP.EnvNames
+	}
+	return network.CheckOverlays(frag.Env, prompt.Env, mcpNames)
+}
+
+// applyNetworkPatch applies the §4.4b patch to the composed env and
+// literals through the library's Patch.Apply: every entry whose name
+// matches an Unset name case-insensitively or a Set name exactly is
+// removed, then the Set pairs are added to both. Calling Apply rather
+// than re-implementing its matching rules keeps this site from drifting
+// from the library.
+func applyNetworkPatch(env, literals map[string]string, patch envpatch.Patch) {
+	applyToMap(env, patch)
+	applyToMap(literals, patch)
+}
+
+func applyToMap(m map[string]string, patch envpatch.Patch) {
+	in := make([]string, 0, len(m)+len(patch.Set))
+	for name, value := range m {
+		in = append(in, name+"="+value)
+	}
+	out := patch.Apply(in)
+	clear(m)
+	for _, entry := range out {
+		if name, value, ok := strings.Cut(entry, "="); ok {
+			m[name] = value
+		}
+	}
 }

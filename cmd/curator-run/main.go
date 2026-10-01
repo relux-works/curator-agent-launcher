@@ -22,8 +22,12 @@ import (
 	"github.com/relux-works/curator-agent-launcher/internal/execution"
 	"github.com/relux-works/curator-agent-launcher/internal/fragment"
 	"github.com/relux-works/curator-agent-launcher/internal/mapping"
+	"github.com/relux-works/curator-agent-launcher/internal/network"
 	"github.com/relux-works/curator-agent-launcher/internal/plan"
 	"github.com/relux-works/curator-agent-launcher/internal/systemprompt"
+	"github.com/relux-works/curator-network-profiles/pkg/binding"
+	"github.com/relux-works/curator-network-profiles/pkg/probe"
+	"github.com/relux-works/curator-network-profiles/pkg/refusal"
 )
 
 const (
@@ -88,6 +92,21 @@ type launchDeps struct {
 	// isTerminal is injectable for deterministic default-mode tests. Production
 	// checks both process stdin and stdout with the platform terminal API.
 	isTerminal func() bool
+	// prober runs the §4.4b bounded preflight. Production leaves it nil
+	// so Prepare selects the dialer; tests inject a scripted prober so
+	// no test reaches the network.
+	prober probe.Prober
+	// networkAllowlist overrides the §4.4b support policy. Production
+	// leaves it nil so Prepare uses the shipped allowlist (only the
+	// verified claude-code tuple; every other --network launch refuses);
+	// tests inject a test-only list to exercise admission.
+	networkAllowlist []binding.AdapterIdentity
+	// networkEngineHosts overrides the §4.4b engine-host set.
+	// Production leaves it nil: no launchable runtime in this revision
+	// carries an engine (plan.Request has no engine member), so engine
+	// coverage is vacuous. Tests inject hosts to prove the resolve
+	// plumbing; a future engine-capable runtime derives them here.
+	networkEngineHosts []string
 
 	configPaths func() (defaults.Paths, error)
 	resolver    fragmentResolver
@@ -209,6 +228,17 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, deps laun
 	return diagnostics.ExitForCode(mapping.CodeUnsupported)
 }
 
+// emitNetworkFailure retains a typed network refusal's code and renders
+// its subject and detail; a non-refusal error at these call sites is the
+// composition contract failing and stays plan_refused.
+func emitNetworkFailure(stderr io.Writer, err error) int {
+	if r, ok := refusal.As(err); ok && r != nil {
+		_ = diagnostics.Emit(stderr, r.Code, network.Detail(err))
+		return diagnostics.ExitForCode(r.Code)
+	}
+	return emitFailure(stderr, diagnostics.CodePlanRefused, err)
+}
+
 // emitFailure frames only launcher-owned diagnostics. Foreign evidence is emitted
 // separately at the plan and execution boundaries.
 func emitFailure(w io.Writer, code string, err error) int {
@@ -285,9 +315,37 @@ func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, ta
 	if decision.Mode == agentic.PermissionModeNative {
 		nativePolicy = execution.ReportEffectiveNativePolicy(stderr, agentic.InspectStoredPolicy(system, admitted.Plan), inv.Tracked)
 	}
-	value, err := composition.ComposeAdmittedPlan(admitted.Plan, admitted.OwnedEnv, *frag, composition.PromptApplication{Argv: selection.Argv(), Env: selection.Env()}, inv.Native)
+	// SPEC §4.4b: resolve and validate the explicit network selection
+	// after admission and before composition, reading the catalog with
+	// the operator's original parentEnv. A bounded preflight probes only
+	// a real supported direct launch; any resolve, validate or preflight
+	// error terminates without weaker routing. The overlay names travel
+	// with the request so a proxy-family conflict refuses before the
+	// probe, and the engine hosts travel so their coverage is checked.
+	prompt := composition.PromptApplication{Argv: selection.Argv(), Env: selection.Env()}
+	var mcpNames []string
+	if frag.MCP != nil {
+		mcpNames = frag.MCP.EnvNames
+	}
+	preparedNet, err := network.Prepare(ctx, network.Request{
+		Explicit: inv.Network, ExplicitSet: inv.NetworkSet,
+		Tracked: inv.Tracked, Harness: target.System,
+		Build: toolRelease, ParentEnv: parentEnv, Prober: deps.prober,
+		Allowlist: deps.networkAllowlist,
+		FragEnv:   frag.Env, PromptEnv: prompt.Env, MCPEnvNames: mcpNames,
+		EngineHosts: deps.networkEngineHosts,
+	})
 	if err != nil {
-		return emitFailure(stderr, diagnostics.CodePlanRefused, err)
+		return emitNetworkFailure(stderr, err)
+	}
+	value, err := composition.ComposeAdmittedPlanWithNetwork(admitted.Plan, admitted.OwnedEnv, *frag, prompt, inv.Native, preparedNet.Patch)
+	if err != nil {
+		return emitNetworkFailure(stderr, err)
+	}
+	// The Record is provenance of a composed launch: a launch that
+	// Compose refuses prints no binding Record.
+	if preparedNet.Record != nil {
+		fmt.Fprintln(stderr, network.ProvenanceLine(*preparedNet.Record))
 	}
 	now := time.Now
 	if deps.now != nil {

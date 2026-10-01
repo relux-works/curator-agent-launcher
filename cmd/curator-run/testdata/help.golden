@@ -4,6 +4,7 @@ usage: curator-run <env-id> [--profile <name>] [--system-prompt <append|replace>
                    [--model <model>] [--effort <effort>]
                    [--permissions <native|yolo> | --yolo]
                    [--name <session-name>] [--ax-profile <standard|yolo>]
+                   [--network <profile>]
                    [--] <native args...>
        curator-run --help | -h
        curator-run --version
@@ -21,6 +22,7 @@ options:
   -d, --danger                       rejected; use --permissions explicitly
   --name <session-name>             ax session name (tracked machines only)
   --ax-profile <standard|yolo>      ax execution profile (tracked machines only)
+  --network <profile>               network profile for direct execution (tracked refuses)
   --help, -h                        print this usage text and exit 0
   --version                         print the launcher name and version, exit 0
 
