@@ -26,6 +26,7 @@
       "a\nb"
     ],
     "env_literals": {
+      "CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION": "false",
       "CLAUDE_CONFIG_DIR": "<ROOT>/managed"
     },
     "env_names": [

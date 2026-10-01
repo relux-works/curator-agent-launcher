@@ -69,7 +69,7 @@ func TestNewRegistryResolvesLaunchableSystems(t *testing.T) {
 	}
 }
 
-// TestCompleteLineupTops pins the observed v0.5.22 fallback values. The
+// TestCompleteLineupTops pins the observed v0.5.37 fallback values. The
 // model is the Lineup leader by capability score, not the vendor's
 // display Recommended row (claude-opus-5 for anthropic); re-verify these
 // pins when the module pin changes. Pi ranks only the preferred runtime

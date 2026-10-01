@@ -43,132 +43,127 @@ func museFixture(t *testing.T) (*pipelineFixture, *fragment.Fragment) {
 	writeFixture(t, curator, helper, 0700)
 	f.binary = filepath.Join(f.dir, "muse")
 	writeFixture(t, f.binary, helper, 0700)
+	writeFixture(t, filepath.Join(f.dir, "muse-version"), []byte("Muse Code 1.4.2 (1.4.2-R4684.1)\n"), 0600)
 	t.Setenv("CURATOR_TEST_FRAGMENT", fragmentPath)
 	t.Setenv("CURATOR_TEST_RESOLVE_ARGV", filepath.Join(f.dir, "resolve-argv"))
 	f.deps.resolver = fragment.NewWithRunner(curator, fragment.ExecRunner{})
 	f.deps.environ = func() []string {
-		return []string{"PATH=" + f.dir, "HOME=" + f.dir, "CURATOR_TEST_RELEASE=1.4.1", "XDG_CONFIG_HOME=/foreign/config"}
+		return []string{"PATH=" + f.dir, "HOME=" + f.dir, "XDG_CONFIG_HOME=/foreign/config"}
 	}
 	f.deps.isTerminal = func() bool { return false }
 	f.args = []string{"muse", "--permissions=native"}
 	return f, frag
 }
 
-// Production call sites: run -> fragment.Resolver.Resolve -> resolvePermission.
-// Today's release has no Muse permission mapping, even for native mode.
-func TestMuseV3ThroughRunPermissionBound(t *testing.T) {
-	f, frag := museFixture(t)
-	code, out, stderr := f.run()
-	argv, err := os.ReadFile(filepath.Join(f.dir, "resolve-argv"))
-	if err != nil {
-		t.Fatal(err)
+// Production call sites: run -> Resolve -> resolvePermission -> plan.Build
+// (real BuildLaunchWithEnvironment in Interactive mode) -> Compose -> fake Muse.
+// These rows require admission; a plugin regression to exec-only must fail.
+func TestMuseV3InteractiveThroughRun(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		args []string
+		mode agentic.PermissionMode
+	}{
+		{"native", []string{"muse", "--permissions", "native"}, agentic.PermissionModeNative},
+		{"yolo", []string{"muse", "--permissions", "yolo"}, agentic.PermissionModeYolo},
+		{"yolo-alias", []string{"muse", "--yolo"}, agentic.PermissionModeYolo},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f, frag := museFixture(t)
+			f.args = tc.args
+			code, out, stderr := f.run()
+			if code != 0 || f.builds != 1 || f.verdicts != 1 {
+				t.Fatalf("interactive admission: exit=%d builds=%d verdicts=%d stderr=%s", code, f.builds, f.verdicts, stderr)
+			}
+			argv, err := os.ReadFile(filepath.Join(f.dir, "resolve-argv"))
+			if err != nil || string(argv) != "env\nresolve\nmuse\n--repair\n--format\njson" {
+				t.Fatalf("resolve argv=%q err=%v", argv, err)
+			}
+			if f.request.Runtime != "muse" || f.request.Model != "muse-spark-1.3-contributor" || f.request.Effort != "max" || f.request.Home != frag.Home() || f.request.ToolRelease != "1.4.2" || f.request.PermissionMode != tc.mode || !reflect.DeepEqual(f.request.Env, f.deps.environ()) {
+				t.Fatalf("wrong Muse request: %+v", f.request)
+			}
+			wantArgv := museArgv(f.dir, tc.mode)
+			if !reflect.DeepEqual(f.plan.Argv, wantArgv) {
+				t.Fatalf("plan argv=%q want=%q", f.plan.Argv, wantArgv)
+			}
+			var child childCapture
+			if err := json.Unmarshal(out, &child); err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(child.Argv, wantArgv) || child.WorkDir != f.dir || !reflect.DeepEqual(child.Stdin, []byte("parent stdin\n\x00\xff")) {
+				t.Fatalf("interactive child=%+v want argv=%q", child, wantArgv)
+			}
+			assertMuseEnv(t, child.Env, f.dir, frag)
+			mapped := "none"
+			if tc.mode == agentic.PermissionModeYolo {
+				mapped = "--yolo"
+			}
+			if !strings.Contains(string(stderr), "curator-run: permissions="+string(tc.mode)+" source=flag mapped="+mapped+"\n") {
+				t.Fatalf("permission diagnostic: %s", stderr)
+			}
+			golden(t, "pipeline-muse-"+tc.name, child, f.dir)
+		})
 	}
-	if string(argv) != "env\nresolve\nmuse\n--repair\n--format\njson" {
-		t.Fatalf("resolve argv=%q", argv)
+}
+
+func museArgv(workdir string, mode agentic.PermissionMode) []string {
+	args := []string{"--model", "muse-spark-1.3-contributor", "--reasoning-effort", "max", "--workspace", workdir}
+	if mode == agentic.PermissionModeYolo {
+		args = append(args, "--yolo")
 	}
-	_, mappingErr := agentic.Default.PermissionMapping("muse", "1.4.1", agentic.PermissionModeNative)
-	if mappingErr != nil {
-		const refusal = "curator-run: permission_mode_unsupported: agentic: system maps no permission-mode bypass flag: muse has no release-pinned permission mapping\n"
-		if code != 1 || !strings.HasSuffix(string(stderr), refusal) || len(out) != 0 || f.builds != 0 || f.verdicts != 0 {
-			t.Fatalf("permission bound changed: exit=%d stderr=%s", code, stderr)
-		}
-		if !strings.Contains(string(stderr), "model=muse-spark-1.3-contributor (lineup) effort=max (lineup)") {
-			t.Fatalf("Muse declaration rows not resolved: %s", stderr)
-		}
-		f.assertNoChild(t)
-		return
-	}
-	if f.builds != 1 || f.request.Runtime != "muse" || f.request.Home != frag.Home() || f.request.PermissionMode != agentic.PermissionModeNative || !reflect.DeepEqual(f.request.Env, f.deps.environ()) {
-		t.Fatalf("wrong Muse request: %+v stderr=%s", f.request, stderr)
-	}
-	system, ok := agentic.Default.Lookup("muse")
-	if !ok {
-		t.Fatal("Muse plugin not registered")
-	}
-	if !system.Capabilities().SupportsMode(agentic.LaunchModeInteractive) {
-		const refusal = "plan_refused: spawn plane refused the launch: agentic: system does not support launch mode: muse does not declare interactive"
-		if code != 1 || !strings.Contains(string(stderr), refusal+"\n") || len(out) != 0 || f.verdicts != 0 {
-			t.Fatalf("exact interactive bound changed: exit=%d verdicts=%d stdout=%s stderr=%s", code, f.verdicts, out, stderr)
-		}
-		f.assertNoChild(t)
-		return
-	}
-	if code != 0 || f.verdicts != 1 {
-		t.Fatalf("interactive-capable pin refused: exit=%d stderr=%s", code, stderr)
-	}
-	var child childCapture
-	if err := json.Unmarshal(out, &child); err != nil {
-		t.Fatal(err)
-	}
-	if !reflect.DeepEqual(child.Argv, f.plan.Argv) {
-		t.Fatalf("argv=%q plan=%q", child.Argv, f.plan.Argv)
-	}
-	assertMuseEnv(t, child.Env, f.dir, frag)
+	return args
 }
 
 // Production call site: plan.Build with the real tagged BuildLaunch API.
-// Separate from run's earlier permission bound. This row flips to admission
-// when a pinned plugin declares interactive; no mode substitution is allowed.
-func TestMuseV3PlanBuildInteractiveBound(t *testing.T) {
-	f, frag := museFixture(t)
-	deps := plan.DefaultDeps(nil)
-	deps.Registry = f.deps.registry
-	reads := 0
-	deps.Availability = func(providerlimits.VerdictQuery) (vendorplugin.Availability, error) {
-		reads++
-		return vendorplugin.Availability{State: vendorplugin.AvailabilityHealthy}, nil
-	}
-	req := plan.Request{Runtime: "muse", Model: "muse-spark-1.3-contributor", Effort: "max", PermissionMode: agentic.PermissionModeNative, Home: frag.Home(), WorkDir: f.dir, Env: f.deps.environ()}
-	built, err := plan.Build(context.Background(), deps, req)
-	system, _ := agentic.Default.Lookup("muse")
-	if !system.Capabilities().SupportsMode(agentic.LaunchModeInteractive) {
-		const refusal = "plan_refused: spawn plane refused the launch: agentic: system does not support launch mode: muse does not declare interactive"
-		if err == nil || err.Error() != refusal || reads != 0 {
-			t.Fatalf("interactive refusal=%v reads=%d", err, reads)
-		}
-		f.assertNoChild(t)
-		return
-	}
-	if err != nil || reads != 1 || built.Plan.Binary != f.binary {
-		t.Fatalf("interactive-capable pin: plan=%+v err=%v reads=%d", built.Plan, err, reads)
-	}
-	if !reflect.DeepEqual(plan.SpawnRequest(req).Env, f.deps.environ()) {
-		t.Fatal("plan request changed HOME/env")
+func TestMuseV3PlanBuildInteractive(t *testing.T) {
+	for _, mode := range []agentic.PermissionMode{agentic.PermissionModeNative, agentic.PermissionModeYolo} {
+		t.Run(string(mode), func(t *testing.T) {
+			f, frag := museFixture(t)
+			deps := plan.DefaultDeps(nil)
+			deps.Registry = f.deps.registry
+			reads := 0
+			deps.Availability = func(providerlimits.VerdictQuery) (vendorplugin.Availability, error) {
+				reads++
+				return vendorplugin.Availability{State: vendorplugin.AvailabilityHealthy}, nil
+			}
+			req := plan.Request{Runtime: "muse", Model: "muse-spark-1.3-contributor", Effort: "max", PermissionMode: mode, ToolRelease: "1.4.2", Home: frag.Home(), WorkDir: f.dir, Env: f.deps.environ()}
+			built, err := plan.Build(context.Background(), deps, req)
+			if err != nil || reads != 1 || built.Plan.Binary != f.binary || !reflect.DeepEqual(built.Plan.Argv, museArgv(f.dir, mode)) {
+				t.Fatalf("interactive plan=%+v err=%v reads=%d", built.Plan, err, reads)
+			}
+			wantEnv := []string{"PATH=" + f.dir, "HOME=" + f.dir, "XDG_CONFIG_HOME=/foreign/config", "MUSE_NO_AUTO_UPDATE=1"}
+			if !reflect.DeepEqual(built.Plan.Env, wantEnv) || !reflect.DeepEqual(built.OwnedEnv, []string{"MUSE_NO_AUTO_UPDATE=1"}) {
+				t.Fatalf("plan env=%q owned=%q", built.Plan.Env, built.OwnedEnv)
+			}
+			f.assertNoChild(t)
+		})
 	}
 }
 
 func assertMuseEnv(t *testing.T, env []string, nativeHome string, frag *fragment.Fragment) {
 	t.Helper()
-	values := map[string]string{}
-	for _, entry := range env {
-		k, v, _ := strings.Cut(entry, "=")
-		values[k] = v
-	}
-	if values["HOME"] != nativeHome {
-		t.Fatalf("HOME replaced: %q", values["HOME"])
-	}
-	for k, v := range frag.Env {
-		if values[k] != v {
-			t.Fatalf("%s=%q want %q", k, values[k], v)
-		}
+	want := []string{"HOME=" + nativeHome, "MUSE_NO_AUTO_UPDATE=1", "PATH=" + nativeHome,
+		"XDG_CACHE_HOME=" + frag.Env["XDG_CACHE_HOME"], "XDG_CONFIG_HOME=" + frag.Env["XDG_CONFIG_HOME"],
+		"XDG_DATA_HOME=" + frag.Env["XDG_DATA_HOME"], "XDG_STATE_HOME=" + frag.Env["XDG_STATE_HOME"]}
+	if !reflect.DeepEqual(env, want) {
+		t.Fatalf("Muse env=%q want=%q", env, want)
 	}
 }
 
-// Composition is independently reachable for admitted plans of other systems.
-// Test the v3 overlay here without claiming today's Muse plugin admits a plan.
 func TestMuseV3CompositionPreservesHOME(t *testing.T) {
 	f, frag := museFixture(t)
-	p := agentic.Plan{Binary: f.binary, WorkDir: f.dir, Argv: []string{"opaque"}, Env: f.deps.environ()}
-	v, err := composition.Compose(p, nil, *frag, composition.PromptApplication{}, nil)
+	p := agentic.Plan{Binary: f.binary, WorkDir: f.dir, Argv: []string{"opaque"}, Env: []string{"HOME=" + f.dir, "PATH=" + f.dir, "MUSE_NO_AUTO_UPDATE=1"}}
+	v, err := composition.Compose(p, []string{"MUSE_NO_AUTO_UPDATE=1"}, *frag, composition.PromptApplication{}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	assertMuseEnv(t, v.Env, f.dir, frag)
-	if _, ok := v.EnvLiterals["HOME"]; ok {
-		t.Fatal("HOME serialized as an override")
+	wantLiterals := map[string]string{"MUSE_NO_AUTO_UPDATE": "1"}
+	for k, value := range frag.Env {
+		wantLiterals[k] = value
 	}
-	if !reflect.DeepEqual(v.EnvLiterals, frag.Env) || !reflect.DeepEqual(v.Argv, p.Argv) {
-		t.Fatalf("v3 composition=%+v", v)
+	if !reflect.DeepEqual(v.EnvLiterals, wantLiterals) || !reflect.DeepEqual(v.Argv, p.Argv) {
+		t.Fatalf("XDG-only overrides (no HOME): %+v", v)
 	}
 	target, err := mapping.Resolve(frag.Environment)
 	if err != nil || target.System != "muse" || target.Provider != "muse" {
@@ -176,14 +171,38 @@ func TestMuseV3CompositionPreservesHOME(t *testing.T) {
 	}
 }
 
-func TestMuseV3PermissionTransportThroughRun(t *testing.T) {
-	f, _ := museFixture(t)
-	f.args = []string{"muse", "--yolo"}
-	code, _, stderr := f.run()
-	// v3 carries the policy to the real module. Its current interactive Muse
-	// permission capability is unsupported; do not build exec --yolo here.
-	if code != 1 || !strings.Contains(string(stderr), "permission_mode_unsupported:") || strings.Contains(string(stderr), "permission_policy_unsupported:") || f.builds != 0 {
-		t.Fatalf("v3 permission transport: exit=%d builds=%d stderr=%s", code, f.builds, stderr)
+func TestMuseV3UnlistedReleaseRefusedThroughRun(t *testing.T) {
+	// v0.5.37 muse/policy.go lists 1.4.1 and 1.4.2; 1.4.0 is unlisted.
+	for _, mode := range []string{"native", "yolo"} {
+		for _, release := range []string{"1.4.0", "9.9.9", ""} {
+			t.Run(mode+"/release="+release, func(t *testing.T) {
+				f, _ := museFixture(t)
+				f.args = []string{"muse", "--permissions", mode}
+				version := ""
+				if release != "" {
+					version = "Muse Code " + release + " (" + release + "-R1.1)\n"
+				}
+				writeFixture(t, filepath.Join(f.dir, "muse-version"), []byte(version), 0600)
+				code, out, stderr := f.run()
+				if code != 1 || len(out) != 0 || f.builds != 0 || f.verdicts != 0 || !strings.Contains(string(stderr), "permission_mode_unsupported:") || !strings.Contains(string(stderr), agentic.ErrPermissionModeUnverifiedRelease.Error()) {
+					t.Fatalf("unlisted release admitted: exit=%d builds=%d verdicts=%d stdout=%s stderr=%s", code, f.builds, f.verdicts, out, stderr)
+				}
+				f.assertNoChild(t)
+			})
+		}
 	}
-	f.assertNoChild(t)
+}
+
+func TestMuseV3DuplicateYoloRefusedThroughRun(t *testing.T) {
+	for _, args := range [][]string{{"--yolo"}, {"--yolo=true"}, {"--disable-approval", "--disable-sandbox"}} {
+		t.Run(strings.Join(args, ","), func(t *testing.T) {
+			f, _ := museFixture(t)
+			f.args = append([]string{"muse", "--permissions", "yolo", "--"}, args...)
+			code, out, stderr := f.run()
+			if code != 2 || len(out) != 0 || f.builds != 1 || f.verdicts != 0 || !strings.Contains(string(stderr), agentic.ErrPermissionModeDuplicate.Error()) {
+				t.Fatalf("duplicate admitted: exit=%d builds=%d verdicts=%d stdout=%s stderr=%s", code, f.builds, f.verdicts, out, stderr)
+			}
+			f.assertNoChild(t)
+		})
+	}
 }

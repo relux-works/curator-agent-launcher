@@ -11,9 +11,11 @@ The executable supports `claude_code` (alias `claude`), `codex_cli`
 
 Muse has a registered `muse` system/provider mapping and accepts
 `launch-env-fragment-v3` with four XDG parents under one managed home,
-preserving inherited `HOME`. With agents-management v0.5.22, `curator-run muse`
-still refuses: the module has no Muse permission mapping and declares no
-interactive launch mode. Exec/serve mode is not substituted.
+preserving inherited `HOME`. The pinned agents-management v0.5.37 plugin
+declares interactive mode, probes the installed release, and maps native/yolo
+permissions for its verified releases (1.4.1 and 1.4.2). `curator-run muse` builds
+an interactive plan with XDG overrides and inherited `HOME`; native adds no
+posture flag and yolo adds exactly one `--yolo`. Unlisted releases fail closed.
 
 The launch pipeline follows these steps:
 
@@ -48,7 +50,7 @@ The launch pipeline follows these steps:
    starts neither provider nor ax.
 
 The permission interface is implemented against upstream
-`skill-agents-management v0.5.22` (F-M1). It owns
+`skill-agents-management v0.5.37` (F-M1). It owns
 `LaunchRequest.PermissionMode`, the release-bound mapping, versioned native
 argument classification, stored-policy inspection, and the capability table.
 Claude Code and Codex CLI use `permission-grammar-v2`; Pi uses

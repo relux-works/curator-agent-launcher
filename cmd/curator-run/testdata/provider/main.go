@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
@@ -25,6 +26,19 @@ func main() {
 		return
 	}
 	if len(os.Args) > 1 && os.Args[1] == "--version" {
+		if filepath.Base(os.Args[0]) == "muse" {
+			if len(os.Args) != 2 {
+				os.Exit(8)
+			}
+			// Muse filters test-only environment variables before probing. Serve
+			// the fixture beside this fake binary without widening its allowlist.
+			data, err := os.ReadFile(filepath.Join(filepath.Dir(os.Args[0]), "muse-version"))
+			if err != nil {
+				os.Exit(1)
+			}
+			os.Stdout.Write(data)
+			return
+		}
 		fmt.Fprintln(os.Stdout, os.Getenv("CURATOR_TEST_RELEASE"))
 		return
 	}

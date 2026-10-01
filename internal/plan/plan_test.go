@@ -434,10 +434,9 @@ func TestUnresolvedVendorScope(t *testing.T) {
 }
 
 // TestInteractiveDeclaredForMappedSystems pins the established interactive
-// systems. Muse's separately tested bound lives in the entry-point v3 tests:
-// the mapping alone does not imply a plugin declares interactive mode.
+// systems, including Muse after the v0.5.37 admission flip.
 func TestInteractiveDeclaredForMappedSystems(t *testing.T) {
-	for _, id := range []agentic.SystemID{"claude-code", "codex", "pi-native"} {
+	for _, id := range []agentic.SystemID{"claude-code", "codex", "pi-native", "muse"} {
 		sys, ok := agentic.Default.Lookup(id)
 		if !ok {
 			t.Fatalf("mapped system %q not registered", id)

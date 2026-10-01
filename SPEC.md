@@ -372,8 +372,8 @@ native-Pi design (TASK-260908-ggxfte) is now landed in
 commit `a2a6e9f377f62a5872d99ecdfff0d1690e385f2a`: system `pi-native`
 provides native interactive Pi plans for managed homes. This mapping does
 not require a Go import. The published v0.5.11 tag (tag object
-`0ea486e46765ecf12fff7c2ac526e12da02e95ed`) carries that commit and is
-pinned by this revision. §4.3 registers the real native-Pi plugin.
+`0ea486e46765ecf12fff7c2ac526e12da02e95ed`) introduced that support;
+this revision pins v0.5.37. §4.3 registers the real native-Pi plugin.
 
 An env-id outside this table that Curator nevertheless resolves is
 `env_unsupported`: the launcher refuses rather than guessing a system or
@@ -383,9 +383,12 @@ are filled — the launcher does not exec untracked what it could not hand
 off tracked.
 
 The Muse row follows the binding 2026-10-01 task decision. Mapping does
-not attest launch-mode support. The pinned agents-management v0.5.22
-plugin declares exec/dry-run only and lacks a release-pinned permission
-mapping: the launcher preserves those refusals. Its declaration-owned
+not attest launch-mode support. The pinned agents-management v0.5.37
+plugin declares interactive mode, implements ToolReleaseProber, and supplies
+release-pinned native/yolo permissions for Muse 1.4.1 and 1.4.2. The launcher
+probes the installed release before permission mapping and refuses unlisted
+releases. Interactive plans preserve inherited HOME and overlay only the four
+fragment XDG parents. Its declaration-owned
 model rows are the module's system-only launch authority, without a
 resolved vendor; defaults consumes those rows as BuildLaunch does.
 
@@ -537,9 +540,9 @@ different pair.
 ### 4.4 Obtain the launch plan (spawn plane)
 
 The launcher obtains the plan through
-`vendorplugin.BuildLaunch(ctx, registry, request, agentic.LaunchModeInteractive)`,
-the entry point verified at `agents-management` tag `v0.5.18`.
-`BuildLaunch` resolves the runtime and vendor model row, admits the model
+`vendorplugin.BuildLaunchWithEnvironment(ctx, registry, request, agentic.LaunchModeInteractive)`,
+the entry point verified at `agents-management` tag `v0.5.37`.
+`BuildLaunchWithEnvironment` resolves the runtime and vendor model row, admits the model
 and effort word against that row, and calls `agentic.BuildPlan` with the
 resulting `LaunchRequest`. The launcher MUST NOT bypass that admission
 by calling `BuildPlan` with a bare model id or reconstructing the row's
@@ -572,7 +575,7 @@ by calling `BuildPlan` with a bare model id or reconstructing the row's
 
 The mode is requested **by name**, `agentic.LaunchModeInteractive`
 (Decision 0013 D5). `LaunchRequest.PermissionMode` carries the resolved
-mode. In agents-management v0.5.18, `LaunchRequest.ToolRelease` and
+mode. In agents-management v0.5.37, `LaunchRequest.ToolRelease` and
 `LaunchRequest.NativeArgs` bind the request to the release-specific
 `permission-grammar-v1`; agents-management owns the permission mapping,
 argv grammar, and capability table. The launcher passes the request and
@@ -1129,10 +1132,10 @@ rather than sharing the read failure's. Second, no
 diagnostic downgrades the launch: every failure is terminal for that
 invocation, and the operator retries deliberately.
 
-## 7. Planned dependency
+## 7. Pinned dependency
 
-The permission interface requires
-`github.com/relux-works/skill-agents-management v0.5.18` (F-M1 release `149569d`), which carries
+The launcher pins
+`github.com/relux-works/skill-agents-management v0.5.37`, which carries
 `LaunchModeInteractive`, `LaunchRequest.PermissionMode`,
 `LaunchRequest.ToolRelease`, `LaunchRequest.NativeArgs`, the
 `permission-grammar-v1` token, and `ErrPermissionModeUnverifiedRelease`.

@@ -5,8 +5,18 @@
 ### Added
 
 - Register the Muse launcher/provider mapping and read v3 launch fragments
-  with four XDG parents, preserving the inherited `HOME`. The pinned Muse
-  plugin still refuses interactive launch plans and has no permission mapping.
+  with four XDG parents, preserving inherited `HOME`. The v0.5.37 module
+  admits interactive Muse plans with release probing and native/yolo
+  permissions: native adds no posture flag; yolo adds `--yolo` once.
+  Unlisted releases fail closed. Add native, yolo, and yolo-alias Muse goldens
+  for this newly admitted interactive path.
+
+### Changed
+
+- Pin `github.com/relux-works/skill-agents-management v0.5.37`. Claude plans
+  now own `CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false`; update direct and
+  tracked Claude goldens, delivering the launcher half of curator#102.
+  Existing argv and other existing goldens are unchanged from v0.5.22.
 
 ### Security
 

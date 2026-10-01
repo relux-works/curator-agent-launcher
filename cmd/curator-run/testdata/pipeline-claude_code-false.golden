@@ -15,6 +15,7 @@
       "a\nb"
     ],
     "Env": [
+      "CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false",
       "CLAUDE_CONFIG_DIR=<ROOT>/managed",
       "CODEX_THREAD_ID=nested",
       "FIGMA_API_KEY=source-secret",
