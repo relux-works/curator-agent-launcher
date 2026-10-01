@@ -13,6 +13,17 @@ import (
 )
 
 func main() {
+	// Fake Curator serves a canned fragment and records the resolve arguments.
+	if len(os.Args) > 1 && os.Args[1] == "env" {
+		_ = os.WriteFile(os.Getenv("CURATOR_TEST_RESOLVE_ARGV"), []byte(strings.Join(os.Args[1:], "\n")), 0600)
+		data, err := os.ReadFile(os.Getenv("CURATOR_TEST_FRAGMENT"))
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		os.Stdout.Write(data)
+		return
+	}
 	if len(os.Args) > 1 && os.Args[1] == "--version" {
 		fmt.Fprintln(os.Stdout, os.Getenv("CURATOR_TEST_RELEASE"))
 		return

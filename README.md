@@ -7,7 +7,15 @@ admitted interactive plan, and optional ax tracking. The contract is
 ## Production pipeline
 
 The executable supports `claude_code` (alias `claude`), `codex_cli`
-(alias `codex`), and native `pi`:
+(alias `codex`), and native `pi`.
+
+Muse has a registered `muse` system/provider mapping and accepts
+`launch-env-fragment-v3` with four XDG parents under one managed home,
+preserving inherited `HOME`. With agents-management v0.5.22, `curator-run muse`
+still refuses: the module has no Muse permission mapping and declares no
+interactive launch mode. Exec/serve mode is not substituted.
+
+The launch pipeline follows these steps:
 
 1. Read machine-first `ax.json` before argument validation. Missing configuration
    or `enabled:false` selects direct execution. Malformed or unreadable

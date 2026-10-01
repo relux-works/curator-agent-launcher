@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Added
+
+- Register the Muse launcher/provider mapping and read v3 launch fragments
+  with four XDG parents, preserving the inherited `HOME`. The pinned Muse
+  plugin still refuses interactive launch plans and has no permission mapping.
+
 ### Security
 
 - Validate `defaults.json` and `ax.json` before use: reject symlinks, files

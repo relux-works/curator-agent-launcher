@@ -1,9 +1,9 @@
 // Package fragment implements SPEC.md §4.1, the context-plane step of the
 // launcher: it runs `curator env resolve <env-id> [--profile <name>]
 // --repair --format json` as a subprocess, parses the closed
-// launch-env-fragment-v1 and launch-env-fragment-v2 objects (curator-spec environments.md §10.2 as
+// launch-env-fragment-v1, v2, and v3 objects (curator-spec environments.md §10.2 as
 // revised by Decision 0012 D8, conformance schema
-// launch-env-fragment-v1.schema.json plus the draft v2 permissions member,
+// launch-env-fragment-v1/v2/v3 schemas, retaining the v2 permissions member,
 // and computes the CCJ-1 digest
 // (registry.md §1) from the parsed object.
 //
@@ -27,6 +27,9 @@ const Identity = "launch-env-fragment-v1"
 // and force-native-lock transport.
 const IdentityV2 = "launch-env-fragment-v2"
 
+// IdentityV3 adds Muse and its four XDG parents, retaining v2 permissions.
+const IdentityV3 = "launch-env-fragment-v3"
+
 // Environment identifiers of the closed adapter registry (environments.md
 // §7.1). The launcher's own support for a launch into one of them is a §4.2
 // fact, not this package's.
@@ -35,6 +38,7 @@ const (
 	EnvCodexCLI   = "codex_cli"
 	EnvOpenCode   = "opencode"
 	EnvPi         = "pi"
+	EnvMuse       = "muse"
 )
 
 // ChannelKind is the closed descriptor kind vocabulary (environments.md §7.3).
@@ -120,17 +124,17 @@ type MCP struct {
 	Channels []Channel
 }
 
-// Fragment is a parsed, validated launch-env-fragment-v1 or v2.
+// Fragment is a parsed, validated launch-env-fragment-v1, v2, or v3.
 type Fragment struct {
 	// Revision is the exact fragment token and the only permission-transport
-	// signal. Only v2 can carry Permissions.
+	// signal. Only v2/v3 can carry Permissions.
 	Revision    string
 	Environment string
 	Profile     Profile
 	Precedence  Precedence
 	Permissions *Permissions
 	// Env maps the adapter's registry-declared variable name to the managed
-	// home path. Revision 1 declares exactly one variable per adapter.
+	// home path. Muse declares four XDG variables in v3; other adapters declare one.
 	Env map[string]string
 	// SystemPrompt is nil when the section is absent.
 	SystemPrompt *SystemPrompt
@@ -145,15 +149,20 @@ type Fragment struct {
 	Digest    string
 }
 
-// HomeVariable returns the adapter's home variable name for env
+// HomeVariable returns the adapter's primary home variable name for env
 // (environments.md §7.1), or "" for an environment outside the registry.
+// Muse uses XDG_CONFIG_HOME here; Home derives the parent of its /config path.
 func HomeVariable(env string) string {
 	return homeVariable[env]
 }
 
 // Home returns the managed home this launch runs in: the value of the
-// adapter's home variable (SPEC §4.1, passed as LaunchRequest.Home in §4.4).
+// adapter's home variable, or the common XDG parent for Muse (SPEC §4.1,
+// passed as LaunchRequest.Home in §4.4).
 func (f *Fragment) Home() string {
+	if f.Environment == EnvMuse {
+		return strings.TrimSuffix(f.Env["XDG_CONFIG_HOME"], "/config")
+	}
 	return f.Env[homeVariable[f.Environment]]
 }
 
@@ -162,6 +171,7 @@ var homeVariable = map[string]string{
 	EnvCodexCLI:   "CODEX_HOME",
 	EnvOpenCode:   "XDG_CONFIG_HOME",
 	EnvPi:         "PI_CODING_AGENT_DIR",
+	EnvMuse:       "XDG_CONFIG_HOME",
 }
 
 // The closed adapter channel registry (environments.md §7.3 and §7.8). A
@@ -219,7 +229,7 @@ func invalid(path, format string, a ...any) error {
 	return &InvalidError{Path: path, Msg: fmt.Sprintf(format, a...)}
 }
 
-// Parse validates data as one closed launch-env-fragment-v1 or v2 object and
+// Parse validates data as one closed launch-env-fragment-v1, v2, or v3 object and
 // returns it with its CCJ-1 bytes and digest. Everything the reader rules
 // of registry.md §1 reject (invalid UTF-8, duplicate keys, lone surrogates,
 // non-integers, trailing content) is an error, as is every departure from
@@ -322,13 +332,13 @@ func checkFlagToken(path, s string) error {
 }
 
 func fromValue(root Value) (*Fragment, error) {
-	revision, err := enumMember("", root, "fragment", Identity, IdentityV2)
+	revision, err := enumMember("", root, "fragment", Identity, IdentityV2, IdentityV3)
 	if err != nil {
 		return nil, err
 	}
 	required := []string{"fragment", "environment", "profile", "precedence", "env"}
 	optional := []string{"system_prompt", "mcp", "path_prepend"}
-	if revision == IdentityV2 {
+	if revision != Identity {
 		required = append(required, "permissions")
 	} else {
 		// A v1 reader rejects the v2 member, even when its value looks valid.
@@ -338,13 +348,16 @@ func fromValue(root Value) (*Fragment, error) {
 	}
 	f := &Fragment{Revision: revision}
 
-	env, err := enumMember("", root, "environment", EnvClaudeCode, EnvCodexCLI, EnvOpenCode, EnvPi)
+	env, err := enumMember("", root, "environment", EnvClaudeCode, EnvCodexCLI, EnvOpenCode, EnvPi, EnvMuse)
 	if err != nil {
 		return nil, err
 	}
+	if env == EnvMuse && revision != IdentityV3 {
+		return nil, invalid("/environment", "muse requires launch-env-fragment-v3")
+	}
 	f.Environment = env
 
-	if revision == IdentityV2 {
+	if revision != Identity {
 		value, _ := root.Get("permissions")
 		if err := closedObject("/permissions", value, []string{"mode", "locked", "source"}, nil); err != nil {
 			return nil, err
@@ -400,29 +413,42 @@ func fromValue(root Value) (*Fragment, error) {
 		return nil, err
 	}
 
-	// env: exactly the adapter's one home variable, an absolute path.
+	// env: closed adapter variable set; Muse paths share one managed parent.
 	envObj, _ := root.Get("env")
-	if envObj.Kind != KindObject {
-		return nil, invalid("/env", "expected an object, got %s", envObj.Kind)
+	variables := []string{homeVariable[env]}
+	if env == EnvMuse {
+		variables = []string{"XDG_CONFIG_HOME", "XDG_DATA_HOME", "XDG_STATE_HOME", "XDG_CACHE_HOME"}
 	}
-	if len(envObj.Obj) != 1 {
-		return nil, invalid("/env", "expected exactly one variable, got %d", len(envObj.Obj))
-	}
-	want := homeVariable[env]
-	m := envObj.Obj[0]
-	if m.Key != want {
-		return nil, invalid("/env/"+m.Key, "not the %s home variable %s", env, want)
-	}
-	if m.Value.Kind != KindString {
-		return nil, invalid("/env/"+m.Key, "expected a string, got %s", m.Value.Kind)
-	}
-	if err := checkAbsolutePath("/env/"+m.Key, m.Value.Str); err != nil {
+	if err := closedObject("/env", envObj, variables, nil); err != nil {
 		return nil, err
 	}
-	f.Env = map[string]string{m.Key: m.Value.Str}
+	f.Env = make(map[string]string, len(variables))
+	for _, name := range variables {
+		value, err := stringMember("/env", envObj, name)
+		if err != nil {
+			return nil, err
+		}
+		if err := checkAbsolutePath("/env/"+name, value); err != nil {
+			return nil, err
+		}
+		f.Env[name] = value
+	}
+	if env == EnvMuse {
+		for i, suffix := range []string{"config", "data", "state", "cache"} {
+			if f.Env[variables[i]] != f.Home()+"/"+suffix {
+				return nil, invalid("/env/"+variables[i], "must share the Muse home parent and end in /%s", suffix)
+			}
+		}
+		if err := checkAbsolutePath("/env", f.Home()); err != nil {
+			return nil, err
+		}
+	}
 
 	// system_prompt
 	if sp, ok := root.Get("system_prompt"); ok {
+		if env == EnvMuse {
+			return nil, invalid("/system_prompt", "muse has no system-prompt channel")
+		}
 		if err := closedObject("/system_prompt", sp, []string{"path", "channels"}, nil); err != nil {
 			return nil, err
 		}

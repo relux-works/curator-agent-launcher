@@ -13,6 +13,7 @@ func TestResolveClosedMapping(t *testing.T) {
 		{"claude_code", Target{"claude-code", "claude"}},
 		{"codex_cli", Target{"codex", "codex"}},
 		{"pi", Target{"pi-native", "pi"}},
+		{"muse", Target{"muse", "muse"}},
 		{"opencode", Target{}}, {"future_env", Target{}}, {"", Target{}}, {"PI", Target{}}, {"pi-native", Target{}},
 	} {
 		t.Run(tc.env, func(t *testing.T) {

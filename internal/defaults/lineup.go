@@ -27,6 +27,7 @@
 package defaults
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -38,6 +39,7 @@ import (
 	claudeSystem "github.com/relux-works/skill-agents-management/pkg/agentic/systems/claude"
 	codexSystem "github.com/relux-works/skill-agents-management/pkg/agentic/systems/codex"
 	geminiSystem "github.com/relux-works/skill-agents-management/pkg/agentic/systems/gemini"
+	museSystem "github.com/relux-works/skill-agents-management/pkg/agentic/systems/muse"
 	pinativeSystem "github.com/relux-works/skill-agents-management/pkg/agentic/systems/pinative"
 	"github.com/relux-works/skill-agents-management/pkg/vendorplugin"
 	"github.com/relux-works/skill-agents-management/pkg/vendorplugin/vendors/anthropic"
@@ -69,7 +71,7 @@ type Resolved struct {
 
 // NewRegistry builds the production compatibility registry from the real
 // tagged module: the claude-code, codex, pi-native, gemini-cli, and
-// antigravity system plugins, the frozen runtime declarations, and the
+// antigravity and Muse system plugins, the frozen runtime declarations, and the
 // anthropic, openai, and google vendor plugins.
 //
 // The legacy pi system plugin is deliberately not registered: it drives
@@ -98,6 +100,9 @@ func NewRegistry() (*vendorplugin.Registry, error) {
 	}
 	if err := systems.Register(agySystem.New()); err != nil {
 		return nil, fmt.Errorf("register antigravity system: %w", err)
+	}
+	if err := systems.Register(museSystem.New()); err != nil {
+		return nil, fmt.Errorf("register muse system: %w", err)
 	}
 	registry := vendorplugin.NewRegistry(systems)
 	if err := vendorplugin.SeedFrozenRuntimes(registry); err != nil {
@@ -216,7 +221,8 @@ type candidate struct {
 // for a mapped system, in the registry's own sorted declaration order.
 // Rows for other systems are not candidates: a launch on an undeclared
 // harness is a run nobody has evidence works. A declared runtime that
-// fails to materialize fails the whole system: a binding the registry
+// fails to materialize fails the whole system, except for BuildLaunch's
+// explicit declaration-owned model authority. A binding the registry
 // names but cannot resolve is a failure, never a hint to look elsewhere.
 func systemCandidates(system string, reg *vendorplugin.Registry) ([]candidate, error) {
 	var cands []candidate
@@ -227,10 +233,18 @@ func systemCandidates(system string, reg *vendorplugin.Registry) ([]candidate, e
 		}
 		declared = true
 		runtime, err := reg.ResolveRuntime(decl.ID)
-		if err != nil {
+		var models []vendorplugin.Model
+		if errors.Is(err, vendorplugin.ErrRuntimeVendorUnresolved) && !decl.VendorResolved() && len(decl.Models) > 0 {
+			// Match BuildLaunch's documented system-only admission authority:
+			// the unresolved declaration owns its model rows. ResolveRuntime
+			// has already proven the system exists. No vendor is inferred.
+			models = decl.Models
+		} else if err != nil {
 			return nil, err
+		} else {
+			models = runtime.Vendor.Models()
 		}
-		for _, model := range runtime.Vendor.Models() {
+		for _, model := range models {
 			if model.DrivenBy(agentic.SystemID(system)) {
 				cands = append(cands, candidate{runtime: decl.ID, model: model})
 			}

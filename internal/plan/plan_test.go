@@ -412,19 +412,9 @@ func TestModelNotDrivenBySystem(t *testing.T) {
 	}
 }
 
-// TestUnresolvedVendorScope drives the sole VendorUnresolved frozen runtime
-// through the production entry point. Frozen runtime "muse" records
-// VendorUnresolved (vendorplugin/runtime.go frozenRuntimes) on agentic
-// system "muse", which has no plugin registered in this binary (plan.go
-// imports only claude/codex/pinative systems). Registry.ResolveRuntime
-// checks system registration before vendor resolution (registry.go), so the
-// real tagged BuildLaunch refuses with ErrRuntimeSystemUnregistered —
-// through the same plan.Build propagation gate that owns
-// ErrRuntimeVendorUnresolved. ErrRuntimeVendorUnresolved itself is
-// unreachable here: the system check fires first, and had the system been
-// present the system-only binding (spawn.go resolveLaunchBinding) would
-// absorb the unresolved vendor instead of returning it. Production call
-// site: plan.Build with the real tagged vendorplugin.BuildLaunch.
+// TestUnresolvedVendorScope drives the real Muse system-only declaration
+// through plan.Build. Its unknown model must be refused by model admission,
+// without treating the unresolved vendor as permission to launch arbitrary ids.
 func TestUnresolvedVendorScope(t *testing.T) {
 	req, store, _ := fixture(t, "codex")
 	req.Runtime, req.Model, req.Effort = "muse", "anything", "medium"
@@ -435,7 +425,7 @@ func TestUnresolvedVendorScope(t *testing.T) {
 	d.Availability = a.read
 	got, err := plan.Build(context.Background(), d, req)
 	var refused *plan.RefusedError
-	if !errors.As(err, &refused) || !errors.Is(err, vendorplugin.ErrRuntimeSystemUnregistered) {
+	if !errors.As(err, &refused) || !errors.Is(err, vendorplugin.ErrUnknownModel) {
 		t.Fatalf("unresolved-vendor scope admitted or evidence lost: plan=%+v err=%v", got, err)
 	}
 	if !reflect.DeepEqual(got, agentic.PlanWithEnvironment{}) || c.count != 1 || a.count != 0 {
@@ -443,16 +433,9 @@ func TestUnresolvedVendorScope(t *testing.T) {
 	}
 }
 
-// TestInteractiveDeclaredForMappedSystems pins the unreachable bound for
-// agentic.ErrUnsupportedLaunchMode in the fixed Interactive/mapped-system
-// scope. plan.Build spells agentic.LaunchModeInteractive by name
-// (plan.go) and never takes another mode; every §4.2 mapped system in this
-// binary — claude-code, codex, pi-native, registered by plan.go's blank
-// imports — declares Interactive (claude.go, codex.go, pinative.go
-// Capabilities). A refusal for an undeclared mode therefore cannot arise
-// for a mapped runtime; any such refusal from an unmapped runtime would
-// travel the same tested `if err != nil` propagation gate proven by
-// TestModelNotDrivenBySystem and TestTaggedAdmissionRefusals.
+// TestInteractiveDeclaredForMappedSystems pins the established interactive
+// systems. Muse's separately tested bound lives in the entry-point v3 tests:
+// the mapping alone does not imply a plugin declares interactive mode.
 func TestInteractiveDeclaredForMappedSystems(t *testing.T) {
 	for _, id := range []agentic.SystemID{"claude-code", "codex", "pi-native"} {
 		sys, ok := agentic.Default.Lookup(id)

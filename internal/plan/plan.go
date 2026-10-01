@@ -53,6 +53,7 @@ import (
 	// whose broker was never established.
 	_ "github.com/relux-works/skill-agents-management/pkg/agentic/systems/claude"
 	_ "github.com/relux-works/skill-agents-management/pkg/agentic/systems/codex"
+	_ "github.com/relux-works/skill-agents-management/pkg/agentic/systems/muse"
 	_ "github.com/relux-works/skill-agents-management/pkg/agentic/systems/pinative"
 	_ "github.com/relux-works/skill-agents-management/pkg/vendorplugin/vendors/anthropic"
 	_ "github.com/relux-works/skill-agents-management/pkg/vendorplugin/vendors/google"

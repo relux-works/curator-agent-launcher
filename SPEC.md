@@ -215,7 +215,7 @@ curator env resolve <env-id> [--profile <name>] --repair --format json
 with the canonical `<env-id>` of §3: the launcher normalizes the `claude`
 and `codex` aliases before invoking the subprocess, so the alias never
 reaches Curator's lookup. The required `fragment` member names the fragment
-revision. The launcher parses the closed v1 or v2 object per environments.md
+revision. The launcher parses the closed v1, v2, or v3 object per environments.md
 §10.2 as revised by Decisions 0012 and 0018 and F-S2
 (curator-spec `ec8dc656`), rejecting unknown fields, unknown kinds,
 unknown semantics values, and contradictory permission data.
@@ -226,6 +226,14 @@ fragment carrying that member is invalid. A v1 fragment without it remains
 usable for legacy `native` launches but cannot establish permission or lock
 transport, so a launch that would resolve `yolo` fails closed as specified
 in §4.3 and §4.6.
+
+Revision v3 (curator-spec candidate `d373078a`, environments §10.2)
+retains v2 permissions and admits Muse with exactly `XDG_CONFIG_HOME`,
+`XDG_DATA_HOME`, `XDG_STATE_HOME`, and `XDG_CACHE_HOME`. Their values share
+one absolute managed parent, ending in `/config`, `/data`, `/state`, and
+`/cache`, respectively. `HOME` is never a fragment variable or managed
+override. Muse has no system-prompt or MCP member; v1/v2 do not admit Muse.
+Other adapters retain their single variable and existing channel rules.
 
 `--repair` is **always** passed (environments.md §9.2 step 5, §10.1;
 `profiles/manager.md` §12.5): the launcher is the one caller that repairs.
@@ -352,6 +360,7 @@ mapping between the three:
 | `claude_code` | `claude-code` | `claude` |
 | `codex_cli` | `codex` | `codex` |
 | `pi` | `pi-native` | `pi` |
+| `muse` | `muse` | `muse` |
 | `opencode` | none in this revision — `env_unsupported` | none — `env_unsupported` |
 
 The Pi system cell corrects accepted A0 errata E1/E2
@@ -372,6 +381,13 @@ a provider. The table grows by specification revision, never by
 inference, and a row is launchable only when both non-Curator columns
 are filled — the launcher does not exec untracked what it could not hand
 off tracked.
+
+The Muse row follows the binding 2026-10-01 task decision. Mapping does
+not attest launch-mode support. The pinned agents-management v0.5.22
+plugin declares exec/dry-run only and lacks a release-pinned permission
+mapping: the launcher preserves those refusals. Its declaration-owned
+model rows are the module's system-only launch authority, without a
+resolved vendor; defaults consumes those rows as BuildLaunch does.
 
 ### 4.3 Resolve model and effort defaults
 

@@ -1,0 +1,23 @@
+{
+  "fragment": "launch-env-fragment-v3",
+  "environment": "muse",
+  "profile": {
+    "name": "default",
+    "lock_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "precedence": {
+    "winner": "higher-weight",
+    "placement": "winner-last"
+  },
+  "permissions": {
+    "mode": "native",
+    "locked": false,
+    "source": "default"
+  },
+  "env": {
+    "XDG_CONFIG_HOME": "/manager/environments/default/muse/config",
+    "XDG_DATA_HOME": "/manager/environments/default/muse/data",
+    "XDG_STATE_HOME": "/manager/environments/default/muse/state",
+    "XDG_CACHE_HOME": "/manager/environments/default/muse/cache"
+  }
+}

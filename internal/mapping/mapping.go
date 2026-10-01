@@ -25,6 +25,8 @@ func Resolve(environment string) (Target, error) {
 		return Target{System: "claude-code", Provider: "claude"}, nil
 	case fragment.EnvCodexCLI:
 		return Target{System: "codex", Provider: "codex"}, nil
+	case fragment.EnvMuse:
+		return Target{System: "muse", Provider: "muse"}, nil
 	case fragment.EnvPi:
 		return Target{System: "pi-native", Provider: "pi"}, nil
 	default:
