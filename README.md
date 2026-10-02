@@ -168,6 +168,7 @@ scope. Resolution always requests repair.
 | `-d`, `--danger` | Rejected as usage errors before `--`; after `--`, arguments are native input |
 | `--name <session-name>` | Tracked session name; `[A-Za-z0-9][A-Za-z0-9._-]{0,63}`; accepted without effect when untracked |
 | `--ax-profile <standard\|yolo>` | Tracked execution profile; usage error when untracked; absent uses ax's default |
+| `--network <profile>` | Network profile for direct execution; resolved after admission, refused when tracked |
 | `--help`, `-h`, `--version` | Print information and exit, after reading tracking configuration |
 | `--` | End launcher parsing; all following arguments pass through verbatim |
 
@@ -178,6 +179,23 @@ alias, and the two forms cannot be combined. `-d` and `--danger` are rejected
 launcher flags before the native-argument boundary.
 Prompt-file discovery can still apply without the prompt opt-in; see the warnings
 and Pi precedence described above. Pi has no MCP channel.
+
+With `--network <profile>`, the launcher resolves the named profile from
+the operator catalog after plan admission, probes the proxy once within
+a bounded preflight, and applies the patch last in composition — after
+the fragment, prompt, and MCP layers — to the direct child environment.
+The profile must be confirmed at its current digest
+(`curator network confirm <profile>`); any resolve, validate, or
+preflight error ends the launch, never an unmanaged fallback. A managed
+launch prints a `curator-run: network: …` provenance line carrying the
+binding Record; the endpoint never appears in it, and a launch that
+composition refuses prints no Record. Tracked launches refuse
+`--network` with `network_scope_unsupported`: the source host cannot
+validate the destination. Support is an explicit allowlist of verified
+(adapter, harness, build, entrypoint) tuples, which holds exactly one
+verified tuple — `(generic-env-v1, claude-code, 2.1.287, exec)` — so
+every other `--network` launch refuses with
+`network_scope_unsupported`. See SPEC §4.4b and §6.
 
 ### Configuration family
 
@@ -269,6 +287,7 @@ on stderr. Foreign Curator/provider/ax output is forwarded unchanged.
 | `exec_provider_missing`, `ax_handoff_failed` | 1 |
 | `mcp_layer_missing`, `mcp_layer_unreadable` | 1 |
 | `sysprompt_channel_unavailable`, `sysprompt_file_unreadable` | 1 |
+| `network_profile_unknown`, `network_profile_denied`, `network_scope_unsupported`, `network_configuration_conflict`, `network_proxy_unreachable`, `network_proxy_auth_failed`, `network_profile_invalid`, `network_file_unreadable` | 1 |
 | Direct child failure | Child's exit code unchanged |
 | Direct child terminated by signal | `128 + signal` |
 

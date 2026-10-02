@@ -79,6 +79,8 @@ func TestRunUsageErrorsExit2(t *testing.T) {
 		{[]string{"codex_cli", "--ax-profile", "yolo"}, "not configured"},
 		{[]string{"codex_cli", "--name", "bad/name"}, "not a valid ax session name"},
 		{[]string{"codex_cli", "--name", strings.Repeat("x", 65)}, "not a valid ax session name"},
+		{[]string{"codex_cli", "--network", "a", "--network", "b"}, "more than once"},
+		{[]string{"codex_cli", "--network"}, "requires a value"},
 		{[]string{"--nope", "--help"}, "unknown flag"},
 	}
 	for _, c := range cases {

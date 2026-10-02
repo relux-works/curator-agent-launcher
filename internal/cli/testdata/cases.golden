@@ -128,6 +128,31 @@ args: ["codex_cli" "--ax-profile" "yolo"]
 ax: true
 result: env="codex_cli" tracked=true ax-profile=yolo native=[]
 
+# network separated
+args: ["codex_cli" "--network" "egress-a"]
+ax: false
+result: env="codex_cli" tracked=false network="egress-a" native=[]
+
+# network equals
+args: ["codex_cli" "--network=egress-a"]
+ax: false
+result: env="codex_cli" tracked=false network="egress-a" native=[]
+
+# network before env
+args: ["--network" "egress-a" "codex_cli"]
+ax: false
+result: env="codex_cli" tracked=false network="egress-a" native=[]
+
+# network on tracked machine parses
+args: ["codex_cli" "--network" "egress-a"]
+ax: true
+result: env="codex_cli" tracked=true network="egress-a" native=[]
+
+# native tail keeps network flag
+args: ["codex_cli" "--" "--network" "egress-a"]
+ax: false
+result: env="codex_cli" tracked=false native=["--network" "egress-a"]
+
 # every flag tracked
 args: ["claude_code" "--profile" "p" "--system-prompt" "append" "--model" "claude-opus-5" "--effort" "high" "--name" "s1" "--ax-profile" "standard" "--" "-p" "x"]
 ax: true
@@ -347,6 +372,36 @@ error: usage: flag --name given more than once
 args: ["codex_cli" "--ax-profile" "yolo" "--ax-profile" "standard"]
 ax: true
 error: usage: flag --ax-profile given more than once
+
+# repeated network
+args: ["codex_cli" "--network" "a" "--network" "b"]
+ax: false
+error: usage: flag --network given more than once
+
+# repeated network mixed forms
+args: ["codex_cli" "--network=a" "--network" "b"]
+ax: false
+error: usage: flag --network given more than once
+
+# network missing value at end
+args: ["codex_cli" "--network"]
+ax: false
+error: usage: flag --network requires a value
+
+# network missing value before double dash
+args: ["codex_cli" "--network" "--" "x"]
+ax: false
+error: usage: flag --network requires a value
+
+# network missing value equals empty
+args: ["codex_cli" "--network="]
+ax: false
+error: usage: flag --network requires a value, got ""
+
+# network value spelled as flag
+args: ["codex_cli" "--network" "--model" "m"]
+ax: false
+error: usage: flag --network requires a value, got "--model"
 
 # missing value at end
 args: ["codex_cli" "--profile"]

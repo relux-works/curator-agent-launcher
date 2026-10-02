@@ -140,6 +140,7 @@ curator-run <env-id> [--profile <name>] [--system-prompt <append|replace>]
             [--model <model>] [--effort <effort>]
             [--permissions <native|yolo> | --yolo]
             [--name <session-name>] [--ax-profile <standard|yolo>]
+            [--network <profile>]
             [--] <native args...>
 curator-run --help | -h
 curator-run --version
@@ -161,6 +162,7 @@ change, not a flag addition.
 | `-d`, `--danger` | — | Rejected before `--` as `usage`; neither spelling is an alias. After `--`, arguments remain opaque native arguments under the normal boundary rule. |
 | `--name <session-name>` | session | Tracked mode only (§4.6): the `ax` session name, replacing the default `<env-id>-<utc-stamp>`. MUST satisfy the `ax` §2.1 grammar `[A-Za-z0-9][A-Za-z0-9._-]{0,63}`; a longer or ill-formed value is a `usage` error naming `--name`, never a silent truncation. On an untracked machine the flag is accepted and has no effect. |
 | `--ax-profile <standard\|yolo>` | session | Tracked mode only (§4.6): the `ax` execution profile, forwarded as `ax start --profile <value>`. Absent, no `--profile` is passed and `ax`'s own default applies. This flag is the **only** way `--profile yolo` reaches `ax` from a launcher-mediated launch (Decision 0013 D6.4); the launcher never derives it from the fragment, the plan, or the native arguments. On an untracked machine the flag is a `usage` error: an execution profile is `ax`'s concept, and a value that would be silently discarded is a value the operator was misled about. |
+| `--network <profile>` | network | Explicit network-profile selection (§4.4b): a profile identifier resolved after plan admission against the operator catalog. Stored verbatim at parse; resolution and validation belong to §4.4b. On a tracked machine the selection is admitted at parse and refused as `network_scope_unsupported` in §4.4b: the source host cannot validate a destination. |
 | `--` | — | Terminates launcher argument parsing. Everything after it is native argv, forwarded last and verbatim when admitted by the shared permission and context-channel grammar. |
 | `--help`, `-h`, `--version` | — | Informational; print and exit 0. |
 
@@ -187,22 +189,27 @@ Parsing rules, closed:
   `usage`; after `--`, the launcher does not interpret any native argument.
   `--system-prompt` and `--ax-profile` accept only their closed
   vocabularies; `--name` is validated against the `ax` §2.1 grammar at
-  parse time, before anything is resolved.
+  parse time, before anything is resolved. `--network` takes any
+  non-empty value at parse — a repeated or missing value is a usage
+  error like every other value flag — and profile validation belongs
+  to §4.4b.
 - Usage errors exit 2 and print usage; they launch nothing and resolve
   nothing.
 
 ## 4. Composition algorithm
 
-A launch composes in six ordered steps: obtain the fragment, map the
-environment, resolve model and effort, obtain the plan, compose, hand
-off or exec. Every step either completes or fails the launch with a §6
-diagnostic; there is no partial launch, and no step's failure degrades
-into a weaker launch shape. The order is contract, not convenience: the
-fragment comes **first** because the plan request needs the managed home
-(§4.1, §4.4), and the plan comes before composition because composition
-appends to a value it never rebuilds (§4.5). `curator-run` is the single
-composer in both modes (Decision 0013 D1): a tracked and an untracked
-launch differ only in who creates the process.
+A launch composes in seven ordered steps: obtain the fragment, map the
+environment, resolve model and effort, obtain the plan, resolve the
+network selection (§4.4b), compose, hand off or exec. Every step either
+completes or fails the launch with a §6 diagnostic; there is no partial
+launch, and no step's failure degrades into a weaker launch shape. The
+order is contract, not convenience: the fragment comes **first** because
+the plan request needs the managed home (§4.1, §4.4), the plan comes
+before the network step because only an admitted launch may probe, and
+composition comes last because it appends to values it never rebuilds
+(§4.5). `curator-run` is the single composer in both modes (Decision
+0013 D1): a tracked and an untracked launch differ only in who creates
+the process.
 
 ### 4.1 Obtain the fragment (context plane)
 
@@ -618,6 +625,87 @@ downgrade, or substitute a model around a refusal. Model and effort
 admission stay inside `BuildLaunch`; provider-limit checking does not
 replace them.
 
+### 4.4b Resolve the network profile (network plane)
+
+After admission and before composition, the launcher resolves the
+explicit `--network` selection through `curator-network-profiles`
+v0.1.0 (§7). Without `--network` this step is absent: no catalog is
+read, nothing probes, and the launch composes exactly as before. With
+it, the order is closed:
+
+1. A blank selection refuses as `network_profile_invalid` without any
+   I/O.
+2. A tracked selection refuses as `network_scope_unsupported` without
+   catalog or probe I/O: the source host cannot validate the
+   destination, which does not enforce the network scope in this
+   revision (§4.6, §9). There is no fallback to direct execution and
+   no silent loss of tracking.
+3. The operator catalog loads through the operator's original parent
+   environment — never the fragment's managed home — and the explicit
+   selection resolves: allowed set, existence, assurance,
+   confirmation at the current digest, and engine coverage. Only the
+   explicit origin exists in this revision; runtime, project, and
+   operator defaults arrive separately, and no magic selector names
+   direct routing. Failures are `network_file_unreadable`,
+   `network_profile_invalid`, `network_profile_unknown`,
+   `network_profile_denied`, `network_scope_unsupported` (enforced
+   assurance), and `network_configuration_conflict` (uncovered engine
+   host).
+4. The launch shape is verified against the support policy: an
+   explicit allowlist of verified (adapter, harness, build,
+   entrypoint) tuples, matched exactly on all four members. The build
+   is the probed tool release, compared verbatim — no prefix, range,
+   or non-emptiness rule. The list holds exactly one verified tuple:
+   `(generic-env-v1, claude-code, 2.1.287, exec)`. Every other tuple —
+   codex, muse, any other build — refuses as
+   `network_scope_unsupported`, as does an unknown harness, an unknown
+   or unparsable version, or a missing build, before any probe or
+   workload.
+5. A proxy-family name in a composed overlay — `frag.Env`, the engaged
+   prompt channel, or `mcp.env_names` — refuses as
+   `network_configuration_conflict`, matched case-insensitively. The
+   check is pure, so it runs before the preflight and never costs a
+   network probe. Inherited proxy values are not overlays and are
+   replaced normally by the patch.
+6. A bounded preflight probes the resolved endpoint with the
+   library's default timeout: TCP always, then CONNECT and TLS to the
+   profile's agreed target when one is configured. A targetless probe
+   proves TCP only. Failures are `network_proxy_unreachable` and
+   `network_proxy_auth_failed`.
+7. The generic patch binds to the resolved digest, assurance, and
+   verified adapter identity, and the Record is built from the probe
+   statuses and time only — never the endpoint, the patch, or the
+   environment.
+
+Any error in this step terminates the launch without weaker routing:
+no network error ever degrades to an unmanaged launch, and an
+admission failure in §4.4 reaches neither the prober nor the workload.
+The §4.3 release probes (`<binary> --version` subprocesses) run before
+this step in the ambient environment; they are established local-only
+by inspection — exactly `--version` argv, stdout parsing, no socket use
+in the probe — and any network behavior inside a tool's own `--version`
+is outside cooperative assurance.
+
+A managed direct launch prints one provenance line on stderr after
+composition succeeds:
+
+```text
+curator-run: network: profile=<ref> origin=explicit digest=<digest> adapter=<adapter> harness=<harness> build=<build> entrypoint=exec assurance=cooperative probe=<tcp>/<connect>/<tls>
+```
+
+It carries the manifest-safe Record members only. Every value is
+folded with the §4.3 framing rule, so a hostile build string never
+forges a second parseable line, and the line is never a §6 diagnostic
+line. The Record is provenance, never environment: no Record member
+becomes a child variable. A launch that composition refuses prints no
+binding Record.
+
+Engine coverage checks the launch's loopback engine hosts against the
+profile's `bypass_hosts`. No launchable runtime in this revision
+carries an engine, so the set is empty and coverage is vacuous; the
+resolve call still carries the set, and a future engine-capable
+runtime derives its hosts at the launch call site.
+
 ### 4.5 Compose the launch
 
 The composed launch is one plan (Decision 0013 D6.3). Its members, closed:
@@ -709,6 +797,22 @@ launched. When layer 2 or 3 overrides one of the plan's own names, the
 launcher SHOULD warn — the plan author declared an intent the fragment is
 displacing — but the fragment still wins: the operator asked for the
 profile's context.
+
+**network patch** — when §4.4b resolved a selection, its patch applies
+LAST, after every layer above and before `Env` is materialized, through
+the library's `Patch.Apply`: the patch's `unset` names are removed
+case-insensitively from both the composed environment and the owned
+literals, then its `set` pairs are added to both. An unset-only patch
+is managed, not empty. While managed, a proxy-family name in an
+earlier overlay — `frag.Env`, the engaged prompt channel, or
+`mcp.env_names` — is a `network_configuration_conflict`, refused
+case-insensitively; §4.4b refuses it before the preflight and
+composition rechecks at application time. Inherited proxy values are
+not overlays and are replaced normally. Disjointness is rechecked
+after the literals land, under the same literal-versus-lookup rule
+below. Patch application is silent — the §4.4b provenance line already
+announces it. Without a selection this layer is absent and composition
+is byte-identical.
 
 **env_names** — the fragment's `mcp.env_names` union (already bounded,
 before it reaches the launcher, by the reserved-name exclusion and the
@@ -827,6 +931,11 @@ launcher MUST NOT fall back to an untracked direct exec, because a machine
 configured for tracking has declared that untracked sessions are the
 failure mode, not the fallback. After a successful handoff the launcher's
 work is over: process creation, the terminal, and the session are `ax`'s.
+
+A tracked launch with `--network` never reaches handoff: §4.4b refuses
+it as `network_scope_unsupported` before composition, so no document
+carries a network selection and no Record extension exists in this
+revision (§9).
 
 **Without the integration**, the launcher execs the composed plan
 directly: the plan's `Binary` with the entire composed argument tail
@@ -1112,6 +1221,7 @@ contract. Usage errors exit 2; every operational failure exits 1.
 | ax | `ax_handoff_failed` | §4.6: the configured `ax` could not take the launch — `ax` not startable, or `ax start` exited non-zero, its Structured Error passed through; no untracked fallback |
 | mcp | `mcp_layer_missing`, `mcp_layer_unreadable` | §4.5: the composed argv carries `-p curator-mcp` and the pre-launch stat of the fragment's `mcp.path` finds no file, or finds something it cannot read as a regular file — codex would silently launch without the profile's MCP set, so neither degrades to a launch without `-p`; the two are distinct facts and are reported as such |
 | system prompt | `sysprompt_channel_unavailable`, `sysprompt_file_unreadable` | §5.2: opt-in given but the fragment carries no non-`file` channel with the requested semantics; §5.1: a registry-declared file-kind channel's file exists but cannot be read (or is not a regular file) at the pre-exec probe — an absent managed-home file is not this diagnostic and says nothing about other native sources |
+| network | `network_profile_unknown`, `network_profile_denied`, `network_scope_unsupported`, `network_configuration_conflict`, `network_proxy_unreachable`, `network_proxy_auth_failed`, `network_profile_invalid`, `network_file_unreadable` | §4.4b: the explicit network selection could not be honored — an unknown profile name; a denied one (outside the host allowed set, or unconfirmed at the current digest); an unsupported launch shape (tracked mode, an unverified harness/build tuple, or an enforced assurance request); a proxy-family name in a composed overlay or an uncovered engine host; an unreachable proxy (TCP, CONNECT, or TLS step, or a malformed endpoint); a proxy demanding authentication; a malformed catalog or profile; or a catalog or ledger that cannot be located, read, or parsed — every one terminal, with no fallback to an unmanaged launch |
 
 Two invariants hold across every family. First, an absence and a failure
 to read are different facts: a fallback defined for absence (no
@@ -1125,7 +1235,7 @@ rather than sharing the read failure's. Second, no
 diagnostic downgrades the launch: every failure is terminal for that
 invocation, and the operator retries deliberately.
 
-## 7. Pinned dependency
+## 7. Pinned dependencies
 
 The launcher pins
 `github.com/relux-works/skill-agents-management v0.5.37`, which carries
@@ -1138,6 +1248,13 @@ flag spelling. The pinned module's plans-as-values contract, argv
 parity goldens, frozen admitted-pair digests, per-model effort rules,
 and provider-limit verdicts remain module-owned. `vendorplugin.Lineup`
 and the runtime compatibility registry supply §4.3 model/effort fallback.
+
+The launcher pins `github.com/relux-works/curator-network-profiles`
+v0.1.0 (§4.4b), consumed by tag as a normal require — no replace, no
+workspace. The module owns catalog loading, selection precedence and
+validation, the generic environment patch, the bounded preflight, and
+the binding Record; this SPEC owns where the launcher applies them and
+which launch shapes it supports.
 
 ## 8. Versioning
 
@@ -1246,6 +1363,14 @@ and the runtime compatibility registry supply §4.3 model/effort fallback.
   pinned releases; if either does, the §4.5 stat rule generalizes to
   it. The per-adapter rows of environments.md §7.8 are where such
   facts belong upstream.
+- **Network plane follow-ups.** The §4.4b patch is applied by the
+  launcher itself in §4.5; migration to the launch-plane typed carrier
+  happens only after a final-environment parity check proves both
+  implementations compose identically. Tracked mode keeps refusing
+  `network_scope_unsupported` until the destination negotiates and
+  enforces the network scope (no Record extension exists before then).
+  Real pinned-harness egress compatibility is a separate loopback
+  acceptance gate; fake-harness test results do not certify releases.
 
 ## Specification changelog
 

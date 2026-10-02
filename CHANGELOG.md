@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+### Added
+
+- Direct `curator run --network <profile>`: resolve and validate the
+  explicit selection through `curator-network-profiles v0.1.0` after
+  plan admission, probe the proxy once within a bounded preflight, and
+  apply the patch last in composition to the direct child environment.
+  Managed launches print a `curator-run: network: …` provenance line
+  carrying the binding Record once composition succeeds. Support is an
+  explicit allowlist of verified (adapter, harness, build, entrypoint)
+  tuples, which holds exactly one verified tuple —
+  `(generic-env-v1, claude-code, 2.1.287, exec)` — so every other
+  `--network` launch refuses with `network_scope_unsupported`. Tracked
+  launches refuse the same way. See SPEC §4.4b and §6.
+
 ## 0.2.0 — 2026-10-02
 
 The binary reports `0.2.0`; the specification remains `0.5.0-draft`.

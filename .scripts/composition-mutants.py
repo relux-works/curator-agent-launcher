@@ -9,6 +9,7 @@ out = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else root / '.temp/compositi
 out.mkdir(parents=True, exist_ok=True)
 composer = root / 'internal/composition/composition.go'
 probe = root / 'internal/composition/probe.go'
+netstage = root / 'internal/network/network.go'
 mutants = [
  ('M1', composer, 'literals := maps.Clone(own)', 'literals := maps.Clone(own); literals["SECRET"] = env["SECRET"]', 'TestComposeEnvironmentBoundary', 'admit exactly inherited SECRET as a tracked literal'),
  ('M2', composer, 'if _, collision := literals[name]; collision {', 'if _, collision := literals[name]; collision && name != "OWN" {', 'TestComposeEnvironmentBoundary', 'admit OWN as both literal and lookup'),
@@ -19,6 +20,9 @@ mutants = [
  ('M7', probe, 'if !info.Mode().IsRegular() {', 'if !info.Mode().IsRegular() && !info.IsDir() {', 'TestLaunchBoundaryFilesystem/directory', 'admit directories but retain other nonregular rejection'),
  ('M8', probe, 'f, err := os.Open(path)', 'f, err := os.Open(path); if errors.Is(err, os.ErrPermission) { return nil }', 'TestLaunchBoundaryFilesystem/unreadable', 'admit permission-denied open only'),
  ('M9', composer, 'if plan.Stdin.Attached {', 'if plan.Stdin.Attached && len(plan.Stdin.Bytes) > 0 {', 'TestComposeStdin/empty', 'collapse attached empty only to null'),
+ ('M10', netstage, 'for _, u := range envpatch.UnsetNames() {\n\t\tif strings.EqualFold(name, u) {', 'for _, u := range envpatch.UnsetNames() {\n\t\tif name == u {', 'TestComposeWithNetworkRefusesProxyOverlays', 'admit mixed-case proxy overlays while managed'),
+ ('M11', composer, '\tapplyToMap(env, patch)\n\tapplyToMap(literals, patch)', '\tapplyToMap(env, patch)', 'TestComposeWithNetworkAppliesPatchLast', 'land the patch in env but not literals'),
+ ('M12', composer, 'for _, name := range v.EnvNames {\n\t\t\tif _, collision := literals[name]; collision {', 'for _, name := range v.EnvNames {\n\t\t\tif _, collision := literals[name]; collision && name != "X_LOOKUP" {', 'TestComposeWithNetworkRechecksDisjointness', 'admit exactly X_LOOKUP as both literal and lookup'),
 ]
 rows = ['mutant\tnarrows_to\tnamed_failing_test\texit\tverdict\tsurvival_bound']
 failed = False
@@ -26,7 +30,10 @@ for ident, path, old, new, test, bound in mutants:
  original = path.read_bytes()
  try:
   source = original.decode()
-  expected = 2 if ident == 'M7' else 1
+  # M2's anchor appears twice since the §4.4b disjointness recheck reuses
+  # the literal-versus-lookup shape; the replacement applies to both and
+  # the unmanaged named test still kills through the first site.
+  expected = 2 if ident in ('M2', 'M7') else 1
   if source.count(old) != expected:
    raise RuntimeError(f'{ident}: expected {expected} anchors, got {source.count(old)}')
   path.write_text(source.replace(old, new))

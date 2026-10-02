@@ -50,6 +50,11 @@ var acceptedShapes = []shape{
 	{"name on untracked machine accepted no effect", []string{"codex_cli", "--name", "ineffective"}, false},
 	{"ax profile standard tracked", []string{"codex_cli", "--ax-profile", "standard"}, true},
 	{"ax profile yolo tracked", []string{"codex_cli", "--ax-profile", "yolo"}, true},
+	{"network separated", []string{"codex_cli", "--network", "egress-a"}, false},
+	{"network equals", []string{"codex_cli", "--network=egress-a"}, false},
+	{"network before env", []string{"--network", "egress-a", "codex_cli"}, false},
+	{"network on tracked machine parses", []string{"codex_cli", "--network", "egress-a"}, true},
+	{"native tail keeps network flag", []string{"codex_cli", "--", "--network", "egress-a"}, false},
 	{"every flag tracked", []string{"claude_code", "--profile", "p", "--system-prompt", "append", "--model", "claude-opus-5", "--effort", "high", "--name", "s1", "--ax-profile", "standard", "--", "-p", "x"}, true},
 	{"help alone", []string{"--help"}, false},
 	{"short help alone", []string{"-h"}, false},
@@ -102,6 +107,12 @@ var rejectedShapes = []struct {
 	{shape{"repeated system prompt", []string{"pi", "--system-prompt", "append", "--system-prompt", "replace"}, false}, "--system-prompt given more than once"},
 	{shape{"repeated name", []string{"codex_cli", "--name", "a", "--name", "b"}, true}, "--name given more than once"},
 	{shape{"repeated ax profile", []string{"codex_cli", "--ax-profile", "yolo", "--ax-profile", "standard"}, true}, "--ax-profile given more than once"},
+	{shape{"repeated network", []string{"codex_cli", "--network", "a", "--network", "b"}, false}, "--network given more than once"},
+	{shape{"repeated network mixed forms", []string{"codex_cli", "--network=a", "--network", "b"}, false}, "--network given more than once"},
+	{shape{"network missing value at end", []string{"codex_cli", "--network"}, false}, "--network requires a value"},
+	{shape{"network missing value before double dash", []string{"codex_cli", "--network", "--", "x"}, false}, "--network requires a value"},
+	{shape{"network missing value equals empty", []string{"codex_cli", "--network="}, false}, "--network requires a value"},
+	{shape{"network value spelled as flag", []string{"codex_cli", "--network", "--model", "m"}, false}, "--network requires a value"},
 	{shape{"missing value at end", []string{"codex_cli", "--profile"}, false}, "--profile requires a value"},
 	{shape{"missing value before double dash", []string{"codex_cli", "--model", "--", "x"}, false}, "--model requires a value"},
 	{shape{"missing value equals empty", []string{"codex_cli", "--profile="}, false}, "--profile requires a value"},
@@ -259,7 +270,7 @@ func TestParseNormalizesAliases(t *testing.T) {
 // TestNativeTailVerbatim proves the post-"--" contract element by element:
 // the tail is a copy, not an alias, and nothing after "--" is interpreted.
 func TestNativeTailVerbatim(t *testing.T) {
-	tail := []string{"", "--", "--help", "-h", "--version", "--profile", "", "--ax-profile", "yolo", "resume", "--last"}
+	tail := []string{"", "--", "--help", "-h", "--version", "--profile", "", "--ax-profile", "yolo", "--network", "egress-a", "resume", "--last"}
 	args := append([]string{"codex_cli", "--profile", "p", "--"}, tail...)
 	inv, err := Parse(args, untracked)
 	if err != nil {
@@ -273,7 +284,7 @@ func TestNativeTailVerbatim(t *testing.T) {
 			t.Fatalf("Native[%d] = %q, want %q", i, inv.Native[i], tail[i])
 		}
 	}
-	if inv.Info != InfoNone || inv.AxProfile != AxProfileNone {
+	if inv.Info != InfoNone || inv.AxProfile != AxProfileNone || inv.NetworkSet {
 		t.Fatalf("post-- tokens were interpreted: %+v", inv)
 	}
 	args[len(args)-1] = "mutated"
@@ -392,6 +403,9 @@ func renderInvocation(inv Invocation) string {
 	}
 	if inv.AxProfile != AxProfileNone {
 		parts = append(parts, fmt.Sprintf("ax-profile=%s", inv.AxProfile))
+	}
+	if inv.NetworkSet {
+		parts = append(parts, fmt.Sprintf("network=%q", inv.Network))
 	}
 	parts = append(parts, fmt.Sprintf("native=%q", inv.Native))
 	return strings.Join(parts, " ")

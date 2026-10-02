@@ -32,6 +32,7 @@ const Usage = `usage: curator-run <env-id> [--profile <name>] [--system-prompt <
                    [--model <model>] [--effort <effort>]
                    [--permissions <native|yolo> | --yolo]
                    [--name <session-name>] [--ax-profile <standard|yolo>]
+                   [--network <profile>]
                    [--] <native args...>
        curator-run --help | -h
        curator-run --version
@@ -49,6 +50,7 @@ options:
   -d, --danger                       rejected; use --permissions explicitly
   --name <session-name>             ax session name (tracked machines only)
   --ax-profile <standard|yolo>      ax execution profile (tracked machines only)
+  --network <profile>               network profile for direct execution (tracked refuses)
   --help, -h                        print this usage text and exit 0
   --version                         print the launcher name and version, exit 0
 
@@ -187,6 +189,14 @@ type Invocation struct {
 	// AxProfile is the --ax-profile value or AxProfileNone. It is never set
 	// when Tracked is false: that shape is a usage error.
 	AxProfile AxProfile
+	// Network is the --network value, a network profile identifier selected
+	// explicitly by the operator. NetworkSet reports presence. The value is
+	// stored verbatim and unvalidated here; resolution and validation
+	// against the operator catalog belong to the network stage after plan
+	// admission (SPEC §4.4b). An empty value is a usage error, so
+	// NetworkSet implies a non-empty Network.
+	Network    string
+	NetworkSet bool
 	// Tracked copies Options.AxConfigured so consumers of the invocation
 	// see the fact the parse was made against.
 	Tracked bool
@@ -228,6 +238,7 @@ var valueFlags = map[string]bool{
 	"--permissions":   true,
 	"--name":          true,
 	"--ax-profile":    true,
+	"--network":       true,
 }
 
 // Parse classifies args (os.Args[1:]) under SPEC §3. The rules, closed:
@@ -373,6 +384,8 @@ func (inv *Invocation) set(flag, value string, opts Options) error {
 			return usageErr("--ax-profile %s given but the ax integration is not configured on this machine; an execution profile is ax's and would be discarded", value)
 		}
 		inv.AxProfile = AxProfile(value)
+	case "--network":
+		inv.Network, inv.NetworkSet = value, true
 	default:
 		return usageErr("unknown flag %q before --", flag)
 	}
