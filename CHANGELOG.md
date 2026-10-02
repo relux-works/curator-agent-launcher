@@ -2,11 +2,15 @@
 
 ## Unreleased
 
+## 0.2.0 — 2026-10-02
+
+The binary reports `0.2.0`; the specification remains `0.5.0-draft`.
+
 ### Added
 
 - Register the Muse launcher/provider mapping and read v3 launch fragments
   with four XDG parents, preserving inherited `HOME`. The v0.5.37 module
-  admits interactive Muse plans with release probing and native/yolo
+  admits interactive Muse root-session plans with release probing and native/yolo
   permissions: native adds no posture flag; yolo adds `--yolo` once.
   Unlisted releases fail closed. Add native, yolo, and yolo-alias Muse goldens
   for this newly admitted interactive path.
@@ -16,10 +20,6 @@
 - Pin `github.com/relux-works/skill-agents-management v0.5.37`. Claude plans
   now own `CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false`; update direct and
   tracked Claude goldens, delivering the launcher half of curator#102.
-  Existing argv and other existing goldens are unchanged from v0.5.22.
-
-### Changed
-
 - Keep reserved fragment members out of the shared execution context carrier.
   A valid `path_prepend` still parses and contributes to the original digest,
   without changing PATH or causing Claude/Codex launches to refuse.
@@ -30,9 +30,6 @@
   overrides conflict with a fragment MCP layer. Non-colliding arguments retain
   pass-through behavior. v2/v3 context projects the v1 subset while preserving
   permission mapping and transport metadata.
-- The candidate agents-management environment adds
-  `CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false` (upstream #46); direct and tracked
-  Claude goldens record that intentional change.
 - Refuse `openai-infra` and `anthropic-infra` as deprecated launcher aliases at
   the `curator-run` entry point; canonical environment ids and `claude`/`codex`
   aliases keep their existing behavior.

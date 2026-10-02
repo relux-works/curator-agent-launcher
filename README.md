@@ -7,7 +7,7 @@ admitted interactive plan, and optional ax tracking. The contract is
 ## Production pipeline
 
 The executable supports `claude_code` (alias `claude`), `codex_cli`
-(alias `codex`), and native `pi`.
+(alias `codex`), native `pi`, and Muse (`muse`).
 
 Muse has a registered `muse` system/provider mapping and accepts
 `launch-env-fragment-v3` with four XDG parents under one managed home,
@@ -118,11 +118,12 @@ made from this host's tests.
 Install the tagged release with the Go toolchain specified by `go.mod`:
 
 ```bash
-go install github.com/relux-works/curator-agent-launcher/cmd/curator-run@v0.1.0
+go install github.com/relux-works/curator-agent-launcher/cmd/curator-run@v0.2.0
 curator-run --version
 ```
 
-The v0.1.0 release reports `0.1.0` (specification `0.5.0-draft`).
+The v0.2.0 release reports `0.2.0` (specification `0.5.0-draft`).
+Compatible with curator v0.15.0-rc.3 or later, once published.
 Ensure `$(go env GOPATH)/bin` is on `PATH`, or set `GOBIN` to a dedicated
 trusted operator-owned directory on `PATH`. Do **not** install into Curator's
 user-bin shim directory (`~/.local/bin`), a managed skill bin directory, or
@@ -146,7 +147,7 @@ curator-run --help
 
 The general umbrella form is `curator run <env> --profile <p> -- <args>`.
 Supported environments are `claude_code` (alias `claude`), `codex_cli`
-(alias `codex`), and `pi`; `opencode` is currently refused with
+(alias `codex`), `pi`, and Muse (`muse`); `opencode` is currently refused with
 `env_unsupported`. The operand normalizes to the canonical id before
 validation or lookup, so `curator-run claude` behaves exactly as
 `curator-run claude_code` (and `codex` as `codex_cli`); provenance lines,
