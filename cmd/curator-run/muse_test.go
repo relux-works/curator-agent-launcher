@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -190,6 +191,36 @@ func TestMuseV3UnlistedReleaseRefusedThroughRun(t *testing.T) {
 				f.assertNoChild(t)
 			})
 		}
+	}
+}
+
+// Production call site: run -> cli.Parse, before any fragment/env-specific
+// stage. An unknown --permissions value must refuse with usage even when
+// the operand is the muse environment; nothing may resolve or launch.
+func TestMuseV3UnknownPermissionsRefusedThroughRun(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		args  []string
+		value string
+	}{
+		{"equals", []string{"muse", "--permissions=automatic"}, "automatic"},
+		{"separate", []string{"muse", "--permissions", "auto"}, "auto"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f, _ := museFixture(t)
+			f.args = tc.args
+			code, out, stderr := f.run()
+			if code != 2 || len(out) != 0 || f.builds != 0 || f.verdicts != 0 {
+				t.Fatalf("unknown permissions admitted: exit=%d builds=%d verdicts=%d stdout=%s stderr=%s", code, f.builds, f.verdicts, out, stderr)
+			}
+			if !strings.Contains(string(stderr), "curator-run: usage:") || !strings.Contains(string(stderr), "--permissions accepts native or yolo, got "+strconv.Quote(tc.value)) {
+				t.Fatalf("usage refusal misnamed: stderr=%s", stderr)
+			}
+			if _, err := os.Stat(filepath.Join(f.dir, "resolve-argv")); !os.IsNotExist(err) {
+				t.Fatalf("refused launch reached Curator resolve: err=%v", err)
+			}
+			f.assertNoChild(t)
+		})
 	}
 }
 
