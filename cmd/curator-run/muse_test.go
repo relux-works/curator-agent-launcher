@@ -173,7 +173,7 @@ func TestMuseV3CompositionPreservesHOME(t *testing.T) {
 }
 
 func TestMuseV3UnlistedReleaseRefusedThroughRun(t *testing.T) {
-	// v0.5.37 muse/policy.go lists 1.4.1 and 1.4.2; 1.4.0 is unlisted.
+	// v0.5.48 muse/policy.go lists 1.4.1 and 1.4.2; 1.4.0 is unlisted.
 	for _, mode := range []string{"native", "yolo"} {
 		for _, release := range []string{"1.4.0", "9.9.9", ""} {
 			t.Run(mode+"/release="+release, func(t *testing.T) {

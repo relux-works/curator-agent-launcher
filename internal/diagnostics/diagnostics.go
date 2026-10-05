@@ -32,6 +32,14 @@
 //	mcp_layer_unreadable           composition.LayerError      composition.Value.CheckLaunchBoundary (exit 1)
 //	sysprompt_channel_unavailable  systemprompt.Refusal        systemprompt.Select via PrepareLaunch (exit 1)
 //	sysprompt_file_unreadable      systemprompt.Refusal        systemprompt.ProbeFiles via PrepareLaunch (exit 1)
+//	network_profile_unknown        refusal.Refusal             network.Prepare, call-site retained (exit 1)
+//	network_profile_denied         refusal.Refusal             network.Prepare, call-site retained (exit 1)
+//	network_scope_unsupported      refusal.Refusal             network.Prepare/Identify, call-site retained (exit 1)
+//	network_configuration_conflict refusal.Refusal             network.Prepare, composition.ComposeWithNetwork, call-site retained (exit 1)
+//	network_proxy_unreachable      refusal.Refusal             network.Prepare, call-site retained (exit 1)
+//	network_proxy_auth_failed      refusal.Refusal             network.Prepare, call-site retained (exit 1)
+//	network_profile_invalid        refusal.Refusal             network.Prepare, call-site retained (exit 1)
+//	network_file_unreadable        refusal.Refusal             network.Prepare, call-site retained (exit 1)
 //
 // Two invariants hold across every family (SPEC §6). First, an absence and
 // a failure to read are different facts: a fallback defined for absence
@@ -111,6 +119,15 @@ const (
 
 	CodeSyspromptUnavailable = "sysprompt_channel_unavailable"
 	CodeSyspromptUnreadable  = "sysprompt_file_unreadable"
+
+	CodeNetworkProfileUnknown        = "network_profile_unknown"
+	CodeNetworkProfileDenied         = "network_profile_denied"
+	CodeNetworkScopeUnsupported      = "network_scope_unsupported"
+	CodeNetworkConfigurationConflict = "network_configuration_conflict"
+	CodeNetworkProxyUnreachable      = "network_proxy_unreachable"
+	CodeNetworkProxyAuthFailed       = "network_proxy_auth_failed"
+	CodeNetworkProfileInvalid        = "network_profile_invalid"
+	CodeNetworkFileUnreadable        = "network_file_unreadable"
 )
 
 // Codes returns the closed code set in SPEC §6 table order.
@@ -137,6 +154,14 @@ func Codes() []string {
 		CodeMCPLayerUnreadable,
 		CodeSyspromptUnavailable,
 		CodeSyspromptUnreadable,
+		CodeNetworkProfileUnknown,
+		CodeNetworkProfileDenied,
+		CodeNetworkScopeUnsupported,
+		CodeNetworkConfigurationConflict,
+		CodeNetworkProxyUnreachable,
+		CodeNetworkProxyAuthFailed,
+		CodeNetworkProfileInvalid,
+		CodeNetworkFileUnreadable,
 	}
 }
 
@@ -231,9 +256,11 @@ func nilValue(e error) bool {
 // without inventing one. It recognizes the concrete error types of the
 // owning stages at every level of their wrap chains, and accepts only
 // the owner's own closed family. Mapping failures (plain errors under
-// mapping.CodeUnsupported) and execution sentinels
-// (exec_provider_missing, ax_handoff_failed) are chosen explicitly at
-// their call sites and are not classified here. An error no owner claims
+// mapping.CodeUnsupported), execution sentinels
+// (exec_provider_missing, ax_handoff_failed), and network refusals
+// (retained via refusal.As at the network call sites) are chosen
+// explicitly at their call sites and are not classified here. An error
+// no owner claims
 // — including a bare fragment parse error, which only becomes a
 // diagnostic when the resolver wraps it — yields ok=false. Typed-nil
 // owner values (a non-nil error interface holding a nil pointer, direct

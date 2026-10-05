@@ -11,7 +11,7 @@ The executable supports `claude_code` (alias `claude`), `codex_cli`
 
 Muse has a registered `muse` system/provider mapping and accepts
 `launch-env-fragment-v3` with four XDG parents under one managed home,
-preserving inherited `HOME`. The pinned agents-management v0.5.37 plugin
+preserving inherited `HOME`. The pinned agents-management v0.5.48 plugin
 declares interactive mode, probes the installed release, and maps native/yolo
 permissions for its verified releases (1.4.1 and 1.4.2). `curator-run muse` builds
 an interactive plan with XDG overrides and inherited `HOME`; it supplies no
@@ -59,7 +59,7 @@ The launch pipeline follows these steps:
    starts neither provider nor ax.
 
 The permission interface is implemented against upstream
-`skill-agents-management v0.5.37` (F-M1). It owns
+`skill-agents-management v0.5.48` (F-M1). It owns
 `LaunchRequest.PermissionMode`, the release-bound mapping, versioned native
 argument classification, stored-policy inspection, and the capability table.
 Claude Code and Codex CLI use `permission-grammar-v2`; Pi uses
@@ -168,6 +168,7 @@ scope. Resolution always requests repair.
 | `-d`, `--danger` | Rejected as usage errors before `--`; after `--`, arguments are native input |
 | `--name <session-name>` | Tracked session name; `[A-Za-z0-9][A-Za-z0-9._-]{0,63}`; accepted without effect when untracked |
 | `--ax-profile <standard\|yolo>` | Tracked execution profile; usage error when untracked; absent uses ax's default |
+| `--network <profile>` | Network profile for direct execution; resolved after admission, refused when tracked |
 | `--help`, `-h`, `--version` | Print information and exit, after reading tracking configuration |
 | `--` | End launcher parsing; all following arguments pass through verbatim |
 
@@ -178,6 +179,31 @@ alias, and the two forms cannot be combined. `-d` and `--danger` are rejected
 launcher flags before the native-argument boundary.
 Prompt-file discovery can still apply without the prompt opt-in; see the warnings
 and Pi precedence described above. Pi has no MCP channel.
+
+With `--network <profile>`, the launcher resolves the named profile from
+the operator catalog after plan admission, probes the proxy once within
+a bounded preflight, and applies the patch last in composition — after
+the fragment, prompt, and MCP layers — to the direct child environment.
+A named `kind = "direct"` profile instead clears inherited proxy
+variables and sets nothing: it skips every probe step and its Record
+carries skipped/skipped/skipped. The profile must be confirmed at its
+current digest (`curator network confirm <profile>`); any resolve,
+validate, or preflight error ends the launch, never an unmanaged
+fallback. A managed launch prints a `curator-run: network: …`
+provenance line carrying the binding Record; the endpoint never appears
+in it, and a launch that composition refuses prints no Record. Tracked
+launches refuse `--network` with `network_scope_unsupported`: the
+source host cannot validate the destination. Support is the STRICT
+network policy: an explicit allowlist of verified (adapter, harness,
+build, entrypoint) tuples, matched exactly at the actual admitted
+entrypoint, which holds exactly one verified tuple —
+`(generic-env-v1, claude-code, 2.1.287, exec)` — the one-shot `claude -p`
+shape, which stays admitted when the native tail selects print. Every
+other `--network` launch refuses with `network_scope_unsupported`,
+including launches without a print selection (interactive mode, which
+the pinned verification expressly excludes). An optimistic policy is a
+future option (TASK-261005-yoogtw), not the default. See SPEC §4.4b
+and §6.
 
 ### Configuration family
 
@@ -269,6 +295,7 @@ on stderr. Foreign Curator/provider/ax output is forwarded unchanged.
 | `exec_provider_missing`, `ax_handoff_failed` | 1 |
 | `mcp_layer_missing`, `mcp_layer_unreadable` | 1 |
 | `sysprompt_channel_unavailable`, `sysprompt_file_unreadable` | 1 |
+| `network_profile_unknown`, `network_profile_denied`, `network_scope_unsupported`, `network_configuration_conflict`, `network_proxy_unreachable`, `network_proxy_auth_failed`, `network_profile_invalid`, `network_file_unreadable` | 1 |
 | Direct child failure | Child's exit code unchanged |
 | Direct child terminated by signal | `128 + signal` |
 

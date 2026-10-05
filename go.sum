@@ -1,6 +1,8 @@
 github.com/pelletier/go-toml/v2 v2.4.3 h1:GTRvJQutkOSftxIFD5xw9aepkYNuPWmVJpffdDPYVpY=
 github.com/pelletier/go-toml/v2 v2.4.3/go.mod h1:2gIqNv+qfxSVS7cM2xJQKtLSTLUE9V8t9Stt+h56mCY=
-github.com/relux-works/skill-agents-management v0.5.37 h1:AV9Tk+bQfduINDwFNk+PvqLYcC5qNOOr5U3vC+zInSc=
-github.com/relux-works/skill-agents-management v0.5.37/go.mod h1:+WXoKeo9R5EWN/X/diQkbNUV8cnPXDpHjpGFY+RnxTM=
+github.com/relux-works/curator-network-profiles v0.2.1 h1:BBljh5p3ofPWx9vvz1kYGbq/S4S6wmMy/mZided32Ts=
+github.com/relux-works/curator-network-profiles v0.2.1/go.mod h1:KlPpVwgH45EtLFWodP1ofqWc+amLHGuftUVoZ1rsWhg=
+github.com/relux-works/skill-agents-management v0.5.48 h1:JQXsPrfm2ObsecsCIz9BVlK6i6IKic4GHUE3sjlVwik=
+github.com/relux-works/skill-agents-management v0.5.48/go.mod h1:GzykgRxR/59WB+VXfqHGlmJ+kLR09DZJmApaKCScctw=
 golang.org/x/sys v0.47.0 h1:o7XGOvZQCADBQQ4Y7VNq2dRWQR7JmOUW8Kxx4ZsNgWs=
 golang.org/x/sys v0.47.0/go.mod h1:4GL1E5IUh+htKOUEOaiffhrAeqysfVGipDYzABqnCmw=

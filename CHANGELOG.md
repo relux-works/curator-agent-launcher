@@ -2,6 +2,34 @@
 
 ## Unreleased
 
+### Added
+
+- Direct `curator run --network <profile>`: resolve and validate the
+  explicit selection through `curator-network-profiles v0.2.1` after
+  plan admission, probe the proxy once within a bounded preflight, and
+  apply the patch last in composition to the direct child environment.
+  A named `kind = "direct"` profile clears inherited proxy variables
+  and sets nothing, skipping every probe step. Managed launches print
+  a `curator-run: network: …` provenance line carrying the binding
+  Record once composition succeeds. Support is the STRICT network
+  policy: an explicit allowlist of verified (adapter, harness, build,
+  entrypoint) tuples, matched at the actual admitted entrypoint, which
+  holds exactly one verified tuple —
+  `(generic-env-v1, claude-code, 2.1.287, exec)` — the one-shot
+  `claude -p` shape. Every other `--network` launch refuses with
+  `network_scope_unsupported`, including interactive launches, which
+  the pinned verification expressly excludes. Tracked launches
+  refuse the same way. See SPEC §4.4b and §6.
+
+### Changed
+
+- Pin `github.com/relux-works/skill-agents-management v0.5.48`. Claude
+  plans carry the module's unconditional
+  `--disallowedTools=AskUserQuestion` denial after the prompt channel;
+  update direct and tracked Claude goldens. Hosted Codex argv and
+  environment are unchanged; the launcher registers no local-model
+  vendor, so no fixture needs `model_catalog_json`.
+
 ## 0.2.0 — 2026-10-02
 
 The binary reports `0.2.0`; the specification remains `0.5.0-draft`.

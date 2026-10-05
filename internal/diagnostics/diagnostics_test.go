@@ -18,6 +18,7 @@ import (
 	"github.com/relux-works/curator-agent-launcher/internal/diagnostics"
 	"github.com/relux-works/curator-agent-launcher/internal/fragment"
 	sp "github.com/relux-works/curator-agent-launcher/internal/systemprompt"
+	"github.com/relux-works/curator-network-profiles/pkg/refusal"
 )
 
 var specCodeToken = regexp.MustCompile("^[a-z][a-z0-9_]*$")
@@ -135,6 +136,14 @@ func TestOwnedCodesMatchOwners(t *testing.T) {
 		{diagnostics.CodeMCPLayerUnreadable, composition.CodeMCPLayerUnreadable},
 		{diagnostics.CodeSyspromptUnavailable, sp.CodeUnavailable},
 		{diagnostics.CodeSyspromptUnreadable, sp.CodeUnreadable},
+		{diagnostics.CodeNetworkProfileUnknown, refusal.CodeProfileUnknown},
+		{diagnostics.CodeNetworkProfileDenied, refusal.CodeProfileDenied},
+		{diagnostics.CodeNetworkScopeUnsupported, refusal.CodeScopeUnsupported},
+		{diagnostics.CodeNetworkConfigurationConflict, refusal.CodeConfigurationConflict},
+		{diagnostics.CodeNetworkProxyUnreachable, refusal.CodeProxyUnreachable},
+		{diagnostics.CodeNetworkProxyAuthFailed, refusal.CodeProxyAuthFailed},
+		{diagnostics.CodeNetworkProfileInvalid, refusal.CodeProfileInvalid},
+		{diagnostics.CodeNetworkFileUnreadable, refusal.CodeFileUnreadable},
 	}
 	for _, p := range pairs {
 		if p[0] != p[1] {

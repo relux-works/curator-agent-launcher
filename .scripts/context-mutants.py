@@ -75,11 +75,15 @@ for ident, path, old, new, test, bound in mutants:
     original = path.read_bytes()
     try:
         source = original.decode()
-        if source.count(old) != 1:
-            raise RuntimeError(f'{ident}: expected one anchor, found {source.count(old)}')
+        # N1's anchor appears twice since the §4.4b WithNetwork form
+        # reuses the admitted-suffix shape; the replacement applies to
+        # both and the named test still kills through the second site.
+        expected = 2 if ident == 'N1' else 1
+        if source.count(old) != expected:
+            raise RuntimeError(f'{ident}: expected {expected} anchors, found {source.count(old)}')
         mutated = source.replace(old, new)
         if ident == 'D1':
-            mutated += '\nreplace github.com/relux-works/skill-agents-management v0.5.37 => github.com/relux-works/skill-agents-management v0.5.37\n'
+            mutated += '\nreplace github.com/relux-works/skill-agents-management v0.5.48 => github.com/relux-works/skill-agents-management v0.5.48\n'
         path.write_text(mutated)
         mask = '^' + test.replace('/', '$/^') + '$'
         if ident == 'D1':

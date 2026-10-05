@@ -146,7 +146,7 @@ func TestTaggedInteractivePlans(t *testing.T) {
 		env, runtime, system, binary string
 		argv                         []string
 	}{
-		{"claude_code", "claude", "claude-code", "claude", []string{"--model", "claude-opus-5", "--effort", "medium"}},
+		{"claude_code", "claude", "claude-code", "claude", []string{"--model", "claude-opus-5", "--effort", "medium", "--disallowedTools=AskUserQuestion"}},
 		{"codex_cli", "codex", "codex", "codex", []string{"-m", "gpt-6-astra", "-c", `model_reasoning_effort="medium"`}},
 		{"pi", "pi-anthropic", "pi-native", "pi", []string{"--model", "anthropic/claude-opus-5", "--thinking", "high"}},
 	} {

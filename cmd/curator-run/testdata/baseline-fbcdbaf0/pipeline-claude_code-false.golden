@@ -10,7 +10,6 @@
       "--strict-mcp-config",
       "--append-system-prompt-file",
       "<ROOT>/managed/prompt.md",
-      "--disallowedTools=AskUserQuestion",
       "",
       "--model=native",
       "a\nb"
