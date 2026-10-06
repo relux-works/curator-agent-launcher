@@ -70,6 +70,19 @@ var acceptedShapes = []shape{
 	{"alias claude with flags and native tail", []string{"claude", "--profile", "p", "--", "resume", "--last"}, false},
 	{"alias codex with flags before env", []string{"--model", "m", "codex"}, false},
 	{"native tail alias spellings untouched", []string{"pi", "--", "claude", "codex"}, false},
+	{"hosted flag", []string{"claude_code", "--hosted"}, false},
+	{"native flag", []string{"claude_code", "--native"}, false},
+	{"untracked flag", []string{"claude_code", "--untracked"}, false},
+	{"host flag before env", []string{"--hosted", "claude_code", "--", "x"}, false},
+	{"resume latest selector", []string{"claude_code", "resume"}, false},
+	{"resume handle selector", []string{"claude_code", "resume", "SES-abc123"}, false},
+	{"resume selector with flags interleaved", []string{"claude_code", "--hosted", "resume", "--model", "m", "SES-1", "--", "x"}, false},
+	{"resume flag", []string{"claude_code", "--hosted", "--resume", "01234567-89ab-cdef-0123-456789abcdef"}, false},
+	{"resume flag equals form", []string{"claude_code", "--resume=abc"}, false},
+	{"network flag", []string{"claude_code", "--network", "office"}, false},
+	{"network flag equals form", []string{"claude_code", "--network=office"}, false},
+	{"native tail keeps host and resume spellings", []string{"pi", "--", "--hosted", "--native", "--untracked", "resume", "--resume", "x", "--network", "y"}, false},
+	{"ax profile with hosted flag stays admitted", []string{"codex_cli", "--hosted", "--ax-profile", "yolo"}, true},
 }
 
 // rejected shapes; each must yield a *UsageError. want is a substring of
@@ -83,8 +96,10 @@ var rejectedShapes = []struct {
 	{shape{"flags only no env", []string{"--profile", "p"}, false}, "missing <env-id>"},
 	{shape{"native tail no env", []string{"--", "codex_cli"}, false}, "missing <env-id>"},
 	{shape{"empty env operand", []string{""}, false}, "empty operand"},
-	{shape{"stray operand", []string{"codex_cli", "resume"}, false}, `stray operand "resume"`},
-	{shape{"stray operand then double dash", []string{"codex_cli", "resume", "--", "x"}, false}, `stray operand "resume"`},
+	{shape{"stray operand", []string{"codex_cli", "frobnicate"}, false}, `stray operand "frobnicate"`},
+	{shape{"stray operand then double dash", []string{"codex_cli", "frobnicate", "--", "x"}, false}, `stray operand "frobnicate"`},
+	{shape{"second operand after resume handle", []string{"codex_cli", "resume", "SES-1", "extra"}, false}, `stray operand "extra"`},
+	{shape{"second resume token is a handle", []string{"codex_cli", "resume", "resume", "extra"}, false}, `stray operand "extra"`},
 	{shape{"unknown flag", []string{"codex_cli", "--nope"}, false}, `unknown flag "--nope"`},
 	{shape{"unknown flag equals form", []string{"codex_cli", "--nope=1"}, false}, `unknown flag "--nope=1"`},
 	{shape{"unknown single dash flag", []string{"codex_cli", "-p", "x"}, false}, `unknown flag "-p"`},
@@ -135,6 +150,21 @@ var rejectedShapes = []struct {
 	{shape{"name with unicode", []string{"codex_cli", "--name", "сессия"}, true}, "not a valid ax session name"},
 	{shape{"name with newline", []string{"codex_cli", "--name", "a\nb"}, true}, "not a valid ax session name"},
 	{shape{"name invalid on untracked machine still rejected", []string{"codex_cli", "--name", "bad/name"}, false}, "not a valid ax session name"},
+	{shape{"repeated hosted flag", []string{"claude_code", "--hosted", "--hosted"}, false}, "one host request and cannot be repeated or combined"},
+	{shape{"repeated native flag", []string{"claude_code", "--native", "--native"}, false}, "one host request and cannot be repeated or combined"},
+	{shape{"hosted native combination", []string{"claude_code", "--hosted", "--native"}, false}, "one host request and cannot be repeated or combined"},
+	{shape{"native untracked combination", []string{"claude_code", "--native", "--untracked"}, false}, "one host request and cannot be repeated or combined"},
+	{shape{"untracked hosted combination", []string{"claude_code", "--untracked", "--hosted"}, false}, "one host request and cannot be repeated or combined"},
+	{shape{"hosted flag with value", []string{"claude_code", "--hosted=yes"}, false}, "--hosted takes no value"},
+	{shape{"native flag with value", []string{"claude_code", "--native=no"}, false}, "--native takes no value"},
+	{shape{"repeated resume flag", []string{"claude_code", "--resume", "a", "--resume", "b"}, false}, "--resume given more than once"},
+	{shape{"resume flag missing value", []string{"claude_code", "--resume"}, false}, "--resume requires a value"},
+	{shape{"resume flag empty value", []string{"claude_code", "--resume", ""}, false}, "--resume requires a value"},
+	{shape{"repeated network flag", []string{"claude_code", "--network", "a", "--network", "b"}, false}, "--network given more than once"},
+	{shape{"network flag missing value", []string{"claude_code", "--network"}, false}, "--network requires a value"},
+	{shape{"ax profile with native flag", []string{"codex_cli", "--ax-profile", "standard", "--native"}, true}, "would be discarded"},
+	{shape{"ax profile with untracked flag", []string{"codex_cli", "--untracked", "--ax-profile", "yolo"}, true}, "would be discarded"},
+	{shape{"ax profile with native flag untracked", []string{"codex_cli", "--native", "--ax-profile", "standard"}, false}, "ax integration is not configured"},
 }
 
 func TestParseAccepted(t *testing.T) {
@@ -327,6 +357,18 @@ func TestInformationalCarriesNothingElse(t *testing.T) {
 	}
 }
 
+// TestExplicitNative pins the --untracked synonym: both native spellings
+// select the explicit native path, while --hosted and no flag do not.
+func TestExplicitNative(t *testing.T) {
+	for flag, want := range map[string]bool{
+		"--native": true, "--untracked": true, "--hosted": false, "": false, "--hostedx": false,
+	} {
+		if got := ExplicitNative(flag); got != want {
+			t.Errorf("ExplicitNative(%q) = %v, want %v", flag, got, want)
+		}
+	}
+}
+
 func TestUsageErrorShape(t *testing.T) {
 	_, err := Parse(nil, untracked)
 	var u *UsageError
@@ -383,6 +425,18 @@ func renderInvocation(inv Invocation) string {
 		return "info=version"
 	}
 	parts := []string{fmt.Sprintf("env=%q", inv.EnvID), fmt.Sprintf("tracked=%v", inv.Tracked)}
+	if inv.HostFlag != "" {
+		parts = append(parts, fmt.Sprintf("host=%s", inv.HostFlag))
+	}
+	if inv.ResumeRequested {
+		parts = append(parts, "resume")
+	}
+	if inv.ResumeHandleSet {
+		parts = append(parts, fmt.Sprintf("handle=%q", inv.ResumeHandle))
+	}
+	if inv.ResumeIDSet {
+		parts = append(parts, fmt.Sprintf("resume-id=%q", inv.ResumeID))
+	}
 	if inv.ProfileSet {
 		parts = append(parts, fmt.Sprintf("profile=%q", inv.Profile))
 	}

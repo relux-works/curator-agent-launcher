@@ -13,8 +13,18 @@ import (
 
 const Schema = "curator-run-defaults-v1"
 const SchemaV2 = "curator-run-defaults-v2"
+
+// SchemaV3 adds the per-environment host member; v1 and v2 stay accepted
+// unchanged and reject it as an unknown member.
+const SchemaV3 = "curator-run-defaults-v3"
 const CodeInvalid = "defaults_config_invalid"
 const CodeUsage = "usage"
+
+// Host values of the v3 host member.
+const (
+	HostNative = "native"
+	HostHosted = "hosted"
+)
 
 // Error preserves the diagnostic family and underlying filesystem/parser error.
 type Error struct {
@@ -31,7 +41,7 @@ type Member struct {
 	Value   string
 	Present bool
 }
-type Pair struct{ Model, Effort, Permissions Member }
+type Pair struct{ Model, Effort, Permissions, Host Member }
 
 // Files is validated configuration. Its zero value represents absent files.
 // Keeping entries private prevents callers bypassing schema validation.
@@ -97,7 +107,7 @@ func parse(data []byte) (file, error) {
 		return file{}, fmt.Errorf("schema must be a string")
 	}
 	schema := schemaValue.Str
-	if schema != Schema && schema != SchemaV2 {
+	if schema != Schema && schema != SchemaV2 && schema != SchemaV3 {
 		return file{}, fmt.Errorf("invalid schema")
 	}
 	f := file{entries: map[string]Pair{}}
@@ -121,7 +131,11 @@ func parse(data []byte) (file, error) {
 					return file{}, fmt.Errorf("unknown environment %q", env.Key)
 				}
 				if env.Value.Kind != fragment.KindObject || len(env.Value.Obj) == 0 {
-					return file{}, fmt.Errorf("%s must contain model, effort, or permissions", env.Key)
+					want := "model, effort, or permissions"
+					if schema == SchemaV3 {
+						want = "model, effort, permissions, or host"
+					}
+					return file{}, fmt.Errorf("%s must contain %s", env.Key, want)
 				}
 				var pair Pair
 				for _, member := range env.Value.Obj {
@@ -135,13 +149,21 @@ func parse(data []byte) (file, error) {
 					case "effort":
 						pair.Effort = value
 					case "permissions":
-						if schema != SchemaV2 {
+						if schema != SchemaV2 && schema != SchemaV3 {
 							return file{}, fmt.Errorf("%s.permissions requires %s", env.Key, SchemaV2)
 						}
 						if value.Value != "native" && value.Value != "yolo" {
 							return file{}, fmt.Errorf("%s.permissions must be native or yolo", env.Key)
 						}
 						pair.Permissions = value
+					case "host":
+						if schema != SchemaV3 {
+							return file{}, fmt.Errorf("%s.host requires %s", env.Key, SchemaV3)
+						}
+						if value.Value != HostNative && value.Value != HostHosted {
+							return file{}, fmt.Errorf("%s.host must be native or hosted", env.Key)
+						}
+						pair.Host = value
 					default:
 						return file{}, fmt.Errorf("unknown member %s.%s", env.Key, member.Key)
 					}
@@ -228,4 +250,73 @@ func (f Files) PermissionDefault(environment string) (Member, error) {
 		return operator.Permissions, nil
 	}
 	return machine.Permissions, nil
+}
+
+// Host origins of ResolveHost. OriginDefault is the implicit native outcome:
+// no flag and no configured default select native with no session-host probe.
+const (
+	OriginHostFlag     Origin = "flag"
+	OriginHostOperator Origin = "operator"
+	OriginHostMachine  Origin = "machine"
+	OriginHostDefault  Origin = "default"
+)
+
+// ResolvedHost is the selected host and the precedence level that produced
+// it. Host is HostNative or HostHosted.
+type ResolvedHost struct {
+	Host   string
+	Origin Origin
+}
+
+// ResolveHost applies the SPEC §4.8 host precedence table for one canonical
+// environment. hostFlag is the literal CLI host request ("--hosted",
+// "--native", "--untracked") or empty when no flag was given:
+//
+//   - machine locked and naming the environment: the entire operator entry
+//     is ignored; a flag with a machine host present refuses usage, even
+//     when equal; otherwise flag, then machine host, then native;
+//   - otherwise: flag, then operator host, then machine host, then native.
+//
+// The machine lock has the same named-environment scope as the model and
+// effort lock. An ignored operator entry still must be valid at Load time.
+func (f Files) ResolveHost(environment string, hostFlag string) (ResolvedHost, error) {
+	if fragment.HomeVariable(environment) == "" {
+		return ResolvedHost{}, invalid(fmt.Errorf("unknown environment %q", environment))
+	}
+	var flag Member
+	switch hostFlag {
+	case "":
+	case "--hosted":
+		flag = Member{Value: HostHosted, Present: true}
+	case "--native", "--untracked":
+		flag = Member{Value: HostNative, Present: true}
+	default:
+		return ResolvedHost{}, invalid(fmt.Errorf("unknown host flag %q", hostFlag))
+	}
+	machine, named := f.machine.entries[environment]
+	operator := f.operator.entries[environment]
+	lockedHost := f.machine.locked && named
+	if lockedHost {
+		operator = Pair{}
+		if flag.Present && machine.Host.Present {
+			return ResolvedHost{}, &Error{CodeUsage, fmt.Errorf("%s overrides locked host for %s", hostFlag, environment)}
+		}
+		if flag.Present {
+			return ResolvedHost{flag.Value, OriginHostFlag}, nil
+		}
+		if machine.Host.Present {
+			return ResolvedHost{machine.Host.Value, OriginHostMachine}, nil
+		}
+		return ResolvedHost{HostNative, OriginHostDefault}, nil
+	}
+	if flag.Present {
+		return ResolvedHost{flag.Value, OriginHostFlag}, nil
+	}
+	if operator.Host.Present {
+		return ResolvedHost{operator.Host.Value, OriginHostOperator}, nil
+	}
+	if machine.Host.Present {
+		return ResolvedHost{machine.Host.Value, OriginHostMachine}, nil
+	}
+	return ResolvedHost{HostNative, OriginHostDefault}, nil
 }

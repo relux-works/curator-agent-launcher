@@ -68,7 +68,7 @@ func TestRunUsageErrorsExit2(t *testing.T) {
 	}{
 		{[]string{}, "missing <env-id>"},
 		{[]string{"--"}, "missing <env-id>"},
-		{[]string{"codex_cli", "resume"}, "stray operand"},
+		{[]string{"codex_cli", "frobnicate"}, "stray operand"},
 		{[]string{"codex_cli", "--unknown"}, "unknown flag"},
 		{[]string{"codex_cli", "--profile"}, "requires a value"},
 		{[]string{"codex_cli", "--profile", "a", "--profile", "b"}, "more than once"},
@@ -470,7 +470,7 @@ func TestExecutableUnicodePathBoundary(t *testing.T) {
 			if err := os.WriteFile(filepath.Join(dir, "fragment.json"), data, 0o644); err != nil {
 				t.Fatal(err)
 			}
-			cmd := exec.Command(binary, "pi")
+			cmd := exec.Command(binary, "pi", "--permissions", "native")
 			// Hermetic configuration: the built binary reads process
 			// XDG/home inputs, so point both at empty temp dirs rather
 			// than the operator's real configuration.
@@ -586,7 +586,7 @@ func TestRunDiagnosticsContract(t *testing.T) {
 		bareRegistry bool
 	}{
 		{"usage missing env", []string{}, "", "", 0, "", "", "usage", 2, false},
-		{"usage stray operand", []string{"codex_cli", "resume"}, "", "", 0, "", "", "usage", 2, false},
+		{"usage stray operand", []string{"codex_cli", "frobnicate"}, "", "", 0, "", "", "usage", 2, false},
 		{"usage unknown flag", []string{"codex_cli", "--unknown"}, "", "", 0, "", "", "usage", 2, false},
 		{"usage ax-profile untracked", []string{"codex_cli", "--ax-profile", "yolo"}, "", "", 0, "", "", "usage", 2, false},
 		{"usage locked flag", []string{"pi", "--model", "flag"}, piFragmentLine, "", 0, lockedMachine, "", "usage", 2, false},

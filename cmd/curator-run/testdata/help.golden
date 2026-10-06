@@ -1,6 +1,8 @@
 curator-run 0.2.0 (specification 0.5.0-draft)
 
-usage: curator-run <env-id> [--profile <name>] [--system-prompt <append|replace>]
+usage: curator-run <env-id> [--hosted | --native | --untracked]
+                   [resume [SES-HANDLE]] [--resume <id>]
+                   [--profile <name>] [--system-prompt <append|replace>]
                    [--model <model>] [--effort <effort>]
                    [--permissions <native|yolo> | --yolo]
                    [--name <session-name>] [--ax-profile <standard|yolo>]
@@ -13,6 +15,10 @@ Launcher flags are recognized only before "--". Everything after "--" is
 forwarded to the tool verbatim, in order, uninspected.
 
 options:
+  --hosted                          run on the managed session host
+  --native, --untracked             run natively; the two spellings are equal
+  resume [SES-HANDLE]               hosted resume selector (latest or handle)
+  --resume <id>                     hosted resume selector (provider identity)
   --profile <name>                  Curator profile forwarded to env resolve
   --system-prompt <append|replace>  engage the fragment's system-prompt channel
   --model <model>                   model passed to the spawn plane as declared
@@ -52,6 +58,14 @@ configuration refuses even --help/--version. No direct fallback on ax failure.
 --ax-profile is a usage error when untracked; absent uses ax's default.
 Repeated/unknown flags, missing values and extra operands before -- refuse.
 
+Host: --hosted, --native and --untracked share one host request: a repeat
+or a combination refuses. No flag and no configured default means native
+with no session-host probe. An explicit --native or --untracked on an
+ax-configured machine bypasses ax; a configured native default does not.
+resume selectors and --resume are hosted-only; in native mode they refuse.
+--hosted with --network refuses network_scope_unsupported (exit 16).
+
 Exit codes: 0 success; 2 usage; 1 operational refusal. Direct child exit codes
-propagate unchanged; signal exits are 128 + signal. Stable diagnostic codes
-and details go to stderr; see README.md and SPEC.md section 6.
+propagate unchanged; signal exits are 128 + signal. Hosted refusals use the
+receiver exit mapping (1, 2, 6, 16). Stable diagnostic codes and details go
+to stderr; see README.md and SPEC.md section 6.

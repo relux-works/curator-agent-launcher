@@ -381,3 +381,153 @@ func TestResolveExplicitEmptyOverrides(t *testing.T) {
 		t.Fatalf("flag empty: %+v %v", got, err)
 	}
 }
+
+func docV3(entries string, locked bool) string {
+	return fmt.Sprintf(`{"schema":"curator-run-defaults-v3","locked":%t,"defaults":%s}`, locked, entries)
+}
+
+func TestHostDefaultsV3MergeAndClosedSchema(t *testing.T) {
+	t.Run("v1-rejects-host-member", func(t *testing.T) {
+		p := paths(t)
+		write(t, p.Operator, `{"schema":"curator-run-defaults-v1","defaults":{"pi":{"host":"hosted"}}}`)
+		_, err := defaults.Load(p)
+		code(t, err, defaults.CodeInvalid)
+	})
+	t.Run("v2-rejects-host-member", func(t *testing.T) {
+		p := paths(t)
+		write(t, p.Operator, `{"schema":"curator-run-defaults-v2","defaults":{"pi":{"permissions":"native","host":"hosted"}}}`)
+		_, err := defaults.Load(p)
+		code(t, err, defaults.CodeInvalid)
+	})
+	t.Run("v3-rejects-unknown-host", func(t *testing.T) {
+		p := paths(t)
+		write(t, p.Operator, `{"schema":"curator-run-defaults-v3","defaults":{"pi":{"host":"cloud"}}}`)
+		_, err := defaults.Load(p)
+		code(t, err, defaults.CodeInvalid)
+	})
+	t.Run("v3-rejects-non-string-host", func(t *testing.T) {
+		p := paths(t)
+		write(t, p.Operator, `{"schema":"curator-run-defaults-v3","defaults":{"pi":{"host":true}}}`)
+		_, err := defaults.Load(p)
+		code(t, err, defaults.CodeInvalid)
+	})
+	t.Run("v3-rejects-unknown-sibling-member", func(t *testing.T) {
+		p := paths(t)
+		write(t, p.Operator, `{"schema":"curator-run-defaults-v3","defaults":{"pi":{"host":"native","model":"m","extra":"x"}}}`)
+		_, err := defaults.Load(p)
+		code(t, err, defaults.CodeInvalid)
+	})
+	t.Run("v3-keeps-permissions-and-empty-entry-rule", func(t *testing.T) {
+		p := paths(t)
+		write(t, p.Operator, `{"schema":"curator-run-defaults-v3","defaults":{"pi":{"permissions":"yolo","host":"native"},"codex_cli":{"model":"m"}}}`)
+		f, err := defaults.Load(p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got, err := f.Resolve("pi", defaults.Pair{})
+		if err != nil || got.Permissions != resolved("yolo", defaults.OriginOperator) {
+			t.Fatalf("v3 permissions = %+v, %v", got, err)
+		}
+		write(t, p.Operator, `{"schema":"curator-run-defaults-v3","defaults":{"pi":{}}}`)
+		_, err = defaults.Load(p)
+		code(t, err, defaults.CodeInvalid)
+		if err == nil || !strings.Contains(err.Error(), "host") {
+			t.Fatalf("v3 empty entry error %v does not name host", err)
+		}
+	})
+	t.Run("host-only-entry-loads", func(t *testing.T) {
+		p := paths(t)
+		write(t, p.Operator, docV3(`{"claude_code":{"host":"hosted"}}`, false))
+		f, err := defaults.Load(p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got, err := f.ResolveHost("claude_code", "")
+		if err != nil || got.Host != defaults.HostHosted || got.Origin != defaults.OriginHostOperator {
+			t.Fatalf("host = %+v, %v; want hosted/operator", got, err)
+		}
+	})
+}
+
+// TestResolveHostPrecedence drives every row of the SPEC §4.8 host table:
+// flag wins unlocked; operator beats machine; machine beats the implicit
+// native default; a locked machine naming the environment ignores the whole
+// operator entry and refuses a flag over its own host, even when equal.
+func TestResolveHostPrecedence(t *testing.T) {
+	v3 := func(host string) string {
+		if host == "" {
+			return `{"model":"m"}`
+		}
+		return fmt.Sprintf(`{"host":%q}`, host)
+	}
+	for _, tc := range []struct {
+		name              string
+		machine, operator string
+		locked            bool
+		flag              string
+		wantHost          string
+		wantOrigin        defaults.Origin
+		wantCode          string
+	}{
+		{"no-flag-no-default-is-native", "", "", false, "", "native", defaults.OriginHostDefault, ""},
+		{"flag-hosted-wins", "native", "native", false, "--hosted", "hosted", defaults.OriginHostFlag, ""},
+		{"flag-native-wins", "hosted", "hosted", false, "--native", "native", defaults.OriginHostFlag, ""},
+		{"untracked-equals-native", "hosted", "hosted", false, "--untracked", "native", defaults.OriginHostFlag, ""},
+		{"operator-beats-machine", "native", "hosted", false, "", "hosted", defaults.OriginHostOperator, ""},
+		{"machine-beats-default", "hosted", "", false, "", "hosted", defaults.OriginHostMachine, ""},
+		{"machine-native-is-configured", "native", "", false, "", "native", defaults.OriginHostMachine, ""},
+		{"operator-native-is-configured", "", "native", false, "", "native", defaults.OriginHostOperator, ""},
+		{"locked-ignores-operator", "", "hosted", true, "", "native", defaults.OriginHostDefault, ""},
+		{"locked-keeps-machine-host", "hosted", "native", true, "", "hosted", defaults.OriginHostMachine, ""},
+		{"locked-flag-without-machine-host-wins", "", "hosted", true, "--hosted", "hosted", defaults.OriginHostFlag, ""},
+		{"locked-flag-over-machine-host-refuses", "hosted", "native", true, "--native", "", "", defaults.CodeUsage},
+		{"locked-equal-flag-still-refuses", "native", "hosted", true, "--native", "", "", defaults.CodeUsage},
+		{"locked-equal-hosted-flag-still-refuses", "hosted", "native", true, "--hosted", "", "", defaults.CodeUsage},
+		{"lock-names-other-env-only", "hosted", "native", true, "", "native", defaults.OriginHostOperator, ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			p := paths(t)
+			env := "pi"
+			if tc.name == "lock-names-other-env-only" {
+				write(t, p.Machine, docV3(`{"codex_cli":`+v3(tc.machine)+`}`, tc.locked))
+			} else if tc.machine != "" || tc.locked {
+				write(t, p.Machine, docV3(`{"pi":`+v3(tc.machine)+`}`, tc.locked))
+			}
+			if tc.operator != "" {
+				write(t, p.Operator, docV3(`{"pi":`+v3(tc.operator)+`}`, false))
+			}
+			f, err := defaults.Load(p)
+			if err != nil {
+				t.Fatal(err)
+			}
+			got, err := f.ResolveHost(env, tc.flag)
+			if tc.wantCode != "" {
+				code(t, err, tc.wantCode)
+				if !strings.Contains(err.Error(), tc.flag) || got != (defaults.ResolvedHost{}) {
+					t.Fatalf("lock refusal: %+v %v", got, err)
+				}
+				return
+			}
+			if err != nil || got.Host != tc.wantHost || got.Origin != tc.wantOrigin {
+				t.Fatalf("host = %+v, %v; want %s/%s", got, err, tc.wantHost, tc.wantOrigin)
+			}
+		})
+	}
+}
+
+func TestResolveHostRejectsUnknown(t *testing.T) {
+	f, err := defaults.Load(paths(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.ResolveHost("future", ""); err == nil {
+		t.Fatal("ResolveHost accepted an unknown environment")
+	} else {
+		code(t, err, defaults.CodeInvalid)
+	}
+	if _, err := f.ResolveHost("pi", "--cloud"); err == nil {
+		t.Fatal("ResolveHost accepted an unknown host flag")
+	} else {
+		code(t, err, defaults.CodeInvalid)
+	}
+}

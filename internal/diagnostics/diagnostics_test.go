@@ -17,6 +17,7 @@ import (
 	"github.com/relux-works/curator-agent-launcher/internal/defaults"
 	"github.com/relux-works/curator-agent-launcher/internal/diagnostics"
 	"github.com/relux-works/curator-agent-launcher/internal/fragment"
+	"github.com/relux-works/curator-agent-launcher/internal/hosted"
 	sp "github.com/relux-works/curator-agent-launcher/internal/systemprompt"
 	"github.com/relux-works/curator-network-profiles/pkg/refusal"
 )
@@ -144,6 +145,20 @@ func TestOwnedCodesMatchOwners(t *testing.T) {
 		{diagnostics.CodeNetworkProxyAuthFailed, refusal.CodeProxyAuthFailed},
 		{diagnostics.CodeNetworkProfileInvalid, refusal.CodeProfileInvalid},
 		{diagnostics.CodeNetworkFileUnreadable, refusal.CodeFileUnreadable},
+		{diagnostics.CodeHostConflict, hosted.CodeHostConflict},
+		{diagnostics.CodeSessionHostMissing, hosted.CodeSessionHostMissing},
+		{diagnostics.CodeSessionHostUnavailable, hosted.CodeSessionHostUnavailable},
+		{diagnostics.CodeSessionHostProviderUnsupported, hosted.CodeSessionHostProviderUnsupported},
+		{diagnostics.CodeSessionHostProtocolUnsupported, hosted.CodeSessionHostProtocolUnsupported},
+		{diagnostics.CodeSessionHostScopeUnsupported, hosted.CodeSessionHostScopeUnsupported},
+		{diagnostics.CodeSessionHostExecutionProfileUnsupported, hosted.CodeSessionHostExecutionProfileUnsupported},
+		{diagnostics.CodeSessionHostTerminalRequired, hosted.CodeSessionHostTerminalRequired},
+		{diagnostics.CodeSessionHostStdinUnsupported, hosted.CodeSessionHostStdinUnsupported},
+		{diagnostics.CodeSessionHostDefaultNotReady, hosted.CodeSessionHostDefaultNotReady},
+		{diagnostics.CodeSessionResumeInvalid, hosted.CodeSessionResumeInvalid},
+		{diagnostics.CodeLaunchPlanInvalid, hosted.CodeLaunchPlanInvalid},
+		{diagnostics.CodeSecretPolicyViolation, hosted.CodeSecretPolicyViolation},
+		{diagnostics.CodePolicyRefused, hosted.CodePolicyRefused},
 	}
 	for _, p := range pairs {
 		if p[0] != p[1] {
@@ -155,18 +170,32 @@ func TestOwnedCodesMatchOwners(t *testing.T) {
 	}
 }
 
-// TestExitForCode is the no-silent-degradation gate: usage exits 2, every
-// operational code exits 1, and anything outside the closed set — empty,
-// Curator-internal, or invented — still exits 1, never 0 and never 2.
+// TestExitForCode is the no-silent-degradation gate: usage and the hosted
+// configuration refusals exit 2, hosted protocol refusals exit 6, hosted
+// policy refusals exit 16, every other operational code exits 1, and
+// anything outside the closed set — empty, Curator-internal, or invented —
+// still exits 1, never 0 and never another mapped status.
 func TestExitForCode(t *testing.T) {
 	for _, c := range diagnostics.Codes() {
 		want := diagnostics.ExitOperational
-		if c == diagnostics.CodeUsage {
+		switch c {
+		case diagnostics.CodeUsage, diagnostics.CodeHostConflict,
+			diagnostics.CodeSessionResumeInvalid, diagnostics.CodeLaunchPlanInvalid:
 			want = diagnostics.ExitUsage
+		case diagnostics.CodeSessionHostProtocolUnsupported, diagnostics.CodeSessionHostProviderUnsupported,
+			diagnostics.CodeSessionHostScopeUnsupported, diagnostics.CodeSessionHostExecutionProfileUnsupported,
+			diagnostics.CodeSessionHostTerminalRequired, diagnostics.CodeSessionHostStdinUnsupported:
+			want = diagnostics.ExitProtocol
+		case diagnostics.CodeSecretPolicyViolation, diagnostics.CodePolicyRefused,
+			diagnostics.CodeSessionHostDefaultNotReady:
+			want = diagnostics.ExitPolicy
 		}
 		if got := diagnostics.ExitForCode(c); got != want {
 			t.Errorf("ExitForCode(%q) = %d, want %d", c, got, want)
 		}
+	}
+	if diagnostics.ExitProtocol != 6 || diagnostics.ExitPolicy != 16 {
+		t.Fatalf("ExitProtocol = %d, ExitPolicy = %d; want 6 and 16", diagnostics.ExitProtocol, diagnostics.ExitPolicy)
 	}
 	for _, c := range []string{"", "environment_home_stale", "Usage", "USAGE", "resolve", "internal_error", "not_implemented", "ok", "0"} {
 		if got := diagnostics.ExitForCode(c); got != diagnostics.ExitOperational {

@@ -30,7 +30,9 @@
 // network_profile_unknown, network_profile_denied,
 // network_scope_unsupported, network_configuration_conflict,
 // network_proxy_unreachable, network_proxy_auth_failed,
-// network_profile_invalid, network_file_unreadable)
+// network_profile_invalid, network_file_unreadable, and the fourteen
+// hosted codes of the host, session host, resume, launch plan, and policy
+// families)
 // are call-site-selected with no CodeOf classification in this tree; they
 // appear here only as rejected foreign values and as Codes() members, with
 // production call sites pinned in vectors where implemented.
@@ -463,10 +465,10 @@ func TestGateOwnerFormNil(t *testing.T) {
 }
 
 // TestGateCoverageCounts pins the complete coverage arithmetic derived from
-// the single registry: 5 owners, 3 forms, 29 normative codes; mutable-Code
-// families resolve 6 / layer 2 / refusal 2 with foreign sets 23 / 27 / 27
-// (77 normative rejection pairs); 4 extra strangers per family add 12
-// pairs, for 89 owner/code pairs x 3 forms = 267 rejection cases; 12 owned
+// the single registry: 5 owners, 3 forms, 43 normative codes; mutable-Code
+// families resolve 6 / layer 2 / refusal 2 with foreign sets 37 / 41 / 41
+// (119 normative rejection pairs); 4 extra strangers per family add 12
+// pairs, for 131 owner/code pairs x 3 forms = 393 rejection cases; 12 owned
 // slots (10 mutable + 2 fixed) x 3 forms =
 // 36 positive cases (30 mutable + 6 fixed); 5 owners x 4 nil forms + 3
 // absence extras = 23 nil cases. Fixed-code owners (usage, axconfig) carry
@@ -477,8 +479,8 @@ func TestGateOwnerFormNil(t *testing.T) {
 // as Codes() members and rejected foreign values elsewhere here.
 func TestGateCoverageCounts(t *testing.T) {
 	normative := gateSpecSection6Codes(t)
-	if len(normative) != 29 {
-		t.Fatalf("normative codes = %d, want 29: %q", len(normative), normative)
+	if len(normative) != 43 {
+		t.Fatalf("normative codes = %d, want 43: %q", len(normative), normative)
 	}
 	if len(gateOwnerRegistry) != 5 {
 		t.Fatalf("owner registry rows = %d, want 5 (usage, resolve, layer, refusal, axconfig)", len(gateOwnerRegistry))
@@ -566,18 +568,18 @@ func TestGateCoverageCounts(t *testing.T) {
 			t.Fatalf("%s owned = %d, want %d", f.name, f.own, f.want)
 		}
 		foreign := gateForeign(normative, gateOwnedByName(f.name))
-		wantForeign := 29 - f.want + len(gateExtraStrangers())
+		wantForeign := 43 - f.want + len(gateExtraStrangers())
 		if len(foreign) != wantForeign {
 			t.Fatalf("%s foreign+extras = %d, want %d: %q", f.name, len(foreign), wantForeign, foreign)
 		}
 	}
-	normPairs := 23 + 27 + 27
-	if normPairs != 77 {
-		t.Fatalf("normative rejection pairs = %d, want 77", normPairs)
+	normPairs := 37 + 41 + 41
+	if normPairs != 119 {
+		t.Fatalf("normative rejection pairs = %d, want 119", normPairs)
 	}
-	withExtras := (23 + 4) + (27 + 4) + (27 + 4)
-	if withExtras*3 != 267 {
-		t.Fatalf("rejection cases with extras x forms = %d, want 267", withExtras*3)
+	withExtras := (37 + 4) + (41 + 4) + (41 + 4)
+	if withExtras*3 != 393 {
+		t.Fatalf("rejection cases with extras x forms = %d, want 393", withExtras*3)
 	}
 }
 

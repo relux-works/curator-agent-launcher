@@ -20,11 +20,55 @@
   `network_scope_unsupported`, including interactive launches, which
   the pinned verification expressly excludes. Tracked launches
   refuse the same way. See SPEC §4.4b and §6.
+- Host selection and the hosted session-launch handoff
+  (TASK-261004-38ba6c). `curator-run` accepts `--hosted`, `--native`,
+  and `--untracked` in one host request slot, `resume [SES-HANDLE]`
+  and `--resume <id>` selectors, and the existing `--network <profile>`.
+  `curator-run-defaults-v3` adds the per-environment `host` member
+  (v1 and v2 stay accepted); machine lock, flag, operator default,
+  and the implicit native default resolve per the SPEC §4.8 table.
+  Explicit `--hosted` builds the same plan once and hands the
+  versioned `session-launch-plan` 1.0.0 payload with its content
+  digest to the `task-board` receiver over the private fd3/fd4
+  transport instead of exec'ing; machine hosted defaults refuse
+  `session_host_default_not_ready` until upgrade-without-hangup while
+  operator hosted defaults are admitted (Q-D1a = yes, 2026-10-05),
+  a `--hosted --network` selection refuses `network_scope_unsupported`
+  (exit 16; the native `--network` path above is unchanged),
+  and non-Claude environments refuse
+  `session_host_provider_unsupported`. Hosted permission resolution
+  follows the configured flag/profile/global ladder with the `yolo`
+  built-in default on every stdio shape, and hosted `yolo` builds and
+  exports with `execution_profile` `yolo` (Q-D3, 2026-10-05, literal:
+  headless signals never change the default; Decisions 0018/0013
+  amendments pending). Phase 1 admits
+  Claude only. No flag and no default stays native with no
+  session-host probe. A piped launcher stdin refuses before the plan
+  build; an attached plan stdin refuses after it. The fd4 status
+  channel accepts only closed refusal envelopes (135-member registry,
+  literal messages, D0/D1/D2 details) and normalizes anything else to
+  `session_host_protocol_error` with empty details; truncated frames
+  refuse `session_host_unavailable` unless a malformed frame already
+  poisoned the channel, which stays `session_host_protocol_error`. A
+  missing or invalid terminal descriptor refuses
+  `session_host_terminal_required` before the plan build with zero
+  receiver lookup, and the launcher marks and validates both fd3/fd4
+  descriptors before contact. At most 64 lookup names project.
+  Hosted diagnostics never copy native argument values (conflict names
+  the channel, unknown policy mode reports the fixed sentinel). The
+  payload carries the native session name and remote-control intent
+  read from the module's typed `Plan.Session` of the same plan (RC
+  indices carried only while the composed argv equals the plan argv,
+  no provider-flag parsing);
+  an authored tail naming two different sessions refuses
+  `plan_refused` from the module before any receiver contact.
 
 ### Changed
 
-- Pin `github.com/relux-works/skill-agents-management v0.5.48`. Claude
-  plans carry the module's unconditional
+- Pin `github.com/relux-works/skill-agents-management v0.5.53` for the
+  resume typed-intent API, the closed `claude-restart` template, the
+  pinned hosted schemas, `Plan.ExportSeal`, and the typed
+  `Plan.Session`. Claude plans carry the module's unconditional
   `--disallowedTools=AskUserQuestion` denial after the prompt channel;
   update direct and tracked Claude goldens. Hosted Codex argv and
   environment are unchanged; the launcher registers no local-model

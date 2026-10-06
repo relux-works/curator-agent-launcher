@@ -11,7 +11,7 @@ The executable supports `claude_code` (alias `claude`), `codex_cli`
 
 Muse has a registered `muse` system/provider mapping and accepts
 `launch-env-fragment-v3` with four XDG parents under one managed home,
-preserving inherited `HOME`. The pinned agents-management v0.5.48 plugin
+preserving inherited `HOME`. The pinned agents-management v0.5.53 plugin
 declares interactive mode, probes the installed release, and maps native/yolo
 permissions for its verified releases (1.4.1 and 1.4.2). `curator-run muse` builds
 an interactive plan with XDG overrides and inherited `HOME`; it supplies no
@@ -37,14 +37,26 @@ The launch pipeline follows these steps:
    release-bound permission mapping before admission.
    Pi uses the ordered convention `pi-anthropic`, `pi-openai`, `pi-google`; vendor
    scores are never compared. Explicit models bind their own runtime.
-4. Call `vendorplugin.BuildLaunchWithEnvironment` in `LaunchModeInteractive`
+4. Resolve the host from the `--hosted`/`--native`/`--untracked` flag and
+   the v3 `host` default: machine lock, then flag, then operator default,
+   then native. A hosted flag or default with `ax` enabled refuses
+   `host_configuration_conflict`; a machine hosted default refuses
+   `session_host_default_not_ready` until upgrade-without-hangup, while an
+   operator hosted default is the operator's own opt-in (Q-D1a = yes); any
+   `--hosted --network` selection refuses `network_scope_unsupported` (exit
+   16; native `--network` is the direct path below). No flag and no
+   default stays native with no session-host probe. Hosted launches resolve
+   permissions through the configured ladder with silence defaulting as on
+   the native path and yolo admitted (Q-D3), admit Claude only in Phase 1,
+   and elevate resume selectors through the module typed-intent grammar.
+5. Call `vendorplugin.BuildLaunchWithEnvironment` in `LaunchModeInteractive`
    with `LaunchRequest.ToolRelease` and `LaunchRequest.NativeArgs` for the
    release-bound permission grammar (v2 for Claude Code and Codex CLI, v1 for
    Pi), then enforce a separate
    `providerlimits.Store.AvailabilityFor` verdict for the same runtime/model/
    managed home. Unknown and failed reads refuse. No retry, model downgrade or
    fallback occurs.
-5. Pass Claude/Codex profile context and file-backed system-prompt/MCP channels
+6. Pass Claude/Codex profile context and file-backed system-prompt/MCP channels
    through `SpawnRequest.Context` into the shared agents-management construction
    API. The plugin owns argv order: Claude model/effort → MCP → prompt → native;
    Codex prompt → MCP → model/effort → native. Native arguments stay last and
@@ -53,13 +65,17 @@ The launch pipeline follows these steps:
    arguments pass through. Pi retains its existing prompt/discovery path.
    v2/v3 Claude/Codex fragments project their v1-compatible context subset;
    permission mapping and original fragment transport metadata remain unchanged.
-6. Prepare direct execution or the ax launch-plan document. Immediately before
-   either launch, call `systemprompt.PrepareLaunch`, check the provider binary,
+7. Prepare direct execution, the ax launch-plan document, or the hosted
+   session-launch-plan payload. Immediately before either native launch, call
+   `systemprompt.PrepareLaunch`, check the provider binary,
    and check the Codex MCP layer. Emit prompt/discovery warnings. A late refusal
-   starts neither provider nor ax.
+   starts neither provider nor ax. A hosted launch hands the versioned payload
+   with its content digest to the `task-board` receiver over the private
+   terminal/status transport instead of exec'ing; a missing receiver refuses
+   `session_host_missing`, never a native fallback.
 
 The permission interface is implemented against upstream
-`skill-agents-management v0.5.48` (F-M1). It owns
+`skill-agents-management v0.5.53` (F-M1). It owns
 `LaunchRequest.PermissionMode`, the release-bound mapping, versioned native
 argument classification, stored-policy inspection, and the capability table.
 Claude Code and Codex CLI use `permission-grammar-v2`; Pi uses
@@ -160,6 +176,8 @@ scope. Resolution always requests repair.
 
 | Option | Meaning |
 |---|---|
+| `--hosted`, `--native`, `--untracked` | One host request slot; `--untracked` equals `--native`; repeats and combinations refuse |
+| `resume [SES-HANDLE]`, `--resume <id>` | Hosted-only resume selectors; usage errors in native mode |
 | `--profile <name>` | Curator profile, forwarded to environment resolution |
 | `--system-prompt <append\|replace>` | Explicit prompt-channel opt-in; unavailable semantics refuse the launch |
 | `--model <model>`, `--effort <effort>` | Explicit spawn-plane selection, subject to admission and machine locks |
@@ -168,14 +186,17 @@ scope. Resolution always requests repair.
 | `-d`, `--danger` | Rejected as usage errors before `--`; after `--`, arguments are native input |
 | `--name <session-name>` | Tracked session name; `[A-Za-z0-9][A-Za-z0-9._-]{0,63}`; accepted without effect when untracked |
 | `--ax-profile <standard\|yolo>` | Tracked execution profile; usage error when untracked; absent uses ax's default |
-| `--network <profile>` | Network profile for direct execution; resolved after admission, refused when tracked |
+| `--network <profile>` | Network profile for direct execution; resolved after admission, refused when tracked; refused with exit 16 when combined with `--hosted` |
 | `--help`, `-h`, `--version` | Print information and exit, after reading tracking configuration |
 | `--` | End launcher parsing; all following arguments pass through verbatim |
 
 Value flags accept `--flag value` or `--flag=value`. Repeated flags, unknown
 flags, missing values, and extra operands before `--` are usage errors. The
 permission flag accepts only `native` or `yolo`; `--yolo` is the no-value exact
-alias, and the two forms cannot be combined. `-d` and `--danger` are rejected
+alias, and the two forms cannot be combined. The host flags likewise share one
+request slot and take no value. After `<env-id>`, at most the `resume` selector
+and its optional handle may follow; anything else before `--` is stray.
+`-d` and `--danger` are rejected
 launcher flags before the native-argument boundary.
 Prompt-file discovery can still apply without the prompt opt-in; see the warnings
 and Pi precedence described above. Pi has no MCP channel.
@@ -216,34 +237,52 @@ refuse the invocation; absence alone permits fallback.
 Model and effort resolve independently: flags, then operator defaults over
 machine defaults per member, then the admitted lineup. Permission mode has its
 own precedence: `--permissions` or `--yolo`, Curator's per-profile setting in the
-fragment, the launcher-global file value, then the built-in default. A v2 file
-can set an effort for one environment and a permission default for another:
+fragment, the launcher-global file value, then the built-in default. The host
+resolves separately: machine lock, then host flag, then operator default, then
+native. A v3 file can set an effort for one environment, a permission default
+for another, and a host default for a third:
 
 ```json
 {
-  "schema": "curator-run-defaults-v2",
+  "schema": "curator-run-defaults-v3",
   "locked": false,
   "defaults": {
     "codex_cli": { "effort": "high" },
-    "claude_code": { "permissions": "yolo" }
+    "claude_code": { "permissions": "yolo", "host": "native" }
   }
 }
 ```
 
-Each environment entry may contain `model`, `effort`, and/or `permissions`;
-permission values are exactly `native` or `yolo`. A v2 reader accepts a v1 file
-without `permissions`, while a v1 reader rejects that new member. The permission
+Each environment entry may contain `model`, `effort`, `permissions`, and/or
+`host`; permission values are exactly `native` or `yolo`, host values exactly
+`native` or `hosted`. A v3 reader accepts v1 and v2 files unchanged; older
+readers reject the members they do not know. The permission
 fragment member uses the F-S2 names `permissions.mode`, `permissions.locked`,
 and `permissions.source`; `source=default` means the profile level is silent.
-Interactive untracked silence defaults to `yolo`; headless, CI, and tracked
-silence defaults to `native` with `source=default-headless`. `native` adds no
+Untracked silence defaults to `yolo` with `source=default-interactive` on
+every stdio shape (Q-D3 literal: headless signals never change the
+default); tracked native silence defaults to `native` with
+`source=default-headless`. `native` adds no
 launcher override and does not guarantee prompting; untracked native arguments
 after `--` remain verbatim. The closed headless marker set is versioned in SPEC
 §4.6 and mirrored by environments §10.1.
 Curator's force-native lock is above all permission levels: visible `yolo` is a
-`usage` error, silence resolves to `native`. A tracked `yolo` request from any
-level fails with `permission_mode_tracked_unsupported`; the launcher never
-falls back to untracked execution. When the machine defaults file is locked,
+`usage` error, silence resolves to `native`. A tracked native `yolo` request
+from any level fails with `permission_mode_tracked_unsupported`; the launcher
+never falls back to untracked execution. Hosted launches are exempt from
+tracked permission semantics (Q-D3): the flag/profile/global ladder applies,
+unconfigured silence defaults to `yolo` on every stdio shape, and the resolved
+posture exports as
+`execution_profile` `standard`/`yolo` in the payload. A piped launcher stdin
+refuses before the plan build; an attached plan stdin refuses after it. A
+missing or invalid terminal descriptor refuses before the plan build with
+zero receiver lookup, and the launcher marks and validates both private
+descriptors before contact. The
+fd4 status channel accepts only closed refusal envelopes and normalizes
+anything else to `session_host_protocol_error` without reflecting receiver
+bytes; a poisoned channel stays a protocol error even when a later frame
+is truncated. When the machine defaults
+file is locked,
 operator entries are ignored for its environments and flags overriding any
 member it sets are usage errors. Model and effort origins are printed before
 admission. Native launches use the upstream stored-policy inspector and report
@@ -274,8 +313,11 @@ argument validation, including help/version. Invalid configuration is
 Tracked launches call `ax start <name> --provider <id> --launch-plan -
 [--profile <ax-profile>] --workspace <cwd>`. Without `--name`, the name is
 `<env-id>-<YYYYMMDDTHHMMSSZ>` in UTC, with the canonical `<env-id>`: an
-alias launch names the session `claude_code-…` or `codex_cli-…`. There is
-no per-launch tracking bypass.
+alias launch names the session `claude_code-…` or `codex_cli-…`. An explicit
+`--native` or `--untracked` flag bypasses `ax` on any machine (with
+`--ax-profile` a usage error, since the profile would be discarded); a
+configured native default keeps the existing `ax` behavior. A hosted flag or
+default with `ax` enabled refuses `host_configuration_conflict`.
 A failed handoff never starts a direct child. Repository tests use **fake ax
 only**; they do not demonstrate an installed ax integration.
 
@@ -286,8 +328,9 @@ on stderr. Foreign Curator/provider/ax output is forwarded unchanged.
 
 | Result / diagnostic codes | Exit |
 |---|---|
-| Help/version, successful direct execution or ax handoff | 0 |
-| `usage` (invalid arguments, locked-member override, or visible `yolo` under Curator's force-native lock) | 2 |
+| Help/version, successful direct execution, ax handoff, or hosted handoff | 0 |
+| `usage` (invalid arguments, locked-member override, host-request repeat, native resume selectors, or visible `yolo` under Curator's force-native lock) | 2 |
+| `host_configuration_conflict`, `session_resume_invalid`, `launch_plan_invalid` | 2 |
 | `resolve_invocation_failed`, `resolve_environment_unknown`, `resolve_profile_unknown`, `resolve_repair_failed`, `resolve_lock_unavailable`, `resolve_fragment_invalid` | 1 |
 | `defaults_config_invalid`, `defaults_unresolvable` | 1 |
 | `permission_policy_unsupported`, `permission_mode_tracked_unsupported`, `permission_mode_unsupported` | 1 |
@@ -295,9 +338,13 @@ on stderr. Foreign Curator/provider/ax output is forwarded unchanged.
 | `exec_provider_missing`, `ax_handoff_failed` | 1 |
 | `mcp_layer_missing`, `mcp_layer_unreadable` | 1 |
 | `sysprompt_channel_unavailable`, `sysprompt_file_unreadable` | 1 |
-| `network_profile_unknown`, `network_profile_denied`, `network_scope_unsupported`, `network_configuration_conflict`, `network_proxy_unreachable`, `network_proxy_auth_failed`, `network_profile_invalid`, `network_file_unreadable` | 1 |
+| `network_profile_unknown`, `network_profile_denied`, `network_scope_unsupported`, `network_configuration_conflict`, `network_proxy_unreachable`, `network_proxy_auth_failed`, `network_profile_invalid`, `network_file_unreadable` | 1 (hosted `--network`: `network_scope_unsupported` exits 16) |
+| `session_host_missing`, `session_host_unavailable` | 1 |
+| `session_host_protocol_unsupported`, `session_host_provider_unsupported`, `session_host_scope_unsupported`, `session_host_execution_profile_unsupported`, `session_host_terminal_required`, `session_host_stdin_unsupported` | 6 |
+| `secret_policy_violation`, `policy_refused`, `session_host_default_not_ready` | 16 |
 | Direct child failure | Child's exit code unchanged |
 | Direct child terminated by signal | `128 + signal` |
+| Hosted receiver exit without a refusal record | Receiver exit unchanged |
 
 See [SPEC §6](SPEC.md#6-errors-and-diagnostics) for each refusal condition.
 No refusal retries with a different model or weaker launch.
@@ -330,6 +377,8 @@ platform execution evidence must come from the corresponding runner.
 | `.scripts/context-mutants.py` | narrow carrier engagement, reserved-member exclusion, permissions, deprecated-alias refusal, native suffix and release configuration in an isolated candidate copy | `python3 .scripts/context-mutants.py [evidence-dir]` | isolated copy, per-mutant logs and `summary.tsv`, default `.temp/context-mutants/` |
 | production pipeline mutants | narrow the three late checks and ax mode selection at `run(...)`; restore exact candidate bytes | `python3 .scripts/pipeline-mutants.py [evidence-dir]` | per-mutant logs and `summary.tsv`; 9 named narrowing probes |
 | CLI goldens | frozen accepted/rejected §3 shapes | `go test ./internal/cli -run TestGolden -update` to regenerate, then review the diff | `internal/cli/testdata/cases.golden` |
+| `.scripts/hosted-mutants.sh` | narrowing-mutant harness for the §4.8/§4.9 hosted gates (precedence, fallback, probe-on-native, defaults gate, network gate, status contract, payload limits, session projection); fails closed: a mutant whose anchor matches no source is reported `NOT_APPLIED` by name and exits non-zero | `.scripts/hosted-mutants.sh [evidence-dir]` (optional `MUTANTS_ONLY=M-H1,M-H2`, `MUTANT_PKGS`, `MUTANT_RUN` for bounded batches) | per-mutant logs and `summary.tsv` (default `.temp/hosted-mutants/`); the source tree is restored on exit |
+| `internal/mutantguard` | committed check that runs the required hosted mutants M-H1, M-H2 and M-H3 through the harness in a scratch copy of the tree and requires each to be applied and killed | `go test ./internal/mutantguard` | scratch copy under the test temp dir; the working tree is never mutated |
 | `.scripts/cli-mutants.sh` | narrowing-mutant harness for the §3 gates: each mutant weakens one gate to admit one rejected shape and the named test must fail | `.scripts/cli-mutants.sh [evidence-dir]` | per-mutant logs and `summary.tsv` under the evidence dir (default `.temp/cli-mutants/`); the source tree is restored on exit |
 | `.scripts/fragment-mutants.sh` | narrowing-mutant harness for the §4.1 gates (argv, exit mapping, stderr transport, reader rules, schema closure, CCJ-1 emission, entry-point wiring); the behavioral suite runs against every mutant | `.scripts/fragment-mutants.sh [evidence-dir]` (optional `FRAGMENT_MUTANT_IDS="M27 M28" FRAGMENT_TEST_PATTERN="TestExecutableUnicodePathBoundary|TestConformanceCorpus"` for focused rework) | `mutants.log` under the evidence dir (default `.temp/fragment-mutants/`); sources are restored from byte copies on exit |
 | `.scripts/mapping-mutants.py` | §4.2 narrowing probes with named production-entry failures; restores candidate bytes after each mutation | `python3 .scripts/mapping-mutants.py [evidence-dir]` | per-mutant logs and `summary.tsv` (default `.temp/mapping-mutants/`) |

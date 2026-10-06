@@ -9,6 +9,8 @@
 # survives, fails the harness.
 #
 # usage: .scripts/cli-mutants.sh [evidence-dir]
+# MUTANTS_ONLY (comma-separated ids) restricts the run to a subset for
+# bounded sequential batches; unset runs every mutant.
 set -u
 cd "$(dirname "$0")/.."
 out="${1:-.temp/cli-mutants}"
@@ -27,19 +29,21 @@ mutants=(
   'M01@@cli@@TestParseRejected/repeated_profile@@if seen[flag] {@@if seen[flag] && flag != "--profile" {'
   'M02@@cli@@TestParseRejected/unknown_flag@@if !valueFlags[flag] {@@if !valueFlags[flag] { if tok == "--nope" { continue }'
   'M03@@cli@@TestParseRejected/missing_value_empty_string@@if value == "" || strings.HasPrefix(value, "-") {@@if strings.HasPrefix(value, "-") {'
-  'M04@@cli@@TestParseRejected/stray_operand@@if envSet {@@if envSet && tok != "resume" {'
+  'M04@@cli@@TestParseRejected/stray_operand@@if !inv.ResumeRequested && tok == "resume" {@@if !inv.ResumeRequested && (tok == "resume" || tok == "frobnicate") {'
   'M05@@cli@@TestParseRejected/system_prompt_bad_value@@case SystemPromptAppend, SystemPromptReplace:@@case SystemPromptAppend, SystemPromptReplace, "prepend":'
   'M06@@cli@@TestParseRejected/ax_profile_bad_value_tracked@@case AxProfileStandard, AxProfileYolo:@@case AxProfileStandard, AxProfileYolo, "unsafe":'
   'M07@@cli@@TestParseRejected/ax_profile_on_untracked_machine@@if !opts.AxConfigured {@@if !opts.AxConfigured && value != "standard" {'
   'M08@@cli@@TestParseRejected/name_65_chars@@{0,63}$`)@@{0,64}$`)'
   'M09@@cli@@TestParseRejected/name_leading_dot@@`^[A-Za-z0-9][A-Za-z0-9._-]@@`^[A-Za-z0-9.][A-Za-z0-9._-]'
-  'M10@@cli@@TestParseRejected/no_arguments@@if !envSet {@@if !envSet && len(args) > 0 {'
+  'M10@@cli@@TestParseRejected/no_arguments@@return inv, usageErr("missing <env-id>")@@if len(args) == 0 { inv.EnvID = "pi"; return inv, nil }; return inv, usageErr("missing <env-id>")'
   'M11@@cli@@TestNativeTailVerbatim@@inv.Native = append([]string{}, args[i:]...)@@inv.Native = []string{}; for _, a := range args[i:] { if a != "" { inv.Native = append(inv.Native, a) } }'
   'M12@@cli@@TestParseRejected/unknown_flag_before_help@@return inv, usageErr("unknown flag %q before --", tok)@@if tok != "--nope" { return inv, usageErr("unknown flag %q before --", tok) }; continue'
-  'M13@@main@@TestRunUsageErrorsExit2@@return cli.ExitCode@@return 1'
-  'M14@@main@@TestRunParsedLaunchResolvesThenRefuses@@name, frag.Environment, frag.Profile.Name, frag.Home(), frag.Digest)
-	return 1@@name, frag.Environment, frag.Profile.Name, frag.Home(), frag.Digest)
-	return 0'
+  'M13@@main@@TestRunUsageErrorsExit2@@return diagnostics.ExitForCode(diagnostics.CodeUsage)@@return 1'
+  'M14@@main@@TestRunPiResolvesNativeLineup@@wd, err := deps.workdir()
+	if err != nil {
+		return emitFailure(stderr, diagnostics.CodePlanRefused, err)@@wd, err := deps.workdir()
+	if err != nil {
+		return 0'
 )
 
 status=0
@@ -47,6 +51,7 @@ summary="$out/summary.tsv"
 printf 'mutant\tfile\texpected_failing_test\tapplied\tsuite_exit\texpected_test_failed\tverdict\n' >"$summary"
 for m in "${mutants[@]}"; do
   id="${m%%@@*}"; rest="${m#*@@}"
+  if [ -n "${MUTANTS_ONLY:-}" ] && ! printf ',%s,' "$MUTANTS_ONLY" | grep -q ",$id,"; then continue; fi
   which="${rest%%@@*}"; rest="${rest#*@@}"
   test="${rest%%@@*}"; rest="${rest#*@@}"
   from="${rest%%@@*}"; to="${rest#*@@}"

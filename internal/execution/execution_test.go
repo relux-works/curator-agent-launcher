@@ -573,3 +573,23 @@ func TestRealPTYOwnershipBothModes(t *testing.T) {
 		})
 	}
 }
+
+// TestStdinIsTerminal pins the hosted stdin gate's input check: only a
+// terminal file reports true; nil, non-files, and regular files are not
+// terminals.
+func TestStdinIsTerminal(t *testing.T) {
+	if execution.StdinIsTerminal(nil) {
+		t.Fatal("nil reader is a terminal")
+	}
+	if execution.StdinIsTerminal(strings.NewReader("x")) {
+		t.Fatal("strings reader is a terminal")
+	}
+	f, err := os.Create(filepath.Join(t.TempDir(), "regular"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	if execution.StdinIsTerminal(f) {
+		t.Fatal("regular file is a terminal")
+	}
+}
