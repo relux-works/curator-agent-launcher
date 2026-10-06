@@ -2,7 +2,10 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
+	"fmt"
+	"github.com/relux-works/curator-network-profiles/pkg/adapterprobe"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -11,8 +14,6 @@ import (
 	"time"
 
 	"github.com/relux-works/curator-agent-launcher/internal/network"
-	"github.com/relux-works/curator-network-profiles/pkg/binding"
-	"github.com/relux-works/curator-network-profiles/pkg/envpatch"
 	"github.com/relux-works/curator-network-profiles/pkg/netprofile"
 	"github.com/relux-works/curator-network-profiles/pkg/probe"
 	"github.com/relux-works/curator-network-profiles/pkg/refusal"
@@ -21,22 +22,7 @@ import (
 	"github.com/relux-works/skill-agents-management/pkg/vendorplugin"
 )
 
-// Production call sites under test here: run -> launch -> network.Prepare
-// (resolve/validate/support/overlay-check/preflight/bind after plan.Build
-// admission and before ComposeAdmittedPlanWithNetwork) ->
-// ComposeWithNetwork (patch last) -> provenance -> fake provider or fake
-// ax. Every refusal below is driven through run; the suite asserts the
-// diagnostic code, the exit status, the probe count, and the absence of
-// a child side effect.
-//
-// The shipped STRICT policy holds exactly the verified claude-code
-// print tuple, so every codex-fixture test that must reach the probe
-// injects codexTestAllowlist (the interactive fixture shape); the N1
-// regressions pin the production shape and exact-tuple refusal.
-// TestNetworkInteractiveClaudeRefuses pins that a managed interactive
-// launch refuses under the production nil allowlist, and
-// TestNetworkPrintClaudeAdmitsThroughRun pins that an explicit print
-// invocation stays admitted through the production run path.
+// Regression tests cover library admission and the independent launch scope.
 
 // scriptedNetworkProber records its request and replays one outcome. No
 // pipeline test reaches the network.
@@ -149,17 +135,19 @@ func writeDirectNetworkCatalog(t *testing.T, home string, confirmed bool) string
 	return netprofile.Digest(prof)
 }
 
-// codexTestAllowlist is the test-only support policy for the codex_cli
-// pipeline fixture: exactly its normalized tool release (the module
-// normalizes "codex-cli 0.153.2" to "0.153.2") at the interactive
-// entrypoint — the actual shape run admits. Production passes nil, the
-// shipped STRICT list, which holds only the verified claude-code print
-// tuple.
-func codexTestAllowlist() []binding.AdapterIdentity {
-	return []binding.AdapterIdentity{{
-		Adapter: envpatch.AdapterGeneric, Harness: "codex",
-		Build: "0.153.2", Entrypoint: network.EntrypointInteractive,
-	}}
+// Network fixtures drive the production Claude print scope without approvals.
+func printNetworkFixture(t *testing.T, tracked bool) *pipelineFixture {
+	f := entryFixture(t, "claude_code", tracked)
+	f.args = []string{"claude_code", "--permissions", "native", "--", "-p", "hello"}
+	return f
+}
+func artifactBuild(t *testing.T, f *pipelineFixture) string {
+	t.Helper()
+	data, err := os.ReadFile(f.binary)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return fmt.Sprintf("sha256-%x", sha256.Sum256(data))
 }
 
 // writeBrokenNetworkCatalog stores a catalog doc that cannot be used.
@@ -228,13 +216,12 @@ func okProbe(endpoint string) probe.Result {
 // and prints the Record as provenance — while the endpoint stays out of
 // stderr and the digest stays out of the child environment.
 func TestNetworkDirectLaunchAppliesPatchLast(t *testing.T) {
-	f := entryFixture(t, "codex_cli", false)
+	f := printNetworkFixture(t, false)
 	endpoint, digest := writeNetworkCatalog(t, f.dir, true)
 	f.addEnv("HTTP_PROXY", "http://ambient:8080")
 	f.addEnv("Http_Proxy", "http://mixed:8080")
 	sp := &scriptedNetworkProber{res: okProbe(endpoint)}
 	f.deps.prober = sp
-	f.deps.networkAllowlist = codexTestAllowlist()
 	f.args = withNetworkFlag(f.args, "egress-a")
 	code, out, stderr := f.run()
 	if code != 0 {
@@ -267,7 +254,7 @@ func TestNetworkDirectLaunchAppliesPatchLast(t *testing.T) {
 		t.Fatalf("record material leaks into child env: %q", child.Env)
 	}
 	wantLine := "curator-run: network: profile=egress-a origin=explicit digest=" + digest +
-		" adapter=generic-env-v1 harness=codex build=0.153.2 entrypoint=interactive assurance=cooperative probe=ok/skipped/skipped\n"
+		" adapter=generic-env-v1 harness=claude-code build=" + artifactBuild(t, f) + " entrypoint=exec assurance=cooperative probe=ok/skipped/skipped\n"
 	if !strings.Contains(string(stderr), wantLine) {
 		t.Fatalf("stderr lacks provenance line %q in %q", wantLine, stderr)
 	}
@@ -282,12 +269,11 @@ func TestNetworkDirectLaunchAppliesPatchLast(t *testing.T) {
 // letter case while setting none, and prints the Record as provenance
 // with skipped/skipped/skipped. Production call site: run.
 func TestNetworkDirectLaunchSkipsProbe(t *testing.T) {
-	f := entryFixture(t, "codex_cli", false)
+	f := printNetworkFixture(t, false)
 	digest := writeDirectNetworkCatalog(t, f.dir, true)
 	f.addEnv("HTTP_PROXY", "http://ambient:8080")
 	f.addEnv("Http_Proxy", "http://mixed:8080")
 	f.deps.prober = forbiddenNetworkProber{t}
-	f.deps.networkAllowlist = codexTestAllowlist()
 	f.args = withNetworkFlag(f.args, "direct-a")
 	code, out, stderr := f.run()
 	if code != 0 {
@@ -314,7 +300,7 @@ func TestNetworkDirectLaunchSkipsProbe(t *testing.T) {
 		t.Fatalf("record material leaks into child env: %q", child.Env)
 	}
 	wantLine := "curator-run: network: profile=direct-a origin=explicit digest=" + digest +
-		" adapter=generic-env-v1 harness=codex build=0.153.2 entrypoint=interactive assurance=cooperative probe=skipped/skipped/skipped\n"
+		" adapter=generic-env-v1 harness=claude-code build=" + artifactBuild(t, f) + " entrypoint=exec assurance=cooperative probe=skipped/skipped/skipped\n"
 	if !strings.Contains(string(stderr), wantLine) {
 		t.Fatalf("stderr lacks provenance line %q in %q", wantLine, stderr)
 	}
@@ -324,7 +310,7 @@ func TestNetworkDirectLaunchSkipsProbe(t *testing.T) {
 // the operator's original parentEnv. A catalog under the managed
 // fragment home alone does not resolve.
 func TestNetworkReadsOperatorHomeNotManagedHome(t *testing.T) {
-	f := entryFixture(t, "codex_cli", false)
+	f := printNetworkFixture(t, false)
 	writeNetworkCatalog(t, f.home, true)
 	f.deps.prober = forbiddenNetworkProber{t}
 	f.args = withNetworkFlag(f.args, "egress-a")
@@ -369,7 +355,7 @@ func TestNetworkRefusalsSkipProbe(t *testing.T) {
 		}, "network_profile_invalid"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			f := entryFixture(t, "codex_cli", false)
+			f := printNetworkFixture(t, false)
 			tc.setup(t, f)
 			f.deps.prober = forbiddenNetworkProber{t}
 			f.args = withNetworkFlag(f.args, tc.profile)
@@ -407,11 +393,10 @@ func TestNetworkTrackedRefuses(t *testing.T) {
 		{"no-catalog", func(t *testing.T, f *pipelineFixture) {}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			f := entryFixture(t, "codex_cli", true)
+			f := printNetworkFixture(t, true)
 			tc.setup(t, f)
 			// Admitted tuple: the tracked refusal below cannot be
 			// satisfied by the later support gate.
-			f.deps.networkAllowlist = codexTestAllowlist()
 			f.deps.prober = forbiddenNetworkProber{t}
 			f.args = withNetworkFlag(f.args, "egress-a")
 			code, out, stderr := f.run()
@@ -465,11 +450,10 @@ func TestNetworkProbeFailureTerminates(t *testing.T) {
 		{"auth-failed", refusal.New(refusal.CodeProxyAuthFailed, "egress-a", "connect: proxy authentication required (407)"), "network_proxy_auth_failed"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			f := entryFixture(t, "codex_cli", false)
+			f := printNetworkFixture(t, false)
 			writeNetworkCatalog(t, f.dir, true)
 			sp := &scriptedNetworkProber{err: tc.err}
 			f.deps.prober = sp
-			f.deps.networkAllowlist = codexTestAllowlist()
 			f.args = withNetworkFlag(f.args, "egress-a")
 			code, out, stderr := f.run()
 			if code != 1 || len(out) != 0 {
@@ -489,15 +473,11 @@ func TestNetworkProbeFailureTerminates(t *testing.T) {
 // TestNetworkAdmissionFailureSkipsProbe: a refused plan invokes neither
 // the prober nor the workload, even with --network.
 func TestNetworkAdmissionFailureSkipsProbe(t *testing.T) {
-	f := entryFixture(t, "codex_cli", false)
+	f := printNetworkFixture(t, false)
 	writeNetworkCatalog(t, f.dir, true)
 	f.deps.prober = forbiddenNetworkProber{t}
 	f.args = withNetworkFlag(f.args, "egress-a")
-	for i, a := range f.args {
-		if a == "--model" {
-			f.args[i+1] = "no-such-model-xyz"
-		}
-	}
+	insertLauncherArgs(f, "--model", "no-such-model-xyz")
 	code, out, stderr := f.run()
 	if code != 1 || len(out) != 0 {
 		t.Fatalf("exit=%d out=%q stderr=%s", code, out, stderr)
@@ -517,7 +497,7 @@ func TestNetworkAdmissionFailureSkipsProbe(t *testing.T) {
 // never costs a network probe, starts no child, and prints no binding
 // Record — provenance follows a composed launch only.
 func TestNetworkOverlayConflictRefusesBeforeProbe(t *testing.T) {
-	f := entryFixture(t, "codex_cli", false)
+	f := printNetworkFixture(t, false)
 	writeNetworkCatalog(t, f.dir, true)
 	var obj map[string]any
 	if err := json.Unmarshal([]byte(f.resolver.stdout), &obj); err != nil {
@@ -529,7 +509,6 @@ func TestNetworkOverlayConflictRefusesBeforeProbe(t *testing.T) {
 		t.Fatal(err)
 	}
 	f.resolver.stdout = string(raw) + "\n"
-	f.deps.networkAllowlist = codexTestAllowlist()
 	f.deps.prober = forbiddenNetworkProber{t}
 	f.args = withNetworkFlag(f.args, "egress-a")
 	code, out, stderr := f.run()
@@ -548,17 +527,11 @@ func TestNetworkOverlayConflictRefusesBeforeProbe(t *testing.T) {
 	f.assertNoChild(t)
 }
 
-// TestNetworkProductionAllowlistRefusesUnlistedCodex: N1 regression for
-// the shipped policy (rev2 name TestNetworkProductionAllowlistEmptyRefuses;
-// the policy now holds the verified claude-code print tuple instead of being
-// empty). With no injected allowlist — the production shape — a confirmed
-// codex selection refuses network_scope_unsupported: codex is unlisted.
+// Regression tests cover library admission and the independent launch scope.
 func TestNetworkProductionAllowlistRefusesUnlistedCodex(t *testing.T) {
 	f := entryFixture(t, "codex_cli", false)
 	writeNetworkCatalog(t, f.dir, true)
 	f.deps.prober = forbiddenNetworkProber{t}
-	// No networkAllowlist: the production list applies, which holds
-	// only the verified claude-code print tuple.
 	f.args = withNetworkFlag(f.args, "egress-a")
 	code, out, stderr := f.run()
 	if code != 1 || len(out) != 0 {
@@ -582,65 +555,45 @@ func TestNetworkProductionAllowlistRefusesUnlistedCodex(t *testing.T) {
 // launch's exact tuple refuses network_scope_unsupported without
 // probing.
 func TestNetworkUnlistedTupleRefuses(t *testing.T) {
-	f := entryFixture(t, "codex_cli", false)
-	writeNetworkCatalog(t, f.dir, true)
-	f.deps.networkAllowlist = []binding.AdapterIdentity{{
-		Adapter: envpatch.AdapterGeneric, Harness: "codex",
-		Build: "9.9.9", Entrypoint: network.EntrypointInteractive,
-	}}
-	f.deps.prober = forbiddenNetworkProber{t}
-	f.args = withNetworkFlag(f.args, "egress-a")
+	f := printNetworkFixture(t, false)
+	writeDirectNetworkCatalog(t, f.dir, true)
+	insertLauncherArgs(f, "--network-policy", "strict")
+	f.args = withNetworkFlag(f.args, "direct-a")
 	code, out, stderr := f.run()
-	if code != 1 || len(out) != 0 {
-		t.Fatalf("exit=%d out=%q stderr=%s", code, out, stderr)
-	}
-	if !strings.Contains(string(stderr), "curator-run: network_scope_unsupported: ") {
-		t.Fatalf("stderr=%s, want network_scope_unsupported", stderr)
-	}
-	if f.builds != 1 || f.verdicts != 1 {
-		t.Fatalf("builds=%d verdicts=%d, want admission before the network refusal", f.builds, f.verdicts)
+	if code != 1 || len(out) != 0 || !strings.Contains(string(stderr), "strict_miss") {
+		t.Fatalf("exit=%d stderr=%s", code, stderr)
 	}
 	f.assertNoChild(t)
 }
 
-// TestNetworkTupleIdentityDimensionsRefuse: X2 regression. The STRICT
-// support policy compares the exact (adapter, harness, build,
-// entrypoint) identity at the actual admitted entrypoint — interactive
-// in every run test. Each subtest injects a list whose single entry
-// changes exactly ONE member from this launch's admitted codex tuple,
-// and each refuses network_scope_unsupported through the production run
-// path: after admission, without probing, without a child, without a
-// Record. A mutant that ignores any one equality fails exactly its
-// subtest.
 func TestNetworkTupleIdentityDimensionsRefuse(t *testing.T) {
-	admitted := codexTestAllowlist()[0]
-	for _, tc := range []struct {
-		name  string
-		entry binding.AdapterIdentity
-	}{
-		{"adapter", binding.AdapterIdentity{Adapter: "other-adapter-v9", Harness: admitted.Harness, Build: admitted.Build, Entrypoint: admitted.Entrypoint}},
-		{"harness", binding.AdapterIdentity{Adapter: admitted.Adapter, Harness: "codex-fork", Build: admitted.Build, Entrypoint: admitted.Entrypoint}},
-		{"build", binding.AdapterIdentity{Adapter: admitted.Adapter, Harness: admitted.Harness, Build: "0.153.3", Entrypoint: admitted.Entrypoint}},
-		{"entrypoint", binding.AdapterIdentity{Adapter: admitted.Adapter, Harness: admitted.Harness, Build: admitted.Build, Entrypoint: "spawn"}},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			f := entryFixture(t, "codex_cli", false)
-			writeNetworkCatalog(t, f.dir, true)
-			f.deps.networkAllowlist = []binding.AdapterIdentity{tc.entry}
-			f.deps.prober = forbiddenNetworkProber{t}
-			f.args = withNetworkFlag(f.args, "egress-a")
+	for _, dimension := range []string{"adapter", "harness", "build", "entrypoint"} {
+		t.Run(dimension, func(t *testing.T) {
+			f := printNetworkFixture(t, false)
+			writeDirectNetworkCatalog(t, f.dir, true)
+			f.args = withNetworkFlag(f.args, "direct-a")
+			f.deps.networkEvaluate = func(ctx context.Context, r adapterprobe.Request, p adapterprobe.Policy) (adapterprobe.Decision, error) {
+				d, e := adapterprobe.Evaluate(ctx, r, p)
+				switch dimension {
+				case "adapter":
+					d.Adapter.Adapter = "other-adapter-v9"
+				case "harness":
+					d.Adapter.Harness = "other-harness"
+					d.Provenance.Adapter = d.Adapter
+				case "build":
+					d.BinarySHA256 = strings.Repeat("a", 64)
+					d.BuildID = "sha256-" + d.BinarySHA256
+					d.Provenance.BuildID = d.BuildID
+					d.Provenance.BinarySHA256 = d.BinarySHA256
+				case "entrypoint":
+					d.Adapter.Entrypoint = "spawn"
+					d.Provenance.Adapter = d.Adapter
+				}
+				return d, e
+			}
 			code, out, stderr := f.run()
-			if code != 1 || len(out) != 0 {
-				t.Fatalf("exit=%d out=%q stderr=%s", code, out, stderr)
-			}
-			if !strings.Contains(string(stderr), "curator-run: network_scope_unsupported: ") {
-				t.Fatalf("stderr=%s, want network_scope_unsupported", stderr)
-			}
-			if strings.Contains(string(stderr), "curator-run: network: ") {
-				t.Fatalf("refused launch prints a binding Record: %s", stderr)
-			}
-			if f.builds != 1 || f.verdicts != 1 {
-				t.Fatalf("builds=%d verdicts=%d, want admission before the network refusal", f.builds, f.verdicts)
+			if code != 1 || len(out) != 0 || !strings.Contains(string(stderr), "network_scope_unsupported") {
+				t.Fatalf("exit=%d stderr=%s", code, stderr)
 			}
 			f.assertNoChild(t)
 		})
@@ -664,7 +617,7 @@ func withTestRelease(f *pipelineFixture, release string) {
 }
 
 // TestNetworkInteractiveClaudeRefuses: F1 regression. The launcher
-// constructs interactive launches, and the pinned v0.2.1 verification
+// constructs interactive launches, and the pinned v0.3.1 verification
 // covers the one-shot `claude -p` shape while expressly excluding
 // interactive mode — so a managed Claude launch without an explicit
 // print selection, at the verified harness and build, refuses
@@ -678,8 +631,6 @@ func TestNetworkInteractiveClaudeRefuses(t *testing.T) {
 	withTestRelease(f, "2.1.287")
 	writeNetworkCatalog(t, f.dir, true)
 	f.deps.prober = forbiddenNetworkProber{t}
-	// No networkAllowlist: the production STRICT list applies, which
-	// holds only the verified print tuple.
 	f.args = withNetworkFlag(f.args, "egress-a")
 	code, out, stderr := f.run()
 	if code != 1 || len(out) != 0 {
@@ -719,8 +670,6 @@ func TestNetworkPrintClaudeAdmitsThroughRun(t *testing.T) {
 			endpoint, digest := writeNetworkCatalog(t, f.dir, true)
 			sp := &scriptedNetworkProber{res: okProbe(endpoint)}
 			f.deps.prober = sp
-			// No networkAllowlist: the production STRICT list applies,
-			// which holds only the verified print tuple.
 			f.args = []string{"claude_code", "--permissions", "native", "--", "-p", "hello"}
 			if managed {
 				f.args = withNetworkFlag(f.args, "egress-a")
@@ -753,7 +702,7 @@ func TestNetworkPrintClaudeAdmitsThroughRun(t *testing.T) {
 				t.Fatalf("probe calls = %d, want exactly 1", sp.calls)
 			}
 			wantLine := "curator-run: network: profile=egress-a origin=explicit digest=" + digest +
-				" adapter=generic-env-v1 harness=claude-code build=2.1.287 entrypoint=exec assurance=cooperative probe=ok/skipped/skipped\n"
+				" adapter=generic-env-v1 harness=claude-code build=" + artifactBuild(t, f) + " entrypoint=exec assurance=cooperative probe=ok/skipped/skipped\n"
 			if !strings.Contains(string(stderr), wantLine) {
 				t.Fatalf("stderr lacks provenance line %q in %q", wantLine, stderr)
 			}
@@ -788,7 +737,7 @@ func TestNetworkUnreadableFilesRefuse(t *testing.T) {
 		}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			f := entryFixture(t, "codex_cli", false)
+			f := printNetworkFixture(t, false)
 			tc.setup(t, f)
 			f.deps.prober = forbiddenNetworkProber{t}
 			f.args = withNetworkFlag(f.args, "egress-a")
@@ -812,9 +761,8 @@ func TestNetworkUnreadableFilesRefuse(t *testing.T) {
 // network_configuration_conflict without probing.
 func TestNetworkEngineHostsChecked(t *testing.T) {
 	t.Run("covered", func(t *testing.T) {
-		f := entryFixture(t, "codex_cli", false)
+		f := printNetworkFixture(t, false)
 		endpoint, _ := writeNetworkCatalog(t, f.dir, true)
-		f.deps.networkAllowlist = codexTestAllowlist()
 		f.deps.networkEngineHosts = []string{"[::1]:11434", "LOCALHOST"}
 		sp := &scriptedNetworkProber{res: okProbe(endpoint)}
 		f.deps.prober = sp
@@ -828,9 +776,8 @@ func TestNetworkEngineHostsChecked(t *testing.T) {
 		}
 	})
 	t.Run("uncovered", func(t *testing.T) {
-		f := entryFixture(t, "codex_cli", false)
+		f := printNetworkFixture(t, false)
 		writeNetworkCatalog(t, f.dir, true)
-		f.deps.networkAllowlist = codexTestAllowlist()
 		f.deps.networkEngineHosts = []string{"engine.local"}
 		f.deps.prober = forbiddenNetworkProber{t}
 		f.args = withNetworkFlag(f.args, "egress-a")
@@ -857,9 +804,8 @@ func TestNetworkEngineHostsChecked(t *testing.T) {
 // native suffix, so ComposeAdmittedPlanWithNetwork refuses; the probe
 // ran (Prepare succeeded) but nothing prints and no child starts.
 func TestNetworkComposeRefusalPrintsNoRecord(t *testing.T) {
-	f := entryFixture(t, "codex_cli", false)
+	f := printNetworkFixture(t, false)
 	endpoint, _ := writeNetworkCatalog(t, f.dir, true)
-	f.deps.networkAllowlist = codexTestAllowlist()
 	sp := &scriptedNetworkProber{res: okProbe(endpoint)}
 	f.deps.prober = sp
 	inner := f.deps.build
@@ -875,14 +821,14 @@ func TestNetworkComposeRefusalPrintsNoRecord(t *testing.T) {
 	if code != 1 || len(out) != 0 {
 		t.Fatalf("exit=%d out=%q stderr=%s", code, out, stderr)
 	}
-	if !strings.Contains(string(stderr), "curator-run: plan_refused: ") {
-		t.Fatalf("stderr=%s, want plan_refused for the drifted plan", stderr)
+	if !strings.Contains(string(stderr), "curator-run: network_scope_unsupported: ") {
+		t.Fatalf("stderr=%s, want a scope refusal for the drifted plan", stderr)
 	}
 	if strings.Contains(string(stderr), "curator-run: network: ") {
 		t.Fatalf("refused composition prints a binding Record: %s", stderr)
 	}
-	if sp.calls != 1 {
-		t.Fatalf("probe calls = %d, want 1 (Prepare succeeded before composition refused)", sp.calls)
+	if sp.calls != 0 {
+		t.Fatalf("probe calls = %d, want 0 (the effective shape drifted before composition)", sp.calls)
 	}
 	f.assertNoChild(t)
 }
@@ -892,9 +838,8 @@ func TestNetworkComposeRefusalPrintsNoRecord(t *testing.T) {
 // EngineHosts (coverage vacuous) is correct. A future engine-capable
 // runtime fails here and must derive its hosts at the launch call site.
 func TestNetworkProductionCarriesNoEngine(t *testing.T) {
-	f := entryFixture(t, "codex_cli", false)
+	f := printNetworkFixture(t, false)
 	endpoint, _ := writeNetworkCatalog(t, f.dir, true)
-	f.deps.networkAllowlist = codexTestAllowlist()
 	sp := &scriptedNetworkProber{res: okProbe(endpoint)}
 	f.deps.prober = sp
 	f.args = withNetworkFlag(f.args, "egress-a")
@@ -915,10 +860,10 @@ func TestNetworkProductionCarriesNoEngine(t *testing.T) {
 // tokens in the child argv, no provenance, and no probe — even with a
 // confirmed catalog on disk.
 func TestNetworkFlagAfterDoubleDashIsNative(t *testing.T) {
-	f := entryFixture(t, "codex_cli", false)
+	f := printNetworkFixture(t, false)
 	writeNetworkCatalog(t, f.dir, true)
 	f.deps.prober = forbiddenNetworkProber{t}
-	f.args = []string{"codex_cli", "--model", "gpt-6-astra", "--effort", "medium", "--system-prompt", "replace", "--permissions", "native", "--", "--network", "egress-a"}
+	f.args = []string{"claude_code", "--permissions", "native", "--", "--network", "egress-a"}
 	code, out, stderr := f.run()
 	if code != 0 {
 		t.Fatalf("exit=%d stderr=%s", code, stderr)
@@ -1008,10 +953,9 @@ func TestNativeHostFlagsComposeWithNetwork(t *testing.T) {
 		{"untracked-synonym-bypasses-tracked-refusal", true, "--untracked"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			f := entryFixture(t, "codex_cli", tc.tracked)
+			f := printNetworkFixture(t, tc.tracked)
 			digest := writeDirectNetworkCatalog(t, f.dir, true)
 			f.deps.prober = forbiddenNetworkProber{t}
-			f.deps.networkAllowlist = codexTestAllowlist()
 			f.args = append([]string{f.args[0], tc.flag}, f.args[1:]...)
 			f.args = withNetworkFlag(f.args, "direct-a")
 			code, out, stderr := f.run()

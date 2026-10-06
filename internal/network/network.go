@@ -8,28 +8,23 @@
 // patch. Tracked mode refuses: the source host cannot validate a
 // destination.
 //
-// Support is the STRICT network policy: the launch shape is verified at
-// its ACTUAL entrypoint — the EFFECTIVE shape of the admitted launch,
-// never collapsed — against an exact allowlist. The network-profiles
-// verification covers the one-shot print shape only, so an interactive
-// launch refuses network_scope_unsupported until pinned compatibility
-// evidence covers interactive mode, while an explicit print invocation
-// stays admitted (see EffectiveEntrypoint).
-//
-// The package consumes curator-network-profiles v0.2.1 by tag (a normal
-// require, no replace) and creates no processes. Every error is a
-// *refusal.Refusal and terminates the launch without weaker routing: an
-// error here never degrades to an unmanaged launch. Without an explicit
-// selection the outcome is unmanaged — an empty patch, a nil Record — and
-// this package touches nothing: no catalog read, no probe.
+// The independent child-scope ceiling covers Claude print only. The package
+// consumes curator-network-profiles v0.3.1 by tag, without replace, and never
+// qualifies release labels. Evaluate alone decides artifact admission. The
+// qualification allowlist is empty pending central qualification (A).
 package network
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
 
+	"github.com/relux-works/curator-network-profiles/pkg/adapterprobe"
 	"github.com/relux-works/curator-network-profiles/pkg/binding"
 	"github.com/relux-works/curator-network-profiles/pkg/catalog"
 	"github.com/relux-works/curator-network-profiles/pkg/envpatch"
@@ -56,39 +51,14 @@ const EntrypointInteractive = "interactive"
 
 // claudeCodeHarness is the mapped agentic system id whose native print
 // selectors (-p/--print) the effective-shape derivation reads. It is
-// the harness member of the verified STRICT tuple below; no other
+// the harness admitted by the independent scope ceiling; no other
 // harness has a verified print shape in this revision.
 const claudeCodeHarness = "claude-code"
 
-// strictVerifiedAdapters is the STRICT network policy: the exact
-// (adapter, harness, build, entrypoint) tuples a --network launch may
-// probe and bind. Membership is exact on all four members; the build is
-// the probed tool release as normalized by the agents-management tool
-// probe, compared verbatim — no prefix, range, or "non-empty" rule — and
-// the entrypoint is the effective entrypoint of the actual admitted
-// launch (see EffectiveEntrypoint), never a collapsed constant.
-//
-// The list holds exactly one verified tuple: the network-profiles
-// verification of claude-code build 2.1.287 under the generic-env-v1
-// adapter in the one-shot print shape. Every other tuple — codex, muse,
-// any other build, any interactive launch — refuses
-// network_scope_unsupported. Tests exercise other tuples with an
-// injected test-only list (Request.Allowlist), never by editing this
-// list. Adding a tuple requires its pinned compatibility evidence
-// beside the edit. An optimistic policy is a future option
-// (TASK-261005-yoogtw), not the default.
-var strictVerifiedAdapters = []binding.AdapterIdentity{{
-	Adapter:    envpatch.AdapterGeneric,
-	Harness:    "claude-code",
-	Build:      "2.1.287",
-	Entrypoint: EntrypointExec,
-}}
-
-// VerifiedAdapters returns a copy of the STRICT network policy: the
-// exact adapter identities a --network launch may bind. It holds exactly
-// the network-profiles verified tuple; see strictVerifiedAdapters.
-func VerifiedAdapters() []binding.AdapterIdentity {
-	return append([]binding.AdapterIdentity(nil), strictVerifiedAdapters...)
+// ScopeAllowed is the launcher's independent child-scope ceiling. Qualification
+// and artifact identity are exclusively owned by adapterprobe.Evaluate.
+func ScopeAllowed(id adapterprobe.Identity) bool {
+	return id.Adapter == envpatch.AdapterGeneric && id.Harness == claudeCodeHarness && id.Entrypoint == EntrypointExec
 }
 
 // EntrypointForMode maps the CONSTRUCTION mode of an admitted plan to
@@ -107,7 +77,7 @@ func EntrypointForMode(mode agentic.LaunchMode) (string, error) {
 	case agentic.LaunchModeInteractive:
 		return EntrypointInteractive, nil
 	default:
-		return "", refusal.New(refusal.CodeScopeUnsupported, mode.String(), "no verified network adapter tuple for this launch mode")
+		return "", refusal.New(refusal.CodeScopeUnsupported, mode.String(), "no supported network child scope for this launch mode")
 	}
 }
 
@@ -127,8 +97,8 @@ func EntrypointForMode(mode agentic.LaunchMode) (string, error) {
 // shape; every other harness keeps its mode mapping. The module's
 // typed-intent API (ClassifyNonInteractiveArgs) cannot serve this
 // derivation: its release gate verifies the permission-grammar rows
-// (claude 2.1.261) while the STRICT policy verifies the network build
-// (2.1.287), so it errors on exactly the verified scope. The scan
+// (claude 2.1.261) while the historical network verification covered a different release, so
+// that classifier could not derive the admitted network shape. The scan
 // below therefore mirrors that API's pinned grammar rule instead (see
 // hasPrintSelector); it admits a strict subset of what the module
 // would classify as print, and refuses everything else.
@@ -190,45 +160,41 @@ func hasPrintSelector(tail []string) bool {
 	return false
 }
 
-// Request carries the inputs of one network stage. Explicit is the
-// --network value; ExplicitSet reports presence. Tracked, Harness,
-// Build and Entrypoint describe the admitted launch shape: the ax mode,
-// the mapped agentic system id, the probed tool release, and the
-// effective entrypoint of the ACTUAL admitted launch — derived by the
-// caller with EffectiveEntrypoint from the admitted plan, harness and
-// native tail, never a collapsed constant. An empty entrypoint matches
-// nothing and refuses.
-// ParentEnv is the operator's original environment the catalog is read
-// through. Prober runs the bounded preflight; nil selects the production
-// dialer. Allowlist overrides the STRICT support policy when non-nil;
-// nil selects strictVerifiedAdapters, so production passes nil and tests
-// inject a test-only list. FragEnv, PromptEnv and MCPEnvNames are the
-// composed overlay names the patch follows; a proxy-family name among
-// them is a managed-only conflict, refused before the preflight.
-// EngineHosts are the loopback engine hosts of this launch; each must be
-// covered by the profile's bypass_hosts.
+// Request carries a selected profile, admitted host tuple and immutable native
+// artifact snapshot. ParentEnv is the original operator environment. Prober
+// performs endpoint preflight only; it never qualifies a harness. Mode and pin
+// go directly into library policy. ScopeCheck is a test seam, never a policy
+// qualification override.
 type Request struct {
-	Explicit    string
-	ExplicitSet bool
-	Tracked     bool
-	Harness     string
-	Build       string
-	Entrypoint  string
-	ParentEnv   []string
-	Prober      probe.Prober
-	Allowlist   []binding.AdapterIdentity
-	FragEnv     map[string]string
-	PromptEnv   map[string]string
-	MCPEnvNames []string
-	EngineHosts []string
+	Explicit     string
+	ExplicitSet  bool
+	Tracked      bool
+	Harness      string
+	Entrypoint   string
+	ParentEnv    []string
+	Prober       probe.Prober
+	Artifact     []byte
+	HostIdentity binding.AdapterIdentity
+	Mode         adapterprobe.Mode
+	PinnedBuild  string
+	KnownBadPath string
+	// ScopeCheck is a test seam for the independent child-scope ceiling.
+	ScopeCheck    func(adapterprobe.Identity) bool
+	Evaluate      func(context.Context, adapterprobe.Request, adapterprobe.Policy) (adapterprobe.Decision, error)
+	MatchIdentity func(binding.AdapterIdentity, binding.AdapterIdentity) bool
+	FragEnv       map[string]string
+	PromptEnv     map[string]string
+	MCPEnvNames   []string
+	EngineHosts   []string
 }
 
 // Prepared is the outcome of one network stage: the patch for final
 // application in Compose (empty when unmanaged) and the Record for
 // provenance (nil when unmanaged).
 type Prepared struct {
-	Patch  envpatch.Patch
-	Record *binding.Record
+	Patch      envpatch.Patch
+	Record     *binding.Record
+	Provenance *adapterprobe.Provenance
 }
 
 // Prepare resolves, validates, preflights and binds one explicit
@@ -241,9 +207,8 @@ type Prepared struct {
 //  3. the catalog loads through the operator's original parentEnv;
 //  4. the explicit selection resolves (allowed set, existence,
 //     assurance, confirmation, engine coverage);
-//  5. the launch shape is verified against the STRICT support policy:
-//     the exact (adapter, harness, build, entrypoint) tuple — at the
-//     actual admitted entrypoint — must be listed;
+//  5. the launch shape is verified by Evaluate and the independent scope ceiling:
+//     qualification and known-bad policy cover the artifact snapshot;
 //  6. a proxy-family name in a composed overlay refuses without probing:
 //     the conflict is pure, so it never costs a network probe;
 //  7. a bounded preflight probes the resolved endpoint — unless the
@@ -281,11 +246,7 @@ func Prepare(ctx context.Context, req Request) (Prepared, error) {
 		// launching unmanaged under --network.
 		return Prepared{}, refusal.New(refusal.CodeScopeUnsupported, req.Explicit, "no network binding was resolved")
 	}
-	allow := req.Allowlist
-	if allow == nil {
-		allow = strictVerifiedAdapters
-	}
-	identity, err := IdentifyWith(req.Harness, req.Build, req.Entrypoint, allow)
+	identity, provenance, err := Admit(ctx, req, result.Profile.SensitiveEgress)
 	if err != nil {
 		return Prepared{}, err
 	}
@@ -330,15 +291,7 @@ func Prepare(ctx context.Context, req Request) (Prepared, error) {
 		TLS:       string(res.TLS),
 		CheckedAt: res.CheckedAt,
 	})
-	return Prepared{Patch: patch, Record: &record}, nil
-}
-
-// Identify verifies the launch shape against the STRICT support policy
-// and returns the adapter identity the binding carries. Only the
-// verified claude-code print tuple is admitted; see
-// strictVerifiedAdapters.
-func Identify(harness, build, entrypoint string) (binding.AdapterIdentity, error) {
-	return IdentifyWith(harness, build, entrypoint, strictVerifiedAdapters)
+	return Prepared{Patch: patch, Record: &record, Provenance: provenance}, nil
 }
 
 // DefaultProber is the production prober Prepare selects when the
@@ -347,27 +300,84 @@ func Identify(harness, build, entrypoint string) (binding.AdapterIdentity, error
 // no test dials through it.
 func DefaultProber() probe.Prober { return &probe.Dialer{} }
 
-// IdentifyWith verifies the launch shape against allow: the exact
-// (generic-env-v1, harness, build, entrypoint) tuple must be listed,
-// compared member-wise with no prefix, range, or non-emptiness rule.
-// Anything else — an unknown harness, an unknown or unparsable version,
-// a missing build, an unverified entrypoint — refuses typed
-// network_scope_unsupported before any probe or workload. The entrypoint
-// is the caller's actual admitted shape (see EffectiveEntrypoint); an
-// empty entrypoint matches nothing and refuses.
-func IdentifyWith(harness, build, entrypoint string, allow []binding.AdapterIdentity) (binding.AdapterIdentity, error) {
-	id := binding.AdapterIdentity{
-		Adapter:    envpatch.AdapterGeneric,
-		Harness:    harness,
-		Build:      build,
-		Entrypoint: entrypoint,
-	}
-	for _, v := range allow {
-		if v == id {
-			return id, nil
+// Admit is the sole adapter admission path. It delegates all mode, pin,
+// known-bad and qualification policy to Evaluate, then checks the durable host
+// tuple and independent child scope. Legacy release labels never confer trust.
+func Admit(ctx context.Context, req Request, sensitive bool) (binding.AdapterIdentity, *adapterprobe.Provenance, error) {
+	root := ""
+	for _, e := range req.ParentEnv {
+		if home, ok := strings.CutPrefix(e, "HOME="); ok {
+			root = filepath.Join(home, ".curator")
+			break
 		}
 	}
-	return binding.AdapterIdentity{}, refusal.New(refusal.CodeScopeUnsupported, harness, "no verified network adapter tuple for this harness, build and entrypoint")
+	known, knownErr := adapterprobe.LoadKnownBad(adapterprobe.SafeKnownBadRead, root, req.KnownBadPath)
+	policy := adapterprobe.Policy{Mode: req.Mode, PinnedBuild: req.PinnedBuild,
+		SensitiveEgress: sensitive, KnownBad: known, KnownBadErr: knownErr}
+	id := adapterprobe.Identity{Adapter: envpatch.AdapterGeneric, Harness: req.Harness, Entrypoint: req.Entrypoint}
+	recipe := "claude-exec-v1"
+	switch req.Harness {
+	case "codex-cli":
+		recipe = "codex-exec-v1"
+	case "muse":
+		recipe = "muse-exec-v1"
+	}
+	evaluate := req.Evaluate
+	if evaluate == nil {
+		evaluate = adapterprobe.Evaluate
+	}
+	d, evalErr := evaluate(ctx, adapterprobe.Request{Adapter: id, Artifact: req.Artifact, Recipe: recipe}, policy)
+	switch d.Outcome {
+	case adapterprobe.OutcomeRefused:
+		detail := d.Reason
+		if d.Reason == "strict_miss" {
+			detail += ": no qualified builds until central qualification (A) ships"
+		}
+		return binding.AdapterIdentity{}, nil, refusal.New(refusal.CodeScopeUnsupported, "adapter", detail)
+	case adapterprobe.OutcomeQualified, adapterprobe.OutcomeUnqualified:
+		if evalErr != nil {
+			return binding.AdapterIdentity{}, nil, evalErr
+		}
+	default:
+		return binding.AdapterIdentity{}, nil, refusal.New(refusal.CodeScopeUnsupported, "adapter", "invalid decision")
+	}
+	bound, err := d.BoundIdentity()
+	if err != nil {
+		return binding.AdapterIdentity{}, nil, err
+	}
+	matches := req.MatchIdentity
+	if matches == nil {
+		matches = func(a, b binding.AdapterIdentity) bool { return a == b }
+	}
+	if !matches(bound, req.HostIdentity) {
+		return binding.AdapterIdentity{}, nil, refusal.New(refusal.CodeScopeUnsupported, "adapter", "decision identity differs from host tuple")
+	}
+	scope := req.ScopeCheck
+	if scope == nil {
+		scope = ScopeAllowed
+	}
+	if !scope(id) {
+		return binding.AdapterIdentity{}, nil, refusal.New(refusal.CodeScopeUnsupported, "adapter", "launch scope unsupported")
+	}
+	return bound, d.Provenance, nil
+}
+
+// EmitAdapterProvenance is mandatory even when native output selects quiet or
+// machine modes. Both the verbatim warning and the full typed one-line record
+// go to stderr; direct launches own no session envelope.
+func EmitAdapterProvenance(stderr io.Writer, p *adapterprobe.Provenance) error {
+	if p == nil {
+		return nil
+	}
+	data, err := json.Marshal(p)
+	if err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(stderr, p.OperatorText()); err != nil {
+		return err
+	}
+	_, err = fmt.Fprintln(stderr, "curator-run: adapter-provenance: "+string(data))
+	return err
 }
 
 // IsProxyFamily reports whether name belongs to the reserved proxy

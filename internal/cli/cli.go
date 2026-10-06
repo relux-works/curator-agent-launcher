@@ -34,7 +34,8 @@ const Usage = `usage: curator-run <env-id> [--hosted | --native | --untracked]
                    [--model <model>] [--effort <effort>]
                    [--permissions <native|yolo> | --yolo]
                    [--name <session-name>] [--ax-profile <standard|yolo>]
-                   [--network <profile>]
+                   [--network <profile>] [--network-policy <policy>]
+                   [--network-known-bad <path>]
                    [--] <native args...>
        curator-run --help | -h
        curator-run --version
@@ -56,6 +57,8 @@ options:
   -d, --danger                       rejected; use --permissions explicitly
   --name <session-name>             ax session name (tracked machines only)
   --ax-profile <standard|yolo>      ax execution profile (tracked machines only)
+  --network-policy <policy>        optimistic (default), strict, pinned:<binary SHA-256>
+  --network-known-bad <path>        explicit operator known-bad list (failure refuses)
   --network <profile>               network profile for direct execution (tracked refuses)
   --help, -h                        print this usage text and exit 0
   --version                         print the launcher name and version, exit 0
@@ -238,8 +241,11 @@ type Invocation struct {
 	// against the operator catalog belong to the network stage after plan
 	// admission (SPEC §4.4b). An empty value is a usage error, so
 	// NetworkSet implies a non-empty Network.
-	Network    string
-	NetworkSet bool
+	Network         string
+	NetworkSet      bool
+	NetworkMode     string
+	NetworkPin      string
+	NetworkKnownBad string
 	// Tracked copies Options.AxConfigured so consumers of the invocation
 	// see the fact the parse was made against.
 	Tracked bool
@@ -273,16 +279,20 @@ func IsUsage(err error) bool {
 }
 
 // valueFlags is the closed set of value-taking launcher flags.
+var binaryDigestPattern = regexp.MustCompile(`^[0-9a-f]{64}$`)
+
 var valueFlags = map[string]bool{
-	"--profile":       true,
-	"--system-prompt": true,
-	"--model":         true,
-	"--effort":        true,
-	"--permissions":   true,
-	"--name":          true,
-	"--ax-profile":    true,
-	"--resume":        true,
-	"--network":       true,
+	"--profile":           true,
+	"--system-prompt":     true,
+	"--model":             true,
+	"--effort":            true,
+	"--permissions":       true,
+	"--name":              true,
+	"--ax-profile":        true,
+	"--resume":            true,
+	"--network":           true,
+	"--network-policy":    true,
+	"--network-known-bad": true,
 }
 
 // Parse classifies args (os.Args[1:]) under SPEC §3. The rules, closed:
@@ -462,6 +472,21 @@ func (inv *Invocation) set(flag, value string, opts Options) error {
 			return usageErr("--ax-profile %s given but the ax integration is not configured on this machine; an execution profile is ax's and would be discarded", value)
 		}
 		inv.AxProfile = AxProfile(value)
+	case "--network-policy":
+		switch value {
+		case "optimistic":
+			inv.NetworkMode = ""
+		case "strict":
+			inv.NetworkMode = "strict"
+		default:
+			if digest, ok := strings.CutPrefix(value, "pinned:"); ok && binaryDigestPattern.MatchString(digest) {
+				inv.NetworkMode, inv.NetworkPin = "pinned", "sha256-"+digest
+			} else {
+				return usageErr("--network-policy accepts optimistic, strict or pinned:<binary SHA-256>")
+			}
+		}
+	case "--network-known-bad":
+		inv.NetworkKnownBad = value
 	case "--network":
 		inv.Network, inv.NetworkSet = value, true
 	default:

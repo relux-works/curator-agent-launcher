@@ -142,7 +142,8 @@ curator-run <env-id> [--hosted | --native | --untracked]
             [--model <model>] [--effort <effort>]
             [--permissions <native|yolo> | --yolo]
             [--name <session-name>] [--ax-profile <standard|yolo>]
-            [--network <profile>]
+            [--network <profile>] [--network-policy <policy>]
+            [--network-known-bad <path>]
             [--] <native args...>
 curator-run --help | -h
 curator-run --version
@@ -166,6 +167,8 @@ change, not a flag addition.
 | `resume [SES-HANDLE]`, `--resume <id>` | session | Hosted-only resume selectors (§4.8). `resume` selects the latest session, `resume SES-HANDLE` a handle, `--resume <id>` a provider identity. Handle and identity shape belong to the spawn plane's typed-intent grammar; in native mode any selector is a `usage` error. |
 | `--name <session-name>` | session | Tracked mode only (§4.6): the `ax` session name, replacing the default `<env-id>-<utc-stamp>`. MUST satisfy the `ax` §2.1 grammar `[A-Za-z0-9][A-Za-z0-9._-]{0,63}`; a longer or ill-formed value is a `usage` error naming `--name`, never a silent truncation. On an untracked machine the flag is accepted and has no effect. |
 | `--ax-profile <standard\|yolo>` | session | Tracked mode only (§4.6): the `ax` execution profile, forwarded as `ax start --profile <value>`. Absent, no `--profile` is passed and `ax`'s own default applies. This flag is the **only** way `--profile yolo` reaches `ax` from a launcher-mediated launch (Decision 0013 D6.4); the launcher never derives it from the fragment, the plan, or the native arguments. On an untracked machine the flag is a `usage` error: an execution profile is `ax`'s concept, and a value that would be silently discarded is a value the operator was misled about. |
+| `--network-policy <policy>` | network policy | `optimistic` (default), `strict`, or `pinned:<64 lowercase hex binary SHA-256>`; passed to adapterprobe policy (§4.4b). |
+| `--network-known-bad <path>` | network policy | Explicit operator known-bad file; absence or read failure refuses (§4.4b). |
 | `--network <profile>` | network | Explicit network-profile selection (§4.4b): a profile identifier resolved after plan admission against the operator catalog. Stored verbatim at parse; resolution and validation belong to §4.4b. On a tracked machine the selection is admitted at parse and refused as `network_scope_unsupported` in §4.4b: the source host cannot validate a destination. |
 | `--` | — | Terminates launcher argument parsing. Everything after it is native argv, forwarded last and verbatim when admitted by the shared permission and context-channel grammar. |
 | `--help`, `-h`, `--version` | — | Informational; print and exit 0. |
@@ -658,7 +661,7 @@ replace them.
 
 After admission and before composition, the launcher resolves the
 explicit `--network` selection through `curator-network-profiles`
-v0.2.1 (§7). Without `--network` this step is absent: no catalog is
+v0.3.1 (§7). Without `--network` this step is absent: no catalog is
 read, nothing probes, and the launch composes exactly as before —
 with one authorized exception: the agents-management v0.5.45+
 module appends its unconditional `--disallowedTools=AskUserQuestion`
@@ -690,29 +693,34 @@ exactly that one added line. With `--network`, the order is closed:
    `network_profile_denied`, `network_scope_unsupported` (enforced
    assurance), and `network_configuration_conflict` (an uncovered
    engine host under a proxy profile).
-4. The launch shape is verified against the STRICT network policy:
-   an explicit allowlist of verified (adapter, harness, build,
-   entrypoint) tuples, matched exactly on all four members at the
-   ACTUAL admitted entrypoint — the EFFECTIVE shape, not the
-   construction mode alone — and never collapsed. The build is the
-   probed tool release, compared verbatim — no prefix, range, or
-   non-emptiness rule. The list holds exactly one verified tuple:
-   `(generic-env-v1, claude-code, 2.1.287, exec)` — the one-shot
-   `claude -p` shape, the only shape the pinned verification covers.
-   The launcher constructs interactive launches, and the module
-   forwards the native tail verbatim into the interactive argv — so
-   an explicit print invocation (the tail carries `-p`/`--print` in
-   flag position, read as the plan carries it) is that verified
-   entrypoint and stays admitted. Every other tuple — codex, muse,
-   any other build, any launch without a print selection — refuses
-   as `network_scope_unsupported`, as does an unknown harness, an
-   unknown or unparsable version, a missing build, or an unmapped
-   launch mode, before any probe or workload. A managed launch
-   without a print selection refuses until pinned compatibility
-   evidence covers interactive mode; the launcher MUST NOT silently
-   switch the interactive product behavior to print mode to satisfy
-   this gate. An optimistic policy is a future option
-   (TASK-261005-yoogtw), not the default.
+4. Adapter admission calls `adapterprobe.Evaluate` over an immutable native
+   binary snapshot with the selected profile's `SensitiveEgress`, loaded
+   operator `KnownBad` or `KnownBadErr`, and the selected policy. Optimistic
+   is default; `--network-policy strict` selects strict, and
+   `--network-policy pinned:<64 lowercase hex SHA-256>` supplies the library's
+   `PinnedBuild` identity. Pinning alone never qualifies. Sensitive egress
+   cannot be downgraded by a flag. The legacy N-B label allowlist is retired:
+   no label is migrated to an `AllowedBuild`. `Policy.Allowlist` is empty
+   pending independent central qualification (A). Every known-vendor artifact
+   is currently unqualified under optimistic policy and refused under strict
+   or sensitive-egress policy, with the reason "no qualified builds until
+   central qualification (A) ships" accompanying `strict_miss`.
+   The library owns qualification, known-bad membership, pin enforcement and
+   vendor validation. The launcher accepts only qualified or unqualified typed
+   Decisions, compares `Decision.BoundIdentity()` with the host snapshot tuple,
+   and independently enforces the existing child-scope ceiling: generic
+   adapter, Claude, actual print (`exec`) entrypoint. A different build label
+   does not widen scope. EffectiveEntrypoint still derives print from the
+   admitted argv and exact native suffix; interactive mode is never collapsed
+   to print. Unknown vendor lines/adapters, known-bad binaries and unreadable
+   known-bad lists refuse typed `network_scope_unsupported` before any workload.
+   The known-bad root is the original operator `HOME/.curator`; an explicit
+   `--network-known-bad` path overrides the fixed filename. Loading uses
+   `LoadKnownBad(SafeKnownBadRead, root, explicitPath)`.
+   The process owner stages the bytes evaluated and executes that private,
+   read-only artifact instead of reopening the original executable path.
+   Native-format snapshots do not themselves establish conformance; scripts
+   and mutable interpreter closures refuse under the library contract.
 5. A proxy-family name in a composed overlay — `frag.Env`, the engaged
    prompt channel, or `mcp.env_names` — refuses as
    `network_configuration_conflict`, matched case-insensitively. The
@@ -747,6 +755,17 @@ composition succeeds:
 ```text
 curator-run: network: profile=<ref> origin=explicit digest=<digest> adapter=<adapter> harness=<harness> build=<build> entrypoint=<entrypoint> assurance=cooperative probe=<tcp>/<connect>/<tls>
 ```
+
+Unqualified Decisions additionally require verbatim `Provenance.OperatorText()`
+on stderr and one parseable `curator-run: adapter-provenance: <JSON>` stderr
+line containing the full `relux-adapter-provenance-v1` record. These lines
+cannot be suppressed by native quiet, silent or machine-output flags. Emission
+failure stops the launch. Direct/untracked launches own no session envelope;
+a wrapper that owns one persists the typed record. Tracked and hosted launches
+continue to refuse `--network`, and their guard tests block future admission
+without session-owned provenance persistence. No launcher session state is
+introduced (§2, lines 75–81).
+
 
 It carries the manifest-safe Record members only. Every value is
 folded with the §4.3 framing rule, so a hostile build string never
@@ -1462,7 +1481,7 @@ receiving registry, which recognizes codes the launcher never emits.
 | ax | `ax_handoff_failed` | §4.6: the configured `ax` could not take the launch — `ax` not startable, or `ax start` exited non-zero, its Structured Error passed through; no untracked fallback |
 | mcp | `mcp_layer_missing`, `mcp_layer_unreadable` | §4.5: the composed argv carries `-p curator-mcp` and the pre-launch stat of the fragment's `mcp.path` finds no file, or finds something it cannot read as a regular file — codex would silently launch without the profile's MCP set, so neither degrades to a launch without `-p`; the two are distinct facts and are reported as such |
 | system prompt | `sysprompt_channel_unavailable`, `sysprompt_file_unreadable` | §5.2: opt-in given but the fragment carries no non-`file` channel with the requested semantics; §5.1: a registry-declared file-kind channel's file exists but cannot be read (or is not a regular file) at the pre-exec probe — an absent managed-home file is not this diagnostic and says nothing about other native sources |
-| network | `network_profile_unknown`, `network_profile_denied`, `network_scope_unsupported`, `network_configuration_conflict`, `network_proxy_unreachable`, `network_proxy_auth_failed`, `network_profile_invalid`, `network_file_unreadable` | §4.4b: the explicit network selection could not be honored — an unknown profile name; a denied one (outside the host allowed set, or unconfirmed at the current digest); an unsupported launch shape (tracked mode, an unverified harness/build/entrypoint tuple — including any launch without a print selection, since the pinned verification covers the one-shot `claude -p` shape only — an unmapped launch mode, or an enforced assurance request); a proxy-family name in a composed overlay or an uncovered engine host under a proxy profile; an unreachable proxy (TCP, CONNECT, or TLS step, or a malformed endpoint; a `kind = "direct"` profile skips every probe step); a proxy demanding authentication; a malformed catalog or profile; or a catalog or ledger that cannot be located, read, or parsed — every one terminal, with no fallback to an unmanaged launch; a hosted launch with `--network` refuses `network_scope_unsupported` with exit 16 (§4.8) while every native network refusal exits 1 |
+| network | `network_profile_unknown`, `network_profile_denied`, `network_scope_unsupported`, `network_configuration_conflict`, `network_proxy_unreachable`, `network_proxy_auth_failed`, `network_profile_invalid`, `network_file_unreadable` | §4.4b: the explicit network selection could not be honored — an unknown profile name; a denied one (outside the host allowed set, or unconfirmed at the current digest); an unsupported launch shape (tracked mode, a refused adapter Decision or unsupported child scope — including any launch without a print selection — an unmapped launch mode, or an enforced assurance request); a proxy-family name in a composed overlay or an uncovered engine host under a proxy profile; an unreachable proxy (TCP, CONNECT, or TLS step, or a malformed endpoint; a `kind = "direct"` profile skips every probe step); a proxy demanding authentication; a malformed catalog or profile; or a catalog or ledger that cannot be located, read, or parsed — every one terminal, with no fallback to an unmanaged launch; a hosted launch with `--network` refuses `network_scope_unsupported` with exit 16 (§4.8) while every native network refusal exits 1 |
 | host | `host_configuration_conflict` | §4.8: a hosted flag or default with the `ax` integration enabled — exit 2, before the defaults gate, with no fallback to either side |
 | session host | `session_host_missing`, `session_host_unavailable`, `session_host_provider_unsupported`, `session_host_protocol_unsupported`, `session_host_scope_unsupported`, `session_host_execution_profile_unsupported`, `session_host_terminal_required`, `session_host_stdin_unsupported`, `session_host_default_not_ready` | §4.8, §4.9: the receiver is not on PATH or cannot start (exit 1); the status channel is corrupt (exit 1); a non-Claude environment seeks the Phase 1 host (exit 6); the receiver reports an unsupported protocol, scope, or execution profile (exit 6, receiver-mapped); no controlling terminal is available or the descriptor fails validation, checked before the plan build with zero lookup (exit 6); stdin is attached (exit 6); a machine hosted default awaits upgrade-without-hangup while an operator hosted default is admitted (Q-D1a = yes, exit 16) |
 | resume | `session_resume_invalid` | §4.8: conflicting, ambiguous, or malformed resume selectors from the wrapper or the native tail, as elevated by the module typed-intent grammar — exit 2, before the plan build |
@@ -1500,7 +1519,7 @@ and provider-limit verdicts remain module-owned. `vendorplugin.Lineup`
 and the runtime compatibility registry supply §4.3 model/effort fallback.
 
 The launcher pins `github.com/relux-works/curator-network-profiles`
-v0.2.1 (§4.4b), consumed by tag as a normal require — no replace, no
+v0.3.1 (§4.4b), consumed by tag as a normal require — no replace, no
 workspace. The module owns catalog loading, selection precedence and
 validation, the generic environment patch (unset-only for `kind =
 "direct"`), the bounded preflight, and the binding Record; this SPEC

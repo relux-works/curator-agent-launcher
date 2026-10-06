@@ -26,6 +26,7 @@ import (
 	"github.com/relux-works/curator-agent-launcher/internal/network"
 	"github.com/relux-works/curator-agent-launcher/internal/plan"
 	"github.com/relux-works/curator-agent-launcher/internal/systemprompt"
+	"github.com/relux-works/curator-network-profiles/pkg/adapterprobe"
 	"github.com/relux-works/curator-network-profiles/pkg/binding"
 	"github.com/relux-works/curator-network-profiles/pkg/probe"
 	"github.com/relux-works/curator-network-profiles/pkg/refusal"
@@ -97,12 +98,12 @@ type launchDeps struct {
 	// so Prepare selects the dialer; tests inject a scripted prober so
 	// no test reaches the network.
 	prober probe.Prober
-	// networkAllowlist overrides the §4.4b STRICT support policy.
-	// Production leaves it nil so Prepare uses the shipped allowlist
-	// (only the verified claude-code print tuple; every other
-	// --network launch refuses); tests inject a test-only list to
-	// exercise admission.
-	networkAllowlist []binding.AdapterIdentity
+	// networkScopeCheck is a test seam for the independent child-scope ceiling.
+	networkScopeCheck     func(adapterprobe.Identity) bool
+	networkEvaluate       func(context.Context, adapterprobe.Request, adapterprobe.Policy) (adapterprobe.Decision, error)
+	networkEmit           func(io.Writer, *adapterprobe.Provenance) error
+	networkSessionAllowed func(tracked, hosted bool) bool
+	networkMatchIdentity  func(binding.AdapterIdentity, binding.AdapterIdentity) bool
 	// networkEngineHosts overrides the §4.4b engine-host set.
 	// Production leaves it nil: no launchable runtime in this revision
 	// carries an engine (plan.Request has no engine member), so engine
@@ -505,13 +506,32 @@ func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, ta
 			return emitNetworkFailure(stderr, merr)
 		}
 	}
+	sessionAllowed := deps.networkSessionAllowed
+	if sessionAllowed == nil {
+		sessionAllowed = func(tracked, hosted bool) bool { return !tracked && !hosted }
+	}
+	var snapshot *execution.ArtifactSnapshot
+	if inv.NetworkSet && sessionAllowed(inv.Tracked, isHosted) {
+		snapshot, err = execution.SnapshotArtifact(admitted.Plan.Binary, admitted.Plan.WorkDir, admitted.Plan.Env)
+		if err != nil {
+			return emitNetworkFailure(stderr, err)
+		}
+		defer snapshot.Close()
+	}
+	var artifact []byte
+	var hostIdentity binding.AdapterIdentity
+	if snapshot != nil {
+		artifact = snapshot.Bytes()
+		hostIdentity = binding.AdapterIdentity{Adapter: "generic-env-v1", Harness: target.System, Build: snapshot.BuildID(), Entrypoint: entrypoint}
+	}
 	preparedNet, err := network.Prepare(ctx, network.Request{
 		Explicit: inv.Network, ExplicitSet: inv.NetworkSet,
-		Tracked: inv.Tracked, Harness: target.System,
-		Build: toolRelease, Entrypoint: entrypoint,
-		ParentEnv: parentEnv, Prober: deps.prober,
-		Allowlist: deps.networkAllowlist,
-		FragEnv:   frag.Env, PromptEnv: prompt.Env, MCPEnvNames: mcpNames,
+		Tracked: !sessionAllowed(inv.Tracked, isHosted), Harness: target.System,
+		Entrypoint: entrypoint,
+		ParentEnv:  parentEnv, Prober: deps.prober,
+		Artifact: artifact, HostIdentity: hostIdentity, Mode: adapterprobe.Mode(inv.NetworkMode),
+		PinnedBuild: inv.NetworkPin, KnownBadPath: inv.NetworkKnownBad, ScopeCheck: deps.networkScopeCheck, Evaluate: deps.networkEvaluate, MatchIdentity: deps.networkMatchIdentity,
+		FragEnv: frag.Env, PromptEnv: prompt.Env, MCPEnvNames: mcpNames,
 		EngineHosts: deps.networkEngineHosts,
 	})
 	if err != nil {
@@ -521,6 +541,16 @@ func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, ta
 	value, err := composition.ComposeAdmittedPlanWithNetwork(admitted.Plan, admitted.OwnedEnv, *frag, prompt, tail, preparedNet.Patch)
 	if err != nil {
 		return emitNetworkFailure(stderr, err)
+	}
+	if snapshot != nil {
+		value.Binary = snapshot.Path()
+	}
+	emitAdapter := deps.networkEmit
+	if emitAdapter == nil {
+		emitAdapter = network.EmitAdapterProvenance
+	}
+	if err := emitAdapter(stderr, preparedNet.Provenance); err != nil {
+		return emitNetworkFailure(stderr, refusal.New(refusal.CodeScopeUnsupported, "adapter", "provenance emission failed"))
 	}
 	// The Record is provenance of a composed launch: a launch that
 	// Compose refuses prints no binding Record.

@@ -2,8 +2,11 @@ package network_test
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"github.com/relux-works/curator-network-profiles/pkg/adapterprobe"
 	"net"
 	"os"
 	"path/filepath"
@@ -92,27 +95,14 @@ func writeCatalog(t *testing.T, home string, confirmed bool) (netprofile.Profile
 	return prof, digest
 }
 
-// fixtureAllowlist is the test-only support policy: exactly the
-// baseRequest tuple at the interactive entrypoint — the actual shape
-// the launcher admits. Production Identify uses the shipped STRICT
-// list, which holds only the verified claude-code print tuple, so
-// every test that must reach the probe with the codex fixture injects
-// this one.
-func fixtureAllowlist() []binding.AdapterIdentity {
-	return []binding.AdapterIdentity{{
-		Adapter: envpatch.AdapterGeneric, Harness: "codex",
-		Build: "codex-cli 0.153.2", Entrypoint: network.EntrypointInteractive,
-	}}
-}
+var unitArtifact = []byte("\xcf\xfa\xed\xfe-test-native-container")
 
+func unitBuild() string { return fmt.Sprintf("sha256-%x", sha256.Sum256(unitArtifact)) }
 func baseRequest(home string) network.Request {
-	return network.Request{
-		Explicit: selectedProfile, ExplicitSet: true,
-		Tracked: false, Harness: "codex", Build: "codex-cli 0.153.2",
-		Entrypoint: network.EntrypointInteractive,
-		ParentEnv:  []string{"HOME=" + home, "PATH=/usr/bin"},
-		Allowlist:  fixtureAllowlist(),
-	}
+	return network.Request{Explicit: selectedProfile, ExplicitSet: true,
+		Harness: "claude-code", Entrypoint: network.EntrypointExec,
+		ParentEnv: []string{"HOME=" + home}, Artifact: unitArtifact,
+		HostIdentity: binding.AdapterIdentity{Adapter: envpatch.AdapterGeneric, Harness: "claude-code", Build: unitBuild(), Entrypoint: network.EntrypointExec}}
 }
 
 const directCatalogTOML = `schema = "relux-network-profiles-v1"
@@ -306,7 +296,7 @@ func TestPrepareSupportRefusalsSkipProbe(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			req := baseRequest(home)
-			req.Harness, req.Build, req.Entrypoint = tc.harness, tc.build, tc.entrypoint
+			req.Harness, req.HostIdentity.Build, req.Entrypoint = tc.harness, tc.build, tc.entrypoint
 			req.Prober = forbiddenProber{t}
 			_, err := network.Prepare(context.Background(), req)
 			if err == nil || refusalCode(t, err) != refusal.CodeScopeUnsupported {
@@ -316,15 +306,12 @@ func TestPrepareSupportRefusalsSkipProbe(t *testing.T) {
 	}
 }
 
-// TestPrepareProductionAllowlistRefuses: N1 regression. With a nil
-// allowlist — the production shape — the codex fixture tuple refuses:
-// the shipped STRICT list holds only the verified claude-code print
-// tuple.
+// Regression tests cover library admission and the independent launch scope.
 func TestPrepareProductionAllowlistRefuses(t *testing.T) {
 	home := t.TempDir()
 	writeCatalog(t, home, true)
 	req := baseRequest(home)
-	req.Allowlist = nil
+	req.Mode = adapterprobe.Strict
 	req.Prober = forbiddenProber{t}
 	_, err := network.Prepare(context.Background(), req)
 	if err == nil || refusalCode(t, err) != refusal.CodeScopeUnsupported {
@@ -332,12 +319,7 @@ func TestPrepareProductionAllowlistRefuses(t *testing.T) {
 	}
 }
 
-// TestPrepareProductionAllowlistAdmitsVerifiedTuple: with a nil
-// allowlist — the production shape — the verified claude-code print
-// tuple (the one-shot entrypoint) reaches the probe and binds. This
-// pins the policy half; the derivation half — that run classifies an
-// explicit print invocation to this entrypoint — is pinned through
-// run by TestNetworkPrintClaudeAdmitsThroughRun.
+// Regression tests cover library admission and the independent launch scope.
 func TestPrepareProductionAllowlistAdmitsVerifiedTuple(t *testing.T) {
 	home := t.TempDir()
 	prof, _ := writeCatalog(t, home, true)
@@ -346,9 +328,9 @@ func TestPrepareProductionAllowlistAdmitsVerifiedTuple(t *testing.T) {
 		Connect: probe.StatusSkipped, TLS: probe.StatusSkipped, CheckedAt: time.Now(),
 	}}
 	req := baseRequest(home)
-	req.Harness, req.Build = "claude-code", "2.1.287"
+	req.Harness = "claude-code"
 	req.Entrypoint = network.EntrypointExec
-	req.Allowlist = nil
+
 	req.Prober = sp
 	got, err := network.Prepare(context.Background(), req)
 	if err != nil {
@@ -357,25 +339,20 @@ func TestPrepareProductionAllowlistAdmitsVerifiedTuple(t *testing.T) {
 	if sp.calls != 1 || got.Record == nil {
 		t.Fatalf("calls = %d record = %+v, want one probe and a bound record", sp.calls, got.Record)
 	}
-	if got.Record.AdapterIdentity.Harness != "claude-code" || got.Record.AdapterIdentity.Build != "2.1.287" ||
+	if got.Record.AdapterIdentity.Harness != "claude-code" || got.Record.AdapterIdentity.Build != unitBuild() ||
 		got.Record.AdapterIdentity.Entrypoint != network.EntrypointExec {
 		t.Fatalf("record identity = %+v, want the verified claude-code print tuple", got.Record.AdapterIdentity)
 	}
 }
 
-// TestPrepareProductionAllowlistRefusesInteractiveClaude: F1 companion.
-// The verified harness and build at the INTERACTIVE entrypoint — the
-// effective shape of a launch without a print selection — refuse
-// network_scope_unsupported under the production STRICT list, without
-// probing: the pinned verification covers the one-shot print shape
-// only.
+// Regression tests cover library admission and the independent launch scope.
 func TestPrepareProductionAllowlistRefusesInteractiveClaude(t *testing.T) {
 	home := t.TempDir()
 	writeCatalog(t, home, true)
 	req := baseRequest(home)
-	req.Harness, req.Build = "claude-code", "2.1.287"
+	req.Harness = "claude-code"
 	req.Entrypoint = network.EntrypointInteractive
-	req.Allowlist = nil
+
 	req.Prober = forbiddenProber{t}
 	_, err := network.Prepare(context.Background(), req)
 	if err == nil || refusalCode(t, err) != refusal.CodeScopeUnsupported {
@@ -619,73 +596,27 @@ func TestPrepareExplicitBeatsOperatorDefault(t *testing.T) {
 	}
 }
 
-// TestProductionAllowlistHoldsVerifiedTuple pins the STRICT policy:
-// exactly the verified claude-code print tuple, nothing else.
+// Regression tests cover library admission and the independent launch scope.
 func TestProductionAllowlistHoldsVerifiedTuple(t *testing.T) {
-	want := []binding.AdapterIdentity{{
-		Adapter: envpatch.AdapterGeneric, Harness: "claude-code",
-		Build: "2.1.287", Entrypoint: network.EntrypointExec,
-	}}
-	got := network.VerifiedAdapters()
-	if len(got) != 1 || got[0] != want[0] {
-		t.Fatalf("production allowlist = %+v, want exactly %+v", got, want)
+	// Retired labels cannot become AllowedBuild records.
+	home := t.TempDir()
+	writeCatalog(t, home, true)
+	req := baseRequest(home)
+	req.Mode = adapterprobe.Strict
+	if _, err := network.Prepare(context.Background(), req); err == nil {
+		t.Fatal("legacy label qualified")
 	}
 }
-
 func TestIdentify(t *testing.T) {
-	allow := fixtureAllowlist()
-	id, err := network.IdentifyWith("codex", "codex-cli 0.153.2", network.EntrypointInteractive, allow)
-	if err != nil {
-		t.Fatalf("IdentifyWith(listed) error = %v", err)
+	home := t.TempDir()
+	req := baseRequest(home)
+	id, p, err := network.Admit(context.Background(), req, false)
+	if err != nil || id != req.HostIdentity || p == nil {
+		t.Fatalf("id=%+v p=%+v err=%v", id, p, err)
 	}
-	if want := allow[0]; id != want {
-		t.Fatalf("IdentifyWith(listed) = %+v, want %+v", id, want)
-	}
-	for _, tc := range []struct{ harness, build, entrypoint string }{
-		{"muse", "1.4.2", network.EntrypointInteractive},
-		{"future-tool", "9.9", network.EntrypointInteractive},
-		{"codex", "", network.EntrypointInteractive},
-		{"", "1.0", network.EntrypointInteractive},
-		{"codex", "codex-cli 0.153", network.EntrypointInteractive},
-		{"codex", "codex-cli 0.153.2 ", network.EntrypointInteractive},
-		{"Codex", "codex-cli 0.153.2", network.EntrypointInteractive},
-		{"codex", "codex-cli 0.153.2", network.EntrypointExec},
-		{"codex", "codex-cli 0.153.2", ""},
-	} {
-		_, err := network.IdentifyWith(tc.harness, tc.build, tc.entrypoint, allow)
-		if err == nil || refusalCode(t, err) != refusal.CodeScopeUnsupported {
-			t.Fatalf("IdentifyWith(%q,%q,%q) = %v, want %s", tc.harness, tc.build, tc.entrypoint, err, refusal.CodeScopeUnsupported)
-		}
-	}
-	// Adapter-only and entrypoint-only allowlist mismatches refuse: the
-	// launch tuple is fixed, so the one changed member is on the list
-	// side. Each changes exactly one member from the admitted tuple.
-	for _, tc := range []struct {
-		name  string
-		entry binding.AdapterIdentity
-	}{
-		{"adapter", binding.AdapterIdentity{Adapter: "other-adapter-v9", Harness: "codex", Build: "codex-cli 0.153.2", Entrypoint: network.EntrypointInteractive}},
-		{"entrypoint", binding.AdapterIdentity{Adapter: envpatch.AdapterGeneric, Harness: "codex", Build: "codex-cli 0.153.2", Entrypoint: "spawn"}},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			_, err := network.IdentifyWith("codex", "codex-cli 0.153.2", network.EntrypointInteractive, []binding.AdapterIdentity{tc.entry})
-			if err == nil || refusalCode(t, err) != refusal.CodeScopeUnsupported {
-				t.Fatalf("IdentifyWith(%s-mismatch) = %v, want %s", tc.name, err, refusal.CodeScopeUnsupported)
-			}
-		})
-	}
-	// Production Identify uses the shipped STRICT list: the verified
-	// claude-code print tuple admits, the same tuple at the
-	// interactive entrypoint refuses, and the codex fixture tuple
-	// refuses.
-	if _, err := network.Identify("claude-code", "2.1.287", network.EntrypointExec); err != nil {
-		t.Fatalf("Identify(verified) error = %v, want nil", err)
-	}
-	if _, err := network.Identify("claude-code", "2.1.287", network.EntrypointInteractive); err == nil || refusalCode(t, err) != refusal.CodeScopeUnsupported {
-		t.Fatalf("Identify(interactive) = %v, want %s", err, refusal.CodeScopeUnsupported)
-	}
-	if _, err := network.Identify("codex", "codex-cli 0.153.2", network.EntrypointInteractive); err == nil || refusalCode(t, err) != refusal.CodeScopeUnsupported {
-		t.Fatalf("Identify(unlisted) = %v, want %s", err, refusal.CodeScopeUnsupported)
+	req.HostIdentity.Build = "2.1.287"
+	if _, _, err := network.Admit(context.Background(), req, false); err == nil {
+		t.Fatal("label accepted as host identity")
 	}
 }
 
@@ -754,8 +685,8 @@ func TestPrepareSuccessBindsPatchAndRecord(t *testing.T) {
 	r := *got.Record
 	if r.Schema != binding.SchemaRecord || r.ProfileRef != "egress-a" || r.Origin != "explicit" ||
 		r.ProfileDigest != digest || r.Assurance != binding.AssuranceCooperative ||
-		r.AdapterIdentity.Adapter != envpatch.AdapterGeneric || r.AdapterIdentity.Harness != "codex" ||
-		r.AdapterIdentity.Build != "codex-cli 0.153.2" || r.AdapterIdentity.Entrypoint != network.EntrypointInteractive ||
+		r.AdapterIdentity.Adapter != envpatch.AdapterGeneric || r.AdapterIdentity.Harness != "claude-code" ||
+		r.AdapterIdentity.Build != unitBuild() || r.AdapterIdentity.Entrypoint != network.EntrypointExec ||
 		r.Probe.TCP != "ok" || r.Probe.Connect != "skipped" || r.Probe.TLS != "skipped" || !r.Probe.CheckedAt.Equal(checkedAt) {
 		t.Fatalf("record = %+v, want bound explicit record", r)
 	}
@@ -770,11 +701,7 @@ func TestPrepareSuccessBindsPatchAndRecord(t *testing.T) {
 	}
 }
 
-// TestPrepareDirectSkipsProbe: a confirmed kind="direct" profile binds
-// without invoking the prober — there is no endpoint to dial — with an
-// unset-only patch and a managed Record carrying skipped/skipped/skipped
-// and this launch's observation time. The support gate still applies:
-// the fixture tuple is admitted through the injected allowlist.
+// Regression tests cover library admission and the independent launch scope.
 func TestPrepareDirectSkipsProbe(t *testing.T) {
 	home := t.TempDir()
 	prof, digest := writeDirectCatalog(t, home, true)
@@ -806,8 +733,8 @@ func TestPrepareDirectSkipsProbe(t *testing.T) {
 	r := *got.Record
 	if r.Schema != binding.SchemaRecord || r.ProfileRef != selectedDirectProfile || r.Origin != "explicit" ||
 		r.ProfileDigest != digest || r.Assurance != binding.AssuranceCooperative ||
-		r.AdapterIdentity.Adapter != envpatch.AdapterGeneric || r.AdapterIdentity.Harness != "codex" ||
-		r.AdapterIdentity.Build != "codex-cli 0.153.2" || r.AdapterIdentity.Entrypoint != network.EntrypointInteractive ||
+		r.AdapterIdentity.Adapter != envpatch.AdapterGeneric || r.AdapterIdentity.Harness != "claude-code" ||
+		r.AdapterIdentity.Build != unitBuild() || r.AdapterIdentity.Entrypoint != network.EntrypointExec ||
 		r.Probe.TCP != "skipped" || r.Probe.Connect != "skipped" || r.Probe.TLS != "skipped" {
 		t.Fatalf("record = %+v, want bound explicit direct record", r)
 	}

@@ -186,6 +186,8 @@ scope. Resolution always requests repair.
 | `-d`, `--danger` | Rejected as usage errors before `--`; after `--`, arguments are native input |
 | `--name <session-name>` | Tracked session name; `[A-Za-z0-9][A-Za-z0-9._-]{0,63}`; accepted without effect when untracked |
 | `--ax-profile <standard\|yolo>` | Tracked execution profile; usage error when untracked; absent uses ax's default |
+| `--network-policy <policy>` | `optimistic` (default), `strict`, or `pinned:<binary SHA-256>`; sensitivity cannot be downgraded |
+| `--network-known-bad <path>` | Explicit operator known-bad list; any load error refuses |
 | `--network <profile>` | Network profile for direct execution; resolved after admission, refused when tracked; refused with exit 16 when combined with `--hosted` |
 | `--help`, `-h`, `--version` | Print information and exit, after reading tracking configuration |
 | `--` | End launcher parsing; all following arguments pass through verbatim |
@@ -214,17 +216,47 @@ fallback. A managed launch prints a `curator-run: network: …`
 provenance line carrying the binding Record; the endpoint never appears
 in it, and a launch that composition refuses prints no Record. Tracked
 launches refuse `--network` with `network_scope_unsupported`: the
-source host cannot validate the destination. Support is the STRICT
-network policy: an explicit allowlist of verified (adapter, harness,
-build, entrypoint) tuples, matched exactly at the actual admitted
-entrypoint, which holds exactly one verified tuple —
-`(generic-env-v1, claude-code, 2.1.287, exec)` — the one-shot `claude -p`
-shape, which stays admitted when the native tail selects print. Every
-other `--network` launch refuses with `network_scope_unsupported`,
-including launches without a print selection (interactive mode, which
-the pinned verification expressly excludes). An optimistic policy is a
-future option (TASK-261005-yoogtw), not the default. See SPEC §4.4b
-and §6.
+source host cannot validate the destination. Hosted launches also refuse.
+
+Adapter admission uses `adapterprobe.Evaluate` from v0.3.1. The default
+`--network-policy optimistic` admits a known vendor build as **unqualified**,
+subject to the library's fail-closed known-bad policy and the launcher's
+independent child-scope ceiling (currently `generic-env-v1`, Claude print).
+`--network-policy strict` requires independent qualification;
+`--network-policy pinned:<64 lowercase hex SHA-256>` additionally requires
+that exact binary. A pin proves identity, so an unproven pinned build remains
+unqualified. `sensitive_egress = true` requires qualification even under
+optimistic or pinned policy; a flag cannot downgrade it.
+
+The legacy N-B version-label list is retired, not migrated: it has no SHA-256
+provenance. `Policy.Allowlist` stays empty until independently qualified
+`AllowedBuild` records exist. Thus every known-vendor build is unqualified
+under optimistic policy and refuses under strict or sensitive-egress policy,
+including the previously listed release. Central qualification (A) is outside
+this revision. Qualification never widens the independent child-scope ceiling;
+interactive, tracked and hosted network launches remain unsupported.
+
+The operator known-bad list is `~/.curator/adapter-knownbad.json`, or the path
+selected by `--network-known-bad <path>`. The library reads it through
+`SafeKnownBadRead`: genuine absence of the default file is optional; a present,
+unreadable or malformed file, or a missing explicitly selected file, refuses.
+No local probe attempts to manufacture qualification.
+
+At launch an unqualified build prints `Provenance.OperatorText()` verbatim on
+stderr, followed by exactly one `curator-run: adapter-provenance: <JSON>` line
+carrying the full `relux-adapter-provenance-v1` record. Quiet, silent and
+machine-output native flags cannot suppress either stderr line. A wrapper
+that owns a session can parse and persist the JSON record; direct launches
+have no launcher-owned session record. Tracked/hosted guards refuse network
+admission until their session owner stores that provenance. The existing
+network binding line remains separate.
+
+Admission identifies the native binary bytes, not the version label. The
+launcher executes those exact bytes from a private staging directory and
+removes the stage after the child exits. Scripts/interpreter wrappers refuse
+with `runtime_closure_unsupported`; no dependency closure is claimed as
+qualified merely because a file has a native executable header. See SPEC
+§4.4b and §6.
 
 ### Configuration family
 
@@ -393,3 +425,12 @@ platform execution evidence must come from the corresponding runner.
 ## License
 
 Apache-2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
+
+Adapter-policy verification uses the existing Go tools with bounded package
+selections: `go test ./cmd/curator-run -run '^TestOptionC' -count=1 -v`
+executes baseline properties and seam mutants, and
+`go test ./internal/cli ./internal/execution -run 'Test(NetworkPolicy|ArtifactSnapshot)' -count=1`
+checks flag grammar and staging. `TestOptionCMutants` retains each expected-red
+subprocess log under `.temp/TASK-261005-yoogtw/mutants/`; each mutant must fail
+its named behavioral test with actual exit 1. No literal source replacement
+is used for this policy gate.
