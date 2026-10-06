@@ -958,7 +958,7 @@ func TestEmitNetworkFailureRetainsRefusal(t *testing.T) {
 }
 
 // TestNetworkDependencyReleasePin: the §4.4b library is consumed by tag
-// as a normal require — v0.2.1, no replacement, no workspace — so a
+// as a normal require — v0.3.1, no replacement, no workspace — so a
 // same-version substitution cannot pass the behavioral suite. It
 // mirrors TestConstructionDependencyReleasePin for the release module.
 func TestNetworkDependencyReleasePin(t *testing.T) {
@@ -985,8 +985,8 @@ func TestNetworkDependencyReleasePin(t *testing.T) {
 	if err := json.Unmarshal(out, &module); err != nil {
 		t.Fatal(err)
 	}
-	if module.Version != "v0.2.1" || module.Replace != nil {
-		t.Fatalf("network module must be v0.2.1 without replacement: version=%s replaced=%v", module.Version, module.Replace != nil)
+	if module.Version != "v0.3.1" || module.Replace != nil {
+		t.Fatalf("network module must be v0.3.1 without replacement: version=%s replaced=%v", module.Version, module.Replace != nil)
 	}
 }
 
