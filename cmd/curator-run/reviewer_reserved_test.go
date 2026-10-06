@@ -13,6 +13,7 @@ func TestReviewerReservedPathPrependPreservesLaunch(t *testing.T) {
 		for _, tracked := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%s/%v", environment, tracked), func(t *testing.T) {
 				f := entryFixture(t, environment, tracked)
+				insertLauncherArgs(f, "--permissions", "native")
 				var obj map[string]any
 				if err := json.Unmarshal([]byte(f.resolver.stdout), &obj); err != nil {
 					t.Fatal(err)

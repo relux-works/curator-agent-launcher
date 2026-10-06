@@ -26,6 +26,11 @@ import (
 
 var pipelineHelper string
 
+// hostedReceiver is the fake task-board receiver shared with the hosted
+// transport tests; it captures argv, stdin, env, and fd3, replays fd4
+// records, and exits controlled.
+var hostedReceiver string
+
 func TestMain(m *testing.M) {
 	dir, err := os.MkdirTemp("", "curator-entry-helper-")
 	if err != nil {
@@ -38,6 +43,14 @@ func TestMain(m *testing.M) {
 	if err := cmd.Run(); err != nil {
 		os.RemoveAll(dir)
 		fmt.Fprintln(os.Stderr, "helper build:", err)
+		os.Exit(1)
+	}
+	hostedReceiver = filepath.Join(dir, "receiver")
+	cmd = exec.Command("go", "build", "-o", hostedReceiver, "../../internal/hosted/testdata/receiver")
+	cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
+	if err := cmd.Run(); err != nil {
+		os.RemoveAll(dir)
+		fmt.Fprintln(os.Stderr, "receiver build:", err)
 		os.Exit(1)
 	}
 	code := m.Run()
@@ -242,6 +255,7 @@ func TestProductionPipelineGoldens(t *testing.T) {
 		for _, tracked := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%s/tracked=%v", env, tracked), func(t *testing.T) {
 				f := entryFixture(t, env, tracked)
+				insertLauncherArgs(f, "--permissions", "native")
 				t.Setenv("PARENT", "ax-only")
 				code, out, stderr := f.run()
 				if code != 0 {
@@ -318,6 +332,7 @@ func TestProductionAliasEquivalence(t *testing.T) {
 			t.Run(fmt.Sprintf("%s-as-%s/tracked=%v", p.alias, p.canonical, tracked), func(t *testing.T) {
 				f := entryFixture(t, p.canonical, tracked)
 				f.args[0] = p.alias
+				insertLauncherArgs(f, "--permissions", "native")
 				t.Setenv("PARENT", "ax-only")
 				code, out, stderr := f.run()
 				if code != 0 {
@@ -398,6 +413,7 @@ func TestProductionLateChecks(t *testing.T) {
 				if strings.HasPrefix(tc.name, "discovery") {
 					f.args = f.args[:5]
 				}
+				insertLauncherArgs(f, "--permissions", "native")
 				original := f.deps.now
 				f.deps.now = func() time.Time {
 					path := f.binary
@@ -456,6 +472,7 @@ func TestProductionModeSelection(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			f := entryFixture(t, "pi", false)
+			insertLauncherArgs(f, "--permissions", "native")
 			for path, data := range map[string]string{filepath.Join(f.dir, "machine", "ax.json"): tc.machine, filepath.Join(f.dir, "operator", "ax.json"): tc.operator} {
 				if data == "" {
 					continue
@@ -557,6 +574,7 @@ func TestProductionAdmissionRefusals(t *testing.T) {
 					expected = "sysprompt_channel_unavailable"
 					f.args[6] = "replace"
 				}
+				insertLauncherArgs(f, "--permissions", "native")
 				code, out, stderr := f.run()
 				if code != 1 || len(out) != 0 || !bytes.Contains(stderr, []byte("curator-run: "+expected+": ")) {
 					t.Fatalf("exit=%d stderr=%s", code, stderr)
@@ -577,6 +595,7 @@ func TestProductionExitAndStdin(t *testing.T) {
 		for _, shape := range []string{"exit:37", "signal", "attached-binary", "attached-empty"} {
 			t.Run(fmt.Sprintf("%s/%v", shape, tracked), func(t *testing.T) {
 				f := entryFixture(t, "pi", tracked)
+				insertLauncherArgs(f, "--permissions", "native")
 				expected := 0
 				if shape == "exit:37" || shape == "signal" {
 					writeFixture(t, filepath.Join(f.dir, "behavior"), []byte(shape), 0600)
@@ -637,7 +656,7 @@ func TestProductionDefaultBindingsAndLineup(t *testing.T) {
 				t.Setenv("XDG_STATE_HOME", f.dir)
 				f.deps.build = nil // The real production default, without the recording wrapper.
 				f.deps.availability = processAvailability
-				f.args = []string{env}
+				f.args = []string{env, "--permissions", "native"}
 				code, out, stderr := f.run()
 				if code != 0 || len(out) == 0 || !bytes.Contains(stderr, []byte("(lineup)")) {
 					t.Fatalf("exit=%d stderr=%s", code, stderr)
@@ -691,7 +710,7 @@ func TestProductionPromptWarningsWithoutSection(t *testing.T) {
 				t.Fatal(err)
 			}
 			f.resolver.stdout = string(raw)
-			f.args = []string{"pi"}
+			f.args = []string{"pi", "--permissions", "native"}
 			writeFixture(t, filepath.Join(f.home, "APPEND_SYSTEM.md"), []byte("append"), 0600)
 			writeFixture(t, filepath.Join(f.home, "SYSTEM.md"), []byte("replace"), 0600)
 			code, _, stderr := f.run()
@@ -868,6 +887,7 @@ func TestProductionAliasPersistedBytesEqual(t *testing.T) {
 				launch := func(env string) (*pipelineFixture, map[string][]byte) {
 					f := entryFixture(t, p.canonical, tracked)
 					f.args[0] = env
+					insertLauncherArgs(f, "--permissions", "native")
 					before := snapshotTree(t, f.dir)
 					var out, stderr bytes.Buffer
 					if code := run(ctx, f.args, &out, &stderr, f.deps); code != 0 {

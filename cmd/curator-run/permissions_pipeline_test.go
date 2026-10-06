@@ -90,10 +90,10 @@ func TestChoice5PermissionRowsThroughRealCuratorRun(t *testing.T) {
 			v2Default(f, t)
 			f.deps.isTerminal = func() bool { return true }
 		}, mode: agentic.PermissionModeYolo, source: "default-interactive", yoloMapped: true},
-		{family: "precedence", name: "default-headless", env: "codex_cli", setup: func(t *testing.T, f *pipelineFixture) {
+		{family: "precedence", name: "default-unconfigured-nonterminal", env: "codex_cli", setup: func(t *testing.T, f *pipelineFixture) {
 			v2Default(f, t)
 			f.deps.isTerminal = func() bool { return false }
-		}, mode: agentic.PermissionModeNative, source: "default-headless"},
+		}, mode: agentic.PermissionModeYolo, source: "default-interactive", yoloMapped: true},
 
 		{family: "invalid-configuration", name: "v1-file-with-permissions-member", env: "claude_code", setup: func(t *testing.T, f *pipelineFixture) {
 			f.writeDefaults(t, f.deps.defaults.Operator, `{"schema":"curator-run-defaults-v1","defaults":{"claude_code":{"permissions":"yolo"}}}`)
@@ -136,26 +136,33 @@ func TestChoice5PermissionRowsThroughRealCuratorRun(t *testing.T) {
 			globalPermission(t, f, "curator-run-defaults-v2", "yolo")
 		}, code: 1, diagnostic: "permission_mode_tracked_unsupported"},
 
-		{family: "headless-silence", name: "stdio-non-tty", env: "claude_code", setup: func(t *testing.T, f *pipelineFixture) {
+		// Q-D3 (2026-10-05), literal: headless detection (terminal,
+		// CI markers, native-argument form) never changes the
+		// permission default. Untracked silence is yolo everywhere.
+		{family: "qd3-unconfigured", name: "stdio-non-tty", env: "claude_code", setup: func(t *testing.T, f *pipelineFixture) {
 			v2Default(f, t)
 			f.deps.isTerminal = func() bool { return false }
-		}, mode: agentic.PermissionModeNative, source: "default-headless"},
-		{family: "headless-silence", name: "ci-marker", env: "codex_cli", setup: func(t *testing.T, f *pipelineFixture) {
+		}, mode: agentic.PermissionModeYolo, source: "default-interactive", yoloMapped: true},
+		{family: "qd3-unconfigured", name: "ci-marker", env: "codex_cli", setup: func(t *testing.T, f *pipelineFixture) {
 			v2Default(f, t)
 			f.deps.isTerminal = func() bool { return true }
 			f.addEnv("CI", "true")
-		}, mode: agentic.PermissionModeNative, source: "default-headless"},
-		{family: "headless-silence", name: "github-actions-present-empty", env: "claude_code", setup: func(t *testing.T, f *pipelineFixture) {
+		}, mode: agentic.PermissionModeYolo, source: "default-interactive", yoloMapped: true},
+		{family: "qd3-unconfigured", name: "github-actions-present-empty", env: "claude_code", setup: func(t *testing.T, f *pipelineFixture) {
 			v2Default(f, t)
 			f.deps.isTerminal = func() bool { return true }
 			f.addEnv("GITHUB_ACTIONS", "")
-		}, mode: agentic.PermissionModeNative, source: "default-headless"},
-		{family: "headless-silence", name: "tracked-silence", env: "codex_cli", tracked: true, setup: func(t *testing.T, f *pipelineFixture) { v2Default(f, t) }, mode: agentic.PermissionModeNative, source: "default-headless"},
-		{family: "headless-silence", name: "release-classified-codex-exec", env: "codex_cli", setup: func(t *testing.T, f *pipelineFixture) {
+		}, mode: agentic.PermissionModeYolo, source: "default-interactive", yoloMapped: true},
+		// Tracked silence keeps the native built-in: tracked native
+		// launches cannot use yolo at all, so the default cannot be
+		// yolo there without refusing every unconfigured tracked
+		// launch. This term is not headless detection.
+		{family: "tracked-silence", name: "tracked-silence", env: "codex_cli", tracked: true, setup: func(t *testing.T, f *pipelineFixture) { v2Default(f, t) }, mode: agentic.PermissionModeNative, source: "default-headless"},
+		{family: "qd3-unconfigured", name: "ni-tail-ignored", env: "codex_cli", setup: func(t *testing.T, f *pipelineFixture) {
 			v2Default(f, t)
 			f.deps.isTerminal = func() bool { return true }
 			replaceNativeArgs(f, "exec", "prompt")
-		}, mode: agentic.PermissionModeNative, source: "default-headless"},
+		}, mode: agentic.PermissionModeYolo, source: "default-interactive", yoloMapped: true},
 
 		{family: "legacy-yolo-transport", name: "flag", env: "claude_code", setup: func(t *testing.T, f *pipelineFixture) { insertLauncherArgs(f, "--permissions=yolo") }, code: 1, diagnostic: "permission_policy_unsupported"},
 		{family: "legacy-yolo-transport", name: "global", env: "codex_cli", setup: func(t *testing.T, f *pipelineFixture) { globalPermission(t, f, "curator-run-defaults-v2", "yolo") }, code: 1, diagnostic: "permission_policy_unsupported"},
@@ -318,6 +325,7 @@ func TestChoice5EffectiveNativePolicyLineAndTrackedRecord(t *testing.T) {
 	for _, tracked := range []bool{false, true} {
 		t.Run(fmt.Sprintf("tracked=%v", tracked), func(t *testing.T) {
 			f := entryFixture(t, "claude_code", tracked)
+			insertLauncherArgs(f, "--permissions", "native")
 			if err := os.WriteFile(filepath.Join(f.home, "settings.json"), []byte(`{"permissions":{"defaultMode":"bypassPermissions","allow":["rule-1","rule-2","rule-3","rule-4","rule-5","rule-6","rule-7","rule-8","rule-9"],"additionalDirectories":["/tmp"]}}`), 0600); err != nil {
 				t.Fatal(err)
 			}

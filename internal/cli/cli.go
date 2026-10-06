@@ -28,7 +28,9 @@ import (
 const Name = "curator-run"
 
 // Usage is the usage text printed after every usage error and by --help.
-const Usage = `usage: curator-run <env-id> [--profile <name>] [--system-prompt <append|replace>]
+const Usage = `usage: curator-run <env-id> [--hosted | --native | --untracked]
+                   [resume [SES-HANDLE]] [--resume <id>]
+                   [--profile <name>] [--system-prompt <append|replace>]
                    [--model <model>] [--effort <effort>]
                    [--permissions <native|yolo> | --yolo]
                    [--name <session-name>] [--ax-profile <standard|yolo>]
@@ -41,6 +43,10 @@ Launcher flags are recognized only before "--". Everything after "--" is
 forwarded to the tool verbatim, in order, uninspected.
 
 options:
+  --hosted                          run on the managed session host
+  --native, --untracked             run natively; the two spellings are equal
+  resume [SES-HANDLE]               hosted resume selector (latest or handle)
+  --resume <id>                     hosted resume selector (provider identity)
   --profile <name>                  Curator profile forwarded to env resolve
   --system-prompt <append|replace>  engage the fragment's system-prompt channel
   --model <model>                   model passed to the spawn plane as declared
@@ -80,9 +86,17 @@ configuration refuses even --help/--version. No direct fallback on ax failure.
 --ax-profile is a usage error when untracked; absent uses ax's default.
 Repeated/unknown flags, missing values and extra operands before -- refuse.
 
+Host: --hosted, --native and --untracked share one host request: a repeat
+or a combination refuses. No flag and no configured default means native
+with no session-host probe. An explicit --native or --untracked on an
+ax-configured machine bypasses ax; a configured native default does not.
+resume selectors and --resume are hosted-only; in native mode they refuse.
+--hosted with --network refuses network_scope_unsupported (exit 16).
+
 Exit codes: 0 success; 2 usage; 1 operational refusal. Direct child exit codes
-propagate unchanged; signal exits are 128 + signal. Stable diagnostic codes
-and details go to stderr; see README.md and SPEC.md section 6.
+propagate unchanged; signal exits are 128 + signal. Hosted refusals use the
+receiver exit mapping (1, 2, 6, 16). Stable diagnostic codes and details go
+to stderr; see README.md and SPEC.md section 6.
 `
 
 // Options carries the facts the parser needs from its caller.
@@ -158,6 +172,21 @@ func NormalizeEnvID(id string) string {
 	}
 }
 
+// Host flag spellings of the one host request slot (SPEC §3). --untracked
+// equals --native exactly; permissions stay independent of the spelling.
+const (
+	HostFlagHosted    = "--hosted"
+	HostFlagNative    = "--native"
+	HostFlagUntracked = "--untracked"
+)
+
+// ExplicitNative reports whether a parsed host flag selects the explicit
+// native path: --native or its --untracked synonym. An explicit native
+// request on an ax-configured machine bypasses ax.
+func ExplicitNative(hostFlag string) bool {
+	return hostFlag == HostFlagNative || hostFlag == HostFlagUntracked
+}
+
 // Invocation is a successfully parsed command line. Every member is as
 // typed, except EnvID which carries the normalized canonical id (SPEC §3);
 // nothing is resolved, defaulted, or validated beyond §3.
@@ -165,6 +194,20 @@ type Invocation struct {
 	// Info is non-zero for --help / -h / --version; every other member is
 	// then zero and the caller prints and exits 0.
 	Info Info
+
+	// HostFlag is the literal host request: --hosted, --native, or
+	// --untracked; empty when no host flag was given.
+	HostFlag string
+	// ResumeRequested reports the `resume` positional selector; ResumeHandle
+	// carries its optional SES handle verbatim (ResumeHandleSet tells
+	// absence from presence). Handle shape is the spawn plane's fact.
+	ResumeRequested bool
+	ResumeHandle    string
+	ResumeHandleSet bool
+	// ResumeID is the --resume value; ResumeIDSet tells absence from a
+	// value that was never given. Identity shape is the spawn plane's fact.
+	ResumeID    string
+	ResumeIDSet bool
 
 	// EnvID is the required operand, normalized through NormalizeEnvID.
 	EnvID string
@@ -238,6 +281,7 @@ var valueFlags = map[string]bool{
 	"--permissions":   true,
 	"--name":          true,
 	"--ax-profile":    true,
+	"--resume":        true,
 	"--network":       true,
 }
 
@@ -254,13 +298,19 @@ var valueFlags = map[string]bool{
 //     form "--flag value" or "--flag=value". A flag with no following token,
 //     one followed by "--", or one whose value is empty or begins with "-"
 //     is a missing value. A repeated flag is a usage error, never last-wins.
-//   - The first token not beginning with "-" is <env-id>; a second one is a
-//     stray operand. Any other token beginning with "-" is an unknown flag.
-//     The operand is normalized through NormalizeEnvID before it is stored,
-//     so an alias never reaches validation, lookup, or output.
+//   - "--hosted", "--native", and "--untracked" share one host request slot
+//     and take no value: a repeat or a combination is a usage error.
+//     --untracked equals --native.
+//   - The first token not beginning with "-" is <env-id>; after it, at most
+//     the `resume` selector and its optional handle follow. Any other token
+//     not beginning with "-" is a stray operand. Any other token beginning
+//     with "-" is an unknown flag. The operand is normalized through
+//     NormalizeEnvID before it is stored, so an alias never reaches
+//     validation, lookup, or output.
 //   - "--system-prompt" and "--ax-profile" accept only their vocabularies;
 //     "--name" must match the ax §2.1 grammar; "--ax-profile" requires
-//     opts.AxConfigured.
+//     opts.AxConfigured without an explicit native host flag, since an
+//     explicit native request bypasses ax and would discard the profile.
 //   - <env-id> is required on a launch invocation.
 func Parse(args []string, opts Options) (Invocation, error) {
 	inv := Invocation{Tracked: opts.AxConfigured}
@@ -282,18 +332,26 @@ func Parse(args []string, opts Options) (Invocation, error) {
 			return Invocation{Info: InfoVersion}, nil
 		}
 		if !strings.HasPrefix(tok, "-") {
-			if envSet {
-				return inv, usageErr("stray operand %q before --: native arguments must follow --", tok)
+			if !envSet {
+				if tok == "" {
+					return inv, usageErr("empty operand before --: <env-id> must not be empty")
+				}
+				if tok == "openai-infra" || tok == "anthropic-infra" {
+					return inv, usageErr("deprecated launcher alias %q is not an environment id; use claude_code or codex_cli", tok)
+				}
+				inv.EnvID = NormalizeEnvID(tok)
+				envSet = true
+				continue
 			}
-			if tok == "" {
-				return inv, usageErr("empty operand before --: <env-id> must not be empty")
+			if !inv.ResumeRequested && tok == "resume" {
+				inv.ResumeRequested = true
+				continue
 			}
-			if tok == "openai-infra" || tok == "anthropic-infra" {
-				return inv, usageErr("deprecated launcher alias %q is not an environment id; use claude_code or codex_cli", tok)
+			if inv.ResumeRequested && !inv.ResumeHandleSet {
+				inv.ResumeHandle, inv.ResumeHandleSet = tok, true
+				continue
 			}
-			inv.EnvID = NormalizeEnvID(tok)
-			envSet = true
-			continue
+			return inv, usageErr("stray operand %q before --: native arguments must follow --", tok)
 		}
 
 		flag, value, hasEq := strings.Cut(tok, "=")
@@ -316,6 +374,16 @@ func Parse(args []string, opts Options) (Invocation, error) {
 				return inv, usageErr("--permissions and --yolo are one permission request and cannot be repeated or combined")
 			}
 			permissionSeen = true
+		}
+		if flag == HostFlagHosted || flag == HostFlagNative || flag == HostFlagUntracked {
+			if hasEq {
+				return inv, usageErr("%s takes no value", flag)
+			}
+			if inv.HostFlag != "" {
+				return inv, usageErr("--hosted, --native and --untracked share one host request and cannot be repeated or combined")
+			}
+			inv.HostFlag = flag
+			continue
 		}
 		if !valueFlags[flag] {
 			return inv, usageErr("unknown flag %q before --", tok)
@@ -341,6 +409,14 @@ func Parse(args []string, opts Options) (Invocation, error) {
 
 	if !envSet {
 		return inv, usageErr("missing <env-id>")
+	}
+	// An explicit native host flag bypasses ax on any machine, so an
+	// execution profile would be discarded exactly as on an untracked
+	// machine. The check runs after the full line is read, since the host
+	// flag may follow --ax-profile; a --help met during the line still wins
+	// with the informational result above.
+	if inv.AxProfile != AxProfileNone && ExplicitNative(inv.HostFlag) {
+		return inv, usageErr("--ax-profile %s conflicts with %s: explicit native execution bypasses ax, so an execution profile would be discarded", inv.AxProfile, inv.HostFlag)
 	}
 	inv.Native = append([]string{}, args[i:]...)
 	return inv, nil
@@ -369,6 +445,8 @@ func (inv *Invocation) set(flag, value string, opts Options) error {
 		default:
 			return usageErr("--system-prompt accepts append or replace, got %q", value)
 		}
+	case "--resume":
+		inv.ResumeID, inv.ResumeIDSet = value, true
 	case "--name":
 		if !sessionNamePattern.MatchString(value) {
 			return usageErr("--name %q is not a valid ax session name: [A-Za-z0-9][A-Za-z0-9._-]{0,63}", value)

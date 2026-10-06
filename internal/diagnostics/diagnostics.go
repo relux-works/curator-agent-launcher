@@ -40,6 +40,20 @@
 //	network_proxy_auth_failed      refusal.Refusal             network.Prepare, call-site retained (exit 1)
 //	network_profile_invalid        refusal.Refusal             network.Prepare, call-site retained (exit 1)
 //	network_file_unreadable        refusal.Refusal             network.Prepare, call-site retained (exit 1)
+//	host_configuration_conflict    hosted (constant)           run host/ax routing (exit 2)
+//	session_host_missing           hosted (constant)           hosted receiver lookup/spawn (exit 1)
+//	session_host_unavailable       hosted (constant)           hosted status channel (exit 1)
+//	session_host_provider_unsupported hosted (constant)        run provider admission (exit 6)
+//	session_host_protocol_unsupported hosted (constant)        receiver-mapped (exit 6)
+//	session_host_scope_unsupported hosted (constant)           receiver-mapped (exit 6)
+//	session_host_execution_profile_unsupported hosted (constant) receiver-mapped (exit 6)
+//	session_host_terminal_required hosted (constant)           hosted terminal check (exit 6)
+//	session_host_stdin_unsupported hosted (constant)           hosted stdin gate (exit 6)
+//	session_host_default_not_ready hosted (constant)           run defaults gate (exit 16)
+//	session_resume_invalid         hosted (constant)           hosted resume elevation (exit 2)
+//	launch_plan_invalid            hosted (constant)           hosted payload validation (exit 2)
+//	secret_policy_violation        hosted (constant)           receiver-mapped (exit 16)
+//	policy_refused                 hosted (constant)           receiver-mapped (exit 16)
 //
 // Two invariants hold across every family (SPEC §6). First, an absence and
 // a failure to read are different facts: a fallback defined for absence
@@ -78,11 +92,18 @@ import (
 	"github.com/relux-works/curator-agent-launcher/internal/systemprompt"
 )
 
-// Process exit statuses of SPEC §6: usage errors exit 2; every operational
+// Process exit statuses of SPEC §6: usage errors exit 2; hosted protocol
+// refusals exit 6; hosted policy refusals exit 16; every other operational
 // failure exits 1. ExitUsage equals cli.ExitCode by contract (pinned).
 const (
 	ExitUsage       = 2
 	ExitOperational = 1
+	// ExitProtocol is the hosted receiver mapping for protocol-level
+	// refusals (unsupported provider, scope, profile, terminal, or stdin).
+	ExitProtocol = 6
+	// ExitPolicy is the hosted receiver mapping for policy-level refusals
+	// (secret policy, refused policy, network scope, unready default).
+	ExitPolicy = 16
 )
 
 // Stable diagnostic codes of SPEC §6, in table order. Owned literals are
@@ -128,6 +149,24 @@ const (
 	CodeNetworkProxyAuthFailed       = "network_proxy_auth_failed"
 	CodeNetworkProfileInvalid        = "network_profile_invalid"
 	CodeNetworkFileUnreadable        = "network_file_unreadable"
+
+	CodeHostConflict = "host_configuration_conflict"
+
+	CodeSessionHostMissing                     = "session_host_missing"
+	CodeSessionHostUnavailable                 = "session_host_unavailable"
+	CodeSessionHostProviderUnsupported         = "session_host_provider_unsupported"
+	CodeSessionHostProtocolUnsupported         = "session_host_protocol_unsupported"
+	CodeSessionHostScopeUnsupported            = "session_host_scope_unsupported"
+	CodeSessionHostExecutionProfileUnsupported = "session_host_execution_profile_unsupported"
+	CodeSessionHostTerminalRequired            = "session_host_terminal_required"
+	CodeSessionHostStdinUnsupported            = "session_host_stdin_unsupported"
+	CodeSessionHostDefaultNotReady             = "session_host_default_not_ready"
+
+	CodeSessionResumeInvalid = "session_resume_invalid"
+	CodeLaunchPlanInvalid    = "launch_plan_invalid"
+
+	CodeSecretPolicyViolation = "secret_policy_violation"
+	CodePolicyRefused         = "policy_refused"
 )
 
 // Codes returns the closed code set in SPEC §6 table order.
@@ -162,6 +201,20 @@ func Codes() []string {
 		CodeNetworkProxyAuthFailed,
 		CodeNetworkProfileInvalid,
 		CodeNetworkFileUnreadable,
+		CodeHostConflict,
+		CodeSessionHostMissing,
+		CodeSessionHostUnavailable,
+		CodeSessionHostProviderUnsupported,
+		CodeSessionHostProtocolUnsupported,
+		CodeSessionHostScopeUnsupported,
+		CodeSessionHostExecutionProfileUnsupported,
+		CodeSessionHostTerminalRequired,
+		CodeSessionHostStdinUnsupported,
+		CodeSessionHostDefaultNotReady,
+		CodeSessionResumeInvalid,
+		CodeLaunchPlanInvalid,
+		CodeSecretPolicyViolation,
+		CodePolicyRefused,
 	}
 }
 
@@ -179,15 +232,27 @@ var valid = func() map[string]bool {
 // diagnostics.
 func Valid(code string) bool { return valid[code] }
 
-// ExitForCode maps a diagnostic code to its process exit status: usage
-// exits 2, everything else exits 1. An unknown code still exits 1: a bug
-// in code selection stays terminal and visible, never silent success and
-// never a usage report.
+// ExitForCode maps a diagnostic code to its process exit status: usage and
+// the hosted configuration refusals exit 2, hosted protocol refusals exit
+// 6, hosted policy refusals exit 16, and everything else exits 1. An
+// unknown code still exits 1: a bug in code selection stays terminal and
+// visible, never silent success and never a usage report.
 func ExitForCode(code string) int {
-	if code == CodeUsage {
+	switch code {
+	case CodeUsage, CodeHostConflict, CodeSessionResumeInvalid, CodeLaunchPlanInvalid:
 		return ExitUsage
+	case CodeSessionHostProtocolUnsupported, CodeSessionHostProviderUnsupported,
+		CodeSessionHostScopeUnsupported, CodeSessionHostExecutionProfileUnsupported,
+		CodeSessionHostTerminalRequired, CodeSessionHostStdinUnsupported:
+		return ExitProtocol
+	case CodeSecretPolicyViolation, CodePolicyRefused, CodeSessionHostDefaultNotReady:
+		// network_scope_unsupported is deliberately absent: the native
+		// --network path (SPEC §4.4b) exits 1 and only the hosted refusal
+		// exits ExitPolicy, which the hosted call site returns explicitly.
+		return ExitPolicy
+	default:
+		return ExitOperational
 	}
-	return ExitOperational
 }
 
 // resolveFamily, layerFamily, and refusalFamily are the closed code sets

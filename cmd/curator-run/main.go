@@ -21,6 +21,7 @@ import (
 	"github.com/relux-works/curator-agent-launcher/internal/diagnostics"
 	"github.com/relux-works/curator-agent-launcher/internal/execution"
 	"github.com/relux-works/curator-agent-launcher/internal/fragment"
+	"github.com/relux-works/curator-agent-launcher/internal/hosted"
 	"github.com/relux-works/curator-agent-launcher/internal/mapping"
 	"github.com/relux-works/curator-agent-launcher/internal/network"
 	"github.com/relux-works/curator-agent-launcher/internal/plan"
@@ -113,6 +114,20 @@ type launchDeps struct {
 	resolver    fragmentResolver
 	defaults    defaults.Paths
 	registry    *vendorplugin.Registry
+	// systems is the agentic system registry for hosted resume elevation.
+	// Nil selects agentic.Default, populated by the plan package's plugin
+	// imports; tests inject an explicit registry.
+	systems *agentic.Registry
+	// receiverLookup resolves the hosted receiver binary; receiverTerminal
+	// opens the controlling terminal for fd3. Nil selects the hosted
+	// production defaults. Native launches never call either: the
+	// zero-probe tests fail on any call.
+	receiverLookup   func() (string, error)
+	receiverTerminal func() (*os.File, error)
+	// stdinTerminal reports whether the launcher stdin is a terminal.
+	// Nil checks deps.stdin. Hosted launches refuse a non-terminal stdin:
+	// piped operator bytes have no forwarding path to the managed child.
+	stdinTerminal func() bool
 }
 
 // run is the production entry point. Configuration precedes argument validation;
@@ -213,12 +228,16 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, deps laun
 		var resolved defaults.Resolved
 		resolved, err = files.Complete(frag.Environment, flags, deps.registry)
 		if err == nil {
-			provider := defaults.ResolveProviderPath()
-			if deps.providerPath != nil {
-				provider = deps.providerPath()
+			var host defaults.ResolvedHost
+			host, err = files.ResolveHost(frag.Environment, inv.HostFlag)
+			if err == nil {
+				provider := defaults.ResolveProviderPath()
+				if deps.providerPath != nil {
+					provider = deps.providerPath()
+				}
+				_ = defaults.EmitGroupWithProvider(stderr, resolved, provider)
+				return launch(ctx, inv, frag, target, resolved, host, files, stdout, stderr, deps)
 			}
-			_ = defaults.EmitGroupWithProvider(stderr, resolved, provider)
-			return launch(ctx, inv, frag, target, resolved, files, stdout, stderr, deps)
 		}
 	}
 	if derr := (&defaults.Error{}); errors.As(err, &derr) {
@@ -259,15 +278,135 @@ func processAvailability() (plan.AvailabilityFunc, error) {
 	return store.AvailabilityFor, nil
 }
 
-func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, target mapping.Target, resolved defaults.Resolved, files defaults.Files, stdout, stderr io.Writer, deps launchDeps) int {
+func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, target mapping.Target, resolved defaults.Resolved, host defaults.ResolvedHost, files defaults.Files, stdout, stderr io.Writer, deps launchDeps) int {
+	// SPEC §4.8 order: host resolution is done; the legacy ax table, the
+	// defaults gate, and the network gate run before permissions and the
+	// plan build, and every refusal precedes any receiver contact.
+	isHosted := host.Host == defaults.HostHosted
+	if inv.Tracked {
+		if isHosted {
+			return emitFailure(stderr, diagnostics.CodeHostConflict, errors.New("host_configuration_conflict: hosted execution conflicts with the enabled ax integration on this machine"))
+		}
+		if cli.ExplicitNative(inv.HostFlag) {
+			// An explicit native request bypasses ax: the existing
+			// untracked native path. A configured native default keeps
+			// the existing ax behavior.
+			inv.Tracked = false
+		}
+	}
+	// Operator decision Q-D1a (2026-10-05) = yes: an operator-scope
+	// hosted default is the operator's own opt-in and passes the gate.
+	// Machine defaults and locks stay gated until upgrade-without-hangup
+	// (Decision 0021 section 7 amendment pending). Explicit --hosted
+	// always passes.
+	if isHosted && host.Origin == defaults.OriginHostMachine {
+		return emitFailure(stderr, diagnostics.CodeSessionHostDefaultNotReady, fmt.Errorf("session_host_default_not_ready: the machine hosted default for %s is not ready until upgrade-without-hangup; use explicit --hosted or an operator default", frag.Environment))
+	}
+	if !isHosted && (inv.ResumeRequested || inv.ResumeIDSet) {
+		_ = diagnostics.Emit(stderr, diagnostics.CodeUsage, "resume selectors require hosted execution; use --hosted or a hosted default")
+		fmt.Fprintf(stderr, "\n%s", cli.Usage)
+		return diagnostics.ExitForCode(diagnostics.CodeUsage)
+	}
+	if isHosted && inv.NetworkSet {
+		// Hosted execution supports no managed network scope: the
+		// receiver cannot enforce a source-side profile. The native
+		// --network path (SPEC §4.4b) is untouched; only this refusal
+		// maps to the hosted policy exit.
+		_ = diagnostics.Emit(stderr, diagnostics.CodeNetworkScopeUnsupported, "managed network selections are not supported by hosted execution")
+		return diagnostics.ExitPolicy
+	}
+	if isHosted {
+		// Hosted runs tracked, but operator decision Q-D3 (2026-10-05)
+		// exempts the hosted path from tracked permission semantics:
+		// the configured ladder applies, silence defaults like native,
+		// and yolo is admitted. resolvePermission carries the
+		// exemption; nothing else in the hosted path reads Tracked.
+		inv.Tracked = true
+	}
 	wd, err := deps.workdir()
 	if err != nil {
 		return emitFailure(stderr, diagnostics.CodePlanRefused, err)
 	}
 	parentEnv := deps.environ()
-	decision, toolRelease, system, err := resolvePermission(ctx, inv, frag, target, files, parentEnv, stderr, deps)
+	decision, toolRelease, system, err := resolvePermission(ctx, inv, frag, target, files, parentEnv, stderr, deps, isHosted)
 	if err != nil {
 		return emitPermissionFailure(stderr, err)
+	}
+	if isHosted && frag.Environment != fragment.EnvClaudeCode {
+		return emitFailure(stderr, diagnostics.CodeSessionHostProviderUnsupported, fmt.Errorf("session_host_provider_unsupported: hosted execution in Phase 1 admits claude_code only; %s is not admitted", frag.Environment))
+	}
+	// The native tail for the plan build. Hosted elevation runs the module
+	// typed-intent API over the wrapper selectors and the verbatim tail and
+	// detaches elevated selectors; native mode never interprets the tail.
+	tail := inv.Native
+	intent := agentic.ResumeIntent{Kind: agentic.ResumeNew}
+	if isHosted {
+		systems := deps.systems
+		if systems == nil {
+			systems = agentic.Default
+		}
+		wrapper, err := hosted.WrapperArgs(inv.ResumeRequested, inv.ResumeHandle, inv.ResumeHandleSet, inv.ResumeID, inv.ResumeIDSet)
+		if err != nil {
+			return emitFailure(stderr, diagnostics.CodeSessionResumeInvalid, err)
+		}
+		elevation, err := hosted.ElevateResume(systems, target.System, wrapper, inv.Native)
+		if err != nil {
+			return emitFailure(stderr, diagnostics.CodeSessionResumeInvalid, err)
+		}
+		tail, intent = elevation.NativeArgs, elevation.Intent
+	}
+	// The piped-launcher-stdin property is known before composition, so
+	// it refuses here, after every higher-priority refusal (host, ax,
+	// defaults gate, network, permission, provider, resume) and before
+	// the plan build or any receiver contact. The attached-plan-stdin
+	// property below is only knowable from the built plan, so that gate
+	// necessarily stays after the build.
+	if isHosted {
+		terminal := deps.stdinTerminal
+		if terminal == nil {
+			stdin := deps.stdin
+			if stdin == nil {
+				stdin = os.Stdin
+			}
+			terminal = func() bool { return execution.StdinIsTerminal(stdin) }
+		}
+		if !terminal() {
+			return emitFailure(stderr, diagnostics.CodeSessionHostStdinUnsupported, errors.New("session_host_stdin_unsupported: hosted launches in Phase 1 do not support piped stdin"))
+		}
+	}
+	// The controlling-terminal property is known before composition
+	// (opening the terminal either succeeds or fails), so it refuses
+	// here, after every higher-priority refusal and before the plan
+	// build, composition, export, and receiver lookup. The opened
+	// descriptor is reused by the transport; it is never opened twice.
+	var preopenedTTY *os.File
+	if isHosted {
+		openTerminal := deps.receiverTerminal
+		if openTerminal == nil {
+			openTerminal = hosted.OpenTerminal
+		}
+		tty, err := openTerminal()
+		if err != nil || tty == nil {
+			if tty != nil {
+				tty.Close()
+			}
+			return emitFailure(stderr, diagnostics.CodeSessionHostTerminalRequired, errors.New("session_host_terminal_required: a hosted launch requires a controlling terminal"))
+		}
+		// r6 §4, before the build: the launcher's close-on-exec mark
+		// plus type/access/ownership validation. A wrong descriptor
+		// refuses here with zero builds and zero lookup, like a
+		// missing terminal; the transport re-validates before contact.
+		hosted.MarkCloseOnExec(tty)
+		if err := hosted.ValidateTerminal(tty); err != nil {
+			tty.Close()
+			return emitFailure(stderr, diagnostics.CodeSessionHostTerminalRequired, errors.New("session_host_terminal_required: a hosted launch requires a controlling terminal"))
+		}
+		preopenedTTY = tty
+		defer func() {
+			if preopenedTTY != nil {
+				preopenedTTY.Close()
+			}
+		}()
 	}
 	availability, err := deps.availability()
 	if err != nil {
@@ -285,7 +424,7 @@ func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, ta
 	launchContext := plan.Context(frag, fragment.Semantics(inv.SystemPrompt))
 	admitted, err := plan.Build(ctx, plan.Deps{Registry: deps.registry, BuildLaunch: build, Availability: availability}, plan.Request{
 		Runtime: resolved.Runtime, Model: resolved.Model.Value, Effort: resolved.Effort.Value,
-		PermissionMode: decision.Mode, ToolRelease: toolRelease, NativeArgs: inv.Native,
+		PermissionMode: decision.Mode, ToolRelease: toolRelease, NativeArgs: tail,
 		Home: frag.Home(), WorkDir: wd, Env: parentEnv, Context: launchContext,
 	})
 	if err != nil {
@@ -300,10 +439,26 @@ func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, ta
 		}
 		var conflict *agentic.ContextDescriptorConflictError
 		if errors.As(err, &conflict) {
-			return emitFailure(stderr, diagnostics.CodePlanRefused, fmt.Errorf("native arguments %q conflict with fragment channel %s: %w", inv.Native, conflict.Channel, err))
+			if isHosted {
+				// Hosted diagnostics never copy native argument
+				// values: the channel and the module's fixed
+				// reason identify the conflict. The launcher
+				// cannot name the finer flag without parsing
+				// provider options, which the contract forbids.
+				// Native keeps the legacy shape below.
+				return emitFailure(stderr, diagnostics.CodePlanRefused, fmt.Errorf("native arguments conflict with fragment channel %s: %s", conflict.Channel, conflict.Reason))
+			}
+			return emitFailure(stderr, diagnostics.CodePlanRefused, fmt.Errorf("native arguments %q conflict with fragment channel %s: %w", tail, conflict.Channel, err))
 		}
 		if code == diagnostics.CodeUsage {
-			_ = diagnostics.Emit(stderr, code, err.Error())
+			detail := err.Error()
+			if isHosted && errors.Is(err, agentic.ErrNativePolicyUnknown) {
+				// The unknown-mode text echoes the operator's
+				// mode value; the hosted boundary reports the
+				// fixed sentinel instead of the value.
+				detail = agentic.ErrNativePolicyUnknown.Error()
+			}
+			_ = diagnostics.Emit(stderr, code, detail)
 			fmt.Fprintf(stderr, "\n%s", cli.Usage)
 			return diagnostics.ExitForCode(code)
 		}
@@ -312,9 +467,13 @@ func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, ta
 		fmt.Fprintln(stderr, err.Error())
 		return diagnostics.ExitForCode(code)
 	}
-	var nativePolicy *execution.EffectiveNativePolicy
-	if decision.Mode == agentic.PermissionModeNative {
-		nativePolicy = execution.ReportEffectiveNativePolicy(stderr, agentic.InspectStoredPolicy(system, admitted.Plan), inv.Tracked)
+	// Phase 1 carries terminal stdin only: an attached plan stdin
+	// refuses here. It is knowable only from the built plan, so this
+	// gate necessarily follows the build; the known piped-launcher-stdin
+	// gate above precedes it. Neither has a forwarding path to the
+	// managed child.
+	if isHosted && admitted.Plan.Stdin.Attached {
+		return emitFailure(stderr, diagnostics.CodeSessionHostStdinUnsupported, errors.New("session_host_stdin_unsupported: hosted launches in Phase 1 do not support attached stdin"))
 	}
 	// SPEC §4.4b: resolve and validate the explicit network selection
 	// after admission and before composition, reading the catalog with
@@ -358,7 +517,8 @@ func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, ta
 	if err != nil {
 		return emitNetworkFailure(stderr, err)
 	}
-	value, err := composition.ComposeAdmittedPlanWithNetwork(admitted.Plan, admitted.OwnedEnv, *frag, prompt, inv.Native, preparedNet.Patch)
+	inspection := agentic.InspectStoredPolicy(system, admitted.Plan)
+	value, err := composition.ComposeAdmittedPlanWithNetwork(admitted.Plan, admitted.OwnedEnv, *frag, prompt, tail, preparedNet.Patch)
 	if err != nil {
 		return emitNetworkFailure(stderr, err)
 	}
@@ -371,11 +531,7 @@ func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, ta
 	if deps.now != nil {
 		now = deps.now
 	}
-	prepared, err := execution.PrepareWithNativePolicy(value, *frag, inv, target, now(), nativePolicy)
-	if err != nil {
-		return emitFailure(stderr, diagnostics.CodeAxHandoffFailed, err)
-	}
-	return prepared.Run(execution.Options{AxBinary: deps.axBinary, IO: execution.IO{Stdin: deps.stdin, Stdout: stdout, Stderr: stderr}, Boundary: func() error {
+	boundary := func() error {
 		prompt, err := systemprompt.PrepareLaunch(frag, fragment.Semantics(inv.SystemPrompt))
 		if err != nil {
 			return err
@@ -384,10 +540,107 @@ func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, ta
 			fmt.Fprintln(stderr, name+": "+warning)
 		}
 		return nil
-	}})
+	}
+	if isHosted {
+		tty := preopenedTTY
+		preopenedTTY = nil
+		return runHosted(inv, frag, target, value, intent, inspection, admitted.Plan, decision, parentEnv, now(), stdout, stderr, deps, boundary, tty)
+	}
+	return runNative(inv, frag, target, value, decision, inspection, stdout, stderr, deps, boundary, now())
 }
 
-func resolvePermission(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, target mapping.Target, files defaults.Files, parentEnv []string, stderr io.Writer, deps launchDeps) (execution.PermissionDecision, string, agentic.System, error) {
+// runNative is the existing native tail: report, prepare, and run the
+// composed value directly or through ax. It performs zero receiver contact;
+// hosted failures never reach it, which the fallback mutant guards.
+func runNative(inv cli.Invocation, frag *fragment.Fragment, target mapping.Target, value composition.Value, decision execution.PermissionDecision, inspection agentic.StoredPolicyInspection, stdout, stderr io.Writer, deps launchDeps, boundary func() error, at time.Time) int {
+	var nativePolicy *execution.EffectiveNativePolicy
+	if decision.Mode == agentic.PermissionModeNative {
+		nativePolicy = execution.ReportEffectiveNativePolicy(stderr, inspection, inv.Tracked)
+	}
+	prepared, err := execution.PrepareWithNativePolicy(value, *frag, inv, target, at, nativePolicy)
+	if err != nil {
+		return emitFailure(stderr, diagnostics.CodeAxHandoffFailed, err)
+	}
+	return prepared.Run(execution.Options{AxBinary: deps.axBinary, IO: execution.IO{Stdin: deps.stdin, Stdout: stdout, Stderr: stderr}, Boundary: boundary})
+}
+
+// runHosted serializes the once-composed plan into the versioned payload and
+// hands it to the receiver. It performs the only receiver contact in the
+// launcher; native execution never reaches it. There is no fallback: a
+// missing receiver refuses session_host_missing, never native execution.
+// preopenedTTY is the terminal the entry point opened before the build;
+// runHosted owns it and hands it to the transport, closing it on any
+// earlier return.
+func runHosted(inv cli.Invocation, frag *fragment.Fragment, target mapping.Target, value composition.Value, intent agentic.ResumeIntent, inspection agentic.StoredPolicyInspection, base agentic.Plan, decision execution.PermissionDecision, parentEnv []string, at time.Time, stdout, stderr io.Writer, deps launchDeps, boundary func() error, preopenedTTY *os.File) int {
+	pendingTTY := preopenedTTY
+	defer func() {
+		if pendingTTY != nil {
+			pendingTTY.Close()
+		}
+	}()
+	for _, warning := range value.Warnings {
+		fmt.Fprintln(stderr, name+": "+warning)
+	}
+	if err := boundary(); err != nil {
+		code, detail, ok := strings.Cut(err.Error(), ": ")
+		if !ok || !diagnostics.Valid(code) {
+			code, detail = diagnostics.CodePlanRefused, err.Error()
+		}
+		_ = diagnostics.Emit(stderr, code, detail)
+		return diagnostics.ExitForCode(code)
+	}
+	seal, err := base.ExportSeal()
+	if err != nil {
+		_ = diagnostics.Emit(stderr, diagnostics.CodeLaunchPlanInvalid, "process.exec_guard: plan exports no hosted-admissible guard")
+		fmt.Fprintln(stderr, err.Error())
+		return diagnostics.ExitForCode(diagnostics.CodeLaunchPlanInvalid)
+	}
+	systems := deps.systems
+	if systems == nil {
+		systems = agentic.Default
+	}
+	restart, err := hosted.ExportRestart(systems, target.System, value.Argv)
+	if err != nil {
+		var planErr *hosted.PlanError
+		if errors.As(err, &planErr) {
+			return emitFailure(stderr, planErr.Code, planErr)
+		}
+		return emitFailure(stderr, diagnostics.CodeLaunchPlanInvalid, err)
+	}
+	hostName := inv.Name
+	if !inv.NameSet {
+		hostName = inv.EnvID + "-" + at.UTC().Format("20060102T150405Z")
+	}
+	// The native session name and RC intent come from Plan.Session of the
+	// SAME admitted plan the value was composed from, filled by the
+	// module while it built the argv; the launcher parses no provider
+	// flags. The indices describe the plan argv, so a composed argv that
+	// differs from it refuses instead of being re-indexed.
+	session, err := hosted.SessionFromPlan(base.Session, base.Argv, value.Argv)
+	if err != nil {
+		var planErr *hosted.PlanError
+		if errors.As(err, &planErr) {
+			return emitFailure(stderr, planErr.Code, planErr)
+		}
+		return emitFailure(stderr, diagnostics.CodeLaunchPlanInvalid, err)
+	}
+	wire, err := hosted.BuildPayload(hosted.PayloadInputs{
+		EnvID: frag.Environment, Value: value, Fragment: *frag, CallerEnv: parentEnv,
+		PermissionMode: decision.Mode, PermissionSource: decision.Source,
+		HostName: hostName, Resume: intent, Restart: restart, Seal: seal, Inspection: inspection, Session: session,
+	})
+	if err != nil {
+		var planErr *hosted.PlanError
+		if errors.As(err, &planErr) {
+			return emitFailure(stderr, planErr.Code, planErr)
+		}
+		return emitFailure(stderr, diagnostics.CodePlanRefused, err)
+	}
+	pendingTTY = nil
+	return hosted.Transport{Lookup: deps.receiverLookup, Terminal: deps.receiverTerminal, PreopenedTerminal: preopenedTTY}.Run(wire, stdout, stderr)
+}
+
+func resolvePermission(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, target mapping.Target, files defaults.Files, parentEnv []string, stderr io.Writer, deps launchDeps, hosted bool) (execution.PermissionDecision, string, agentic.System, error) {
 	global, err := files.PermissionDefault(inv.EnvID)
 	if err != nil {
 		return execution.PermissionDecision{}, "", nil, err
@@ -397,31 +650,22 @@ func resolvePermission(ctx context.Context, inv cli.Invocation, frag *fragment.F
 		return execution.PermissionDecision{}, "", nil, fmt.Errorf("%s: permission system %q is not registered", diagnostics.CodePlanRefused, target.System)
 	}
 
-	profileSet := frag.Permissions != nil && frag.Permissions.Source == "profile"
-	locked := frag.Permissions != nil && frag.Permissions.Locked
-	needsDefault := !inv.PermissionSet && !profileSet && !global.Present && !locked
 	terminal := execution.InteractiveStdio(os.Stdin, os.Stdout)
 	if deps.isTerminal != nil {
 		terminal = deps.isTerminal()
 	}
-	headless := inv.Tracked || execution.HasNonInteractiveMarker(parentEnv) || !terminal
+	// Q-D3 (2026-10-05), literal: the headless signal is observed but
+	// never consulted by the permission default; ResolvePermission
+	// selects yolo for silence on every stdio shape. The native-argument
+	// non-interactive classification served only that default, so it is
+	// gone: the tool release probes once below for the mapping check.
+	headless := (inv.Tracked && !hosted) || execution.HasNonInteractiveMarker(parentEnv) || !terminal
 
 	toolRelease := ""
 	var probeErr error
-	if needsDefault && !headless {
-		toolRelease, probeErr = agentic.ProbeToolRelease(ctx, system, parentEnv)
-		if probeErr != nil {
-			return execution.PermissionDecision{}, "", nil, fmt.Errorf("%s: cannot classify native arguments without a verified tool release: %w", diagnostics.CodePlanRefused, probeErr)
-		}
-		classification, classifyErr := agentic.Default.ClassifyNonInteractiveArgs(agentic.SystemID(target.System), toolRelease, inv.Native)
-		if classifyErr != nil {
-			return execution.PermissionDecision{}, "", nil, fmt.Errorf("%s: cannot classify native arguments: %w", diagnostics.CodePlanRefused, classifyErr)
-		}
-		headless = classification.IsNonInteractive()
-	}
 	decision, err := execution.ResolvePermission(execution.PermissionRequest{
 		Flag: inv.PermissionMode, FlagPresent: inv.PermissionSet, Profile: frag.Permissions,
-		Global: global, Headless: headless, Tracked: inv.Tracked,
+		Global: global, Headless: headless, Tracked: inv.Tracked, Hosted: hosted,
 		Transport: frag.Revision == fragment.IdentityV2 || frag.Revision == fragment.IdentityV3,
 	})
 	if err != nil {

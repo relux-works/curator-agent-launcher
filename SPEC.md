@@ -136,7 +136,9 @@ no origin suffix in this revision.
 ## 3. CLI surface
 
 ```text
-curator-run <env-id> [--profile <name>] [--system-prompt <append|replace>]
+curator-run <env-id> [--hosted | --native | --untracked]
+            [resume [SES-HANDLE]] [--resume <id>]
+            [--profile <name>] [--system-prompt <append|replace>]
             [--model <model>] [--effort <effort>]
             [--permissions <native|yolo> | --yolo]
             [--name <session-name>] [--ax-profile <standard|yolo>]
@@ -160,6 +162,8 @@ change, not a flag addition.
 | `--permissions <native\|yolo>` | spawn | Permission mode resolved by §4.3. The launcher passes the selected mode to `LaunchRequest.PermissionMode` for `LaunchModeInteractive`; agents-management owns the mapping. |
 | `--yolo` | spawn | Exact alias of `--permissions yolo`, shipped in the same increment and occupying the same precedence level. Supplying both forms is a repeated permission request and a `usage` error. |
 | `-d`, `--danger` | — | Rejected before `--` as `usage`; neither spelling is an alias. After `--`, arguments remain opaque native arguments under the normal boundary rule. |
+| `--hosted`, `--native`, `--untracked` | session | The one host request slot (§4.8). `--hosted` runs on the managed session host; `--native` and its exact synonym `--untracked` run natively. A repeat or a combination is a `usage` error; permissions stay independent of the spelling. |
+| `resume [SES-HANDLE]`, `--resume <id>` | session | Hosted-only resume selectors (§4.8). `resume` selects the latest session, `resume SES-HANDLE` a handle, `--resume <id>` a provider identity. Handle and identity shape belong to the spawn plane's typed-intent grammar; in native mode any selector is a `usage` error. |
 | `--name <session-name>` | session | Tracked mode only (§4.6): the `ax` session name, replacing the default `<env-id>-<utc-stamp>`. MUST satisfy the `ax` §2.1 grammar `[A-Za-z0-9][A-Za-z0-9._-]{0,63}`; a longer or ill-formed value is a `usage` error naming `--name`, never a silent truncation. On an untracked machine the flag is accepted and has no effect. |
 | `--ax-profile <standard\|yolo>` | session | Tracked mode only (§4.6): the `ax` execution profile, forwarded as `ax start --profile <value>`. Absent, no `--profile` is passed and `ax`'s own default applies. This flag is the **only** way `--profile yolo` reaches `ax` from a launcher-mediated launch (Decision 0013 D6.4); the launcher never derives it from the fragment, the plan, or the native arguments. On an untracked machine the flag is a `usage` error: an execution profile is `ax`'s concept, and a value that would be silently discarded is a value the operator was misled about. |
 | `--network <profile>` | network | Explicit network-profile selection (§4.4b): a profile identifier resolved after plan admission against the operator catalog. Stored verbatim at parse; resolution and validation belong to §4.4b. On a tracked machine the selection is admitted at parse and refused as `network_scope_unsupported` in §4.4b: the source host cannot validate a destination. |
@@ -171,7 +175,8 @@ Parsing rules, closed:
 - Launcher flags are recognized only before `--`. After `--`, nothing is
   interpreted — not `--help`, not a flag that happens to collide with a
   launcher flag.
-- The first non-flag operand before `--` is `<env-id>`. Any further
+- The first non-flag operand before `--` is `<env-id>`. After it, at most
+  the `resume` selector and its optional handle follow; any other
   non-flag operand before `--` is a usage error: native arguments MUST
   follow `--`, so that the boundary between the launcher's surface and
   the tool's is visible in the command line itself. The operand
@@ -184,7 +189,10 @@ Parsing rules, closed:
 - Every value-taking flag takes exactly one value; a repeated flag is a
   usage error, not last-wins. `--permissions` accepts only `native` or
   `yolo`; `--yolo` is the no-value exact alias of `--permissions yolo`,
-  and the two forms cannot be combined or repeated. `-d` and `--danger`
+  and the two forms cannot be combined or repeated. `--hosted`,
+  `--native`, and `--untracked` likewise share one host request slot and
+  take no value: a repeat or a combination is a `usage` error.
+  `-d` and `--danger`
   are unrecognized launcher flags before `--` and therefore produce
   `usage`; after `--`, the launcher does not interpret any native argument.
   `--system-prompt` and `--ax-profile` accept only their closed
@@ -193,6 +201,9 @@ Parsing rules, closed:
   non-empty value at parse — a repeated or missing value is a usage
   error like every other value flag — and profile validation belongs
   to §4.4b.
+  `--ax-profile` is also a
+  `usage` error with an explicit `--native` or `--untracked` flag, which
+  bypasses `ax` and would discard the profile.
 - Usage errors exit 2 and print usage; they launch nothing and resolve
   nothing.
 
@@ -209,7 +220,10 @@ before the network step because only an admitted launch may probe, and
 composition comes last because it appends to values it never rebuilds
 (§4.5). `curator-run` is the single composer in both modes (Decision
 0013 D1): a tracked and an untracked launch differ only in who creates
-the process.
+the process. Host selection (§4.8) runs after configuration validation
+and routes the launch to native execution or to the hosted payload
+handoff (§4.9); it changes no step's contract, only which handoff the
+composed value reaches.
 
 ### 4.1 Obtain the fragment (context plane)
 
@@ -418,30 +432,34 @@ with no configured effort takes the lineup's effort for that model.
 
    ```json
    {
-     "schema": "curator-run-defaults-v2",
+     "schema": "curator-run-defaults-v3",
      "locked": false,
      "defaults": {
-       "claude_code": { "model": "claude-opus-5", "effort": "high" },
+       "claude_code": { "model": "claude-opus-5", "effort": "high", "host": "native" },
        "codex_cli":   { "model": "gpt-5.3-codex", "permissions": "yolo" }
      }
    }
    ```
 
    `defaults` keys are env-ids of the §4.2 table (an unknown key is
-   `defaults_config_invalid`); each value is an object of at most three
-   members: `model`, `effort`, and `permissions`. The first two are
-   strings passed through unvalidated to admission; `permissions`, when
-   present, is exactly `native` or `yolo` and supplies the launcher-global
-   mode level. At least one member must be present.
+   `defaults_config_invalid`); each value is an object of at most four
+   members: `model`, `effort`, `permissions`, and `host`. The first two
+   are strings passed through unvalidated to admission; `permissions`,
+   when present, is exactly `native` or `yolo` and supplies the
+   launcher-global mode level; `host`, when present, is exactly `native`
+   or `hosted` and supplies the §4.8 default. At least one member must be
+   present. A v3 reader accepts v1 and v2 files unchanged; a v1 file
+   carrying `permissions`, or a v1 or v2 file carrying `host`, refuses
+   under its closed schema.
    **Lockable:** when the machine file carries `"locked": true`, the
    operator file is ignored for every env-id the machine file names, and
    a flag for a member the machine entry sets is a `usage` error naming
    the locked member, even if the requested value matches. Otherwise the
    operator file overrides the machine file per member: an operator entry
    that sets only `model` leaves a machine `effort` for the same env-id in
-   force, and permission mode follows the same per-member merge. A v2
-   reader accepts a v1 file with no `permissions` member; a v1 reader
-   rejects that new member under its closed schema. A missing file is a
+   force, and permission mode follows the same per-member merge. The host
+   member resolves separately under §4.8 and never joins the model/effort
+   pair. A missing file is a
    legitimate absence; a read or parse failure is `defaults_config_invalid`
    and the next level MUST NOT be used. The file and its sibling `ax.json`
    (§4.6) are the **launcher's configuration file family**, delimited
@@ -478,10 +496,19 @@ resolved mode follows this precedence, with the force-native lock of
    when `source=profile`;
 3. the launcher-global `defaults.json` `permissions` member for the
    env-id, after the operator-over-machine merge;
-4. the built-in interactive default, `yolo` with
-   `source=default-interactive`, for interactive untracked silence;
-5. the built-in headless default, `native` with
-   `source=default-headless`, for headless, CI, or tracked silence.
+4. the built-in default, `yolo` with
+   `source=default-interactive`, for untracked silence on every stdio
+   shape. Operator decision Q-D3 (2026-10-05), literal: headless
+   detection (terminal, CI markers, native-argument form) never
+   changes the permission default, for native and hosted launches
+   alike;
+5. the built-in tracked-silence default, `native` with
+   `source=default-headless`, for tracked native silence only. This
+   term is not headless detection: tracked native launches cannot use
+   `yolo` at all, so the default cannot be `yolo` there without
+   refusing every unconfigured tracked launch. Hosted launches are
+   exempt from tracked permission semantics, so hosted silence is
+   `yolo`.
 
 The fragment's `source=global` means Curator's force-native lock and
 carries `mode=native`; it is not the launcher-global file level. In the
@@ -504,9 +531,11 @@ curator-run: permissions=<native|yolo> source=<flag|profile|global|default-inter
 ```
 
 The `mapped` value is supplied by agents-management; this SPEC names no
-provider flag. The headless argument-shape check selects only the built-in
-default; it does not modify native arguments or claim that they are safe. See
-§4.6 for the closed headless marker set, the lock rule, and tracked refusals.
+provider flag. Headless detection (terminal, CI markers) is observed but
+never consulted by the built-in default since Q-D3; native-argument
+non-interactive classification is gone entirely. Detection modifies no
+native arguments and claims nothing about their safety. See §4.6 for
+the closed headless marker set, the lock rule, and tracked refusals.
 
 The §4.3 stderr line-group prints at **every** launch, before the plan
 request, in this order — so an operator always sees which binary is
@@ -982,17 +1011,21 @@ failure is the one reported, so that `ax` is never asked to record a
 session the launcher already knows is wrong.
 
 **Permission headless detector and refusal rules (Decision 0018).** A
-launch is headless when stdin or stdout is not a TTY, when
-`permission-grammar-v1` recognizes a non-interactive native-argument
-form, when a non-interactive marker from the closed set
+launch is headless when stdin or stdout is not a TTY, when a
+non-interactive marker from the closed set
 {`CI`, `GITHUB_ACTIONS`} is present, or whenever tracking is enabled.
 This marker set is versioned here in SPEC `0.5.0-draft` §4.6 and mirrored
 in environments §10.1; additions require a later paired specification
-revision and the list changes only in that revision.
+revision and the list changes only in that revision. Since operator
+decision Q-D3 (2026-10-05) the signal is observed but never consulted
+by the permission default; the former native-argument
+non-interactive classification is removed.
 
-Interactive untracked silence resolves to `yolo` with
-`source=default-interactive`. Headless, CI, or tracked silence resolves
-to `native` with `source=default-headless`; explicit flag, profile, or
+Untracked silence resolves to `yolo` with
+`source=default-interactive` on every stdio shape (operator decision
+Q-D3, 2026-10-05, literal: headless signals never change the
+default); tracked native silence resolves to `native` with
+`source=default-headless` (§4.3 item 5). Explicit flag, profile, or
 launcher-global values still participate in §4.3 precedence. The
 force-native lock is above that whole ladder: if the v2 fragment says
 `permissions.locked=true`, any launcher-visible `yolo` from a flag or
@@ -1000,14 +1033,20 @@ launcher-global setting is a `usage` error; silence resolves to `native`.
 The fragment's closed lattice makes a profile-level `yolo` with this lock
 invalid.
 
-With established v2 permission transport, a tracked launch whose
+With established v2 permission transport, a tracked native launch whose
 effective mode is `yolo` from any precedence level fails with
 `permission_mode_tracked_unsupported` and exit 1. It never retries as an
-untracked launch. If permission transport is not established, any launch
+untracked launch. Hosted launches are exempt from tracked permission
+semantics (operator decision Q-D3, 2026-10-05; Decisions 0018/0013
+amendments pending): the §4.3 ladder applies, silence defaults as on
+the native path, and `yolo` is admitted and exported (see §4.8, §4.9).
+If permission transport is not established, any launch
 that would resolve `yolo` fails with `permission_policy_unsupported`
-instead; native launches, including legacy-fragment headless or tracked
-silence, proceed as native. A `yolo` mode for an environment with no
-declared mapping fails with `permission_mode_unsupported` and exit 1.
+instead; tracked native silence still proceeds as native, while
+untracked silence on a legacy fragment without transport now refuses
+(the unconfigured default is `yolo` everywhere). A `yolo` mode for an
+environment with no declared mapping fails with
+`permission_mode_unsupported` and exit 1.
 
 When a native request's best-effort inspection finds known stored
 settings that relax native posture, emit this exact stderr line:
@@ -1031,7 +1070,7 @@ machine), each with its own closed schema:
 
 | File | Owns | Precedence |
 |---|---|---|
-| `defaults.json` (`curator-run-defaults-v2`, §4.3) | model and effort defaults plus the launcher-global permission default per env-id; the `locked` rule | operator over machine per member, unless the machine file is locked |
+| `defaults.json` (`curator-run-defaults-v3`, §4.3) | model and effort defaults, the launcher-global permission default, and the host default per env-id; the `locked` rule | operator over machine per member, unless the machine file is locked |
 | `ax.json` (`curator-run-ax-v1`, §4.6) | whether the `ax` integration is configured | machine over operator; `enabled: false` is not configured |
 
 Before either file is parsed or used, the reader MUST open it without
@@ -1072,6 +1111,176 @@ own files. The one open item is
 recorded in §9: should Curator's machine configuration ever grow a
 launcher section, both files move there by specification revision and
 their schemas stay.
+
+### 4.8 Host selection
+
+After normalization and configuration validation, and before permissions
+and the plan build, the launcher resolves the host: native execution, or
+the managed session host of §4.9. The host flag (§3) is the explicit
+level; the v3 `host` member (§4.3) is the configured level. Precedence,
+closed, first match wins:
+
+| First match | Result |
+|---|---|
+| Machine locked and names the environment | Ignore the entire operator entry; a flag with a machine host present refuses `usage`, even when equal; otherwise flag, then machine host, then native |
+| Flag present | Flag |
+| Operator host present | Operator |
+| Machine host present | Machine |
+| Otherwise | Native |
+
+The machine lock keeps its §4.3 named-environment scope. No flag and no
+configured default means native with zero receiver lookup and zero daemon
+probe, including through legacy `ax` routing. There is no silent
+fallback in either direction: a hosted launch that cannot reach its
+receiver refuses, and a native launch never contacts one.
+
+The legacy `ax` table applies next, before the defaults gate:
+
+| Effective `ax.json` | Host selection | Routing |
+|---|---|---|
+| Absent or disabled | Any | The host table above |
+| Enabled | Implicit native (absent flag and default) | Existing `ax` behavior |
+| Enabled | Configured native | Existing `ax` behavior; a native default does not imply explicit bypass |
+| Enabled | Explicit `--native` or `--untracked` | The existing untracked native path; `--ax-profile` would be discarded and is a `usage` error |
+| Enabled | Hosted flag or default | `host_configuration_conflict`, exit 2, before the defaults gate |
+
+Effective `ax` authority stays machine-first (§4.6, §4.7).
+
+The defaults gate follows: a resolved machine hosted default refuses
+`session_host_default_not_ready` (exit 16) until
+upgrade-without-hangup (Decision 0021 section 7 amendment pending). An
+operator hosted default is the operator's own opt-in and passes the
+gate (operator decision Q-D1a, 2026-10-05, = yes), as does an explicit
+`--hosted` flag. Next, a
+hosted launch with a `--network` selection refuses
+`network_scope_unsupported` (exit 16, the hosted policy mapping) before
+permissions, the plan build, or any probe: the receiver cannot enforce a
+source-side network scope. A native launch with `--network` is the §4.4b
+path and keeps its own exit 1 refusals; only the hosted refusal exits 16,
+so the exit status of this one code depends on the host. An explicit
+`--native` or `--untracked` bypasses `ax`, so on an ax-configured machine
+it also bypasses the tracked refusal of §4.4b and the launch is the
+untracked direct path. Resume selectors in a
+native launch refuse `usage`: handles are hosted-only and the native
+tail stays the provider's own grammar.
+
+Hosted launches run tracked but are exempt from tracked permission
+semantics (operator decision Q-D3, 2026-10-05; Decisions 0018/0013
+amendments pending): the §4.3 ladder resolves flag, then profile,
+then the launcher-global file value, then the built-in default, and
+the built-in default is `yolo` with `source=default-interactive` on
+every stdio shape, exactly as on the native path — headless signals
+(non-terminal stdio, CI markers) never change it. `yolo` from any
+level is admitted and builds the same plan once for export. Phase 1
+admits `claude_code`
+only; any other mapped environment
+refuses `session_host_provider_unsupported` (exit 6) before the plan
+build. Resume elevation runs the module typed-intent API over the
+wrapper selectors and the verbatim native tail; conflicting, ambiguous,
+or malformed selectors refuse `session_resume_invalid` (exit 2), and
+the plan builds from the selector-free tail. The launcher never parses
+provider flags itself.
+
+### 4.9 Hosted payload and receiver handoff
+
+A hosted launch builds the same plan once and serializes the composed
+value — binary, ordered argv, full env, cwd, home, stdin, and the Curator
+fragment record — into the versioned
+`urn:relux:task-board:session-launch-plan` 1.0.0 payload instead of
+exec'ing. The payload carries a `content_digest` (SHA-256 over the CCJ-1
+bytes of the object excluding only the digest), the pinned producer
+identity, the unsealed exec guard exported from the admitted plan, the
+module's closed restart template over the composed argv, the elevated
+resume intent, and the effective-native-policy projection (selectors and
+inspected absolute source paths only, else null). Source paths are
+absolute and at most 4096 bytes; relaxations are bounded by the closed
+three-selector vocabulary. The policy carries
+`permission_mode` `native` (the frozen 1.0.0 const), the resolved
+`permission_source`, and `execution_profile` `standard` for a native
+plan or `yolo` for a yolo plan (Q-D3). Names stay disjoint
+from owned literals, whose values equal the final env; at most 64
+lookup names project, sorted and unique, and every lookup
+name resolves present in the original caller env (absent refuses
+`launch_plan_invalid` with reason `required_env_missing`); binary, cwd,
+and home are absolute; and the wire limits (1 MiB object, depth 16,
+argv, env, literal, and versioned-data bounds) hold. Any violation
+refuses `launch_plan_invalid` (exit 2) before contact.
+Session metadata (`session_name.native`, `remote_control`) is read from
+`Plan.Session` of the same admitted plan the payload is built from: the
+module's Claude plugin fills the native name verbatim and the RC intent
+with the exact plan-argv indices of the RC tokens while it builds the
+argv (enabled with empty indices is the settings-origin form). The
+launcher parses no provider option. The indices describe the plan argv;
+for Claude the composed argv equals it (the module builds the context
+channels into the plan), and a composed argv that differs refuses
+`launch_plan_invalid` instead of being re-indexed.
+The record is verified by the module in-process only, so the payload is
+built in the same process from the in-hand plan, before any export, and
+is never re-derived from an imported plan. A plan whose system defines no
+session surface (`Session` nil) carries the schema-zero metadata (null
+name, disabled RC). An authored tail naming two different sessions
+(`-n A --remote-control B`) is refused by the module while it builds the
+plan (`plan_refused`, before composition and any receiver contact).
+A piped launcher stdin refuses `session_host_stdin_unsupported`
+(exit 6) before the plan build and before any receiver contact: the
+property is knowable before composition, so the gate sits after resume
+elevation and before the build. An attached plan stdin refuses the
+same code after the build — it is knowable only from the built plan.
+Phase 1 carries terminal stdin only. Values travel only on the
+private receiver stdin; hosted diagnostics carry fields, reasons, and
+sizes, never native argument values. In particular the hosted
+context-descriptor conflict names only the fragment channel and the
+module's fixed reason (the native path keeps its legacy shape), and
+an unknown native policy mode reports the fixed sentinel instead of
+the operator's mode value.
+
+The private receiver argv is `task-board session launch-plan --plan -`
+`--terminal-fd 3 --status-fd 4`, with the controlling terminal read/write
+on fd3 and a dedicated receiver-to-launcher status pipe on fd4; standard
+output and error stay the live terminal. Before the plan build the
+launcher opens the terminal and validates it; a missing or wrong
+terminal descriptor refuses `session_host_terminal_required` (exit 6)
+with zero builds and zero receiver lookup, and the transport reuses
+that descriptor. fd4 carries bounded 32-bit big-endian length-prefixed
+JSON status records of at most 64 KiB. The launcher classifies only
+fd4, against the closed
+`urn:relux:task-board:session-launch-status` 1.0.0 refusal envelope:
+exactly the six members `schema`, `schema_version`, `type`, `code`,
+`message`, `details`; the pinned consts; a code from the complete
+hosted-diagnostics registry (135 Appendix V-ERR members, recognized
+even when the launcher never emits them); the row's literal constant
+message (byte equality); and a details object inside the row's
+vocabulary (D0 exactly `{}`, D1/D2 closed field/reason subsets, string
+values only). The last valid refusal emits its registry code, constant
+message, and validated field/reason with the registry exit (1/2/6/16):
+the channel — never the receiver status — classifies. Any complete
+frame outside the contract — bad JSON, wrong members, unknown code,
+mismatched message, bad detail, zero or oversize length — normalizes
+to the fixed `session_host_protocol_error` (exit 6) with the constant
+message and empty details; receiver bytes never reflect. A truncated
+frame (EOF mid-record) is transport loss and refuses
+`session_host_unavailable` (exit 1), unless a complete malformed frame
+was already observed: poison is permanent, so a later partial header
+or body still yields `session_host_protocol_error` (exit 6), and only
+a clean stream maps a transport fault to unavailable. Without a record
+the receiver exit propagates unchanged, including child statuses that
+coincide with refusal exits. A missing receiver refuses
+`session_host_missing`. The receiver owns the terminal, all deadlines,
+and completion; the launcher waits as for a native exec.
+
+Descriptor contract (r6 §4 reconciliation): the launcher marks its own
+fd3/fd4 copies close-on-exec and validates descriptor type, access,
+and ownership before contact (fd3 a read-write terminal or file owned
+by the caller or root; fd4 a caller-owned write-only pipe; both
+close-on-exec). The receiver ingress flags are necessarily clear:
+close-on-exec descriptors cannot survive the exec that delivers them,
+and Go's process spawn clears the flag for inherited descriptors, so
+ingress-clear is required, not a leak. Descendant isolation is
+established by the receiver, which MUST set close-on-exec on fd3/fd4
+immediately on startup before spawning any child; the launcher proves
+the mechanism end to end with a cooperative receiver that reports
+ingress-clear, marked-set, and a grandchild that inherits neither
+descriptor.
 
 ## 5. System-prompt application
 
@@ -1234,21 +1443,31 @@ misattributing behavior to the tool.
 Diagnostics are stable machine-readable codes in closed families. A
 failing launch prints exactly one diagnostic code line to stderr,
 followed by human-oriented detail; the code, not the prose, is the
-contract. Usage errors exit 2; every operational failure exits 1.
+contract. Usage errors and the hosted configuration refusals exit 2;
+hosted protocol refusals exit 6; hosted policy refusals exit 16; every
+other operational failure exits 1. The table below is the
+launcher-emitted set; fd4-normalized receiver refusals (§4.9) carry
+registry codes with their constant messages from the separate
+receiving registry, which recognizes codes the launcher never emits.
 
 | Family | Codes | Condition |
 |---|---|---|
-| usage | `usage` | unknown flag, missing `<env-id>`, stray operand before `--`, repeated flag, invalid permission value, repeated or combined permission forms, rejected `-d`/`--danger`, invalid `--system-prompt` or `--ax-profile` value, `--name` outside the `ax` §2.1 grammar or over 64 characters, `--ax-profile` on an untracked machine, a flag overriding a member set by a locked machine `defaults.json`, or visible `yolo` under an established force-native lock — exit 2, nothing resolved, nothing launched |
+| usage | `usage` | unknown flag, missing `<env-id>`, stray operand before `--`, repeated flag, invalid permission value, repeated or combined permission forms, rejected `-d`/`--danger`, invalid `--system-prompt` or `--ax-profile` value, `--name` outside the `ax` §2.1 grammar or over 64 characters, `--ax-profile` on an untracked machine, `--ax-profile` with an explicit native host flag, a repeated or combined host request, resume selectors in a native launch, a flag overriding a member set by a locked machine `defaults.json`, or visible `yolo` under an established force-native lock — exit 2, nothing resolved, nothing launched |
 | resolve | `resolve_invocation_failed`, `resolve_environment_unknown`, `resolve_profile_unknown`, `resolve_repair_failed`, `resolve_lock_unavailable`, `resolve_fragment_invalid` | §4.1: the context plane could not produce a usable fragment — `curator` not startable, or a non-zero exit with an unmapped diagnostic, Curator's own code and message passed through verbatim; unregistered environment; uninstalled profile; the store cannot restore the stale home; the repair could not take Curator's mutation lock within its bounded wait; or the output is not a valid closed fragment |
-| defaults | `defaults_config_invalid`, `defaults_unresolvable` | §4.3, §4.6, and §4.7: a launcher-owned configuration file — `defaults.json` or `ax.json` — is symlinked, non-regular, owned by a different identity than its configuration directory, group/world-writable on POSIX, grants a non-owner/non-owner-alias/non-system/non-administrators Windows DACL identity write/delete/security-control access, or cannot be read or parsed, or names an unknown env-id or member; this includes a v1 file carrying the v2-only `permissions` member — a read failure is never absence; the lineup admits no model for the mapped system after earlier model levels are silent |
+| defaults | `defaults_config_invalid`, `defaults_unresolvable` | §4.3, §4.6, and §4.7: a launcher-owned configuration file — `defaults.json` or `ax.json` — is symlinked, non-regular, owned by a different identity than its configuration directory, group/world-writable on POSIX, grants a non-owner/non-owner-alias/non-system/non-administrators Windows DACL identity write/delete/security-control access, or cannot be read or parsed, or names an unknown env-id or member; this includes a v1 file carrying `permissions`, or a v1 or v2 file carrying `host` — a read failure is never absence; the lineup admits no model for the mapped system after earlier model levels are silent |
 | plan | `plan_refused`, `plan_provider_limited` | §4.4: the spawn plane refused the request (unknown system/runtime or model, model not driven by the system, mode not declared by the system, invalid or missing required effort, unresolved vendor, an unverified release-specific permission mapping, or failure to produce a provider-limits verdict), or the explicit provider-limits verdict was not serviceable (`AvailabilityHealthy`) — the verdict's structure and evidence are surfaced verbatim |
 | environment | `env_unsupported` | §4.2: the environment has no spawn-plane or `ax` provider mapping in this revision |
-| permission | `permission_policy_unsupported`, `permission_mode_tracked_unsupported`, `permission_mode_unsupported` | §4.1/§4.6: the fragment cannot establish v2 permission and lock transport for a would-be `yolo`; or a tracked launch resolves `yolo` from any level; or the environment has no declared `yolo` mapping — exit 1, terminal refusal with no fallback to untracked execution |
+| permission | `permission_policy_unsupported`, `permission_mode_tracked_unsupported`, `permission_mode_unsupported` | §4.1/§4.6: the fragment cannot establish v2 permission and lock transport for a would-be `yolo`; or a tracked native launch resolves `yolo` from any level (hosted launches are exempt, Q-D3); or the environment has no declared `yolo` mapping — exit 1, terminal refusal with no fallback to untracked execution |
 | exec | `exec_provider_missing` | §4.6: the plan's binary does not exist — reported with the executable name and installation guidance |
 | ax | `ax_handoff_failed` | §4.6: the configured `ax` could not take the launch — `ax` not startable, or `ax start` exited non-zero, its Structured Error passed through; no untracked fallback |
 | mcp | `mcp_layer_missing`, `mcp_layer_unreadable` | §4.5: the composed argv carries `-p curator-mcp` and the pre-launch stat of the fragment's `mcp.path` finds no file, or finds something it cannot read as a regular file — codex would silently launch without the profile's MCP set, so neither degrades to a launch without `-p`; the two are distinct facts and are reported as such |
 | system prompt | `sysprompt_channel_unavailable`, `sysprompt_file_unreadable` | §5.2: opt-in given but the fragment carries no non-`file` channel with the requested semantics; §5.1: a registry-declared file-kind channel's file exists but cannot be read (or is not a regular file) at the pre-exec probe — an absent managed-home file is not this diagnostic and says nothing about other native sources |
-| network | `network_profile_unknown`, `network_profile_denied`, `network_scope_unsupported`, `network_configuration_conflict`, `network_proxy_unreachable`, `network_proxy_auth_failed`, `network_profile_invalid`, `network_file_unreadable` | §4.4b: the explicit network selection could not be honored — an unknown profile name; a denied one (outside the host allowed set, or unconfirmed at the current digest); an unsupported launch shape (tracked mode, an unverified harness/build/entrypoint tuple — including any launch without a print selection, since the pinned verification covers the one-shot `claude -p` shape only — an unmapped launch mode, or an enforced assurance request); a proxy-family name in a composed overlay or an uncovered engine host under a proxy profile; an unreachable proxy (TCP, CONNECT, or TLS step, or a malformed endpoint; a `kind = "direct"` profile skips every probe step); a proxy demanding authentication; a malformed catalog or profile; or a catalog or ledger that cannot be located, read, or parsed — every one terminal, with no fallback to an unmanaged launch |
+| network | `network_profile_unknown`, `network_profile_denied`, `network_scope_unsupported`, `network_configuration_conflict`, `network_proxy_unreachable`, `network_proxy_auth_failed`, `network_profile_invalid`, `network_file_unreadable` | §4.4b: the explicit network selection could not be honored — an unknown profile name; a denied one (outside the host allowed set, or unconfirmed at the current digest); an unsupported launch shape (tracked mode, an unverified harness/build/entrypoint tuple — including any launch without a print selection, since the pinned verification covers the one-shot `claude -p` shape only — an unmapped launch mode, or an enforced assurance request); a proxy-family name in a composed overlay or an uncovered engine host under a proxy profile; an unreachable proxy (TCP, CONNECT, or TLS step, or a malformed endpoint; a `kind = "direct"` profile skips every probe step); a proxy demanding authentication; a malformed catalog or profile; or a catalog or ledger that cannot be located, read, or parsed — every one terminal, with no fallback to an unmanaged launch; a hosted launch with `--network` refuses `network_scope_unsupported` with exit 16 (§4.8) while every native network refusal exits 1 |
+| host | `host_configuration_conflict` | §4.8: a hosted flag or default with the `ax` integration enabled — exit 2, before the defaults gate, with no fallback to either side |
+| session host | `session_host_missing`, `session_host_unavailable`, `session_host_provider_unsupported`, `session_host_protocol_unsupported`, `session_host_scope_unsupported`, `session_host_execution_profile_unsupported`, `session_host_terminal_required`, `session_host_stdin_unsupported`, `session_host_default_not_ready` | §4.8, §4.9: the receiver is not on PATH or cannot start (exit 1); the status channel is corrupt (exit 1); a non-Claude environment seeks the Phase 1 host (exit 6); the receiver reports an unsupported protocol, scope, or execution profile (exit 6, receiver-mapped); no controlling terminal is available or the descriptor fails validation, checked before the plan build with zero lookup (exit 6); stdin is attached (exit 6); a machine hosted default awaits upgrade-without-hangup while an operator hosted default is admitted (Q-D1a = yes, exit 16) |
+| resume | `session_resume_invalid` | §4.8: conflicting, ambiguous, or malformed resume selectors from the wrapper or the native tail, as elevated by the module typed-intent grammar — exit 2, before the plan build |
+| launch plan | `launch_plan_invalid` | §4.9: the composed plan cannot be projected into the closed payload shape — non-absolute paths, literal/env mismatches, missing lookup names, an inadmissible guard, a restart mismatch, or a wire-limit violation; no value in the detail — exit 2, before contact |
+| policy | `secret_policy_violation`, `policy_refused` | §4.9: the receiver reports a secret-policy violation or a refused policy — exit 16, receiver-mapped, with field and reason only |
 
 Two invariants hold across every family. First, an absence and a failure
 to read are different facts: a fallback defined for absence (no
@@ -1265,13 +1484,14 @@ invocation, and the operator retries deliberately.
 ## 7. Pinned dependencies
 
 The launcher pins
-`github.com/relux-works/skill-agents-management v0.5.48`, which carries
+`github.com/relux-works/skill-agents-management v0.5.53`, which carries
 `LaunchModeInteractive`, `LaunchRequest.PermissionMode`,
 `LaunchRequest.ToolRelease`, `LaunchRequest.NativeArgs`, the
 `permission-grammar-v1` token, `ErrPermissionModeUnverifiedRelease`,
-and the unconditional Claude `--disallowedTools=AskUserQuestion`
-denial the module appends after the prompt channel of every Claude
-plan.
+the `ElevateResumeIntent` typed-intent API, the closed `claude-restart`
+template export and transformation check, the pinned hosted schemas,
+`Plan.ExportSeal`, and the typed `Plan.Session` (native name and RC
+intent with argv indices).
 The module owns the release-bound permission mapping, grammar, and
 capability table; this SPEC deliberately contains no provider permission
 flag spelling. The pinned module's plans-as-values contract, argv
@@ -1404,6 +1624,8 @@ supports.
   acceptance gate; fake-harness test results do not certify releases.
 
 ## Specification changelog
+
+- 2026-10-04, 0.5.0-draft §§3, 4.3, 4.7–4.9, 6, and 7 (TASK-261004-38ba6c): host selection and the hosted payload handoff. §3 gains the `--hosted`/`--native`/`--untracked` slot, `resume` selectors, `--resume`, and `--network`. §4.3 reads `curator-run-defaults-v3` with the per-environment `host` member (v1/v2 unchanged). New §4.8 fixes the host precedence table, the legacy `ax` routing table, the Q-D1a defaults gate, the network gate, hosted-tracked permissions, Phase 1 Claude-only admission, and module typed-intent resume elevation. New §4.9 fixes the versioned `session-launch-plan` 1.0.0 payload, its digest, limits, and the private receiver transport. §6 gains the host, session host, resume, launch plan, network, and policy families with the 2/6/16 exit mapping. §7 pins agents-management v0.5.53. 2026-10-05 rework applies operator decisions Q-D1a (= yes: operator hosted defaults admitted, machine defaults gated until upgrade-without-hangup) and Q-D3 (hosted launches exempt from tracked permission semantics; yolo admitted and exported with `execution_profile` `yolo`); Decisions 0021 §7 and 0018/0013 amendments pending. 2026-10-06 re-port onto the §4.4b network-plane trunk: the §4.8 `network_scope_unsupported` refusal applies to hosted launches only (exit 16, before permissions, the plan build, or any probe); native `--network` keeps §4.4b and its exit 1 refusals, and an explicit `--native`/`--untracked` on an ax-configured machine bypasses the tracked refusal.
 
 - 2026-09-23, 0.5.0-draft §§3, 4.1, 4.3, 4.5–4.7, and 6 (TASK-260922-1zfqq0): adopt Decision 0018 choices 1, 4, 5, and 7, with the v2 fragment contract from F-S2 and permission-mode members from agents-management v0.5.18. This is a SPEC/README revision; permission behavior is implemented by the companion F-L1b leaf.
 

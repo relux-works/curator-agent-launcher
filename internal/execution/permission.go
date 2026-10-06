@@ -2,6 +2,7 @@ package execution
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"sort"
 	"strings"
@@ -16,6 +17,12 @@ import (
 // PermissionRequest is the input to the closed §4.3 permission ladder. The
 // profile value is present only when the v2 fragment identifies a named
 // profile setting; source=default remains silent and falls through.
+// Hosted marks a managed-session-host launch: it runs tracked, but
+// operator decision Q-D3 (2026-10-05) exempts the hosted path from
+// tracked permission semantics, so tracked gates below do not apply.
+// Headless carries the observed terminal/marker signal for the Q-D3
+// narrowing mutant; the decision below intentionally never consults it:
+// with no configuration the default is yolo on every stdio shape.
 type PermissionRequest struct {
 	Flag        cli.PermissionMode
 	FlagPresent bool
@@ -23,6 +30,7 @@ type PermissionRequest struct {
 	Global      defaults.Member
 	Headless    bool
 	Tracked     bool
+	Hosted      bool
 	Transport   bool
 }
 
@@ -65,6 +73,17 @@ func ResolvePermission(req PermissionRequest) (PermissionDecision, error) {
 		return PermissionDecision{Mode: agentic.PermissionModeNative, Source: "default-headless"}, nil
 	}
 
+	// Q-D3 (2026-10-05), literal: with no configuration the default is
+	// yolo for native and hosted launches alike, on every stdio shape.
+	// Headless detection (terminal, CI markers, native-argument form)
+	// must not change the permission default, so req.Headless stays
+	// unconsulted here. The tracked term is not headless detection: a
+	// tracked native launch cannot use yolo at all (refused below), so
+	// defaulting it to yolo would refuse every unconfigured tracked
+	// launch; tracked silence keeps the native built-in. The hosted
+	// path is exempt from tracked semantics, so hosted silence is yolo.
+	tracked := req.Tracked && !req.Hosted
+
 	decision := PermissionDecision{}
 	switch {
 	case req.FlagPresent:
@@ -73,7 +92,7 @@ func ResolvePermission(req PermissionRequest) (PermissionDecision, error) {
 		decision = PermissionDecision{Mode: agentic.PermissionMode(req.Profile.Mode), Source: "profile"}
 	case req.Global.Present:
 		decision = PermissionDecision{Mode: agentic.PermissionMode(req.Global.Value), Source: "global"}
-	case req.Headless || req.Tracked:
+	case tracked:
 		decision = PermissionDecision{Mode: agentic.PermissionModeNative, Source: "default-headless"}
 	default:
 		decision = PermissionDecision{Mode: agentic.PermissionModeYolo, Source: "default-interactive"}
@@ -85,7 +104,7 @@ func ResolvePermission(req PermissionRequest) (PermissionDecision, error) {
 			Detail: "the fragment does not establish permission-mode transport",
 		}
 	}
-	if decision.Mode == agentic.PermissionModeYolo && req.Tracked {
+	if decision.Mode == agentic.PermissionModeYolo && tracked {
 		return PermissionDecision{}, &PermissionError{
 			Code:   diagnostics.CodePermissionModeTrackedUnsupported,
 			Detail: "tracked launches cannot use yolo permission mode",
@@ -184,4 +203,12 @@ func compactStrings(values []string) []string {
 // Failure to establish either side is treated as headless.
 func InteractiveStdio(stdin, stdout *os.File) bool {
 	return stdin != nil && stdout != nil && isTerminalFD(stdin.Fd()) && isTerminalFD(stdout.Fd())
+}
+
+// StdinIsTerminal reports whether r is a terminal file. Unlike
+// InteractiveStdio it checks the input alone: a piped stdout stays
+// legitimate while a piped stdin has no forwarding path to a managed child.
+func StdinIsTerminal(r io.Reader) bool {
+	f, ok := r.(*os.File)
+	return ok && f != nil && isTerminalFD(f.Fd())
 }

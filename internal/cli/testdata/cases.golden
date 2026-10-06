@@ -228,6 +228,71 @@ args: ["pi" "--" "claude" "codex"]
 ax: false
 result: env="pi" tracked=false native=["claude" "codex"]
 
+# hosted flag
+args: ["claude_code" "--hosted"]
+ax: false
+result: env="claude_code" tracked=false host=--hosted native=[]
+
+# native flag
+args: ["claude_code" "--native"]
+ax: false
+result: env="claude_code" tracked=false host=--native native=[]
+
+# untracked flag
+args: ["claude_code" "--untracked"]
+ax: false
+result: env="claude_code" tracked=false host=--untracked native=[]
+
+# host flag before env
+args: ["--hosted" "claude_code" "--" "x"]
+ax: false
+result: env="claude_code" tracked=false host=--hosted native=["x"]
+
+# resume latest selector
+args: ["claude_code" "resume"]
+ax: false
+result: env="claude_code" tracked=false resume native=[]
+
+# resume handle selector
+args: ["claude_code" "resume" "SES-abc123"]
+ax: false
+result: env="claude_code" tracked=false resume handle="SES-abc123" native=[]
+
+# resume selector with flags interleaved
+args: ["claude_code" "--hosted" "resume" "--model" "m" "SES-1" "--" "x"]
+ax: false
+result: env="claude_code" tracked=false host=--hosted resume handle="SES-1" model="m" native=["x"]
+
+# resume flag
+args: ["claude_code" "--hosted" "--resume" "01234567-89ab-cdef-0123-456789abcdef"]
+ax: false
+result: env="claude_code" tracked=false host=--hosted resume-id="01234567-89ab-cdef-0123-456789abcdef" native=[]
+
+# resume flag equals form
+args: ["claude_code" "--resume=abc"]
+ax: false
+result: env="claude_code" tracked=false resume-id="abc" native=[]
+
+# network flag
+args: ["claude_code" "--network" "office"]
+ax: false
+result: env="claude_code" tracked=false network="office" native=[]
+
+# network flag equals form
+args: ["claude_code" "--network=office"]
+ax: false
+result: env="claude_code" tracked=false network="office" native=[]
+
+# native tail keeps host and resume spellings
+args: ["pi" "--" "--hosted" "--native" "--untracked" "resume" "--resume" "x" "--network" "y"]
+ax: false
+result: env="pi" tracked=false native=["--hosted" "--native" "--untracked" "resume" "--resume" "x" "--network" "y"]
+
+# ax profile with hosted flag stays admitted
+args: ["codex_cli" "--hosted" "--ax-profile" "yolo"]
+ax: true
+result: env="codex_cli" tracked=true host=--hosted ax-profile=yolo native=[]
+
 # no arguments
 args: []
 ax: false
@@ -254,14 +319,24 @@ ax: false
 error: usage: empty operand before --: <env-id> must not be empty
 
 # stray operand
-args: ["codex_cli" "resume"]
+args: ["codex_cli" "frobnicate"]
 ax: false
-error: usage: stray operand "resume" before --: native arguments must follow --
+error: usage: stray operand "frobnicate" before --: native arguments must follow --
 
 # stray operand then double dash
-args: ["codex_cli" "resume" "--" "x"]
+args: ["codex_cli" "frobnicate" "--" "x"]
 ax: false
-error: usage: stray operand "resume" before --: native arguments must follow --
+error: usage: stray operand "frobnicate" before --: native arguments must follow --
+
+# second operand after resume handle
+args: ["codex_cli" "resume" "SES-1" "extra"]
+ax: false
+error: usage: stray operand "extra" before --: native arguments must follow --
+
+# second resume token is a handle
+args: ["codex_cli" "resume" "resume" "extra"]
+ax: false
+error: usage: stray operand "extra" before --: native arguments must follow --
 
 # unknown flag
 args: ["codex_cli" "--nope"]
@@ -512,4 +587,79 @@ error: usage: --name "a\nb" is not a valid ax session name: [A-Za-z0-9][A-Za-z0-
 args: ["codex_cli" "--name" "bad/name"]
 ax: false
 error: usage: --name "bad/name" is not a valid ax session name: [A-Za-z0-9][A-Za-z0-9._-]{0,63}
+
+# repeated hosted flag
+args: ["claude_code" "--hosted" "--hosted"]
+ax: false
+error: usage: --hosted, --native and --untracked share one host request and cannot be repeated or combined
+
+# repeated native flag
+args: ["claude_code" "--native" "--native"]
+ax: false
+error: usage: --hosted, --native and --untracked share one host request and cannot be repeated or combined
+
+# hosted native combination
+args: ["claude_code" "--hosted" "--native"]
+ax: false
+error: usage: --hosted, --native and --untracked share one host request and cannot be repeated or combined
+
+# native untracked combination
+args: ["claude_code" "--native" "--untracked"]
+ax: false
+error: usage: --hosted, --native and --untracked share one host request and cannot be repeated or combined
+
+# untracked hosted combination
+args: ["claude_code" "--untracked" "--hosted"]
+ax: false
+error: usage: --hosted, --native and --untracked share one host request and cannot be repeated or combined
+
+# hosted flag with value
+args: ["claude_code" "--hosted=yes"]
+ax: false
+error: usage: --hosted takes no value
+
+# native flag with value
+args: ["claude_code" "--native=no"]
+ax: false
+error: usage: --native takes no value
+
+# repeated resume flag
+args: ["claude_code" "--resume" "a" "--resume" "b"]
+ax: false
+error: usage: flag --resume given more than once
+
+# resume flag missing value
+args: ["claude_code" "--resume"]
+ax: false
+error: usage: flag --resume requires a value
+
+# resume flag empty value
+args: ["claude_code" "--resume" ""]
+ax: false
+error: usage: flag --resume requires a value, got ""
+
+# repeated network flag
+args: ["claude_code" "--network" "a" "--network" "b"]
+ax: false
+error: usage: flag --network given more than once
+
+# network flag missing value
+args: ["claude_code" "--network"]
+ax: false
+error: usage: flag --network requires a value
+
+# ax profile with native flag
+args: ["codex_cli" "--ax-profile" "standard" "--native"]
+ax: true
+error: usage: --ax-profile standard conflicts with --native: explicit native execution bypasses ax, so an execution profile would be discarded
+
+# ax profile with untracked flag
+args: ["codex_cli" "--untracked" "--ax-profile" "yolo"]
+ax: true
+error: usage: --ax-profile yolo conflicts with --untracked: explicit native execution bypasses ax, so an execution profile would be discarded
+
+# ax profile with native flag untracked
+args: ["codex_cli" "--native" "--ax-profile" "standard"]
+ax: false
+error: usage: --ax-profile standard given but the ax integration is not configured on this machine; an execution profile is ax's and would be discarded
 

@@ -33,6 +33,7 @@ func TestReviewerContextSelectorSpellings(t *testing.T) {
 			t.Run(fmt.Sprintf("%d/%s/%v", i, row.env, tracked), func(t *testing.T) {
 				f := entryFixture(t, row.env, tracked)
 				f.args = append(f.args[:8], row.native...)
+				insertLauncherArgs(f, "--permissions", "native")
 				real := f.deps.build
 				var seen error
 				f.deps.build = func(ctx context.Context, r *vendorplugin.Registry, req vendorplugin.SpawnRequest, mode agentic.LaunchMode) (agentic.PlanWithEnvironment, error) {
@@ -57,6 +58,7 @@ func TestReviewerContextSeparatorPassThrough(t *testing.T) {
 				f := entryFixture(t, env, tracked)
 				native := []string{"--", "--mcp-config=prompt-text", "-pother", "--system-prompt-file=prompt-text", ""}
 				f.args = append(f.args[:8], native...)
+				insertLauncherArgs(f, "--permissions", "native")
 				code, out, stderr := f.run()
 				if code != 0 {
 					t.Fatalf("exit=%d stderr=%s", code, stderr)

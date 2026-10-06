@@ -52,6 +52,7 @@ func TestProductionContextCarrierProfileNativeSuffixAndChannels(t *testing.T) {
 					f := entryFixture(t, environment, tracked)
 					f.args[6] = intent
 					f.args = append(f.args[:7], "--profile", "team", "--", "", "--model=native", "literal\nvalue")
+					insertLauncherArgs(f, "--permissions", "native")
 					var obj map[string]any
 					if err := json.Unmarshal([]byte(f.resolver.stdout), &obj); err != nil {
 						t.Fatal(err)
@@ -105,6 +106,7 @@ func TestProductionContextCarrierRefusesNativeConflicts(t *testing.T) {
 			t.Run(fmt.Sprintf("%s/%s/%v", row.environment, row.flag, tracked), func(t *testing.T) {
 				f := entryFixture(t, row.environment, tracked)
 				f.args = append(f.args[:8], row.native...)
+				insertLauncherArgs(f, "--permissions", "native")
 				code, out, stderr := f.run()
 				if code != 1 || len(out) != 0 || !bytes.Contains(stderr, []byte(row.flag)) || !bytes.Contains(stderr, []byte(row.channel)) || !bytes.Contains(stderr, []byte("curator-run: plan_refused:")) {
 					t.Fatalf("exit=%d stderr=%s", code, stderr)
@@ -123,6 +125,7 @@ func TestProductionContextCarrierEnvironmentOverlayOwnedSnapshot(t *testing.T) {
 		for _, tracked := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%s/%v", environment, tracked), func(t *testing.T) {
 				f := entryFixture(t, environment, tracked)
+				insertLauncherArgs(f, "--permissions", "native")
 				real := f.deps.build
 				f.deps.build = func(ctx context.Context, r *vendorplugin.Registry, req vendorplugin.SpawnRequest, mode agentic.LaunchMode) (agentic.PlanWithEnvironment, error) {
 					built, err := real(ctx, r, req, mode)
@@ -203,6 +206,7 @@ func TestProductionContextCarrierRefusesAdmittedNativeSuffixDrift(t *testing.T) 
 	for _, tracked := range []bool{false, true} {
 		t.Run(fmt.Sprint(tracked), func(t *testing.T) {
 			f := entryFixture(t, "claude_code", tracked)
+			insertLauncherArgs(f, "--permissions", "native")
 			real := f.deps.build
 			f.deps.build = func(ctx context.Context, r *vendorplugin.Registry, req vendorplugin.SpawnRequest, mode agentic.LaunchMode) (agentic.PlanWithEnvironment, error) {
 				built, err := real(ctx, r, req, mode)
@@ -238,6 +242,7 @@ func TestProductionContextCarrierUnselectedPromptAndAbsentMCP(t *testing.T) {
 				}
 				f.args = append(f.args[:5], "--")
 				f.args = append(f.args, native...)
+				insertLauncherArgs(f, "--permissions", "native")
 				code, out, stderr := f.run()
 				if code != 0 {
 					t.Fatalf("exit=%d stderr=%s", code, stderr)

@@ -35,6 +35,7 @@ func TestProductionContextCarrierReservedMembersPreservePathAndDigest(t *testing
 		for _, tracked := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%s/%v", environment, tracked), func(t *testing.T) {
 				f := entryFixture(t, environment, tracked)
+				insertLauncherArgs(f, "--permissions", "native")
 				baseline, err := fragment.Parse([]byte(f.resolver.stdout))
 				if err != nil {
 					t.Fatal(err)

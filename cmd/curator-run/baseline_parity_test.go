@@ -15,6 +15,30 @@ import (
 // the exact golden bytes (six-space JSON indent, trailing comma).
 const authorizedUnmanagedDelta = `      "--disallowedTools=AskUserQuestion",`
 
+// Operator decision Q-D3 (2026-10-05) makes an unconfigured permission
+// default YOLO on every stdio shape, so the pipeline fixtures that must
+// keep launching natively state `--permissions native` and their
+// permissions line reports its real source. That is the one authorized
+// change to the untracked goldens' stderr: the line below, in the
+// baseline spelling, is what the current golden is normalized back to
+// before the byte comparison, so any other drift still fails.
+const (
+	baselinePermissionsLine = `permissions=native source=default-headless mapped=none`
+	currentPermissionsLine  = `permissions=native source=flag mapped=none`
+)
+
+// normalizeAuthorizedPermissionsLine rewrites exactly one occurrence of the
+// Q-D3 spelling to the baseline spelling and fails when the golden does not
+// carry it exactly once: an untracked golden without the line, or with it
+// twice, is itself drift.
+func normalizeAuthorizedPermissionsLine(t *testing.T, name string, current []byte) []byte {
+	t.Helper()
+	if n := bytes.Count(current, []byte(currentPermissionsLine)); n != 1 {
+		t.Fatalf("%s: carries the Q-D3 permissions line %d times, want exactly once", name, n)
+	}
+	return bytes.Replace(current, []byte(currentPermissionsLine), []byte(baselinePermissionsLine), 1)
+}
+
 // TestUnmanagedGoldensMatchBaselineFbcdbaf0 pins row-5 parity: every
 // unmanaged launch shape the suite goldens — six direct/tracked
 // pipeline shapes plus three Muse shapes, all launched WITHOUT
@@ -45,6 +69,9 @@ func TestUnmanagedGoldensMatchBaselineFbcdbaf0(t *testing.T) {
 	for _, name := range identical {
 		current := readGolden(t, filepath.Join("testdata", name+".golden"))
 		base := readGolden(t, filepath.Join("testdata", "baseline-fbcdbaf0", name+".golden"))
+		if strings.HasSuffix(name, "-false") && (strings.HasPrefix(name, "pipeline-codex_cli") || strings.HasPrefix(name, "pipeline-pi")) {
+			current = normalizeAuthorizedPermissionsLine(t, name, current)
+		}
 		if !bytes.Equal(current, base) {
 			t.Fatalf("%s: unmanaged golden differs from baseline fbcdbaf0 (%d bytes vs %d); only the Claude denial line is authorized",
 				name, len(current), len(base))
@@ -53,6 +80,9 @@ func TestUnmanagedGoldensMatchBaselineFbcdbaf0(t *testing.T) {
 	for _, name := range []string{"pipeline-claude_code-false", "pipeline-claude_code-true"} {
 		current := readGolden(t, filepath.Join("testdata", name+".golden"))
 		base := readGolden(t, filepath.Join("testdata", "baseline-fbcdbaf0", name+".golden"))
+		if strings.HasSuffix(name, "-false") {
+			current = normalizeAuthorizedPermissionsLine(t, name, current)
+		}
 		assertSingleAddedLine(t, name, base, current, authorizedUnmanagedDelta)
 	}
 }

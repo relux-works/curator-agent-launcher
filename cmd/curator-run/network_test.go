@@ -183,18 +183,35 @@ func writeBrokenNetworkLedger(t *testing.T, home string) {
 }
 
 // withNetworkFlag inserts --network before the native-argument boundary.
+// The fixture is a v1 fragment without a permission transport, so under
+// operator decision Q-D3 (an unconfigured default is yolo) it also states
+// --permissions native unless the caller already chose a mode; these tests
+// exercise the network plane, not the permission default.
 func withNetworkFlag(args []string, profile string) []string {
-	out := make([]string, 0, len(args)+2)
+	explicit := false
+	for _, a := range args {
+		if a == "--" {
+			break
+		}
+		if a == "--yolo" || a == "--permissions" || strings.HasPrefix(a, "--permissions=") {
+			explicit = true
+		}
+	}
+	extra := []string{"--network", profile}
+	if !explicit {
+		extra = append(extra, "--permissions", "native")
+	}
+	out := make([]string, 0, len(args)+len(extra))
 	inserted := false
 	for _, a := range args {
 		if !inserted && a == "--" {
-			out = append(out, "--network", profile)
+			out = append(out, extra...)
 			inserted = true
 		}
 		out = append(out, a)
 	}
 	if !inserted {
-		out = append(out, "--network", profile)
+		out = append(out, extra...)
 	}
 	return out
 }
@@ -901,7 +918,7 @@ func TestNetworkFlagAfterDoubleDashIsNative(t *testing.T) {
 	f := entryFixture(t, "codex_cli", false)
 	writeNetworkCatalog(t, f.dir, true)
 	f.deps.prober = forbiddenNetworkProber{t}
-	f.args = []string{"codex_cli", "--model", "gpt-6-astra", "--effort", "medium", "--system-prompt", "replace", "--", "--network", "egress-a"}
+	f.args = []string{"codex_cli", "--model", "gpt-6-astra", "--effort", "medium", "--system-prompt", "replace", "--permissions", "native", "--", "--network", "egress-a"}
 	code, out, stderr := f.run()
 	if code != 0 {
 		t.Fatalf("exit=%d stderr=%s", code, stderr)
@@ -970,5 +987,45 @@ func TestNetworkDependencyReleasePin(t *testing.T) {
 	}
 	if module.Version != "v0.2.1" || module.Replace != nil {
 		t.Fatalf("network module must be v0.2.1 without replacement: version=%s replaced=%v", module.Version, module.Replace != nil)
+	}
+}
+
+// TestNativeHostFlagsComposeWithNetwork pins that the host-flag slot leaves
+// the native --network path (SPEC §4.4b) intact: an explicit --native or its
+// --untracked synonym admits a supported direct selection and prints the
+// provenance Record, and on an ax-configured machine it bypasses ax and the
+// tracked refusal with it. Only --hosted refuses a network selection, with
+// exit 16 and zero builds (TestHostedRefusalsBeforeContact).
+func TestNativeHostFlagsComposeWithNetwork(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		tracked bool
+		flag    string
+	}{
+		{"native-untracked-machine", false, "--native"},
+		{"untracked-synonym", false, "--untracked"},
+		{"native-bypasses-tracked-refusal", true, "--native"},
+		{"untracked-synonym-bypasses-tracked-refusal", true, "--untracked"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := entryFixture(t, "codex_cli", tc.tracked)
+			digest := writeDirectNetworkCatalog(t, f.dir, true)
+			f.deps.prober = forbiddenNetworkProber{t}
+			f.deps.networkAllowlist = codexTestAllowlist()
+			f.args = append([]string{f.args[0], tc.flag}, f.args[1:]...)
+			f.args = withNetworkFlag(f.args, "direct-a")
+			code, out, stderr := f.run()
+			if code != 0 {
+				t.Fatalf("exit=%d stderr=%s", code, stderr)
+			}
+			var child childCapture
+			if err := json.Unmarshal(out, &child); err != nil {
+				t.Fatalf("native launch did not exec the child directly: %v (out %q)", err, out)
+			}
+			wantLine := "curator-run: network: profile=direct-a origin=explicit digest=" + digest
+			if !strings.Contains(string(stderr), wantLine) {
+				t.Fatalf("stderr lacks provenance %q in %q", wantLine, stderr)
+			}
+		})
 	}
 }

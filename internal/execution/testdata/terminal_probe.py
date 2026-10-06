@@ -3,19 +3,29 @@ import os, sys, pty, signal, select, time, tempfile, pathlib, re
 
 with tempfile.TemporaryDirectory(prefix='execution-pty-') as directory:
     helper = pathlib.Path(directory) / 'fake-ax'
-    helper.write_text('#!' + sys.executable + '\n' + '''import os, signal, sys
+    helper.write_text('#!' + sys.executable + '\n' + '''import os, select, signal, sys
 count = 0
+# Buffered readline may restart a canonical read while a Python signal handler
+# is pending. A wakeup fd makes signal receipt an explicit select event.
+signal_read, signal_write = os.pipe()
+os.set_blocking(signal_write, False)
+signal.set_wakeup_fd(signal_write)
 def hit(sig, frame):
  global count
  count += 1
- os.write(1, b'INT\\n')
 signal.signal(signal.SIGINT, hit)
 signal.signal(signal.SIGTSTP, signal.SIG_DFL)
 # Ax stdin is a document; terminal interaction uses its controlling tty.
 tty = open('/dev/tty', 'r') if len(sys.argv) > 1 else sys.stdin
 os.write(1, ('READY child=%d\\n' % os.getpid()).encode())
 while True:
- line = tty.readline().strip()
+ ready, _, _ = select.select([tty, signal_read], [], [])
+ if signal_read in ready:
+  events = os.read(signal_read, 4096)
+  for event in events:
+   if event == signal.SIGINT: os.write(1, b'INT\\n')
+ if tty not in ready: continue
+ line = os.read(tty.fileno(), 4096).decode().strip()
  if line == 'check': os.write(1, ('COUNT=%d\\n' % count).encode())
  elif line == 'read': os.write(1, b'READ_OK\\n')
  elif line == 'quit': break
@@ -45,27 +55,30 @@ while True:
             assert child_group == helper_group and child_group != pid, ('child lacks separate foreground ownership', data)
             os.write(fd, b'\x03')
             until(b'INT\r\n')
-            time.sleep(.15)  # Allow any erroneous duplicate relay to arrive.
             os.write(fd, b'check\n')
             until(b'COUNT=1\r\n')
             assert data.count(b'INT\r\n') == 1, data
+            data = b''
             os.kill(pid, signal.SIGINT)  # Parent-PID-only delivery must still relay.
-            time.sleep(.15)
+            until(b'INT\r\n')
             os.write(fd, b'check\n')
             until(b'COUNT=2\r\n')
-            assert data.count(b'INT\r\n') == 2, data
+            assert data.count(b'INT\r\n') == 1, data
             os.write(fd, b'read\n')
             until(b'READ_OK')
             os.write(fd, b'\x1a')  # Real terminal VSUSP to foreground child.
-            deadline = time.monotonic() + 5
-            stopped = False
-            while time.monotonic() < deadline:
-                got, status = os.waitpid(pid, os.WNOHANG | os.WUNTRACED)
-                if got:
-                    stopped = os.WIFSTOPPED(status)
-                    break
-                time.sleep(.01)
-            assert stopped, ('launcher did not stop with child', data)
+            # waitpid is the stop acknowledgement; SIGALRM bounds a broken
+            # launcher without polling delays or an unbounded cleanup wait.
+            def timeout(sig, frame):
+                raise TimeoutError('launcher did not stop with child')
+            previous_alarm = signal.signal(signal.SIGALRM, timeout)
+            signal.alarm(5)
+            try:
+                got, status = os.waitpid(pid, os.WUNTRACED)
+            finally:
+                signal.alarm(0)
+                signal.signal(signal.SIGALRM, previous_alarm)
+            assert got == pid and os.WIFSTOPPED(status), ('launcher did not stop with child', data)
             assert os.tcgetpgrp(fd) == pid, 'terminal not restored on stop'
             os.kill(pid, signal.SIGCONT)
             data = b''
@@ -79,6 +92,9 @@ while True:
             assert os.WIFEXITED(status) and os.WEXITSTATUS(status) == 0, status
             print('trial=%d: one terminal INT + one parent-only INT, foreground read, stop/resume/read, restored terminal, exit=0' % (trial+1), flush=True)
         finally:
+            # Close the master before reaping killed children: Darwin can wait
+            # for terminal drain during exit while the master remains open.
+            os.close(fd)
             if not reaped:
                 # Kill both isolated groups; never touch the host terminal group.
                 if helper_group is not None and helper_group > 0 and helper_group not in (pid, os.getpgrp()):
@@ -88,4 +104,3 @@ while True:
                 except ProcessLookupError: pass
                 try: os.waitpid(pid, 0)
                 except ChildProcessError: pass
-            os.close(fd)
