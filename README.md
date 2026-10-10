@@ -4,6 +4,109 @@
 admitted interactive plan, and optional ax tracking. The contract is
 [SPEC 0.5.0-draft](SPEC.md).
 
+## Front doors
+
+| Entry | Composer | Process/lifetime owner | Status |
+|---|---|---|---|
+| Direct human `curator-run <env-id> …` | Caller-side interactive launcher | Launcher starts and waits for native child | Existing API below. |
+| Hosted or `ax` launch | Same caller-side interactive launcher | Hosted receiver or `ax` | Existing §§4.6/4.8–4.9 contracts; refusal never falls back to direct launch. |
+| Agent one-shot exec | Caller composes; dispatcher admits/provisions/tracks | `curator-run` under `worker-<label>` verifies and executes; dispatcher/helper own stop and cleanup | **Target amendment (version pending), not implemented**; [SPEC §10](SPEC.md#10-agent-account-one-shot-exec-contract-target-amendment). |
+
+## Target one-shot exec mode
+
+D-EXECUTOR (owner decision, 2026-10-11) selects a narrow agent-account
+mode, with a proposed entry `curator-run exec --plan-fd N`. The privileged
+path delivers the immutable plan on **FD3**; exact approved argv and the
+closed wire schema/digest preimage remain publication questions in SPEC
+§10.1. The caller composes and supplies the admitted SHA-256 plan digest;
+the executor verifies and executes it. Under the agent account it never
+resolves/repairs profiles, composes plans or infers permission defaults.
+No plan or secret comes through an alternative path, stdin, argv or env.
+The executor has no network access except to the broker; the harness's
+admitted vendor traffic is a separate boundary. This target does not
+implement or generalise the interactive API below. Decision 0021's versioned
+amendment still needs upstream publication before activation.
+
+The dispatcher owns authority, provisioning, execution claims, supervision
+and cleanup. `swarma-user-launcher` is the separate root transition: it
+verifies active owned generation, approved executor path/digest and home,
+resets environment/descriptors, writes an atomic start receipt before
+privilege drop, and runs `curator-run` under the agent UID. Only FD3 above
+standard descriptors crosses the transition; the executor opens a fresh
+peer-authenticated broker connection. The decoded plan bound is 48 KiB,
+base64 64 KiB, privileged request 80 KiB/5 s, helper request 16 KiB/5 s,
+dispatcher v0 request 96 KiB/5 s, v1 frame 128 KiB, broker frame 64 KiB.
+The smallest bound refuses before provisioning. These are not the hosted
+interactive payload or its terminal/status FD contract.
+
+D-PATH fixes the resolved launch PATH: protected launch tool directory,
+then admitted user base PATH in its existing order, then one protected
+manager dispatcher directory for checked project commands. Repository
+`.agents/bin` never executes in a managed launch. The caller records PATH
+under the plan digest; the executor uses the verified value. This claims no
+implementation of reserved interactive `path_prepend`. One shared launch
+library with `swarma-session-runner` is required by D-EXECUTOR; its package
+and release are unpublished.
+
+`curator-run` under the agent account is the first broker consumer. Board
+runner and session host ask the dispatcher to launch through it; neither
+embeds a broker client. The first slice is one protected Claude launch
+with cross-user peer/binding proof. `works.relux.curator.credential/1`
+contains required-understanding metadata only. The executor resolves and
+rechecks `credential_binding/1`: peer `(uid,generation)`, profile, harness,
+account, channel, endpoint, approved harness binary SHA-256 and policy
+generation. The broker checks its active binding, current caller/leaf
+grants and approved lists. `launch_id` (plan digest) is correlation, not
+authority; neither a digest nor a capability declaration proves execution.
+Conflicting credential sources refuse; no fallback to native login occurs.
+`credential-injection/1` requires harness-release qualification for effective
+source and uncontrolled children. Material goes only into the harness's
+qualified channel, never plans, argv, files, logs or receipts; the harness
+can read its own token.
+
+Claude setup-token uses `CLAUDE_CODE_OAUTH_TOKEN`, with no refresh; expiry
+or authentication failure requires re-enrollment/restart. Codex personal
+is a later, still qualification-dependent lane: one broker auth owner,
+external tokens into a per-session app-server, no launch `auth.json` or
+broker-mode `codex exec`. The execution-side executor/runner owns renewal;
+the broker alone refreshes. Default renewal deadline: 8 s; timeout fails
+the turn with no late answer/fallback. Enterprise tokens are outside first
+release; Muse subscriptions remain an open channel/priority question.
+Explicit API-key channels and native per-home authentication stay separate.
+The first broker store is files 0600 in owner-only 0700 directories.
+
+Cancellation/max-runtime stop uses helper `exec.stop` through the dispatcher:
+verify owned generation/execution and receipt/process identity, SIGTERM then
+SIGKILL, and confirm absence including escaped descendants. Caller/sudo
+exit is not a stop receipt. Unknown evidence permits neither capacity release
+nor replacement. Start receipts identify a start attempt, not readiness;
+consumed-plan evidence binds digest, qualified executor and policy generation
+without secrets. Exact consumed-plan/exit receipt transport, ownership across
+exec, numeric refusal exits and signal encoding are **open publication
+questions**, with options in SPEC §§10.4–10.5; the interactive exit table below
+does not define this mode. Published typed refusals include
+`credential_broker_unavailable`, `credential_source_conflict`,
+`principal_ledger_mismatch`, `lease_binding_mismatch`,
+`lease_harness_unqualified`, `renew_timeout` and `processes_remain`. Refusals
+are terminal and never launch a weaker alternative.
+
+D-WIRE-NAMES selects `swarma-<component> <object>/<n>` for versioned wire
+identifiers, including broker grant/revocation signed domains; it invents no
+unpublished helper/ticket signature grammar. SPEC §10.5 records the open
+helper v2 and SH2 ticket choices. D-GOALS keeps optional goals authored by
+the caller or board/orchestrator, with no agent goal capability, while a
+separate self-goal namespace decision is deferred. The host/executor work
+without goals, board or orchestrator toolchain. Dispatcher cleanup unbinds
+and retires; D-IDENTITY allows separate post-retirement revocation only for
+identities registered as one-shot. Standing identities remain operator-only.
+Donor provisioning is a separate component and variant B remains disabled
+pending its spec. D-RESUME's same-machine semver rule has no fallback/portable
+seed and does not enable resume in this local headless dispatcher v0 mode.
+
+See SPEC §10 for the canonical source, all refusal boundaries and open
+questions. These requirements and owner decisions are documentation targets,
+not evidence of implemented broker intake, isolation, receipts or execution.
+
 ## Production pipeline
 
 The executable supports `claude_code` (alias `claude`), `codex_cli`
