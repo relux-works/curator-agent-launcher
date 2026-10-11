@@ -1,0 +1,114 @@
+@startuml
+title M-LR2 - Invocation states, refusal and recovery (not session records)
+
+state "CURRENT interactive API - SPEC 0.5.0-draft" as Current {
+  state "Read / validate config\ncurator-run, caller identity" as Config
+  state "Normalize / validate argv" as Args
+  state "Resolve / repair\nCurator subprocess, caller-side" as Resolve
+  state "Map / defaults / host / permissions\nhosted resume / stdin / terminal gates" as Validate
+  state "Build admitted plan\nagents-management in-process" as Plan
+  state "Provider-limit gate\noptional native network admission" as Network
+  state "Compose / project value" as Compose
+  state "Native late checks\nbinary, MCP layer, prompt" as Late
+  state "Direct execution / wait\ncurator-run owns child / terminal restoration" as Execute
+  state "ax handoff\nax start subprocess" as Ax
+  state "Accepted ax handoff\nax owns process / terminal / Session Record" as Accepted
+  state "Hosted receiver / wait\ntask-board owns terminal / deadlines / completion" as Hosted
+  state "Refused\nterminal invocation; no weaker launch" as Refused
+  state "Exited\nchild status or classified receiver result" as Exited
+  [*] --> Config
+  Config --> Args : valid config; enabled / disabled / absent ax routes explicitly
+  Config --> Refused : unreadable / malformed / unsafe file
+  Args --> Resolve : accepted interactive invocation
+  Args --> Refused : usage / unknown flags / locked override
+  Args --> Exited : accepted help / version (0)
+  Resolve --> Validate : closed v1 / v2 / v3 fragment
+  Resolve --> Refused : resolve / repair / lock / fragment failure
+  Validate --> Plan : supported mapping / posture / host
+  Validate --> Refused : unsupported mapping / permission / hosted capability\nconflict, machine hosted default or invalid resume / terminal
+  Plan --> Network : admitted plan; no process created
+  Plan --> Refused : unsupported mode / model / effort / release / context collision
+  Network --> Compose : serviceable verdict; optional network admitted
+  Network --> Refused : failed / unknown verdict; limited provider; network refusal
+  Compose --> Late : native (direct or ax)
+  Compose --> Hosted : valid hosted payload / transport
+  Compose --> Refused : payload / stdin / composition invalid
+  Late --> Refused : first binary / MCP / prompt failure
+  Late --> Execute : direct route
+  Late --> Ax : configured ax, no explicit native bypass
+  Execute --> Exited : waits; forwards signals / stop-continue\nrestores terminal; exit or 128 + signal
+  Ax --> Refused : cannot start / rejects / nonzero; no direct fallback
+  Ax --> Accepted : accepted handoff; launch work ends
+  Hosted --> Refused : missing receiver / valid refusal / protocol or transport loss
+  Hosted --> Exited : no refusal record; receiver exit unchanged
+  Refused --> [*]
+  Exited --> [*]
+  Accepted --> [*]
+}
+note right of Current
+  [[../SPEC.md#1-scope-and-non-goals SPEC 1]] / [[../SPEC.md#4-composition-algorithm SPEC 4]] / [[../SPEC.md#46-hand-off-and-exec SPEC 4.6]] / [[../SPEC.md#49-hosted-payload-and-receiver-handoff SPEC 4.9]] / [[../SPEC.md#6-errors-and-diagnostics SPEC 6]].
+  States are per-invocation descriptions, not a persisted launcher FSM.
+  Current launcher owns no leases, checkpoints, resume records or session memory.
+  Config is launcher-owned; homes / profiles are Curator-owned;
+  ax owns its Session Record. Hosted durable layout / destination UID:
+  unspecified in spec 4.9. Direct terminal / wait behavior:
+  [[../README.md#environment-and-transport README Environment and transport]].
+  Refusal has no outgoing retry transition: operator deliberately starts a new invocation.
+  New resolve --repair can restore a missing MCP layer; launcher never repairs it.
+end note
+
+state "TARGET one-shot - NOT IMPLEMENTED; dispatcher v0 local headless" as Target {
+  state "Caller composes immutable plan\ncaller-side identity" as CallerPlan
+  state "Dispatcher intake / admission\nservice UID unspecified in spec 10.2" as Intake
+  state "Provision / bind / claim\ndispatcher owns durable execution state" as Provision
+  state "Privileged checks / atomic start receipt\nswarma-user-launcher, root" as RootCheck
+  state "Drop groups / GID / UID; approved exec\nplan pipe FD3 only above stdio" as Drop
+  state "Verify intake / destination binding\ncurator-run under agent UID worker-<label>" as Verify
+  state "Selected-source qualification / lease\nagent executor; broker checks peer / grants" as Lease
+  state "Recheck binding / execute harness\nagent UID; execution-scoped credential" as Harness
+  state "Execution outcome evidence\ndispatcher / supervisor owns record" as Outcome
+  state "Owned exec.stop\nroot user-manager helper\nreceipt identity; TERM then KILL" as Stop
+  state "Absence confirmed\nincluding escaped descendants" as Absent
+  state "Unknown / contradictory process evidence\nno claim release / replacement" as Unknown
+  state "Unbind then retire\ndispatcher; separately confirmed effects" as Cleanup
+  state "Target refusal\nnon-success, typed metadata; no fallback" as TargetRefusal
+  state "Account retired\noptional separate registered one-shot revocation" as Retired
+  [*] --> CallerPlan
+  CallerPlan --> Intake : already composed immutable plan, no secrets
+  Intake --> TargetRefusal : size / authority / capacity / unsupported v0 shape
+  Intake --> Provision : admitted; smallest path bound before provisioning
+  Provision --> RootCheck : owned claim / approved executor request
+  RootCheck --> TargetRefusal : inactive / unowned / unapproved / digest / duplicate receipt
+  RootCheck --> Drop : write receipt BEFORE privilege drop
+  Drop --> TargetRefusal : privilege_drop_failed
+  Drop --> Verify : agent-side executor reads bounded plan once
+  Verify --> TargetRefusal : missing / bad / unknown intake or digest / binding
+  Verify --> Lease : verified immutable values; no profile repair / model choice
+  Lease --> TargetRefusal : source conflict / broker unavailable / ledger / grants\nbinding / harness / channel / qualification refusal
+  Lease --> Harness : source policy admits; qualified broker lease if selected
+  Harness --> TargetRefusal : recheck / renewal or authentication failure
+  Harness --> Outcome : required evidence; exact transport unpublished
+  Harness --> Stop : dispatcher cancellation / max runtime
+  Outcome --> Stop : when owned stop needed; exit alone is not absence
+  Outcome --> Unknown : evidence unknown / contradictory
+  Stop --> Unknown : processes_remain / no confirmed termination receipt
+  Stop --> Absent : verified termination receipt
+  Absent --> Cleanup : confirmed effects only
+  Cleanup --> Retired : unbind then account retirement confirmed
+  TargetRefusal --> [*] : terminal for invocation; dispatcher still owns cleanup obligations
+  Retired --> [*]
+}
+note right of Target
+  [[../SPEC.md#101-immutable-input-descriptor-transport-and-limits SPEC 10.1]] / [[../SPEC.md#102-caller-dispatcher-privileged-launcher-and-executor SPEC 10.2]] / [[../SPEC.md#103-broker-binding-credential-delivery-and-rollout SPEC 10.3]] / [[../SPEC.md#104-signals-stop-receipts-and-cleanup SPEC 10.4]] / [[../SPEC.md#105-typed-refusals-exit-status-and-activation-questions SPEC 10.5]].
+  This is an obligation map, not a new persisted state schema.
+  No autonomous recovery transition from Unknown is defined here:
+  recovery procedure unspecified in spec 10.4; no inferred capacity release.
+  Start receipt proves attempt / identity, not readiness.
+  Consumed-plan / exit wire, post-exec renewal / release ownership,
+  numeric refusal exits and signal encoding: unspecified in spec 10.4-10.5.
+  Claude setup-token expiry / auth failure: re-enroll and restart; no refresh.
+  Later Codex renewal: 8 s timeout fails turn, no late response / login fallback.
+  v1 daemon supervision is later; SH2 tickets need publication;
+  no remote / native resume / seeded continuity in dispatcher v0.
+end note
+@enduml

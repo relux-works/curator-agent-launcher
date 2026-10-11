@@ -112,6 +112,12 @@ Non-goals, each a boundary rather than an omission:
 
 ### 1.1 Front doors and execution authority
 
+The [component map](diagrams/components.puml) separates current interactive
+processes from the target one-shot adapter; the [launch paths](diagrams/launch-paths.puml)
+show their handoffs and refusal boundaries. The [invocation states](diagrams/launch-states.puml)
+and [artifact layout](diagrams/artifact-layout.puml) show transient state and
+persistent owners without assigning session state to the launcher.
+
 | Front door | Composition and authority | Execution owner | Contract/status |
 |---|---|---|---|
 | Direct human launch | `curator-run <env-id> …` resolves the profile and composes an admitted interactive plan on the caller's side. | The launcher starts and waits for the native child. | §§3–6; existing interactive API. |
@@ -235,6 +241,10 @@ Parsing rules, closed:
   nothing.
 
 ## 4. Composition algorithm
+
+Figures: [current and target components](diagrams/components.puml),
+[launch sequences](diagrams/launch-paths.puml), and
+[transient invocation states](diagrams/launch-states.puml).
 
 A launch composes in seven ordered steps: obtain the fragment, map the
 environment, resolve model and effort, obtain the plan, resolve the
@@ -941,6 +951,9 @@ is `null` for every launchable environment (§4.4).
 
 ### 4.6 Hand off and exec
 
+Figures: [route and refusal sequences](diagrams/launch-paths.puml) and
+[transport and state owners](diagrams/artifact-layout.puml).
+
 **With the `ax` integration configured** on the machine, the launcher
 ALWAYS routes the composed launch through `ax` so the session is tracked
 from birth. Whether the integration is configured is one fact read from
@@ -1106,6 +1119,8 @@ provenance only and creates no persistent record.
 
 ### 4.7 The launcher's configuration file family
 
+Figure: [configuration and artifact ownership](diagrams/artifact-layout.puml).
+
 The launcher owns exactly two configuration files, both in the §4.3
 level-2 directories (`$XDG_CONFIG_HOME/curator-run/`, default
 `~/.config/curator-run/`, for the operator; `/etc/curator-run/` for the
@@ -1225,6 +1240,9 @@ the plan builds from the selector-free tail. The launcher never parses
 provider flags itself.
 
 ### 4.9 Hosted payload and receiver handoff
+
+Figures: [hosted handoff sequence](diagrams/launch-paths.puml) and
+[private payload and descriptor layout](diagrams/artifact-layout.puml).
 
 A hosted launch builds the same plan once and serializes the composed
 value — binary, ordered argv, full env, cwd, home, stdin, and the Curator
@@ -1670,6 +1688,13 @@ supports.
   acceptance gate; fake-harness test results do not certify releases.
 
 ## 10. Agent-account one-shot exec contract (target amendment)
+
+Figures: [target process boundaries](diagrams/components.puml),
+[one-shot launch and stop sequence](diagrams/launch-paths.puml),
+[target invocation states](diagrams/launch-states.puml), and
+[plan, credential and receipt layout](diagrams/artifact-layout.puml).
+Their target panels preserve the publication questions below; they do not
+assert an implemented or activated one-shot mode.
 
 **Status: specified target, not implemented or qualified.** This is the target
 for a separate versioned amendment to the interactive contract. D-EXECUTOR

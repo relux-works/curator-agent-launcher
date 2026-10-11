@@ -1,0 +1,104 @@
+@startuml
+title M-LR1 - Launcher components and process authority
+skinparam componentStyle rectangle
+
+package "CURRENT interactive API - SPEC 0.5.0-draft" {
+  actor "Operator / invoking caller" as operator
+  component "curator umbrella\ncaller-side process" as umbrella
+  component "curator env resolve --repair\ncaller-side subprocess\ncontext / home repair owner" as curator
+  rectangle "curator-run process - invoking caller identity" {
+    component "Config / trust reporting\nclosed fragment reader\nhost and permission selection" as config
+    component "agents-management\nin-process Go library\nadmission / plan construction" as composer
+    component "Provider-limit gate\nexplicit AvailabilityFor read" as limits
+    component "Network selection\nin-process network / adapter libraries\noptional direct scope only" as network
+    component "Composition / late checks\nno provider argv rebuilding" as compose
+    component "Direct child executor\nwait / terminal restoration\nsignal forwarding, stop/continue" as executor
+    component "ax document / hosted payload exporter" as exporter
+  }
+  component "Native provider child\ncaller-side identity" as child
+  component "ax start subprocess\nprocess / terminal / session owner" as ax
+  component "task-board session launch-plan\nprivate receiver subprocess\nterminal / deadlines / completion owner" as receiver
+  database "Managed profile / home\npersistent: Curator owns\nlauncher never writes" as home
+  database "Session Record\npersistent: ax owns" as record
+  operator --> umbrella : curator run ...
+  umbrella --> config : trust-root dispatch (SPEC 2)
+  operator --> config : direct curator-run ...
+  config --> curator : resolve canonical env-id
+  curator --> home : resolve / repair
+  curator --> config : closed v1/v2/v3 fragment
+  config --> composer : LaunchModeInteractive request
+  composer --> limits : admitted plan value, no process
+  limits --> network : serviceable verdict only
+  network --> compose : optional admitted patch
+  compose --> executor : direct composed value
+  executor --> child : starts and waits; no PTY
+  compose --> exporter : destination contract
+  exporter --> ax : launch-plan on stdin
+  ax --> record : records Curator extensions
+  exporter --> receiver : payload stdin + terminal FD3 / status FD4
+  note right of config
+    [[../SPEC.md#2-discovery-and-naming SPEC 2]]: trust roots belong to Curator;
+    revision A warns, revision B refuses outside roots.
+    Launcher reports its resolved executable path.
+    [[../SPEC.md#47-the-launchers-configuration-file-family SPEC 4.7]]: config read failure is refusal, never absence.
+  end note
+  note bottom of compose
+    [[../SPEC.md#4-composition-algorithm SPEC 4]] / [[../SPEC.md#6-errors-and-diagnostics SPEC 6]]:
+    unsupported mode / mapping, permission, provider-limit,
+    context collision, network or late-check failure is terminal.
+    ax / hosted refusal never falls back to a direct child.
+    Deliberate retry re-runs Curator repair; no automatic downgrade.
+  end note
+  note bottom of receiver
+    Hosted Phase 1: Claude only, terminal stdin only (SPEC 4.8-4.9).
+    Native paths do not probe a receiver.
+    ax and hosted destination process UID / hosted durable-state layout:
+    unspecified in spec 4.6 / 4.9; no launcher session state.
+    Direct child status propagates; signal exit 128 + signal.
+    [[../README.md#environment-and-transport README Environment and transport]].
+  end note
+}
+
+package "TARGET one-shot - dispatcher v0 local headless; NOT IMPLEMENTED" {
+  component "Caller process\nresolves / composes immutable plan" as caller
+  component "swarma-dispatcher\nv0 detached supervisor\nv1 daemon is a later phase" as dispatcher
+  component "swarma-user-launcher\nroot, no-argument sudo entry\napproved executor / generation checks" as privileged
+  component "curator-run exec adapter\nworker-<label> / agent UID\nverify plan and binding; execute" as agent
+  component "Shared launch library\nwith swarma-session-runner\npackage / API / release unpublished" as shared
+  component "swarma-credential-broker\npeer-authenticated lease / renew\nsole rotating-account refresh owner" as broker
+  component "Admitted harness\nagent-side process\nqualified credential channel" as harness
+  component "swarma-user-manager helper\nroot; owned exec.stop" as helper
+  caller --> dispatcher : already composed plan; authority / size gates
+  dispatcher --> privileged : admitted launch request on stdin
+  privileged --> agent : receipt before UID drop; decoded plan on FD3
+  agent --> shared : required target library
+  agent --> broker : fresh connection after UID drop
+  agent --> harness : verified plan; qualified material at execution
+  dispatcher --> broker : owns bind / unbind effects (separate from executor lease)
+  dispatcher --> helper : owned stop / account retirement; separate confirmed effects
+  note right of agent
+    [[../SPEC.md#10-agent-account-one-shot-exec-contract-target-amendment SPEC 10]] / [[../SPEC.md#102-caller-dispatcher-privileged-launcher-and-executor SPEC 10.2]]:
+    No agent-side profile resolution, composition, defaults or self-admission.
+    Only broker network access for executor; harness vendor traffic separate.
+    First broker consumer: one protected Claude launch, Slice 0.
+    Board runner / session host ask dispatcher; no embedded broker client.
+    No interactive / remote / resume / seeded path in dispatcher v0.
+  end note
+  note bottom of dispatcher
+    [[../SPEC.md#104-signals-stop-receipts-and-cleanup SPEC 10.4]]:
+    Dispatcher owns claims, records, supervision and cleanup.
+    Confirm absence before capacity release / replacement.
+    One-shot identity revocation only after retirement;
+    standing identities remain operator-only.
+    Dispatcher / broker service UID: unspecified in spec 10.2-10.3.
+  end note
+  note bottom of harness
+    [[../SPEC.md#103-broker-binding-credential-delivery-and-rollout SPEC 10.3]] / [[../SPEC.md#105-typed-refusals-exit-status-and-activation-questions SPEC 10.5]]:
+    Binding, grants, ledger, source conflicts or unqualified channel refuse.
+    Claude expiry / auth failure: re-enroll and restart, no refresh/fallback.
+    Exact post-exec evidence / renewal owner transport: unspecified in spec 10.4.
+    Codex personal is later / qualification-dependent; Muse subscription reserved.
+    SH2 ticket activation / helper signatures remain open; no authority inferred.
+  end note
+}
+@enduml
