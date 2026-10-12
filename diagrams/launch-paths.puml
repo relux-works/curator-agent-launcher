@@ -123,7 +123,7 @@ else admitted request
   end
   opt cancellation / max-runtime stop
     dispatcher -> helper : exec.stop for owned generation / execution
-    helper -> helper : verify receipt / process identity; SIGTERM then SIGKILL\ncheck escaped descendants too
+    helper -> helper : verify latest receipt authority; completed stop replays without signals\nuser-manager spec 4.4 / 4.7 single stop / retirement scope\nall UID processes: TERM / grace / KILL; stop per-user service domain\naccount-wide quiet absence, escaped descendants included
     alt absence confirmed
       helper --> dispatcher : termination receipt
     else processes remain / evidence unknown
@@ -135,12 +135,14 @@ else admitted request
     dispatcher -> dispatcher : unbind THEN retire, each confirmed separately\nquiesce / declared-key cleanup then home deletion\nseparate revocation only for registered one-shot identity after retirement
   end
 end
-== TARGET session-host start: DISABLED until joint publication / qualification ==
+== TARGET session-host lifecycle: DISABLED until joint publication / qualification ==
+caller -> dispatcher : owner-admitted start; session lifecycle authorisation may permit successors\nmember format unpublished
+dispatcher -> dispatcher : durable session-scoped host admission permit for one logical_session_id
 targethost -> targethost : durable session intent; closed delivery fence
 targethost -> dispatcher : host_start in dispatch-op/1\nlogical_session_id / execution_id / controller_epoch / op_id
-dispatcher -> dispatcher : configured session-host principal only\nadmission creates durable host admission permit bound to those values
+dispatcher -> dispatcher : configured session-host principal only; execution under permit\nsuccessor requires lifecycle authorisation / previous-claim confirmed absence\nidempotent per (logical_session_id, op_id)\nper-physical-start (execution_id, controller_epoch, op_id) claim / fence / receipt
 alt cancellation / fence change before physical call
-  dispatcher -> dispatcher : prevent call; withdraw permit or reconcile
+  dispatcher -> dispatcher : prevent stale call or reconcile; no authority widening
 else admitted start
   dispatcher -> root : approved runner via existing claim / effect / root-receipt path
   alt ambiguous physical call
@@ -150,9 +152,15 @@ else admitted start
     targetrunner -> targethost : fresh authenticated channel\ncurrent-epoch registration and readiness before delivery
   end
 end
+opt permitted host-requested stop
+  targethost -> dispatcher : host_stop in dispatch-op/1; execution under permit
+  dispatcher -> dispatcher : configured host principal only; journaled E-stop\nhost-requested, distinct from owner cancel; no start authority
+  dispatcher -> helper : exec.stop; same single termination scope
+  helper --> dispatcher : confirmed account-wide absence or processes_remain / unknown
+end
 note over targethost,dispatcher
   Host failure retains claim and closed fence until reconciliation.
-  Transport, permit and fence/cancel/crash ordering need joint publication (SPEC 10.5).
+  Transport, session permit / authorisation, host_stop and fence/cancel/crash ordering need joint publication (SPEC 10.5).
   Controller-only re-adoption keeps execution_id; replacement uses a new one.
   Fresh runner checks the native session lock; only dispatcher invokes root.
 end note
@@ -167,7 +175,14 @@ note over caller,helper
   Start receipt is not readiness. Exit is not proof of process absence / cleanup.
   Broker owns persistent binding / credential store; root launcher owns atomic start receipt.
   Dispatcher owns durable claims, outcomes and supervision: Unix-socket service from first slice.
+  Process fate table / replaced-daemon writer fence: user-manager spec 7 (R-FATE); no live supervisor adoption.
+  Cross-account workspace: standalone repository; private .git / common directory / refs / index / config / hooks.
+  No inherited .git backlink / executable local config / credential helpers; copy / reflink preserves rule.
+  Linked worktrees only within one account; optional shared objects immutable / read-only; transfer owner open (SPEC 10.5).
+  R-TIME: authenticated / operator-controlled installer time source; durable dispatcher / broker watermark.
+  Expiry max(now, watermark); not_before min(now, watermark); no untrusted advance; operator reset.
+  Expiry-driven home / binding destruction also requires boot-inclusive monotonic elapsed lifetime.
   Exact intake envelope / invocation, consumed-plan receipt, numeric exits and signal encoding: unspecified in spec 10.1 / 10.4 / 10.5.
-  No interactive FD3/FD4 reuse; no board dependency; SH2 host_start / donor B remain disabled pending publication.
+  No interactive FD3/FD4 reuse; no board dependency; SH2 host lifecycle / donor B remain disabled pending publication.
 end note
 @enduml

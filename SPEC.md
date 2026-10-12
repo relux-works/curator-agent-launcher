@@ -3,6 +3,13 @@
 **Specification version:** `0.5.0-draft`
 **Status:** in-repository draft (see [Versioning](#8-versioning))
 
+- 2026-10-12, 0.5.0-draft documentation revision (§§10.2, 10.4–10.5,
+  README and figures): apply private cross-account Git administration
+  (F-16), the single termination scope (F-13), the user manager's fate
+  table (R-FATE), session-scoped host admission and `host_stop` (R-SESSION),
+  and the accepted time rules (R-TIME). Source/result transfer ownership
+  and unpublished formats remain open; no implementation is claimed.
+
 - 2026-10-12, 0.5.0-draft documentation revision (§§10.1–10.5, README
   and figures): apply the accepted descriptor-lifecycle reference (R-FD3),
   dispatcher-only privileged starts (R-START), initial Unix-socket service
@@ -1722,7 +1729,8 @@ The owner decisions of 2026-10-10/11/12 override its open choices only as
 stated here: D-EXECUTOR (executor/consumer), D-PATH (managed PATH),
 D-WIRE-NAMES (wire naming), D-GOALS, D-IDENTITY,
 D-DONOR-PROVISIONING and D-RESUME, plus the accepted 2026-10-12
-retirement, dispatcher-only start and initial service-transport decisions.
+retirement, dispatcher-only start, initial service-transport, private
+cross-account repository, session-lifecycle authorisation and time decisions.
 The other open choices stay open.
 This section specifies obligations for a future implementation, not
 current capability or runtime evidence.
@@ -1827,6 +1835,23 @@ precede admission; an absent or unready service refuses with no command
 fallback. Queueing, events, long waits and advanced integrations come later
 on the same transport behind capability gates.
 
+**Workspace materialization across accounts (F-16).** A child in another
+isolated account MUST get a standalone repository under its own home,
+materialized from the admitted repository identity, exact base and approved
+content. Its writable Git administration MUST be private: `.git`, common
+directory, refs, index, configuration and hooks. Local configuration and
+hooks MUST be freshly defined for that repository; materialization MUST NOT
+inherit a source `.git` backlink, executable local configuration or
+credential helpers. Copy/reflink optimisations MUST preserve this boundary;
+mutable hard-linked Git administration cannot satisfy it. Linked worktrees
+remain allowed only within one account, including the existing board
+workflow; workflow isolation does not establish account isolation.
+Optional object sharing MUST be immutable, read-only to agents and limited
+to authorised source objects, with published provenance, access and retention
+rules. Source/result transfer across private homes remains an open ownership
+and authorisation question (§10.5); it does not authorise weaker home
+permissions, recursive privileged chown or a new privileged workspace service.
+
 Only `swarma-dispatcher` invokes the privileged launcher for execution
 starts. It checks the caller's authority, grants and capacity,
 provisions the account and broker binding, claims the execution, invokes
@@ -1848,10 +1873,18 @@ arbitrary `sudo -u` substitutes for this boundary.
 The session host requests a start via `host_start` in `dispatch-op/1`,
 allowed only to its configured service principal. It carries
 `(logical_session_id, execution_id, controller_epoch, op_id)` and refers to
-a **host admission permit**: a durable dispatcher record bound to those four
-values, created when a start with the session-host executor is admitted.
+a session-scoped **host admission permit**: a durable dispatcher record
+for one `logical_session_id`, created at the owner's admitted start.
+That start's **session lifecycle authorisation** can explicitly authorise
+successor executions for that logical session; its member format is
+unpublished (R-SESSION). Each physical start still has its own
+`(execution_id, controller_epoch, op_id)` claim, fence and receipt interlock.
+Successor `host_start` is admissible only under that authorisation,
+is idempotent per `(logical_session_id, op_id)`, and requires the previous
+claim to be confirmed absent first.
 The host prepares durable session intent and a closed delivery fence; a
-fence change withdraws the permit or sends it to reconciliation. The
+fence change prevents a stale physical start or sends it to reconciliation,
+without widening the session lifecycle authorisation. The
 dispatcher starts the approved agent-side runner through its existing
 claim, effect and root-receipt path. Cancellation before the call prevents
 the call. After an ambiguous call the dispatcher resolves the same effect
@@ -1863,6 +1896,12 @@ Account generation, execution ID and controller epoch remain distinct.
 Controller-only re-adoption preserves the execution ID; actual replacement
 uses a new one, and the fresh runner's native session-lock check remains.
 This target host path remains disabled pending joint publication (§10.5).
+
+The configured session-host principal may also call `host_stop` in
+`dispatch-op/1`, only for an execution under its host admission permit.
+It follows the dispatcher's journaled E-stop path (`exec.stop`, confirmed
+absence), is recorded as host-requested and is distinct from owner `cancel`.
+It confers no start authority; physical starts remain dispatcher-only.
 
 `curator-run` executes under the agent UID. It verifies the immutable plan
 and destination binding, uses only qualified credential injection, and
@@ -1949,11 +1988,33 @@ provider lane is enabled by D-EXECUTOR's first-consumer decision.
 ### 10.4 Signals, stop, receipts and cleanup
 
 The dispatcher service owns the execution's lifetime and supervision from
-the first slice. Caller terminal closure or caller death is not a confirmed
-stop. Cancellation and max-runtime stop go through helper `exec.stop` for the owned generation
-and execution, with start-receipt/process identity verification, SIGTERM
-then SIGKILL, returning a termination receipt only after absence is
-confirmed (including escaped descendants). No signal relay through sudo,
+the first slice. The user manager's spec §7 owns the single process
+**fate table** (R-FATE), beside R-FD3: service-manager/kill domains, fate on
+service stop/crash/restart, backend survival promises, journaled stop or
+`lost` observation, and the executions affected by a service swap. §10
+references that table rather than inferring survival from `setsid`, UID
+changes or service-manager defaults. Its fence against writers left over
+from a replaced daemon applies to every supervisor write; no live supervisor
+adoption is authorised. Platform services and service managers end executions
+only through `exec.stop`, retirement or an operator emergency stop; OS
+failures remain possible and are recorded as `lost`. Published unit
+configurations and per-platform qualification are required for fate claims.
+
+Caller terminal closure or caller death is not a confirmed stop.
+Cancellation, max-runtime stop and permitted `host_stop` go through helper
+`exec.stop` for the owned generation and execution. The user manager's
+§§4.4 and 4.7 and `diagrams/launch.puml` own the **single termination scope**
+shared by stop and retirement (F-13): while one execution per generation
+holds, signal every process of that UID with SIGTERM, grace period and
+SIGKILL, stop the per-user service domain where present, and confirm
+account-wide absence over a quiet period, including escaped descendants.
+The receipt/process identity check remains the authority check, not a
+process-set or wall-clock start-time filter. Account-wide signalling requires
+the requested execution to be the generation's latest receipt; a completed
+stop replays its recorded result without signalling, and an old receipt
+never authorises stopping a successor. A termination receipt requires that
+confirmed absence. Persistence denial and the idle zero-process rule remain
+user-manager qualification obligations. No signal relay through sudo,
 PID-only authority or direct session-host signalling substitutes for it.
 Unknown/contradictory evidence permits neither claim release nor replacement.
 The interactive terminal forwarding/stop/continue rules remain unchanged.
@@ -1976,6 +2037,18 @@ operation stating that confidentiality is not guaranteed; it is not an
 alternative ordinary retirement path. Code and results retain their separate
 git/acceptance policy, which does not prove secret-free content. The executor
 owns neither retirement nor identity revocation.
+
+**Time and expiry-driven destruction (R-TIME, F-21).** The platform installer
+requires an authenticated or operator-controlled time source (for example
+NTS). The dispatcher and broker each keep a durable time **watermark**:
+expiry is checked at `max(now, watermark)` and `not_before` at
+`min(now, watermark)`. The watermark never advances on untrusted time;
+resetting it is an explicit operator act. Clock steps can only narrow
+authority. Expiry-driven home deletion and binding removal additionally
+require real, boot-inclusive monotonic elapsed time of at least the
+lifetime. The component owners publish and qualify these rules; this
+executor does not substitute its wall clock for them. Explicit stops and
+operator retirements retain their separate authority.
 
 **Open publication question — retirement export:** a metadata export would
 need the user manager's closed schema and provenance checks published;
@@ -2034,10 +2107,21 @@ so no migration is needed (D-WIRE-NAMES); older pinned spellings are historical.
 component-specific request signature/version/canonical-byte format or a
 versioned shared adapter. The host backend would need joint publication
 and qualification of `host_start`, its authenticated transport, durable
-host admission permit, fence/cancel/crash ordering and same-effect
+session-scoped host admission permit, session lifecycle authorisation
+member format, `host_stop`, successor absence/idempotency and per-start
+claim/fence/receipt interlocks, fence/cancel/crash ordering and same-effect
 root-receipt reconciliation. Until then the SH2 backend stays disabled.
 Naming alone activates neither helper grants nor a host start capability;
 only the dispatcher performs privileged starts.
+
+**Open publication question — source/result transfer across homes (F-16):**
+workspace-capable cross-account launches would need an explicit transfer
+owner and authorisation for admitted source and accepted results through
+the existing approved repository/artifact path. Optional immutable object
+sharing would need published provenance, authorised-object access and
+retention rules. Neither private Git administration nor an admitted base
+proves checked-out code or accepted results secret-free. This question stays
+open; no transfer protocol, wire fields or refusal codes are assigned here.
 
 D-DONOR-PROVISIONING assigns donor provisioning to a separately specified
 small component with its own binary/privileges/removal; shared UID/path

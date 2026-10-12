@@ -51,9 +51,12 @@ package "CURRENT interactive API - SPEC 0.5.0-draft" {
 package "TARGET one-shot - NOT IMPLEMENTED; dispatcher v0 local headless" {
   artifact "Caller-owned immutable composed plan\nprofile pin / approved harness identity / effective env / PATH\nprotected tools -> admitted base PATH -> protected dispatcher\nno repository .agents/bin; digest covers resolved PATH" as immutable
   folder "Dispatcher-owned persistent execution state\nUnix-socket service from first slice" as dispatchstate {
-    artifact "Host admission permit\nlogical_session_id / execution_id / controller_epoch / op_id\ndurable dispatcher record; fence change withdraws / reconciles" as hostpermit
+    artifact "Host admission permit\nsession-scoped: one logical_session_id\nsession lifecycle authorisation member unpublished" as hostpermit
     artifact "Claims / run and effect IDs\nrequest / agent / execution IDs remain distinct\nper-operation retry reuses its own effect ID" as claims
     artifact "Outcome / helper termination evidence\nnot inferred from caller / sudo exit" as outcome
+  }
+  folder "Agent-owned cross-account workspace" as workspace {
+    artifact "Standalone repository at admitted exact base\nprivate .git / common directory / refs / index / config / hooks\nfresh local configuration and hooks" as repository
   }
   folder "Root user-manager / launcher-owned state" as rootstate {
     artifact "Generation ledger\nroot-owned 0644, root-owned directory\nactive (uid,generation); no secrets" as ledger
@@ -73,7 +76,7 @@ package "TARGET one-shot - NOT IMPLEMENTED; dispatcher v0 local headless" {
   artifact "Execution-scoped leased material\nqualified channel only\nnever plan / argv / files / logs / receipts" as material
   component "Admitted harness\nagent-side process\nSlice 0 Claude token env channel" as harness
   artifact "Consumed-plan / credential evidence\ndigest + qualified executor + policy generation\nno secrets; wire / storage unpublished" as consumed
-  hostpermit --> claims : host_start uses existing claim / effect / root-receipt path
+  hostpermit --> claims : host_start: per-start (execution_id, controller_epoch, op_id) interlock\nsuccessor needs authorisation / prior absence; idempotent (logical_session_id, op_id)
   immutable --> request : dispatcher admits smallest applicable bound before provisioning
   request --> root : closed privileged request on stdin
   ledger --> root : active generation / ownership checks
@@ -106,8 +109,13 @@ package "TARGET one-shot - NOT IMPLEMENTED; dispatcher v0 local headless" {
   end note
   note bottom of dispatchstate
     [[../SPEC.md#104-signals-stop-receipts-and-cleanup SPEC 10.4]]:
-    owned helper exec.stop verifies receipt identity; TERM then KILL;
-    confirmed descendant absence required before claim release / replacement.
+    owned helper exec.stop verifies latest receipt identity; replayed stop never signals;
+    user-manager spec 4.4 / 4.7 single scope: all UID processes, TERM / grace / KILL;
+    stop per-user service domain where present; account-wide quiet absence before claim release / replacement.
+    Old receipt cannot stop successor; receipt time does not filter the process set.
+    Process fate table / replaced-daemon writer fence: user-manager spec 7 (R-FATE).
+    host_stop under permit: configured host only, journaled E-stop / confirmed absence;
+    host-requested, distinct from owner cancel; no start authority.
     Dispatcher unbinds then retires, each effect confirmed separately.
     Separate one-shot identity revocation only after retirement;
     standing identity revocation is operator-only.
@@ -115,6 +123,19 @@ package "TARGET one-shot - NOT IMPLEMENTED; dispatcher v0 local headless" {
     Only service-generated closed-schema metadata export; no agent-controlled data.
     Separate operator home retention carries no confidentiality guarantee.
     Executor owns neither retirement nor identity revocation.
+    R-TIME: authenticated / operator-controlled installer time source; durable dispatcher / broker watermark.
+    Expiry max(now, watermark); not_before min(now, watermark); no untrusted advance; operator reset.
+    Expiry-driven home / binding destruction also requires boot-inclusive monotonic elapsed lifetime.
+  end note
+  note right of workspace
+    [[../SPEC.md#102-caller-dispatcher-privileged-launcher-and-executor SPEC 10.2]] / [[../SPEC.md#105-typed-refusals-exit-status-and-activation-questions SPEC 10.5]].
+    No inherited .git backlink, executable local configuration or credential helpers.
+    Copy / reflink preserves private writable Git administration; no mutable hard-linked metadata.
+    Linked worktrees only within one account, including existing board workflow.
+    Optional shared objects: immutable, read-only to agents, authorised source objects only.
+    Transfer owner / authorisation and object provenance / access / retention remain open.
+    No weakened home permissions / recursive privileged chown / new privileged workspace service.
+    Admitted base and accepted results do not prove secret-free content.
   end note
   note bottom of executor
     [[../SPEC.md#101-immutable-input-descriptor-transport-and-limits SPEC 10.1]] / [[../SPEC.md#102-caller-dispatcher-privileged-launcher-and-executor SPEC 10.2]] / [[../SPEC.md#105-typed-refusals-exit-status-and-activation-questions SPEC 10.5]].
@@ -125,7 +146,7 @@ package "TARGET one-shot - NOT IMPLEMENTED; dispatcher v0 local headless" {
     Post-exec receipt transport and renewal / release ownership: unspecified in spec 10.4.
     Numeric refusal exits / signal encoding: unspecified in spec 10.5.
     Unknown process evidence is not success or permission to release capacity.
-    Agent home lifecycle: dispatcher via helper; materialization detail unspecified in spec 10.2.
+    Agent home lifecycle: dispatcher via helper; private Git materialization in spec 10.2; transfer owner open in 10.5.
     SH2 host_start / permit publication, helper signatures and donor B remain open.
     No long-session state / resume / remote capability added by this diagram.
   end note

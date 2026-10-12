@@ -87,9 +87,21 @@ release; Muse subscriptions remain an open channel/priority question.
 Explicit API-key channels and native per-home authentication stay separate.
 The first broker store is files 0600 in owner-only 0700 directories.
 
-Cancellation/max-runtime stop uses helper `exec.stop` through the dispatcher:
-verify owned generation/execution and receipt/process identity, SIGTERM then
-SIGKILL, and confirm absence including escaped descendants. Caller/sudo
+Cross-account workspace materialization requires a standalone repository
+with private `.git`, common directory, refs, index, configuration and hooks.
+Never inherit a source `.git` backlink, executable local configuration or
+credential helpers. Copy/reflink optimisations preserve that rule; optional
+object sharing is immutable and read-only to agents. Linked worktrees remain
+allowed only within one account, including the existing board workflow.
+Source/result transfer ownership and authorisation across private homes stay
+open in SPEC §10.5; shared-object provenance/access/retention need publication.
+
+Cancellation/max-runtime stop uses helper `exec.stop` through the dispatcher,
+referencing the user manager's single termination scope (§§4.4/4.7): verify
+owned generation/current execution and receipt identity, signal every process
+of the UID (TERM, grace, KILL), stop its service domain where present, and
+confirm account-wide absence over a quiet period. Completed stops replay
+without signalling; an old receipt cannot stop a successor. Caller/sudo
 exit is not a stop receipt. Unknown evidence permits neither capacity release
 nor replacement. Start receipts identify a start attempt, not readiness;
 consumed-plan evidence binds digest, qualified executor and policy generation
@@ -102,14 +114,33 @@ does not define this mode. Published typed refusals include
 `lease_harness_unqualified`, `renew_timeout` and `processes_remain`. Refusals
 are terminal and never launch a weaker alternative.
 
+The user manager's spec §7 owns the process **fate table** (R-FATE), next
+to R-FD3: kill domains, stop/crash/restart fate, promised survival, affected
+executions and the fence against writers from a replaced daemon. SPEC §10.4
+references it; `setsid` and UID changes are not survival promises.
+R-TIME requires an authenticated or operator-controlled installer time source,
+durable dispatcher/broker time watermarks, expiry at `max(now, watermark)`
+and `not_before` at `min(now, watermark)`. Untrusted time never advances
+the watermark; reset is an explicit operator act. Clock steps can only
+narrow authority. Expiry-driven home deletion and binding removal also need
+real boot-inclusive monotonic elapsed time of at least the lifetime.
+
 D-WIRE-NAMES selects `swarma-<component> <object>/<n>` for versioned wire
 identifiers, including broker grant/revocation signed domains; it invents no
 unpublished helper signature grammar. SPEC §§10.2/10.5 describe the
-`host_start` operation in `dispatch-op/1` and its durable host admission
-permit bound to `(logical_session_id, execution_id, controller_epoch, op_id)`.
-The host requests the start; the dispatcher uses its existing claim, effect
-and root-receipt path, resolves ambiguous calls without a second launch,
-and stops if required. The runner opens a fresh authenticated host channel;
+`host_start` and `host_stop` operations in `dispatch-op/1`. The durable
+**host admission permit** is session-scoped for one `logical_session_id`.
+The owner's admitted start can explicitly authorise successor executions
+through **session lifecycle authorisation** (member format unpublished).
+Every physical start retains its own `(execution_id, controller_epoch, op_id)`
+claim, fence and receipt interlock. Successor `host_start` requires that
+authorisation and previous-claim confirmed absence; it is idempotent per
+`(logical_session_id, op_id)`. The host requests the start; only the dispatcher
+performs it and resolves ambiguous calls without a second launch.
+Only the configured session-host principal may request `host_stop`, only
+under its permit: journaled E-stop (`exec.stop`, confirmed absence), recorded
+as host-requested, distinct from owner `cancel`, with no start authority.
+The runner opens a fresh authenticated host channel;
 current-epoch registration and readiness precede delivery. Joint transport,
 permit, fence/cancel/crash and receipt publication still gate the SH2 backend.
 Helper v2 signature publication also remains open. D-GOALS keeps optional
@@ -533,10 +564,10 @@ make check      # all of the above
 ```
 
 CI (`.github/workflows/ci.yml`) runs the same targets on `ubuntu-latest`
-and `macos-latest` with the toolchain from `go.mod`. The optional `Test (rose-air)` job runs `make check` on
-`[self-hosted, macOS, ARM64]` only when the repository variable
-`ROSE_AIR_RUNNER` is exactly `true`. Enable it after registering a matching
-runner. Goldens run as part of `make test` and `make race`. There are no
+and `macos-latest` with the toolchain from `go.mod`. An optional self-hosted
+job runs `make check` on `[self-hosted, macOS, ARM64]` when its repository
+opt-in is enabled; the workflow defines that setting. Enable it after
+registering a matching runner. Goldens run as part of `make test` and `make race`. There are no
 release or tag jobs. Windows is not in this launcher's hosted matrix;
 platform execution evidence must come from the corresponding runner.
 

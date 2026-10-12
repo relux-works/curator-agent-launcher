@@ -71,7 +71,7 @@ package "TARGET one-shot - dispatcher v0 local headless; NOT IMPLEMENTED" {
   component "Session host\nservice principal; closed delivery fence" as targethost
   component "swarma-session-runner\nagent-side approved executor" as targetrunner
   caller --> dispatcher : Unix-socket client; composed plan; authority / size gates
-  targethost --> dispatcher : host_start in dispatch-op/1; durable host admission permit
+  targethost --> dispatcher : host_start / host_stop in dispatch-op/1; session-scoped host admission permit
   privileged --> targetrunner : approved agent-side runner
   targetrunner --> targethost : fresh authenticated channel; epoch registration / readiness before delivery
   targetrunner --> shared : required target library
@@ -100,8 +100,21 @@ package "TARGET one-shot - dispatcher v0 local headless; NOT IMPLEMENTED" {
     Export only service-generated closed-schema metadata; no agent-controlled data.
     Caller-owned 0-2 and read-only FD3 only; no service / broker / root handle.
     FD3 mechanism joint publication required (SPEC 10.1; user-manager spec 7 / launch figure).
-    Host permit bound to logical_session_id / execution_id / controller_epoch / op_id.
-    Fence changes withdraw / reconcile; ambiguous calls resolve same effect / receipt, no second launch.
+    Host admission permit: one logical_session_id; session lifecycle authorisation member unpublished.
+    Successor host_start requires authorisation and previous-claim absence; idempotent per (logical_session_id, op_id).
+    Each physical start: (execution_id, controller_epoch, op_id) claim / fence / receipt interlock.
+    Fence changes prevent stale start / reconcile; ambiguous calls resolve same effect / receipt, no second launch.
+    host_stop: configured host principal, execution under permit, journaled E-stop / exec.stop / confirmed absence.
+    Recorded as host-requested; distinct from owner cancel; no start authority.
+    Single stop / retirement scope: user-manager spec 4.4 / 4.7; all UID processes / service domain / quiet absence.
+    Process fate table: user-manager spec 7 (R-FATE); replaced-daemon writer fence; no live supervisor adoption.
+    Cross-account workspace: standalone repository; private .git / common directory / refs / index / config / hooks.
+    No inherited .git backlink / executable local config / credential helpers; copy / reflink preserves rule.
+    Linked worktrees only within one account; optional shared objects immutable / read-only.
+    Source / result transfer owner and shared-object provenance / access / retention remain open (SPEC 10.5).
+    R-TIME: authenticated / operator-controlled installer time source; durable dispatcher / broker watermark.
+    Expiry max(now, watermark); not_before min(now, watermark); no untrusted advance; operator reset.
+    Expiry-driven home / binding destruction also requires boot-inclusive monotonic elapsed lifetime.
     Service unavailable / unready refuses; queue / events / long waits later on same transport.
     Dispatcher / broker service UID: unspecified in spec 10.2-10.3.
   end note

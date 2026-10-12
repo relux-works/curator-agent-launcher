@@ -27,7 +27,19 @@ privileged descriptor lifecycle (R-FD3); the target panels reference it.
 The executor receives caller-owned 0–2 and read-only FD3 only. Joint
 publication of bounded staging gates activation. Only the dispatcher calls
 the privileged launcher; the target host requests `host_start` with a
-durable host admission permit, pending joint publication and qualification.
+session-scoped host admission permit for one `logical_session_id`.
+Session lifecycle authorisation may permit successors; each physical start
+keeps its own claim/fence/receipt interlock, and the previous claim must be
+confirmed absent first. `host_stop` uses journaled E-stop, confers no start
+authority and stays distinct from owner `cancel`. Joint publication and
+qualification remain required.
+Cross-account workspaces are standalone repositories with private Git
+administration; linked worktrees stay within one account. Source/result
+transfer ownership remains open (§10.5). The user manager owns the single
+termination scope (§§4.4/4.7) and process fate table (§7, R-FATE), including
+the replaced-daemon writer fence. R-TIME gates expiry-driven home deletion
+and binding removal on boot-inclusive monotonic elapsed lifetime as well
+as expiry; the dispatcher/broker own their durable time watermarks.
 Ordinary retirement deletes the home after quiesce and declared-key cleanup;
 export is restricted to service-generated closed-schema metadata without
 agent-controlled data. Separate operator home retention does not guarantee
