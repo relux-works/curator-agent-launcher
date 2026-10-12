@@ -13,6 +13,8 @@ participant "curator-run exec\nagent UID worker-<label>" as agent
 participant "credential broker\nservice UID unspecified" as broker
 participant "Harness\nagent-side process" as harness
 participant "user-manager helper\nroot" as helper
+participant "Session host\nconfigured service principal" as targethost
+participant "swarma-session-runner\napproved agent-side executor" as targetrunner
 
 == CURRENT interactive API: SPEC 0.5.0-draft ==
 caller -> launcher : curator-run <env-id> ...
@@ -81,7 +83,7 @@ end note
 
 == TARGET one-shot: NOT IMPLEMENTED; dispatcher v0 local headless only ==
 caller -> caller : resolve / compose immutable plan; select source; digest PATH / profile / harness
-caller -> dispatcher : already composed plan; no secret material
+caller -> dispatcher : Unix-socket client; composed plan; no secret material
 alt size / authority / grants / capacity or v0 combination refused
   dispatcher --> caller : terminal refusal before provisioning
 else admitted request
@@ -90,8 +92,8 @@ else admitted request
   alt generation / ownership / executor digest / duplicate receipt refused
     root --> dispatcher : typed refusal; no second start
   else privileged checks admit
-    root -> root : reset env / descriptors; create plan pipe FD3\natomic start receipt BEFORE clear groups / GID / UID drop
-    root -> agent : execute approved curator-run under agent UID; FD3 plan only
+    root -> root : user-manager spec 7 / diagrams/launch.puml owns lifecycle\nbounded staging; atomic receipt before privilege drop
+    root -> agent : execute approved curator-run under agent UID\ncaller-owned 0-2 and read-only FD3; no internal handles
     agent -> agent : bounded read once; verify admitted digest and values\nresolve protected credential_binding locally
     alt bad intake / unknown contract / digest / source or binding refused
       agent --> dispatcher : terminal refusal evidence (transport unpublished)
@@ -130,15 +132,42 @@ else admitted request
     end
   end
   opt descendant absence and cleanup effects confirmed
-    dispatcher -> dispatcher : unbind THEN retire, each confirmed separately\nseparate revocation only for registered one-shot identity after retirement
+    dispatcher -> dispatcher : unbind THEN retire, each confirmed separately\nquiesce / declared-key cleanup then home deletion\nseparate revocation only for registered one-shot identity after retirement
   end
 end
+== TARGET session-host start: DISABLED until joint publication / qualification ==
+targethost -> targethost : durable session intent; closed delivery fence
+targethost -> dispatcher : host_start in dispatch-op/1\nlogical_session_id / execution_id / controller_epoch / op_id
+dispatcher -> dispatcher : configured session-host principal only\nadmission creates durable host admission permit bound to those values
+alt cancellation / fence change before physical call
+  dispatcher -> dispatcher : prevent call; withdraw permit or reconcile
+else admitted start
+  dispatcher -> root : approved runner via existing claim / effect / root-receipt path
+  alt ambiguous physical call
+    dispatcher -> dispatcher : resolve same effect / receipt; never launch twice\nstop through exec.stop if required
+  else runner started
+    root -> targetrunner : approved executor under agent UID; user-manager lifecycle
+    targetrunner -> targethost : fresh authenticated channel\ncurrent-epoch registration and readiness before delivery
+  end
+end
+note over targethost,dispatcher
+  Host failure retains claim and closed fence until reconciliation.
+  Transport, permit and fence/cancel/crash ordering need joint publication (SPEC 10.5).
+  Controller-only re-adoption keeps execution_id; replacement uses a new one.
+  Fresh runner checks the native session lock; only dispatcher invokes root.
+end note
 note over caller,helper
   [[../SPEC.md#101-immutable-input-descriptor-transport-and-limits SPEC 10.1]] / [[../SPEC.md#102-caller-dispatcher-privileged-launcher-and-executor SPEC 10.2]] / [[../SPEC.md#103-broker-binding-credential-delivery-and-rollout SPEC 10.3]] / [[../SPEC.md#104-signals-stop-receipts-and-cleanup SPEC 10.4]] / [[../SPEC.md#105-typed-refusals-exit-status-and-activation-questions SPEC 10.5]].
+  Initial service uses broker connection / framing rules; recovery / readiness before admission.
+  Absent / unready service refuses; queue / events / long waits later on same transport.
+  FD3 mechanism joint publication gates activation with intake / digest / framing / read deadline.
+  Prefer completely staged bounded immutable bytes; pipe needs capacity / feeder / deadline / cleanup.
+  Retirement exports only service-generated closed-schema metadata, no agent-controlled data.
+  Separate operator home retention has no confidentiality guarantee.
   Start receipt is not readiness. Exit is not proof of process absence / cleanup.
   Broker owns persistent binding / credential store; root launcher owns atomic start receipt.
-  Dispatcher owns durable claims, outcomes and supervision: v0 detached supervisor; v1 daemon later.
+  Dispatcher owns durable claims, outcomes and supervision: Unix-socket service from first slice.
   Exact intake envelope / invocation, consumed-plan receipt, numeric exits and signal encoding: unspecified in spec 10.1 / 10.4 / 10.5.
-  No interactive FD3/FD4 reuse; no board dependency; SH2 ticket / donor B remain disabled pending publication.
+  No interactive FD3/FD4 reuse; no board dependency; SH2 host_start / donor B remain disabled pending publication.
 end note
 @enduml

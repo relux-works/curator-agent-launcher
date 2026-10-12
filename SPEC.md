@@ -3,6 +3,12 @@
 **Specification version:** `0.5.0-draft`
 **Status:** in-repository draft (see [Versioning](#8-versioning))
 
+- 2026-10-12, 0.5.0-draft documentation revision (§§10.1–10.5, README
+  and figures): apply the accepted descriptor-lifecycle reference (R-FD3),
+  dispatcher-only privileged starts (R-START), initial Unix-socket service
+  transport and retirement home deletion. FD3 staging and host admission
+  publication remain activation gates; no implementation is claimed.
+
 - 2026-10-12, 0.5.0-draft documentation revision: the
   [figure index](diagrams/README.md) maps every PlantUML source to its defining
   spec sections and current or target phase; figure titles use public names.
@@ -1712,10 +1718,12 @@ it does not advertise implementation of this target revision.
 
 The baseline is the [platform contract table at 177cb554](https://github.com/relux-works/curator/blob/177cb554/.research/261010_platform-contract-table.md),
 particularly N1–N7, W2–W3, I1–I5, L1–L2, P1–P6, C1–C9, G1–G2 and X1–X2.
-The owner decisions of 2026-10-10/11 override its open choices only as
+The owner decisions of 2026-10-10/11/12 override its open choices only as
 stated here: D-EXECUTOR (executor/consumer), D-PATH (managed PATH),
 D-WIRE-NAMES (wire naming), D-GOALS, D-IDENTITY,
-D-DONOR-PROVISIONING and D-RESUME. The other open choices stay open.
+D-DONOR-PROVISIONING and D-RESUME, plus the accepted 2026-10-12
+retirement, dispatcher-only start and initial service-transport decisions.
+The other open choices stay open.
 This section specifies obligations for a future implementation, not
 current capability or runtime evidence.
 
@@ -1731,11 +1739,21 @@ resolve profiles, repair homes, re-read caller defaults or choose a new
 binary/model/permission posture. A digest binds content; it grants no
 launch or credential authority and is not evidence that execution occurred.
 
-`swarma-user-launcher` accepts the closed privileged request on stdin and
-delivers only the decoded plan through a newly created pipe on FD3. It
-closes other descriptors above 2 before creating that pipe; no broker
-connection crosses the privilege transition. Standard descriptors belong
-to the caller's transport, not to plan or secret metadata. The agent-side
+`swarma-user-launcher` accepts the closed privileged request on stdin.
+The user manager's spec §7 and `diagrams/launch.puml` own the **single
+descriptor-lifecycle contract (R-FD3)**, including trusted-handle retention
+and cleanup on success and every failure. This section references that
+contract; it does not define another descriptor-closing sequence. The
+executor receives only caller-owned descriptors 0–2 and a read-only FD3
+containing the decoded plan. No service, broker or root handle reaches the
+executor. Standard descriptors belong to the caller's transport, not to
+plan or secret metadata.
+
+Plan staging MUST be bounded and allow the executor to start: completely
+staged, bounded, immutable bytes on FD3 are preferred. A pipe is allowed
+only with a published and qualified capacity, feeder, deadline and cleanup
+order; staging MUST NOT wait for a reader that cannot yet start. The
+concrete per-platform FD3 mechanism remains unpublished. The agent-side
 executor reads the plan once into a bounded immutable value, verifies it,
 and opens its own peer-authenticated broker connection after the UID drop.
 It MUST NOT fetch plans from a path, stdin, an environment variable, a
@@ -1749,8 +1767,7 @@ harness's vendor traffic is a distinct process/network policy boundary.
 | Base64 plan in a request | 64 KiB |
 | Privileged launch request | 80 KiB, one closed JSON document within 5 seconds |
 | Other helper request | 16 KiB, one closed JSON document within 5 seconds |
-| Dispatcher v0 stdin request | 96 KiB within 5 seconds |
-| Dispatcher v1 frame | 128 KiB |
+| Dispatcher service frame | 128 KiB |
 | Broker frame | 64 KiB |
 
 The dispatcher refuses the smallest applicable path bound at prepare,
@@ -1768,6 +1785,18 @@ the executor through the protected intake; a self-supplied digest alone is
 not authority. Unknown versions/members, malformed input, missing digest,
 digest mismatch and incomplete reads MUST refuse, with no fallback. Exact
 framing, read deadline and refusal names must be published with the schema.
+Intake, digest, framing and read-deadline publication remain gates before
+activation.
+
+**Open publication question — FD3 staging (launcher/user-manager owners):**
+activation would need joint publication of the selected per-platform FD3
+mechanism with §10.1 and the user manager's descriptor-lifecycle contract.
+It would need bounded staging and failure cleanup qualification at the
+maximum admitted plan size, concurrent launch/stop/retire, interrupted
+staging, abort after receipt or privilege drop, exec failure and proof that
+no internal handle reaches the executor. A pipe mechanism would need its
+capacity, feeder, deadline and cleanup order published and qualified.
+Naming FD3 alone does not satisfy this gate.
 
 **Open publication question — entry invocation (launcher/helper owners):**
 retain FD3 as the executor's fixed no-argument intake, or version the approved
@@ -1789,7 +1818,17 @@ caller/board authorship. Goals and task-board remain optional; neither the
 executor nor the session host depends on a board, goals, orchestrator or
 its toolchain. The start-goal wire member is not published by this section.
 
-`swarma-dispatcher` checks the caller's authority, grants and capacity,
+`swarma-dispatcher` is an unprivileged Unix-socket service from the first
+protected-launch slice, using the broker's connection and framing rules.
+The Curator CLI is its client. Peer authentication, server-UID verification,
+caller signatures, fresh principal/generation checks and descriptor
+inheritance/passing restrictions remain mandatory. Recovery and readiness
+precede admission; an absent or unready service refuses with no command
+fallback. Queueing, events, long waits and advanced integrations come later
+on the same transport behind capability gates.
+
+Only `swarma-dispatcher` invokes the privileged launcher for execution
+starts. It checks the caller's authority, grants and capacity,
 provisions the account and broker binding, claims the execution, invokes
 the privileged launcher and owns supervision, stop, records and cleanup.
 It receives already composed plans, not profile fragments or material.
@@ -1800,11 +1839,30 @@ use distinct effect IDs, with retries reusing their own effect ID.
 
 `swarma-user-launcher` is the root transition, not the agent executor.
 Through its no-argument sudo entry it verifies active owned generation,
-agent home, approved executor path and digest; resets descriptors and the
-environment; writes the atomic start receipt **before** clearing groups,
-setting GID/UID and executing the verified `curator-run`. A pre-existing
+agent home, approved executor path and digest; follows the user manager's
+descriptor lifecycle (§10.1) and resets the environment; writes the atomic
+start receipt **before** clearing groups, setting GID/UID and executing the verified `curator-run`. A pre-existing
 execution receipt refuses a second start. No general command runner or
 arbitrary `sudo -u` substitutes for this boundary.
+
+The session host requests a start via `host_start` in `dispatch-op/1`,
+allowed only to its configured service principal. It carries
+`(logical_session_id, execution_id, controller_epoch, op_id)` and refers to
+a **host admission permit**: a durable dispatcher record bound to those four
+values, created when a start with the session-host executor is admitted.
+The host prepares durable session intent and a closed delivery fence; a
+fence change withdraws the permit or sends it to reconciliation. The
+dispatcher starts the approved agent-side runner through its existing
+claim, effect and root-receipt path. Cancellation before the call prevents
+the call. After an ambiguous call the dispatcher resolves the same effect
+and receipt and stops the execution if required; it never launches twice.
+Host failure retains the claim and closed fence until reconciliation. The
+runner opens a fresh authenticated host channel; current-epoch registration
+and readiness precede delivery. The host has no privileged launch authority.
+Account generation, execution ID and controller epoch remain distinct.
+Controller-only re-adoption preserves the execution ID; actual replacement
+uses a new one, and the fresh runner's native session-lock check remains.
+This target host path remains disabled pending joint publication (§10.5).
 
 `curator-run` executes under the agent UID. It verifies the immutable plan
 and destination binding, uses only qualified credential injection, and
@@ -1890,10 +1948,9 @@ provider lane is enabled by D-EXECUTOR's first-consumer decision.
 
 ### 10.4 Signals, stop, receipts and cleanup
 
-The dispatcher owns the execution's lifetime: v0 uses a detached
-supervisor; v1 daemon supervision is a distinct phase. Caller terminal
-closure or death of caller/sudo is not a confirmed stop. Cancellation and
-max-runtime stop go through helper `exec.stop` for the owned generation
+The dispatcher service owns the execution's lifetime and supervision from
+the first slice. Caller terminal closure or caller death is not a confirmed
+stop. Cancellation and max-runtime stop go through helper `exec.stop` for the owned generation
 and execution, with start-receipt/process identity verification, SIGTERM
 then SIGKILL, returning a termination receipt only after absence is
 confirmed (including escaped descendants). No signal relay through sudo,
@@ -1911,7 +1968,19 @@ Dispatcher cleanup unbinds then retires the account, with separate confirmed
 effects. D-IDENTITY permits identity revocation only for identities recorded
 as one-shot at registration, as a separate dispatcher operation **after**
 account retirement. Standing identity revocation is operator-only with a
-signed record. The executor owns neither retirement nor identity revocation.
+signed record. After quiesce, confirmed process absence and declared-key
+cleanup, ordinary retirement deletes the agent home. Only service-generated
+metadata in a closed schema is exported, without agent-controlled strings,
+names, links or bodies. Home retention is a separate explicit operator
+operation stating that confidentiality is not guaranteed; it is not an
+alternative ordinary retirement path. Code and results retain their separate
+git/acceptance policy, which does not prove secret-free content. The executor
+owns neither retirement nor identity revocation.
+
+**Open publication question — retirement export:** a metadata export would
+need the user manager's closed schema and provenance checks published;
+arbitrary agent-controlled content, names, links and bodies cannot enter it.
+No general home-secret classifier or default home archive is authorised.
 
 **Open publication question — completion evidence/signals:** publish a
 separate typed consumed-plan/exit receipt delivered to the supervisor, or
@@ -1956,20 +2025,19 @@ D-WIRE-NAMES fixes new versioned wire identifiers to the repository name:
 `swarma-credential-broker grant/1` and
 `swarma-credential-broker revocation/1`; dispatcher request domain is
 `swarma-dispatcher request/1`. The existing `broker/1` transport token is
-not a signed request domain. User-manager request kinds and launch ticket
+not a signed request domain. User-manager request kinds
 must follow the rule on publication; object names, signature grammar and
 canonical bytes are not supplied by the naming decision. Nothing has shipped,
 so no migration is needed (D-WIRE-NAMES); older pinned spellings are historical.
 
-**Open owner questions (table W3/I4):** freeze v2 helper request
-signature/version/canonical bytes as a component-specific format or a
-versioned shared adapter; and jointly version/activate the launch-ticket
-signature domain and host-role schema, or leave the SH2 backend disabled.
-The target ticket binds `{generation, execution_id, epoch, executor,
-plan_digest, expires_at}`, is dispatcher-issued and redeemed once for the
-authenticated host. Account generation, execution ID, ticket epoch and
-backend controller epoch remain distinct. Naming alone activates no ticket,
-helper grants or host launch authority.
+**Open publication questions (table W3/I4):** helper v2 would need a
+component-specific request signature/version/canonical-byte format or a
+versioned shared adapter. The host backend would need joint publication
+and qualification of `host_start`, its authenticated transport, durable
+host admission permit, fence/cancel/crash ordering and same-effect
+root-receipt reconciliation. Until then the SH2 backend stays disabled.
+Naming alone activates neither helper grants nor a host start capability;
+only the dispatcher performs privileged starts.
 
 D-DONOR-PROVISIONING assigns donor provisioning to a separately specified
 small component with its own binary/privileges/removal; shared UID/path

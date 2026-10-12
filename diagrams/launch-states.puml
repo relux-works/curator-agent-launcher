@@ -62,7 +62,7 @@ state "TARGET one-shot - NOT IMPLEMENTED; dispatcher v0 local headless" as Targe
   state "Dispatcher intake / admission\nservice UID unspecified in spec 10.2" as Intake
   state "Provision / bind / claim\ndispatcher owns durable execution state" as Provision
   state "Privileged checks / atomic start receipt\nswarma-user-launcher, root" as RootCheck
-  state "Drop groups / GID / UID; approved exec\nplan pipe FD3 only above stdio" as Drop
+  state "User-manager lifecycle / approved exec\ncaller-owned 0-2 and read-only plan FD3 only" as Drop
   state "Verify intake / destination binding\ncurator-run under agent UID worker-<label>" as Verify
   state "Selected-source qualification / lease\nagent executor; broker checks peer / grants" as Lease
   state "Recheck binding / execute harness\nagent UID; execution-scoped credential" as Harness
@@ -70,7 +70,7 @@ state "TARGET one-shot - NOT IMPLEMENTED; dispatcher v0 local headless" as Targe
   state "Owned exec.stop\nroot user-manager helper\nreceipt identity; TERM then KILL" as Stop
   state "Absence confirmed\nincluding escaped descendants" as Absent
   state "Unknown / contradictory process evidence\nno claim release / replacement" as Unknown
-  state "Unbind then retire\ndispatcher; separately confirmed effects" as Cleanup
+  state "Unbind then retire / delete home\nquiesce / declared-key cleanup; confirmed effects" as Cleanup
   state "Target refusal\nnon-success, typed metadata; no fallback" as TargetRefusal
   state "Account retired\noptional separate registered one-shot revocation" as Retired
   [*] --> CallerPlan
@@ -108,7 +108,17 @@ note right of Target
   numeric refusal exits and signal encoding: unspecified in spec 10.4-10.5.
   Claude setup-token expiry / auth failure: re-enroll and restart; no refresh.
   Later Codex renewal: 8 s timeout fails turn, no late response / login fallback.
-  v1 daemon supervision is later; SH2 tickets need publication;
+  Unix-socket service from first slice; SH2 host_start / permit needs publication;
+  Service unavailable / unready refuses; queue / events / long waits later on same transport.
+  FD3 mechanism, intake / digest / framing / read deadline: publication gates in SPEC 10.1.
+  User-manager spec 7 / diagrams/launch.puml owns lifecycle; no internal handles in executor.
+  Prefer completely staged bounded immutable bytes; pipe needs capacity / feeder / deadline / cleanup.
+  SH2 host_start: durable permit bound to logical_session_id / execution_id / controller_epoch / op_id.
+  Only dispatcher invokes root; fence changes withdraw / reconcile permit.
+  Ambiguous start resolves same effect / receipt, no second launch; stop if required.
+  Runner authenticates fresh host channel; epoch registration / readiness before delivery.
+  Retirement exports only service-generated closed-schema metadata, no agent-controlled data.
+  Separate operator home retention has no confidentiality guarantee.
   no remote / native resume / seeded continuity in dispatcher v0.
 end note
 @enduml

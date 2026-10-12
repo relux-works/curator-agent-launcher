@@ -28,14 +28,26 @@ implement or generalise the interactive API below. Decision 0021's versioned
 amendment still needs upstream publication before activation.
 
 The dispatcher owns authority, provisioning, execution claims, supervision
-and cleanup. `swarma-user-launcher` is the separate root transition: it
+and cleanup. It is an unprivileged Unix-socket service from the first
+protected-launch slice, using the broker's connection and framing rules;
+recovery and readiness precede admission. An absent or unready service
+refuses with no command fallback. Queueing, events and long waits come
+later behind capability gates on the same transport. Only the dispatcher
+invokes the privileged launcher. `swarma-user-launcher` is the separate root
+transition: it
 verifies active owned generation, approved executor path/digest and home,
-resets environment/descriptors, writes an atomic start receipt before
-privilege drop, and runs `curator-run` under the agent UID. Only FD3 above
-standard descriptors crosses the transition; the executor opens a fresh
-peer-authenticated broker connection. The decoded plan bound is 48 KiB,
+resets the environment, follows the user manager's single descriptor
+lifecycle (spec §7 and `diagrams/launch.puml`, R-FD3), writes an atomic
+start receipt before privilege drop, and runs `curator-run` under the agent
+UID. The executor receives only caller-owned 0–2 and read-only FD3; no
+service, broker or root handle reaches it. It opens a fresh peer-authenticated
+broker connection. Completely staged, bounded, immutable plan bytes are
+preferred; a pipe would need a published and qualified capacity, feeder,
+deadline and cleanup order. Joint FD3-mechanism publication and intake,
+digest, framing and read-deadline publication gate activation (§10.1). The decoded plan bound is
+48 KiB,
 base64 64 KiB, privileged request 80 KiB/5 s, helper request 16 KiB/5 s,
-dispatcher v0 request 96 KiB/5 s, v1 frame 128 KiB, broker frame 64 KiB.
+dispatcher service frame 128 KiB, broker frame 64 KiB.
 The smallest bound refuses before provisioning. These are not the hosted
 interactive payload or its terminal/status FD contract.
 
@@ -92,12 +104,26 @@ are terminal and never launch a weaker alternative.
 
 D-WIRE-NAMES selects `swarma-<component> <object>/<n>` for versioned wire
 identifiers, including broker grant/revocation signed domains; it invents no
-unpublished helper/ticket signature grammar. SPEC §10.5 records the open
-helper v2 and SH2 ticket choices. D-GOALS keeps optional goals authored by
+unpublished helper signature grammar. SPEC §§10.2/10.5 describe the
+`host_start` operation in `dispatch-op/1` and its durable host admission
+permit bound to `(logical_session_id, execution_id, controller_epoch, op_id)`.
+The host requests the start; the dispatcher uses its existing claim, effect
+and root-receipt path, resolves ambiguous calls without a second launch,
+and stops if required. The runner opens a fresh authenticated host channel;
+current-epoch registration and readiness precede delivery. Joint transport,
+permit, fence/cancel/crash and receipt publication still gate the SH2 backend.
+Helper v2 signature publication also remains open. D-GOALS keeps optional
+goals authored by
 the caller or board/orchestrator, with no agent goal capability, while a
 separate self-goal namespace decision is deferred. The host/executor work
 without goals, board or orchestrator toolchain. Dispatcher cleanup unbinds
-and retires; D-IDENTITY allows separate post-retirement revocation only for
+and retires: after quiesce and declared-key cleanup it deletes the home.
+Only service-generated closed-schema metadata is exported, with no
+agent-controlled strings, names, links or bodies. Home retention requires
+an explicit separate operator operation stating that confidentiality is
+not guaranteed. Code/results keep their separate git/acceptance policy,
+without a secret-free-content assurance. D-IDENTITY allows separate
+post-retirement revocation only for
 identities registered as one-shot. Standing identities remain operator-only.
 Donor provisioning is a separate component and variant B remains disabled
 pending its spec. D-RESUME's same-machine semver rule has no fallback/portable

@@ -50,7 +50,8 @@ package "CURRENT interactive API - SPEC 0.5.0-draft" {
 
 package "TARGET one-shot - NOT IMPLEMENTED; dispatcher v0 local headless" {
   artifact "Caller-owned immutable composed plan\nprofile pin / approved harness identity / effective env / PATH\nprotected tools -> admitted base PATH -> protected dispatcher\nno repository .agents/bin; digest covers resolved PATH" as immutable
-  folder "Dispatcher-owned persistent execution state\nv0 detached supervisor; v1 daemon later" as dispatchstate {
+  folder "Dispatcher-owned persistent execution state\nUnix-socket service from first slice" as dispatchstate {
+    artifact "Host admission permit\nlogical_session_id / execution_id / controller_epoch / op_id\ndurable dispatcher record; fence change withdraws / reconciles" as hostpermit
     artifact "Claims / run and effect IDs\nrequest / agent / execution IDs remain distinct\nper-operation retry reuses its own effect ID" as claims
     artifact "Outcome / helper termination evidence\nnot inferred from caller / sudo exit" as outcome
   }
@@ -60,8 +61,8 @@ package "TARGET one-shot - NOT IMPLEMENTED; dispatcher v0 local headless" {
     artifact "Atomic start receipt BEFORE UID drop\nexecution_id / epoch / pid / start_time / boot_id / session_id\nattempt identity, not readiness" as startreceipt
   }
   component "swarma-user-launcher\nroot process; no-argument sudo entry" as root
-  artifact "Privileged stdin request\n80 KiB / 5 s; base64 plan 64 KiB\nother helper 16 KiB / 5 s\ndispatcher v0 96 KiB / 5 s; v1 frame 128 KiB" as request
-  artifact "Fresh pipe FD3 = decoded plan only\n48 KiB; other FDs >2 closed first\nstandard FDs are caller transport, no plan / secrets\nno broker connection crosses UID drop" as planfd
+  artifact "Privileged stdin request\n80 KiB / 5 s; base64 plan 64 KiB\nother helper 16 KiB / 5 s\ndispatcher service frame 128 KiB" as request
+  artifact "Read-only FD3 = decoded plan only, 48 KiB\ncaller-owned 0-2 only otherwise; no service / broker / root handle\nprefer completely staged bounded immutable bytes\nmechanism jointly unpublished; user-manager owns lifecycle" as planfd
   component "curator-run exec adapter\nagent UID worker-<label>\nbounded immutable read / verify" as executor
   folder "Broker-owned persistent state" as brokerstate {
     artifact "Protected credential_binding/1\npeer uid / generation, profile, harness, account, channel\nendpoint, harness SHA-256, policy generation\nrandom binding_id and generation never reused" as binding
@@ -72,12 +73,13 @@ package "TARGET one-shot - NOT IMPLEMENTED; dispatcher v0 local headless" {
   artifact "Execution-scoped leased material\nqualified channel only\nnever plan / argv / files / logs / receipts" as material
   component "Admitted harness\nagent-side process\nSlice 0 Claude token env channel" as harness
   artifact "Consumed-plan / credential evidence\ndigest + qualified executor + policy generation\nno secrets; wire / storage unpublished" as consumed
+  hostpermit --> claims : host_start uses existing claim / effect / root-receipt path
   immutable --> request : dispatcher admits smallest applicable bound before provisioning
   request --> root : closed privileged request on stdin
   ledger --> root : active generation / ownership checks
   approved --> root : executor path / digest / home checks
   root --> startreceipt : atomic write; existing receipt refuses second start
-  root --> planfd : reset env / descriptors; decoded plan pipe
+  root --> planfd : user-manager lifecycle; bounded plan staging
   planfd --> executor : after clear groups / GID / UID drop; no alternate intake
   immutable --> metadata : metadata within admitted plan
   metadata --> executor : no endpoint / executable / material selection by profile bytes
@@ -109,16 +111,22 @@ package "TARGET one-shot - NOT IMPLEMENTED; dispatcher v0 local headless" {
     Dispatcher unbinds then retires, each effect confirmed separately.
     Separate one-shot identity revocation only after retirement;
     standing identity revocation is operator-only.
+    After quiesce / declared-key cleanup, delete home.
+    Only service-generated closed-schema metadata export; no agent-controlled data.
+    Separate operator home retention carries no confidentiality guarantee.
     Executor owns neither retirement nor identity revocation.
   end note
   note bottom of executor
     [[../SPEC.md#101-immutable-input-descriptor-transport-and-limits SPEC 10.1]] / [[../SPEC.md#102-caller-dispatcher-privileged-launcher-and-executor SPEC 10.2]] / [[../SPEC.md#105-typed-refusals-exit-status-and-activation-questions SPEC 10.5]].
+    FD3 mechanism publication gates activation with intake / digest / framing / read deadline.
+    Pipe would need qualified capacity / feeder / deadline / cleanup order.
+    Lifecycle reference: user-manager spec 7 and diagrams/launch.puml (R-FD3).
     Intake envelope / digest placement / dedicated argv: unspecified in spec 10.1.
     Post-exec receipt transport and renewal / release ownership: unspecified in spec 10.4.
     Numeric refusal exits / signal encoding: unspecified in spec 10.5.
     Unknown process evidence is not success or permission to release capacity.
     Agent home lifecycle: dispatcher via helper; materialization detail unspecified in spec 10.2.
-    SH2 ticket / helper signature publication and donor B activation remain open.
+    SH2 host_start / permit publication, helper signatures and donor B remain open.
     No long-session state / resume / remote capability added by this diagram.
   end note
 }

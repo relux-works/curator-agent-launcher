@@ -4,8 +4,10 @@ These PlantUML sources illustrate the [launcher specification](../SPEC.md).
 Each figure separates the current interactive API (direct and ax launches,
 plus hosted Phase 1: Claude with terminal stdin only) from the target
 agent-account one-shot mode (§10). The target is **not implemented**;
-dispatcher v0 is local headless only, and v1 daemon supervision is a later
-phase. Unpublished intake, receipt and activation formats remain open
+dispatcher v0 is a Unix-socket service from the first slice and admits
+local headless work only; queueing, events and long waits come later on the
+same transport. Unpublished FD3 staging, intake, receipt and host admission
+formats remain open
 questions in [§§10.1–10.5](../SPEC.md#101-immutable-input-descriptor-transport-and-limits).
 
 | Figure | Defining spec sections | Phase |
@@ -19,3 +21,14 @@ The specification defines the contracts; the figures also link back to the
 relevant sections. Persistent state belongs to the named owning components.
 Launcher invocation buffers are transient, and credential material remains
 separate from metadata.
+
+The user manager's spec §7 and `diagrams/launch.puml` own the single
+privileged descriptor lifecycle (R-FD3); the target panels reference it.
+The executor receives caller-owned 0–2 and read-only FD3 only. Joint
+publication of bounded staging gates activation. Only the dispatcher calls
+the privileged launcher; the target host requests `host_start` with a
+durable host admission permit, pending joint publication and qualification.
+Ordinary retirement deletes the home after quiesce and declared-key cleanup;
+export is restricted to service-generated closed-schema metadata without
+agent-controlled data. Separate operator home retention does not guarantee
+confidentiality.

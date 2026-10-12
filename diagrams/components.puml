@@ -61,16 +61,22 @@ package "CURRENT interactive API - SPEC 0.5.0-draft" {
 
 package "TARGET one-shot - dispatcher v0 local headless; NOT IMPLEMENTED" {
   component "Caller process\nresolves / composes immutable plan" as caller
-  component "swarma-dispatcher\nv0 detached supervisor\nv1 daemon is a later phase" as dispatcher
+  component "swarma-dispatcher\nUnix-socket service from first slice\nrecovery / readiness before admission" as dispatcher
   component "swarma-user-launcher\nroot, no-argument sudo entry\napproved executor / generation checks" as privileged
   component "curator-run exec adapter\nworker-<label> / agent UID\nverify plan and binding; execute" as agent
   component "Shared launch library\nwith swarma-session-runner\npackage / API / release unpublished" as shared
   component "swarma-credential-broker\npeer-authenticated lease / renew\nsole rotating-account refresh owner" as broker
   component "Admitted harness\nagent-side process\nqualified credential channel" as harness
   component "swarma-user-manager helper\nroot; owned exec.stop" as helper
-  caller --> dispatcher : already composed plan; authority / size gates
-  dispatcher --> privileged : admitted launch request on stdin
-  privileged --> agent : receipt before UID drop; decoded plan on FD3
+  component "Session host\nservice principal; closed delivery fence" as targethost
+  component "swarma-session-runner\nagent-side approved executor" as targetrunner
+  caller --> dispatcher : Unix-socket client; composed plan; authority / size gates
+  targethost --> dispatcher : host_start in dispatch-op/1; durable host admission permit
+  privileged --> targetrunner : approved agent-side runner
+  targetrunner --> targethost : fresh authenticated channel; epoch registration / readiness before delivery
+  targetrunner --> shared : required target library
+  dispatcher --> privileged : only privileged start caller; admitted request on stdin
+  privileged --> agent : user-manager descriptor lifecycle; read-only plan FD3
   agent --> shared : required target library
   agent --> broker : fresh connection after UID drop
   agent --> harness : verified plan; qualified material at execution
@@ -90,6 +96,13 @@ package "TARGET one-shot - dispatcher v0 local headless; NOT IMPLEMENTED" {
     Confirm absence before capacity release / replacement.
     One-shot identity revocation only after retirement;
     standing identities remain operator-only.
+    After quiesce / declared-key cleanup, delete the home.
+    Export only service-generated closed-schema metadata; no agent-controlled data.
+    Caller-owned 0-2 and read-only FD3 only; no service / broker / root handle.
+    FD3 mechanism joint publication required (SPEC 10.1; user-manager spec 7 / launch figure).
+    Host permit bound to logical_session_id / execution_id / controller_epoch / op_id.
+    Fence changes withdraw / reconcile; ambiguous calls resolve same effect / receipt, no second launch.
+    Service unavailable / unready refuses; queue / events / long waits later on same transport.
     Dispatcher / broker service UID: unspecified in spec 10.2-10.3.
   end note
   note bottom of harness
@@ -98,7 +111,7 @@ package "TARGET one-shot - dispatcher v0 local headless; NOT IMPLEMENTED" {
     Claude expiry / auth failure: re-enroll and restart, no refresh/fallback.
     Exact post-exec evidence / renewal owner transport: unspecified in spec 10.4.
     Codex personal is later / qualification-dependent; Muse subscription reserved.
-    SH2 ticket activation / helper signatures remain open; no authority inferred.
+    SH2 host_start / permit qualification and helper signatures remain open.
   end note
 }
 @enduml
