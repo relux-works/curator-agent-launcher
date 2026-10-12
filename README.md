@@ -109,7 +109,7 @@ not evidence of implemented broker intake, isolation, receipts or execution.
 
 ## Production pipeline
 
-The module figures are PlantUML sources (audit rows M-LR1–M-LR2):
+The module figures are PlantUML sources:
 
 - [Components and process authority](diagrams/components.puml) — current interactive planes and target one-shot adapter ([SPEC §§1.1, 4, 10](SPEC.md#11-front-doors-and-execution-authority)).
 - [Launch paths](diagrams/launch-paths.puml) — direct, ax, hosted and target one-shot refusal/stop branches ([SPEC §§4.6, 4.9, 10.1–10.5](SPEC.md#46-hand-off-and-exec)).
@@ -118,7 +118,7 @@ The module figures are PlantUML sources (audit rows M-LR1–M-LR2):
 
 Each figure labels current and target phases separately. The target is not
 implemented; unpublished intake, receipts and activation details remain visible
-as spec gaps. See the [figure/source index](diagrams/TASK-261011-1pvp8b_figures.md).
+as spec gaps. See the [figure index](diagrams/README.md).
 
 The executable supports `claude_code` (alias `claude`), `codex_cli`
 (alias `codex`), native `pi`, and Muse (`muse`).

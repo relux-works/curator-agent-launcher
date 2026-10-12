@@ -1,5 +1,5 @@
 @startuml
-title M-LR1 - Launcher components and process authority
+title Launcher components and process authority
 skinparam componentStyle rectangle
 
 package "CURRENT interactive API - SPEC 0.5.0-draft" {

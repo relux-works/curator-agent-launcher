@@ -1,5 +1,5 @@
 @startuml
-title M-LR2 - Artifact ownership, transport and cleanup boundaries
+title Artifact ownership, transport and cleanup boundaries
 skinparam componentStyle rectangle
 
 package "CURRENT interactive API - SPEC 0.5.0-draft" {

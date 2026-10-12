@@ -3,6 +3,10 @@
 **Specification version:** `0.5.0-draft`
 **Status:** in-repository draft (see [Versioning](#8-versioning))
 
+- 2026-10-12, 0.5.0-draft documentation revision: the
+  [figure index](diagrams/README.md) maps every PlantUML source to its defining
+  spec sections and current or target phase; figure titles use public names.
+
 The launcher is the **execution plane** of the four-plane composition fixed
 by curator-spec Decision 0010: Curator owns what the agent reads (context),
 `agents-management` owns who runs (spawn), `ax` owns what happens to a

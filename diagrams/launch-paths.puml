@@ -1,5 +1,5 @@
 @startuml
-title M-LR1 - Current launch routes and target one-shot path
+title Current launch routes and target one-shot path
 actor "Caller / operator" as caller
 participant "curator-run\ncaller identity" as launcher
 participant "curator env resolve\ncaller-side subprocess" as curator

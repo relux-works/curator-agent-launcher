@@ -1,5 +1,5 @@
 @startuml
-title M-LR2 - Invocation states, refusal and recovery (not session records)
+title Invocation states, refusal and recovery (not session records)
 
 state "CURRENT interactive API - SPEC 0.5.0-draft" as Current {
   state "Read / validate config\ncurator-run, caller identity" as Config
