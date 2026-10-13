@@ -49,14 +49,19 @@ package "CURRENT interactive API - SPEC 0.5.0-draft" {
 }
 
 package "TARGET one-shot - NOT IMPLEMENTED; dispatcher v0 local headless" {
-  artifact "Caller-owned immutable composed plan\nprofile pin / approved harness identity / effective env / PATH\nprotected tools -> admitted base PATH -> protected dispatcher\nno repository .agents/bin; digest covers resolved PATH" as immutable
+  artifact "Caller-owned immutable composed plan\nprofile pin / approved harness identity / effective env / PATH\nprotected tools -> admitted base PATH -> protected dispatcher\nno repository .agents/bin; digest covers PATH / workspace / exec profile / resources" as immutable
   folder "Dispatcher-owned persistent execution state\nUnix-socket service from first slice" as dispatchstate {
     artifact "Host admission permit\nsession-scoped: one logical_session_id\nsession lifecycle authorisation member unpublished" as hostpermit
     artifact "Claims / run and effect IDs\nrequest / agent / execution IDs remain distinct\nper-operation retry reuses its own effect ID" as claims
     artifact "Outcome / helper termination evidence\nnot inferred from caller / sudo exit" as outcome
   }
+  artifact "Admitted base B tree archive\ncaller supplies; dispatcher relays / journals digest\narchive format unpublished" as basearchive
+  component "swarma-workspace-materialize\napproved executor, child UID\ndispatcher workspace contract" as materialize
+  component "swarma-workspace-export\napproved executor, child UID\nfixed environment / no network; only after confirmed absence" as export
+  artifact "swarma-dispatcher workspace-result/1\nchange set only; design label\nschema / caps / retention unpublished" as result
+  component "Board change-request machinery\norchestrator: deterministic import / exact C review\nrework from C / signed fast-forward integration" as changes
   folder "Agent-owned cross-account workspace" as workspace {
-    artifact "Standalone repository at admitted exact base\nprivate .git / common directory / refs / index / config / hooks\nfresh local configuration and hooks" as repository
+    artifact "Standalone repository at admitted exact base\nprivate .git / common directory / refs / index / fresh config; no hooks\nfresh local configuration; no hooks / remotes / credential helpers" as repository
   }
   folder "Root user-manager / launcher-owned state" as rootstate {
     artifact "Generation ledger\nroot-owned 0644, root-owned directory\nactive (uid,generation); no secrets" as ledger
@@ -77,6 +82,13 @@ package "TARGET one-shot - NOT IMPLEMENTED; dispatcher v0 local headless" {
   component "Admitted harness\nagent-side process\nSlice 0 Claude token env channel" as harness
   artifact "Consumed-plan / credential evidence\ndigest + qualified executor + policy generation\nno secrets; wire / storage unpublished" as consumed
   hostpermit --> claims : host_start: per-start (execution_id, controller_epoch, op_id) interlock\nsuccessor needs authorisation / prior absence; idempotent (logical_session_id, op_id)
+  basearchive --> materialize : dispatcher workspace contract; before work
+  materialize --> repository : fresh standalone repository; no hooks / remotes
+  immutable --> materialize : admitted B / manifest / write scope / exec profile
+  outcome --> export : account-wide absence; workplace write fence
+  repository --> export : walk without following links; ignore worker Git history
+  export --> result : bounded manifest-relative change set; whole-export refusals
+  result --> changes : dispatcher journals digests; original caller only; board accepts resource
   immutable --> request : dispatcher admits smallest applicable bound before provisioning
   request --> root : closed privileged request on stdin
   ledger --> root : active generation / ownership checks
@@ -119,8 +131,9 @@ package "TARGET one-shot - NOT IMPLEMENTED; dispatcher v0 local headless" {
     Dispatcher unbinds then retires, each effect confirmed separately.
     Separate one-shot identity revocation only after retirement;
     standing identity revocation is operator-only.
-    After quiesce / declared-key cleanup, delete home.
-    Only service-generated closed-schema metadata export; no agent-controlled data.
+    After quiesce / declared-key cleanup and recorded export or operator waiver, delete home.
+    R-TRANSFER workspace export recorded or operator-waived before home deletion.
+    Separate retirement metadata export: service-generated closed schema only.
     Separate operator home retention carries no confidentiality guarantee.
     Executor owns neither retirement nor identity revocation.
     R-TIME: authenticated / operator-controlled installer time source; durable dispatcher / broker watermark.
@@ -133,7 +146,9 @@ package "TARGET one-shot - NOT IMPLEMENTED; dispatcher v0 local headless" {
     Copy / reflink preserves private writable Git administration; no mutable hard-linked metadata.
     Linked worktrees only within one account, including existing board workflow.
     Optional shared objects: immutable, read-only to agents, authorised source objects only.
-    Transfer owner / authorisation and object provenance / access / retention remain open.
+    R-TRANSFER materialization / export: dispatcher workspace contract, approved child-UID executors.
+    Board resource -> deterministic import -> exact C review -> existing signed fast-forward.
+    Transfer formats and shared-object provenance / access / retention remain open.
     No weakened home permissions / recursive privileged chown / new privileged workspace service.
     Admitted base and accepted results do not prove secret-free content.
   end note
@@ -146,9 +161,23 @@ package "TARGET one-shot - NOT IMPLEMENTED; dispatcher v0 local headless" {
     Post-exec receipt transport and renewal / release ownership: unspecified in spec 10.4.
     Numeric refusal exits / signal encoding: unspecified in spec 10.5.
     Unknown process evidence is not success or permission to release capacity.
-    Agent home lifecycle: dispatcher via helper; private Git materialization in spec 10.2; transfer owner open in 10.5.
+    Agent home lifecycle: dispatcher via helper; materialization / export: dispatcher's workspace contract (R-TRANSFER).
     SH2 host_start / permit publication, helper signatures and donor B remain open.
     No long-session state / resume / remote capability added by this diagram.
   end note
 }
+note right of immutable
+  Wave-5 launch obligations - SPEC 10.1-10.2 / 10.6
+  R-TRANSFER: plan digest covers B / manifest digest / write scope / exec-profile reference.
+  R-NET-TOOL: read-only task resources covered by digest; bound provider proxy only.
+  No web by default; plan disables provider-side search, invisible to network rules.
+  Only operator-granted trusted-circle opt-in: qualified server search or platform Unix-socket web service.
+  R-STANDING: verify settings / hooks / MCP / instructions by digest before exec, or root-owned surfaces.
+  Drift refuses (code unpublished); repair is explicit re-materialization.
+  R-EXEC: D-PATH protected light-check wrappers / fixed subcommands; no heavy entry points.
+  User manager owns OS exec allowlist; R-VERIFY builds / tests / code execution on another machine.
+  R-UNTRUSTED refused in Slice 0 / user-manager v0; workplace zero egress / donor-side loop.
+  Admission: R-CEILINGS / R-WATCH / R-ALLSTOP / R-RANGE-DENY / R-SOCKETS / R-SHARED (SPEC 10.6).
+  Exact plan / transfer / opt-in formats and qualification remain open; no implementation claimed.
+end note
 @enduml

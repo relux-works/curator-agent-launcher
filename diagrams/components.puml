@@ -70,6 +70,11 @@ package "TARGET one-shot - dispatcher v0 local headless; NOT IMPLEMENTED" {
   component "swarma-user-manager helper\nroot; owned exec.stop" as helper
   component "Session host\nservice principal; closed delivery fence" as targethost
   component "swarma-session-runner\nagent-side approved executor" as targetrunner
+  component "Workspace materialize / export\napproved executors under child UID\ndispatcher workspace contract (R-TRANSFER)" as workspaceexec
+  component "Board change requests\norchestrator imports / exact C review / integrates" as changes
+  dispatcher --> workspaceexec : materialize before work; export after confirmed absence
+  workspaceexec --> dispatcher : change set only; no worker Git history / push
+  dispatcher --> changes : result only to original caller; board accepts resource
   caller --> dispatcher : Unix-socket client; composed plan; authority / size gates
   targethost --> dispatcher : host_start / host_stop in dispatch-op/1; session-scoped host admission permit
   privileged --> targetrunner : approved agent-side runner
@@ -85,7 +90,7 @@ package "TARGET one-shot - dispatcher v0 local headless; NOT IMPLEMENTED" {
   note right of agent
     [[../SPEC.md#10-agent-account-one-shot-exec-contract-target-amendment SPEC 10]] / [[../SPEC.md#102-caller-dispatcher-privileged-launcher-and-executor SPEC 10.2]]:
     No agent-side profile resolution, composition, defaults or self-admission.
-    Only broker network access for executor; harness vendor traffic separate.
+    Broker via declared Unix socket; local trusted harness uses bound provider proxy only.
     First broker consumer: one protected Claude launch, Slice 0.
     Board runner / session host ask dispatcher; no embedded broker client.
     No interactive / remote / resume / seeded path in dispatcher v0.
@@ -96,8 +101,9 @@ package "TARGET one-shot - dispatcher v0 local headless; NOT IMPLEMENTED" {
     Confirm absence before capacity release / replacement.
     One-shot identity revocation only after retirement;
     standing identities remain operator-only.
-    After quiesce / declared-key cleanup, delete the home.
-    Export only service-generated closed-schema metadata; no agent-controlled data.
+    After quiesce / declared-key cleanup and recorded export or operator waiver, delete home.
+    R-TRANSFER workspace export recorded or operator-waived before home deletion.
+    Separate retirement metadata export: service-generated closed schema only.
     Caller-owned 0-2 and read-only FD3 only; no service / broker / root handle.
     FD3 mechanism joint publication required (SPEC 10.1; user-manager spec 7 / launch figure).
     Host admission permit: one logical_session_id; session lifecycle authorisation member unpublished.
@@ -108,10 +114,11 @@ package "TARGET one-shot - dispatcher v0 local headless; NOT IMPLEMENTED" {
     Recorded as host-requested; distinct from owner cancel; no start authority.
     Single stop / retirement scope: user-manager spec 4.4 / 4.7; all UID processes / service domain / quiet absence.
     Process fate table: user-manager spec 7 (R-FATE); replaced-daemon writer fence; no live supervisor adoption.
-    Cross-account workspace: standalone repository; private .git / common directory / refs / index / config / hooks.
+    Cross-account workspace: standalone repository; private .git / common directory / refs / index / fresh config; no hooks.
     No inherited .git backlink / executable local config / credential helpers; copy / reflink preserves rule.
     Linked worktrees only within one account; optional shared objects immutable / read-only.
-    Source / result transfer owner and shared-object provenance / access / retention remain open (SPEC 10.5).
+    R-TRANSFER owner: dispatcher workspace contract; board import / exact-commit review / integration.
+    Transfer formats and shared-object provenance / access / retention remain open (SPEC 10.5).
     R-TIME: authenticated / operator-controlled installer time source; durable dispatcher / broker watermark.
     Expiry max(now, watermark); not_before min(now, watermark); no untrusted advance; operator reset.
     Expiry-driven home / binding destruction also requires boot-inclusive monotonic elapsed lifetime.
@@ -127,4 +134,18 @@ package "TARGET one-shot - dispatcher v0 local headless; NOT IMPLEMENTED" {
     SH2 host_start / permit qualification and helper signatures remain open.
   end note
 }
+note left of agent
+  Wave-5 launch obligations - SPEC 10.1-10.2 / 10.6
+  R-TRANSFER: plan digest covers B / manifest digest / write scope / exec-profile reference.
+  R-NET-TOOL: read-only task resources covered by digest; bound provider proxy only.
+  No web by default; plan disables provider-side search, invisible to network rules.
+  Only operator-granted trusted-circle opt-in: qualified server search or platform Unix-socket web service.
+  R-STANDING: verify settings / hooks / MCP / instructions by digest before exec, or root-owned surfaces.
+  Drift refuses (code unpublished); repair is explicit re-materialization.
+  R-EXEC: D-PATH protected light-check wrappers / fixed subcommands; no heavy entry points.
+  User manager owns OS exec allowlist; R-VERIFY builds / tests / code execution on another machine.
+  R-UNTRUSTED refused in Slice 0 / user-manager v0; workplace zero egress / donor-side loop.
+  Admission: R-CEILINGS / R-WATCH / R-ALLSTOP / R-RANGE-DENY / R-SOCKETS / R-SHARED (SPEC 10.6).
+  Exact plan / transfer / opt-in formats and qualification remain open; no implementation claimed.
+end note
 @enduml

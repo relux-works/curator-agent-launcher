@@ -3,12 +3,18 @@
 **Specification version:** `0.5.0-draft`
 **Status:** in-repository draft (see [Versioning](#8-versioning))
 
+- 2026-10-13, 0.5.0-draft documentation revision (§§10.1–10.6,
+  README and figures): apply R-TRANSFER, R-STANDING, R-EXEC and
+  R-NET-TOOL; reference the untrusted admission and abuse-control owners.
+  Transfer ownership is settled; exact formats and qualification remain
+  publication gates. No implementation is claimed.
+
 - 2026-10-12, 0.5.0-draft documentation revision (§§10.2, 10.4–10.5,
   README and figures): apply private cross-account Git administration
   (F-16), the single termination scope (F-13), the user manager's fate
   table (R-FATE), session-scoped host admission and `host_stop` (R-SESSION),
-  and the accepted time rules (R-TIME). Source/result transfer ownership
-  and unpublished formats remain open; no implementation is claimed.
+  and the accepted time rules (R-TIME). Unpublished formats remain open;
+  no implementation is claimed.
 
 - 2026-10-12, 0.5.0-draft documentation revision (§§10.1–10.5, README
   and figures): apply the accepted descriptor-lifecycle reference (R-FD3),
@@ -1725,12 +1731,13 @@ it does not advertise implementation of this target revision.
 
 The baseline is the [platform contract table at 177cb554](https://github.com/relux-works/curator/blob/177cb554/.research/261010_platform-contract-table.md),
 particularly N1–N7, W2–W3, I1–I5, L1–L2, P1–P6, C1–C9, G1–G2 and X1–X2.
-The owner decisions of 2026-10-10/11/12 override its open choices only as
+The owner decisions of 2026-10-10/11/12/13 override its open choices only as
 stated here: D-EXECUTOR (executor/consumer), D-PATH (managed PATH),
 D-WIRE-NAMES (wire naming), D-GOALS, D-IDENTITY,
 D-DONOR-PROVISIONING and D-RESUME, plus the accepted 2026-10-12
 retirement, dispatcher-only start, initial service-transport, private
-cross-account repository, session-lifecycle authorisation and time decisions.
+cross-account repository, session-lifecycle authorisation and time decisions,
+and the wave-5 transfer, untrusted-class, network-tool and abuse controls.
 The other open choices stay open.
 This section specifies obligations for a future implementation, not
 current capability or runtime evidence.
@@ -1746,6 +1753,16 @@ start. It MUST execute the verified values and MUST NOT reconstruct argv,
 resolve profiles, repair homes, re-read caller defaults or choose a new
 binary/model/permission posture. A digest binds content; it grants no
 launch or credential authority and is not evidence that execution occurred.
+
+**Composed plan (R-TRANSFER, R-EXEC, R-NET-TOOL).** The plan MUST carry
+its workspace section: admitted exact base commit B of the caller's
+repository, B's file-manifest digest (path to blob id), and the task's
+**write scope**. It MUST also carry the exec-profile reference. The plan
+digest covers all of these, plus the digests of task resources and their
+read-only materialization next to the workspace. Resources are data, never
+instructions. Exact workspace, exec-profile and resource fields, the
+canonical base archive and resource caps/formats are unpublished and owned
+with the intake contract; this section does not assign wire members.
 
 `swarma-user-launcher` accepts the closed privileged request on stdin.
 The user manager's spec §7 and `diagrams/launch.puml` own the **single
@@ -1766,8 +1783,10 @@ executor reads the plan once into a bounded immutable value, verifies it,
 and opens its own peer-authenticated broker connection after the UID drop.
 It MUST NOT fetch plans from a path, stdin, an environment variable, a
 network endpoint or mutable profile data as an alternative to this intake.
-The executor has no network access except to the broker; the admitted
-harness's vendor traffic is a distinct process/network policy boundary.
+The broker connection is a declared Unix socket, not internet access.
+The executor has no internet egress. The admitted local trusted harness
+reaches only model-provider endpoints through its bound provider proxy
+(R-NET-TOOL); workplaces have zero egress, including loopback (§10.6).
 
 | Object on the path | Bound from the platform contract |
 |---|---|
@@ -1835,22 +1854,77 @@ precede admission; an absent or unready service refuses with no command
 fallback. Queueing, events, long waits and advanced integrations come later
 on the same transport behind capability gates.
 
-**Workspace materialization across accounts (F-16).** A child in another
-isolated account MUST get a standalone repository under its own home,
-materialized from the admitted repository identity, exact base and approved
-content. Its writable Git administration MUST be private: `.git`, common
-directory, refs, index, configuration and hooks. Local configuration and
-hooks MUST be freshly defined for that repository; materialization MUST NOT
-inherit a source `.git` backlink, executable local configuration or
-credential helpers. Copy/reflink optimisations MUST preserve this boundary;
-mutable hard-linked Git administration cannot satisfy it. Linked worktrees
-remain allowed only within one account, including the existing board
-workflow; workflow isolation does not establish account isolation.
-Optional object sharing MUST be immutable, read-only to agents and limited
-to authorised source objects, with published provenance, access and retention
-rules. Source/result transfer across private homes remains an open ownership
-and authorisation question (§10.5); it does not authorise weaker home
-permissions, recursive privileged chown or a new privileged workspace service.
+**Workspace contract (R-TRANSFER, retaining F-16).** Materialization and
+export belong to the dispatcher's workspace contract, not the launcher or
+board. The caller supplies a bounded canonical archive of admitted exact
+base B's tree with the start request; the dispatcher relays it and journals
+its digest, holding no repository. The approved executor (design label
+`swarma-workspace-materialize`) runs as the child UID before work. It writes
+a standalone repository in the private home, with freshly written local
+configuration, no hooks, no remotes and no credential helpers. Its `.git`,
+common directory, refs and index are private; no source `.git` backlink or
+mutable hard-linked Git administration is inherited. Copy/reflink must
+preserve that boundary. Linked worktrees remain within one account only,
+including today's board workflow. Optional shared objects are immutable,
+read-only and limited to authorised source objects; provenance, access and
+retention remain publication questions (§10.5).
+
+Tests and other result validators stay outside the write scope unless the
+task is about them; the worker must not weaken what judges its work.
+Dependencies for qualified light checks come only from platform-seeded
+read-only caches, with no account-side downloads. The worker's own `.git`,
+commits and history are never used by the platform. It has no network, push
+or merge-request access for code transfer: code leaves only as data taken by
+the platform, and becomes a commit only in our repository.
+
+After a local board outcome or a remote signed final envelope, the platform
+confirms account-wide process absence through the user manager's stop scope
+(§10.4). A workplace round is also write-fenced: its project-side executor
+refuses further tool calls into that workspace. Only then does approved
+executor `swarma-workspace-export` (design label) run as the child UID, with
+a fixed environment and no network. It walks without following links,
+skips every `.git` component and compares file hashes with the admitted
+manifest. The change set contains added/modified regular files (content and
+executable bit), symlinks as link text and deleted paths. It caps file count,
+per-file and total bytes, with a separate binary cap; values are unpublished.
+Special files, a path with a `.git` component however spelled, case-fold or
+Unicode-normalisation collisions, gitlinks/submodules, root escapes or an
+exceeded cap refuse the whole export, with no partial result. Skipping Git
+administration never admits it into the result.
+
+The dispatcher journals the digests and returns the result only to the
+original caller principal, the requester of the run. The result kind's design
+label is `swarma-dispatcher workspace-result/1`; schema and retention remain
+unpublished. The board accepts it only as a resource. Import, candidate,
+review and integration are board change-request machinery executed by the
+orchestrator, never agent-account work. RWP v2.1 §§8/10 gates apply; export
+uses the approved child-UID executor rather than reading a container volume.
+
+The board's deterministic import (command unpublished) builds the tree on B
+in a scratch index, with hooks disabled and no attribute filters or drivers.
+It hard-refuses `.git` components, out-of-write-scope paths and `.task-board/`
+changes. Review-required flagged paths are `.github/**`, `.gitlab-ci.yml`,
+`.circleci/**`, `.gitattributes`, `.gitmodules`, `.githooks/**`, `.husky/**`,
+`.pre-commit-config.yaml`, `lefthook.yml`, `.envrc`, `.vscode/**`, `AGENTS.md`
+and `CLAUDE.md` in any directory, `.claude/**`, `.codex/**`, `.agents/**`,
+`.mcp.json`, and every symlink. Candidate C is signed by the repository
+identity, with trailers naming worker identity, run and result digest
+(trailer spellings unpublished). C's tree must equal B plus the change set,
+independently recomputable. A trusted reviewer, neither untrusted-class nor
+the producing identity, reviews exactly C. Acceptance binds only to C (K1),
+never another candidate by patch equality; flagged paths require explicit
+hunk-by-hunk acknowledgement in the verdict. Worker code executes only in
+R-VERIFY; before acceptance an untrusted candidate is never pushed where CI
+would execute it with secrets.
+
+Rework carries the review findings and starts from admitted candidate C:
+a new local run with its task snapshot, or a signed remote task letter with
+the continuing donor-side session and a freshly materialized workspace.
+The previous round's workspace is removed only after its export is recorded.
+The next export yields C2 on C. Questions use ordinary letters or outcomes;
+an intermediate export may be requested at a turn boundary under the same
+fence. The accepted exact head lands only through the board's existing signed
+fast-forward path (K1/K3); a moved base uses ordinary refresh and re-review.
 
 Only `swarma-dispatcher` invokes the privileged launcher for execution
 starts. It checks the caller's authority, grants and capacity,
@@ -1905,8 +1979,13 @@ It confers no start authority; physical starts remain dispatcher-only.
 
 `curator-run` executes under the agent UID. It verifies the immutable plan
 and destination binding, uses only qualified credential injection, and
-executes the admitted harness. It MUST NOT self-admit, create/bind accounts,
-widen grants, enroll credentials or resolve profiles. It and the target
+executes the admitted harness. Before exec it MUST verify settings, hooks,
+MCP configuration and instruction files against plan digests, or use
+root-owned surfaces outside the home (R-STANDING). Verification applies
+before every launch, restart and native resume where admitted. Drift refuses
+the launch; its code is unpublished. Repair requires explicit
+re-materialization, never silent acceptance. It MUST NOT self-admit,
+create/bind accounts, widen grants, enroll credentials or resolve profiles. It and the target
 `swarma-session-runner` MUST share one launch library (D-EXECUTOR); the
 library's package/API/release is a publication dependency, not a new import
 claimed by this docs revision. A separate minimal executor binary remains
@@ -1923,6 +2002,63 @@ state. Admission must not restore an excluded/absent PATH. CIP-0004's
 interactive shell append recipe is a separate scope. Existing interactive
 `path_prepend` metadata remains non-operative; this target requirement
 claims no current PATH implementation.
+
+**Exec profile (R-EXEC).** The protected manager dispatcher directory
+(D-PATH) carries qualified light-check wrappers with fixed subcommand
+allowlists when light and heavy actions share an executable. Heavy entry
+points are not exposed; qualification proves the heavy form refuses.
+The user manager owns the OS-enforced per-task-class executable allowlist:
+Linux makes all paths non-executable except the allowlist in the execution
+unit; macOS restricts process execution in the sandbox profile. PATH alone
+never enforces it, and writable areas are never executable.
+Editing, local version-control inspection, search and qualified type checking
+may be allowed; interpreters require an explicit profile need. Compilers,
+linkers, transpilers, bundlers, test runners, package managers/installers,
+container/VM tools, network tools and harness/agent binaries are excluded
+from account-initiated execution. Only the admitted-plan executor starts
+the harness; no account starts its own agent loop or environment.
+`agent-headless-build` is withdrawn for agent accounts. Building, testing,
+generators and all execution of worker code belong only to R-VERIFY (§10.6).
+
+**Provider proxy and web tools (R-NET-TOOL).** A managed platform launch
+sets proxy variables only for its bound provider proxy, with vendor names
+in the allowlist and no other egress. It never admits `direct` or
+`external-http-proxy` on a platform host; cooperative/operator-machine
+profiles in §4.4b do not authorise a platform-account launch. The network
+profiles owner supplies one listener per account generation and the served
+policy evidence; each account row admits only its own listener port.
+The proxy requirements are host/port allowlists without mail ports,
+private/metadata dial guard, per-identity rate/connection/daily-volume caps and logs.
+
+No search or fetch tool is offered by default. The plan MUST switch off the
+harness's provider-side (server-executed) search unless the identity holds
+an explicit operator-granted trusted-circle opt-in. Network rules cannot
+observe search carried inside model-provider API calls: the plan is the
+only control. Qualification of the harness tuple must prove that the plan
+actually disables it; unpublished configuration is not assumed effective.
+The donor loop defaults to model-provider endpoints and our host only;
+CIP-0008 keeps provider-side search disabled and no donor-side web server
+runs. Web content introduces outside context alongside environment context
+and invites injection; the design works without it. Tasks carry fresh
+references, specifications and examples gathered and checked on the trusted
+side, attached as board resources (also signed task-letter attachments for
+remote work), and materialized read-only with plan digests (§10.1). More
+resources are requested through ordinary letters/outcomes; the worker never
+fetches them.
+
+Only an operator-granted opt-in per trusted-circle identity may enable a
+qualified provider-side search tuple (server execution, no local fetch) or
+a platform web-tool service over a Unix socket. The service holds its key
+in its own service account, with allowlist, rate limits and logs. Remote
+provider-side search needs a CIP-0008 tuple change. The donor-side MCP option
+`swarma-web` is specified by R-NET-TOOL, not launched on our host: its
+separate donor identity/sandbox has search-provider-API-only egress, donor
+consent at init, and results only to the donor's model. It runs in neither
+harness nor bridge identity, performs no arbitrary fetch, and holds the
+donor's own search key. That key never crosses the channel or enters any `swarma-rb/1` frame/package; the
+project has no method to request it. Variant A uses the donor's Keychain or
+a 0600 file; variants B/C use the separate identity/sandbox. All web opt-in
+formats remain unpublished. An untrusted-class identity gets no web tool.
 
 ### 10.3 Broker binding, credential delivery and rollout
 
@@ -2030,10 +2166,14 @@ effects. D-IDENTITY permits identity revocation only for identities recorded
 as one-shot at registration, as a separate dispatcher operation **after**
 account retirement. Standing identity revocation is operator-only with a
 signed record. After quiesce, confirmed process absence and declared-key
-cleanup, ordinary retirement deletes the agent home. Only service-generated
-metadata in a closed schema is exported, without agent-controlled strings,
-names, links or bodies. Home retention is a separate explicit operator
-operation stating that confidentiality is not guaranteed; it is not an
+cleanup, ordinary retirement deletes the agent home, subject to the
+**export cleanup obligation (R-TRANSFER)**: workspace-capable allocations
+MUST retain the home until workspace export is recorded or waived by an
+explicit operator act, for example after compromise. It is never silently
+dropped. The separately scoped retirement metadata export contains only
+service-generated closed-schema metadata, without agent-controlled strings,
+names, links or bodies; it does not replace the workspace change set.
+Home retention is a separate explicit operator operation stating that confidentiality is not guaranteed; it is not an
 alternative ordinary retirement path. Code and results retain their separate
 git/acceptance policy, which does not prove secret-free content. The executor
 owns neither retirement nor identity revocation.
@@ -2114,14 +2254,19 @@ root-receipt reconciliation. Until then the SH2 backend stays disabled.
 Naming alone activates neither helper grants nor a host start capability;
 only the dispatcher performs privileged starts.
 
-**Open publication question — source/result transfer across homes (F-16):**
-workspace-capable cross-account launches would need an explicit transfer
-owner and authorisation for admitted source and accepted results through
-the existing approved repository/artifact path. Optional immutable object
-sharing would need published provenance, authorised-object access and
-retention rules. Neither private Git administration nor an admitted base
-proves checked-out code or accepted results secret-free. This question stays
-open; no transfer protocol, wire fields or refusal codes are assigned here.
+**Open publication question — workspace and policy formats:** R-TRANSFER
+settles source/result ownership and closes the dispatcher's open question 22
+and user manager's open question 15 except for unpublished formats. Activation
+would need the canonical base archive, exact plan workspace/exec-profile and
+read-only resource fields, resource/export caps, workspace-result schema and
+retention, deterministic import command and candidate trailer grammar.
+Optional immutable object sharing would need published provenance,
+authorised-object access and retention. An admitted base or accepted result
+does not prove secret-free content. R-STANDING would need harness-surface
+digest coverage and the drift refusal code; R-EXEC would need qualified
+wrappers/OS profiles; R-NET-TOOL would need opt-in records, harness search
+configuration and qualified tuples. No fields, codes or values are assigned
+here.
 
 D-DONOR-PROVISIONING assigns donor provisioning to a separately specified
 small component with its own binary/privileges/removal; shared UID/path
@@ -2136,6 +2281,93 @@ qualification row; different major/0.x minor refuses. Harness failure is
 fallback and no portable seed on that path. Known vendor semver exceptions
 belong in per-harness notes. This decision does not enable native resume
 in dispatcher v0 or add session/resume state to this one-shot executor.
+
+### 10.6 Admission and verification ownership (wave-5 references)
+
+These are dependencies of a managed launch, not new launcher enforcement
+APIs. The dispatcher pins admission policy; the user manager and host
+infrastructure own enforcement and qualification.
+
+- **R-UNTRUSTED:** class is recorded at registration/admission, never inferred
+  from a name. Remote workers come first; every workplace is untrusted-class
+  unless an operator act admits that worker to the trusted circle. That act
+  enables only donor-side opt-ins and never relaxes host zero egress, exec,
+  transfer or review boundaries. Slice 0 and user-manager v0 refuse the
+  class (code unpublished). No subscription binding or lease is ever allowed;
+  the broker refuses them. No local loop or shared services are admitted.
+- **R-STANDING:** a standing local agent loop is trusted-only. Untrusted
+  standing placements are workplaces with donor-side loops, no executable
+  harness surface, and task-whitelisted OS services. The digest/drift rule
+  in §10.2 governs trusted standing harness surfaces.
+- **R-VERIFY:** all candidate builds/tests and execution of worker code run
+  on another machine in isolated ephemeral runners without secrets, with
+  controlled dependency egress under R-NET-TOOL. Results return to the board
+  as data in testing; the tester orchestrates and reads, never executes the
+  code. Runner pool, job contract and result format belong to board/infra
+  owners and are unpublished.
+- **R-CEILINGS:** admission requires the host's qualified per-OS-release
+  capability matrix to meet class minimums; no OS is excluded by name.
+  Rows cover CPU, memory, process count, IO, disk, temporary areas, process
+  visibility and network as hard, soft or absent. Untrusted work requires
+  hard process-count limits, enforced zero/provider-only egress, exec profile
+  and isolated temporary areas, with hard memory/CPU/disk where available.
+  Acceptability of soft substitutes is an open owner decision recorded per
+  host by operator act. Linux selects the root-created non-delegated
+  per-execution unit (R-FATE), resource/CPU-time limits, private temp,
+  no-new-privileges/read-only system, per-UID quota, `KillUserProcesses=yes`
+  and `/proc` `hidepid=2`. Infrastructure disables unprivileged user
+  namespaces, io_uring and unprivileged eBPF, sets
+  `kernel.yama.ptrace_scope=2` and patches sudo; the platform verifies these.
+  macOS uses sandbox exec/files/network, per-user process and per-process
+  CPU limits, background scheduling and aggregate APFS agents-root quota;
+  memory/per-account disk watchers are soft. No public hard per-account
+  memory limit, no APFS per-user quota and the deprecated sandbox interface
+  are qualification gaps, never OS-wide exclusions.
+- **R-NET-TOOL:** workplace zero egress includes loopback and no proxy
+  destination. Linux uses a network namespace without external interfaces
+  and Unix-only address families; macOS uses network-denying sandbox plus
+  per-UID deny. Both require qualification; remote workplace has only its
+  SSH connection, with the loop at the donor. Dependency downloads occur
+  only in R-VERIFY runners under controlled proxy egress (§10.2).
+- **R-WATCH:** least-privilege read-only sampling (root only if OS-required)
+  records per-UID CPU, memory, process count, home disk, network and refused
+  connections including mail ports. Per-class hard thresholds request
+  automatic narrowing of that account only: freeze egress and dispatcher
+  journaled `exec.stop`, never an unjournaled kill. Phone-path alerts go to
+  the operator; thresholds, sampler interface and alert format are unpublished.
+- **R-ALLSTOP:** the node-wide stop is manual, one operator narrowing act
+  through the authenticated phone path with one confirmation or terminal
+  fallback, refused inside agent sessions. Dispatcher hold closes admission;
+  the user manager denies the agent/workplace range and journal-stops every
+  generation with confirmed account-wide absence. The broker freezes leases
+  and renewals; delivered tokens keep their vendor lifetime. The host closes
+  delivery and snapshots bound boards. Each service journals its part;
+  partial/unknown results keep admission closed. Recovery is explicit with
+  no automatic restart; act/record formats are unpublished. R-OPERATOR's
+  `swarma-operator`, operator device key, operator command and terminal
+  fallback remain the custody contract; reads use `swarma-observer`.
+- **R-RANGE-DENY:** the installer establishes static default deny for UID
+  range 30000–59999 before accounts exist in the helper-owned parent anchor
+  or table. From v0 only platform proxy listeners are admitted; v1 `fw.apply`
+  narrows each account to its bound profile or zero; untrusted requires v1.
+  Linux nftables `meta skuid` covers all protocols with counters/logs;
+  macOS pf `user` rules plus launcher-applied sandbox cover non-TCP/UDP.
+  Active dedicated-test-UID probes at install, every service start and the
+  verification schedule prove no earlier quick rule in any anchor admits
+  range traffic, including ingress, loopback and tunnels. Failure is an
+  incident and drops enforced readiness.
+- **R-SOCKETS:** test-UID qualification proves reachable Unix sockets equal
+  the declared platform set; container runtimes, tailnet, other users'
+  session daemons and all other sockets are unreachable.
+- **R-SHARED:** an untrusted-admitting host has no shared message, ingress,
+  reverse-proxy, media or operator-session services. Platform services are
+  not shared services.
+
+**Open publication question — admission qualification:** activation would
+need the component owners' qualified capability matrix, class minimums,
+exec/socket/range probes, watcher interfaces and allstop records. Soft-row
+acceptability requires the stated owner decision; naming a reference
+mechanism proves neither enforcement nor admission readiness.
 
 ## Specification changelog
 

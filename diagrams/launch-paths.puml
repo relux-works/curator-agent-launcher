@@ -14,6 +14,8 @@ participant "credential broker\nservice UID unspecified" as broker
 participant "Harness\nagent-side process" as harness
 participant "user-manager helper\nroot" as helper
 participant "Session host\nconfigured service principal" as targethost
+participant "Workspace executors\napproved child UID / dispatcher workspace contract" as workspaceexec
+participant "Board change requests\norchestrator" as changes
 participant "swarma-session-runner\napproved agent-side executor" as targetrunner
 
 == CURRENT interactive API: SPEC 0.5.0-draft ==
@@ -82,20 +84,22 @@ note over launcher,receiver
 end note
 
 == TARGET one-shot: NOT IMPLEMENTED; dispatcher v0 local headless only ==
-caller -> caller : resolve / compose immutable plan; select source; digest PATH / profile / harness
+caller -> caller : resolve / compose immutable plan; select source; digest PATH / profile / harness / B / manifest / write scope / exec profile / resources
 caller -> dispatcher : Unix-socket client; composed plan; no secret material
 alt size / authority / grants / capacity or v0 combination refused
   dispatcher --> caller : terminal refusal before provisioning
 else admitted request
   dispatcher -> dispatcher : provision account / broker binding; claim execution\ndistinct effect IDs; retries reuse each operation's ID
+  dispatcher -> workspaceexec : swarma-workspace-materialize before work\nrelay admitted base archive; journal digest; no dispatcher repository
+  workspaceexec -> workspaceexec : standalone repo / fresh config / no hooks or remotes\nread-only resources; no account downloads
   dispatcher -> root : closed privileged stdin request; approved executor
   alt generation / ownership / executor digest / duplicate receipt refused
     root --> dispatcher : typed refusal; no second start
   else privileged checks admit
     root -> root : user-manager spec 7 / diagrams/launch.puml owns lifecycle\nbounded staging; atomic receipt before privilege drop
     root -> agent : execute approved curator-run under agent UID\ncaller-owned 0-2 and read-only FD3; no internal handles
-    agent -> agent : bounded read once; verify admitted digest and values\nresolve protected credential_binding locally
-    alt bad intake / unknown contract / digest / source or binding refused
+    agent -> agent : bounded read once; verify admitted digest and values\nresolve protected credential_binding locally\ncheck harness surfaces by digest or root-owned surfaces\nprovider proxy only; provider-side search off without trusted-circle opt-in
+    alt bad intake / unknown contract / digest / drift / source or binding refused
       agent --> dispatcher : terminal refusal evidence (transport unpublished)
     else selected qualified broker channel
       agent -> broker : fresh peer-authenticated lease; correlation launch_id = digest
@@ -121,7 +125,7 @@ else admitted request
       end
     end
   end
-  opt cancellation / max-runtime stop
+  opt round end / cancellation / max-runtime stop
     dispatcher -> helper : exec.stop for owned generation / execution
     helper -> helper : verify latest receipt authority; completed stop replays without signals\nuser-manager spec 4.4 / 4.7 single stop / retirement scope\nall UID processes: TERM / grace / KILL; stop per-user service domain\naccount-wide quiet absence, escaped descendants included
     alt absence confirmed
@@ -131,7 +135,21 @@ else admitted request
       dispatcher -> dispatcher : no capacity release or replacement
     end
   end
-  opt descendant absence and cleanup effects confirmed
+  opt workspace round ended and account-wide absence confirmed
+    dispatcher -> dispatcher : workplace write fence where applicable; further round tool calls refused
+    dispatcher -> workspaceexec : swarma-workspace-export; fixed environment / no network
+    workspaceexec -> workspaceexec : no link following / skip Git administration; manifest-relative change set\ncaps / unsafe paths / collisions / special files refuse whole export
+    alt export recorded
+      workspaceexec --> dispatcher : change set / digests; schema unpublished
+      dispatcher --> caller : workspace-result/1 design label; original caller principal only
+      caller -> changes : board accepts resource; deterministic import on B -> signed C
+      changes -> changes : trusted non-producing reviewer reviews exactly C\nflagged hunks acknowledged; code runs only in R-VERIFY
+      changes -> changes : findings -> rework on C; accepted exact head -> signed fast-forward\nmoved base -> refresh / re-review
+    else export refused / unknown
+      dispatcher -> dispatcher : retain export cleanup obligation; no home deletion without operator waiver
+    end
+  end
+  opt cleanup effects confirmed and export recorded or operator-waived for workspace allocation
     dispatcher -> dispatcher : unbind THEN retire, each confirmed separately\nquiesce / declared-key cleanup then home deletion\nseparate revocation only for registered one-shot identity after retirement
   end
 end
@@ -170,19 +188,34 @@ note over caller,helper
   Absent / unready service refuses; queue / events / long waits later on same transport.
   FD3 mechanism joint publication gates activation with intake / digest / framing / read deadline.
   Prefer completely staged bounded immutable bytes; pipe needs capacity / feeder / deadline / cleanup.
-  Retirement exports only service-generated closed-schema metadata, no agent-controlled data.
+  R-TRANSFER workspace export precedes retirement; recorded export or operator waiver before deletion.
+  Separate retirement metadata export: service-generated closed schema only.
   Separate operator home retention has no confidentiality guarantee.
   Start receipt is not readiness. Exit is not proof of process absence / cleanup.
   Broker owns persistent binding / credential store; root launcher owns atomic start receipt.
   Dispatcher owns durable claims, outcomes and supervision: Unix-socket service from first slice.
   Process fate table / replaced-daemon writer fence: user-manager spec 7 (R-FATE); no live supervisor adoption.
-  Cross-account workspace: standalone repository; private .git / common directory / refs / index / config / hooks.
+  Cross-account workspace: standalone repository; private .git / common directory / refs / index / fresh config; no hooks.
   No inherited .git backlink / executable local config / credential helpers; copy / reflink preserves rule.
-  Linked worktrees only within one account; optional shared objects immutable / read-only; transfer owner open (SPEC 10.5).
+  Linked worktrees only within one account; shared objects immutable / read-only; formats open (SPEC 10.5).
   R-TIME: authenticated / operator-controlled installer time source; durable dispatcher / broker watermark.
   Expiry max(now, watermark); not_before min(now, watermark); no untrusted advance; operator reset.
   Expiry-driven home / binding destruction also requires boot-inclusive monotonic elapsed lifetime.
   Exact intake envelope / invocation, consumed-plan receipt, numeric exits and signal encoding: unspecified in spec 10.1 / 10.4 / 10.5.
   No interactive FD3/FD4 reuse; no board dependency; SH2 host lifecycle / donor B remain disabled pending publication.
+end note
+note over caller,helper
+  Wave-5 launch obligations - SPEC 10.1-10.2 / 10.6
+  R-TRANSFER: plan digest covers B / manifest digest / write scope / exec-profile reference.
+  R-NET-TOOL: read-only task resources covered by digest; bound provider proxy only.
+  No web by default; plan disables provider-side search, invisible to network rules.
+  Only operator-granted trusted-circle opt-in: qualified server search or platform Unix-socket web service.
+  R-STANDING: verify settings / hooks / MCP / instructions by digest before exec, or root-owned surfaces.
+  Drift refuses (code unpublished); repair is explicit re-materialization.
+  R-EXEC: D-PATH protected light-check wrappers / fixed subcommands; no heavy entry points.
+  User manager owns OS exec allowlist; R-VERIFY builds / tests / code execution on another machine.
+  R-UNTRUSTED refused in Slice 0 / user-manager v0; workplace zero egress / donor-side loop.
+  Admission: R-CEILINGS / R-WATCH / R-ALLSTOP / R-RANGE-DENY / R-SOCKETS / R-SHARED (SPEC 10.6).
+  Exact plan / transfer / opt-in formats and qualification remain open; no implementation claimed.
 end note
 @enduml
