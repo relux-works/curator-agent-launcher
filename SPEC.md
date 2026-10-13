@@ -4,6 +4,14 @@
 **Status:** in-repository draft (see [Versioning](#8-versioning))
 
 - 2026-10-13, 0.5.1-draft documentation revision: apply accepted
+  architecture-review findings (2026-10-13) in §§9, 10.2 and 10.6, README
+  and figure sources: positive class/placement/review-role predicates,
+  inert exact-candidate review and strict-context entry qualification.
+  Register the workplace lifetime requirement for stage A; optional
+  reviewer policies remain open. No implementation, qualification or
+  activation is claimed.
+
+- 2026-10-13, 0.5.1-draft documentation revision: apply accepted
   architecture-review findings (2026-10-13) in §§10.1–10.5, README and
   figures: mode-aware base binding, protected exec-profile selection and
   full-invocation qualification, owner-linked format references and the
@@ -1668,6 +1676,23 @@ The launcher v0.3.0 candidate reports `0.3.0`; its tag is pending.
 
 ## 9. Open items
 
+- **Optional reviewer policies (owner decision open).** A local-only
+  reviewer rule and exclusion of the orchestrator that requested the round
+  are separate proposals, remain unchosen and off, and are not implied by
+  trusted-circle membership or the positive review-role predicates (§10.2).
+- **Workplace ingress and execution lifetime (accepted open requirement).**
+  First consumer: bridge/helper/dispatcher, stage A. Before workplace
+  activation, its contract package must jointly publish the ingress,
+  workplace-UID relay and auxiliary-control-process, physical-start, quiescence,
+  export and reconnect lifetime, including a trusted generation-bound fence
+  against creation of new workplace-UID processes from before quiescence
+  through export or replacement. It must reconcile ordinary round transitions,
+  intermediate export, watcher/node-wide stop and explicit reopening with
+  account-wide absence and outstanding claims (§§10.2, 10.6 and the transfer
+  figures). The full fix lands with stage A's contract package because bridge,
+  relay and join contracts are not frozen. This entry selects no mechanism
+  and changes no normative behaviour.
+
 - **Tracked destination environment filtering.** Decision 0013 D3.2 has
   no destination environment-unset or `PATH`-transform member. Plugin
   strips (nesting markers, runtime/token-pointer names, run-context keys)
@@ -1990,12 +2015,39 @@ and `CLAUDE.md` in any directory, `.claude/**`, `.codex/**`, `.agents/**`,
 `.mcp.json`, and every symlink. Candidate C is signed by the repository
 identity, with trailers naming worker identity, run and result digest
 (trailer spellings unpublished). C's tree must equal B plus the change set,
-independently recomputable. A trusted reviewer, neither untrusted-class nor
-the producing identity, reviews exactly C. Acceptance binds only to C (K1),
+independently recomputable. Reviewer admission MUST positively check an
+explicit review-role grant and either a trusted-class local agent placement
+or a person admitted to that role. The reviewer MUST be outside the untrusted
+class and distinct from the producing identity, and reviews exactly C.
+Neither class exclusion nor trusted-circle membership supplies the role
+grant or placement eligibility. Acceptance binds only to C (K1),
 never another candidate by patch equality; flagged paths require explicit
 hunk-by-hunk acknowledgement in the verdict. Worker code executes only in
 R-VERIFY; before acceptance an untrusted candidate is never pushed where CI
 would execute it with secrets.
+
+**Candidate consumption (R-TRANSFER).** The board first presents exact-C
+diffs and blobs as inert, read-only resources bound by digest, outside the
+reviewer harness's discovery roots (R-NET-TOOL task resources). Candidate
+files remain untrusted review data for reviewers, orchestrators and testers.
+No harness may automatically adopt them as instructions, hooks, MCP servers,
+permissions, skills or executable discovery at startup, reload, nested
+discovery, resume or child entry, before or after flagged-hunk acknowledgement.
+The acknowledgement record MUST establish that no automatic load preceded
+it; the inert-resource path supplies this ordering by construction.
+Acceptance of C does not admit its control surfaces: activation requires a
+separate control-context admission under CIP-0002.
+
+A launch that materializes or enters C's tree in a discovery-capable harness
+MUST first have a qualified strict-context adapter (CIP-0002 strict mode or
+equivalent exclusion of ambient candidate discovery). A harness tuple
+without it cannot host that workflow. Qualification on each supported
+harness's real tool path must cover candidate hooks, MCP server entries,
+instruction files and skills at launch, reload, nested read, resume and child
+entry: none is loaded or executed, and every flagged hunk still reaches the
+verdict. This is the first required strict-adapter consumer; no full
+CIP-0002 rollout or qualification is claimed. Inert viewing prevents automatic
+control adoption, but semantic prompt injection remains a review residual.
 
 Rework carries the review findings and starts from admitted candidate C:
 a new local run with its task snapshot, or a signed remote task letter with
@@ -2067,7 +2119,10 @@ MCP configuration and instruction files against plan digests, or use
 root-owned surfaces outside the home (R-STANDING). Verification applies
 before every launch, restart and native resume where admitted. Drift refuses
 the launch; its code is unpublished. Repair requires explicit
-re-materialization, never silent acceptance. It MUST NOT self-admit,
+re-materialization, never silent acceptance. These plan-owned or root-owned
+surfaces do not alone exclude ambient candidate discovery; the separate
+candidate-consumption and strict-adapter admission rule above still applies.
+It MUST NOT self-admit,
 create/bind accounts, widen grants, enroll credentials or resolve profiles. It and the target
 `swarma-session-runner` MUST share one launch library (D-EXECUTOR); the
 library's package/API/release is a publication dependency, not a new import
@@ -2421,16 +2476,27 @@ These are dependencies of a managed launch, not new launcher enforcement
 APIs. The dispatcher pins admission policy; the user manager and host
 infrastructure own enforcement and qualification.
 
+- **Circle, placement and class:** trusted-circle membership is a per-identity
+  operator record enabling only enumerated donor-side opt-ins (currently
+  web search under R-NET-TOOL). Placement is a local agent account or a
+  workplace, recorded at allocation; a remote identity receives only a
+  workplace placement. Enforcement class is recorded at admission and drives
+  ceilings, egress, exec restrictions, binding/lease refusal, R-SHARED and
+  watcher thresholds. Membership alone grants neither review-role admission
+  nor host-loop eligibility and does not change placement.
 - **R-UNTRUSTED:** class is recorded at registration/admission, never inferred
   from a name. Remote workers come first; every workplace is untrusted-class
   unless an operator act admits that worker to the trusted circle. That act
   enables only donor-side opt-ins and never relaxes host zero egress, exec,
-  transfer or review boundaries. Slice 0 and user-manager v0 refuse the
-  class (code unpublished). No subscription binding or lease is ever allowed;
+  transfer or review boundaries, including the positive reviewer role and
+  placement conditions and trusted-class local placement for a host loop.
+  The operator may classify further identities as untrusted. Slice 0 and
+  user-manager v0 refuse the class (code unpublished). No subscription binding or lease is ever allowed;
   the broker refuses them. No local loop or shared services are admitted.
-- **R-STANDING:** a standing local agent loop is trusted-only. Untrusted
-  standing placements are workplaces with donor-side loops, no executable
-  harness surface, and task-whitelisted OS services. The digest/drift rule
+- **R-STANDING:** a standing host loop requires both trusted class and local
+  agent placement; trusted-circle membership alone is insufficient. Outside
+  standing workers have workplace placements with donor-side loops, no
+  executable harness surface, and task-whitelisted OS services. The digest/drift rule
   in §10.2 governs trusted standing harness surfaces.
 - **R-VERIFY:** all candidate builds/tests and execution of worker code run
   on another machine in isolated ephemeral runners without secrets, with

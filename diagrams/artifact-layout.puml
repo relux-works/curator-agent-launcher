@@ -1,4 +1,5 @@
 @startuml
+' Revision: accepted architecture-review findings (2026-10-13).
 title Artifact ownership, transport and cleanup boundaries
 skinparam componentStyle rectangle
 
@@ -176,6 +177,13 @@ note right of immutable
   Only operator-granted trusted-circle opt-in: qualified server search or platform Unix-socket web service.
   R-STANDING: verify settings / hooks / MCP / instructions by digest before exec, or root-owned surfaces.
   Drift refuses (code unpublished); repair is explicit re-materialization.
+  Plan / root-owned surfaces alone do not exclude ambient candidate discovery (SPEC 10.2).
+  R-STANDING: host loop requires trusted class AND local agent placement; circle membership is insufficient.
+  Remote identities receive workplaces only; donor-side loops; circle does not change placement.
+  Optional local-only reviewer / requester-exclusion policies remain unchosen and off (SPEC 9).
+  OPEN requirement (SPEC 9): bridge / helper / dispatcher, stage A, jointly publish ingress / relay /
+  start / quiesce / export / reconnect lifetime and generation-bound process-creation fence.
+  Full fix with stage A contract package; no mechanism selected or normative change shown.
   R-EXEC: qualify full invocation / env / transitive interpreted code-config inputs; inert inspection only.
   Protected entrypoints / config, disabled or pinned code loading; executable allowlist alone is insufficient.
   Negative scripts / inline eval / imports / plugins / startup-env injection / direct-indirect heavy bypass; inert positive controls.
@@ -184,5 +192,19 @@ note right of immutable
   R-UNTRUSTED refused in Slice 0 / user-manager v0; workplace zero egress / donor-side loop.
   Admission: R-CEILINGS / R-WATCH / R-ALLSTOP / R-RANGE-DENY / R-SOCKETS / R-SHARED (SPEC 10.6).
   Exact plan / transfer / opt-in formats and qualification remain open; no implementation claimed.
+end note
+note right of changes
+  R-TRANSFER review - SPEC 10.2
+  Explicit review-role grant: trusted-class local agent placement or person admitted to role;
+  outside untrusted class and distinct from producer; circle alone grants no role / placement.
+  Exact-C diffs / blobs first: inert read-only resources by digest, outside harness discovery roots.
+  Candidate instructions / hooks / MCP / permissions / skills / executable discovery remain data.
+  No automatic adoption at startup / reload / nested discovery / resume / child entry,
+  before or after acknowledgement; record shows no preceding load; every flagged hunk acknowledged.
+  Discovery-capable tree entry requires a qualified strict-context adapter before launch.
+  Qualification covers hook / MCP / instruction / skill on each real harness tool path; none loaded / executed.
+  Root-owned surfaces alone do not exclude ambient discovery. No qualification claimed.
+  Acceptance is not control-surface admission; separate CIP-0002 admission required.
+  Semantic prompt injection remains a review residual.
 end note
 @enduml

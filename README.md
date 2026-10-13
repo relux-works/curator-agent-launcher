@@ -4,6 +4,11 @@
 admitted interactive plan, and optional ax tracking. The contract is
 [SPEC 0.5.1-draft](SPEC.md).
 
+Documentation revision: accepted architecture-review findings (2026-10-13)
+clarify role/placement admission and inert candidate review; the workplace
+lifetime requirement and optional reviewer policies remain open in SPEC §9.
+No implementation, qualification or activation is claimed.
+
 ## Front doors
 
 | Entry | Composer | Process/lifetime owner | Status |
@@ -126,9 +131,20 @@ by the dispatcher; transport/retention and activation still gated). The board ac
 the orchestrator
 performs deterministic import, candidate, review and integration through the
 board's change-request machinery. Code becomes a repository-signed candidate
-C in our repository and a trusted non-producing reviewer reviews exactly C.
+C in our repository. The reviewer holds an explicit review-role grant, is
+either a trusted-class local agent placement or a person admitted to the role,
+and is outside the untrusted class and distinct from the producer. It reviews
+exactly C; circle membership alone supplies no reviewer authority.
 Write-scope/`.git`/`.task-board/` refusals and flagged-path hunk acknowledgement
-are specified in SPEC §10.2. Rework starts from C with review findings;
+are specified in SPEC §10.2. Review first consumes exact-C diffs/blobs as inert,
+read-only resources bound by digest outside harness discovery roots. Candidate
+instructions, hooks, MCP, permissions, skills and executable discovery are
+never automatically adopted, including after acknowledgement or acceptance.
+Tree entry through a discovery-capable harness requires prior qualification
+of a strict-context adapter; root-owned launch surfaces alone do not suffice.
+Acceptance does not admit control surfaces; CIP-0002 control-context admission
+is separate. Semantic prompt injection remains a review residual.
+Rework starts from C with review findings;
 accepted exact heads land through the existing signed fast-forward path,
 with refresh and re-review when the base moves. There is no worker push or
 merge-request path. Export is a cleanup obligation before home deletion,
@@ -139,7 +155,8 @@ R-STANDING requires the one-shot executor to check plan digests for settings,
 hooks, MCP configuration and instruction files before exec (also restart and
 native resume where admitted), or use root-owned surfaces outside the home.
 Drift refuses launch (code unpublished); repair is explicit re-materialization.
-Standing local loops are trusted-only; outside standing workers use workplaces
+Standing host loops require trusted class and local agent placement; circle
+membership does not change placement. Outside standing workers use workplaces
 with donor-side loops and task-whitelisted OS services.
 
 R-NET-TOOL offers no web tool by default. Tasks carry checked resources as
@@ -158,7 +175,12 @@ SPEC §10.6 references R-UNTRUSTED, R-CEILINGS, R-WATCH, R-ALLSTOP,
 R-RANGE-DENY, R-SOCKETS and R-SHARED as host/admission dependencies.
 Untrusted work is refused in Slice 0/user-manager v0, has no subscriptions,
 local loop or shared-service host, and needs qualified class minimums.
-Trusted-circle admission never relaxes host boundaries. No OS is excluded
+Trusted-circle admission never relaxes host boundaries or supplies review-role
+or host-loop eligibility. The optional local-only reviewer and requester-exclusion
+policies remain unchosen and off (SPEC §9). The bridge/helper/dispatcher's stage-A
+package must resolve the joint ingress/relay/start/export/reconnect lifetime and
+generation-bound process-creation fence; SPEC §9 registers this requirement
+without selecting a mechanism or changing normative behaviour. No OS is excluded
 by name; macOS gaps and soft-row acceptability remain qualification/owner
 questions. Node-wide emergency stop is manual and journaled; recovery is
 explicit. Tokens already delivered retain vendor lifetime.

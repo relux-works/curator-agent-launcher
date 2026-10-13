@@ -2,7 +2,14 @@
 
 These PlantUML sources illustrate the [launcher specification](../SPEC.md).
 Revision: accepted architecture-review findings (2026-10-13), plus v0.3.0
-release alignment. No implementation, qualification or activation is claimed.
+release alignment. Review resources are inert exact-C diffs/blobs; discovery-capable
+candidate-tree entry requires a qualified strict-context adapter (§10.2).
+Host loops require trusted class and local placement; review admission checks
+an explicit role grant and class/placement predicates. Circle membership alone
+supplies neither authority. The sources reference the stage-A workplace-lifetime
+open requirement in §9 without selecting its mechanism or changing the transfer
+sequence; optional reviewer policies remain unchosen and off.
+No implementation, qualification or activation is claimed.
 
 Each figure separates the current interactive API (direct and ax launches;
 hosted launch unavailable in v0.3.0 until the swarma dispatcher path ships)
