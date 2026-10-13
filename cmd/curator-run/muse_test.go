@@ -44,7 +44,8 @@ func museFixture(t *testing.T) (*pipelineFixture, *fragment.Fragment) {
 	writeFixture(t, curator, helper, 0700)
 	f.binary = filepath.Join(f.dir, "muse")
 	writeFixture(t, f.binary, helper, 0700)
-	writeFixture(t, filepath.Join(f.dir, "muse-version"), []byte("Muse Code 1.4.2 (1.4.2-R4684.1)\n"), 0600)
+	writeFixture(t, filepath.Join(f.dir, "muse-version"), []byte("Muse Code 1.4.6 (1.4.6-R5000.1)\n"), 0600)
+	writeFixture(t, filepath.Join(f.dir, "muse-help"), []byte("Options:\n  --yolo  Bypass approvals and sandbox\n"), 0600)
 	t.Setenv("CURATOR_TEST_FRAGMENT", fragmentPath)
 	t.Setenv("CURATOR_TEST_RESOLVE_ARGV", filepath.Join(f.dir, "resolve-argv"))
 	f.deps.resolver = fragment.NewWithRunner(curator, fragment.ExecRunner{})
@@ -80,7 +81,7 @@ func TestMuseV3InteractiveThroughRun(t *testing.T) {
 			if err != nil || string(argv) != "env\nresolve\nmuse\n--repair\n--format\njson" {
 				t.Fatalf("resolve argv=%q err=%v", argv, err)
 			}
-			if f.request.Runtime != "muse" || f.request.Model != "muse-spark-1.3-contributor" || f.request.Effort != "max" || f.request.Home != frag.Home() || f.request.ToolRelease != "1.4.2" || f.request.PermissionMode != tc.mode || !reflect.DeepEqual(f.request.Env, f.deps.environ()) {
+			if f.request.Runtime != "muse" || f.request.Model != "muse-wonder-1.0-contributor" || f.request.Effort != "xhigh" || f.request.Home != frag.Home() || f.request.ToolRelease != "1.4.6" || f.request.PermissionMode != tc.mode || !reflect.DeepEqual(f.request.Env, f.deps.environ()) {
 				t.Fatalf("wrong Muse request: %+v", f.request)
 			}
 			wantArgv := museArgv(f.dir, tc.mode)
@@ -97,7 +98,7 @@ func TestMuseV3InteractiveThroughRun(t *testing.T) {
 			assertMuseEnv(t, child.Env, f.dir, frag)
 			mapped := "none"
 			if tc.mode == agentic.PermissionModeYolo {
-				mapped = "--yolo"
+				mapped = "module-attested"
 			}
 			if !strings.Contains(string(stderr), "curator-run: permissions="+string(tc.mode)+" source=flag mapped="+mapped+"\n") {
 				t.Fatalf("permission diagnostic: %s", stderr)
@@ -108,7 +109,7 @@ func TestMuseV3InteractiveThroughRun(t *testing.T) {
 }
 
 func museArgv(workdir string, mode agentic.PermissionMode) []string {
-	args := []string{"--model", "muse-spark-1.3-contributor", "--reasoning-effort", "max", "--workspace", workdir}
+	args := []string{"--model", "muse-wonder-1.0-contributor", "--reasoning-effort", "xhigh", "--workspace", workdir}
 	if mode == agentic.PermissionModeYolo {
 		args = append(args, "--yolo")
 	}
@@ -127,7 +128,7 @@ func TestMuseV3PlanBuildInteractive(t *testing.T) {
 				reads++
 				return vendorplugin.Availability{State: vendorplugin.AvailabilityHealthy}, nil
 			}
-			req := plan.Request{Runtime: "muse", Model: "muse-spark-1.3-contributor", Effort: "max", PermissionMode: mode, ToolRelease: "1.4.2", Home: frag.Home(), WorkDir: f.dir, Env: f.deps.environ()}
+			req := plan.Request{Runtime: "muse", Model: "muse-wonder-1.0-contributor", Effort: "xhigh", PermissionMode: mode, ToolRelease: "1.4.6", Home: frag.Home(), WorkDir: f.dir, Env: f.deps.environ()}
 			built, err := plan.Build(context.Background(), deps, req)
 			if err != nil || reads != 1 || built.Plan.Binary != f.binary || !reflect.DeepEqual(built.Plan.Argv, museArgv(f.dir, mode)) {
 				t.Fatalf("interactive plan=%+v err=%v reads=%d", built.Plan, err, reads)
@@ -172,23 +173,92 @@ func TestMuseV3CompositionPreservesHOME(t *testing.T) {
 	}
 }
 
-func TestMuseV3UnlistedReleaseRefusedThroughRun(t *testing.T) {
-	// v0.5.48 muse/policy.go lists 1.4.1 and 1.4.2; 1.4.0 is unlisted.
+func TestMuseV3MalformedReleaseRefusedThroughRun(t *testing.T) {
 	for _, mode := range []string{"native", "yolo"} {
-		for _, release := range []string{"1.4.0", "9.9.9", ""} {
-			t.Run(mode+"/release="+release, func(t *testing.T) {
+		for _, version := range []string{"", "garbage\n", "Muse Code 1.4.6 (1.4.5-R5000.1)\n"} {
+			t.Run(mode+"/version="+version, func(t *testing.T) {
 				f, _ := museFixture(t)
 				f.args = []string{"muse", "--permissions", mode}
-				version := ""
-				if release != "" {
-					version = "Muse Code " + release + " (" + release + "-R1.1)\n"
-				}
 				writeFixture(t, filepath.Join(f.dir, "muse-version"), []byte(version), 0600)
 				code, out, stderr := f.run()
-				if code != 1 || len(out) != 0 || f.builds != 0 || f.verdicts != 0 || !strings.Contains(string(stderr), "permission_mode_unsupported:") || !strings.Contains(string(stderr), agentic.ErrPermissionModeUnverifiedRelease.Error()) {
-					t.Fatalf("unlisted release admitted: exit=%d builds=%d verdicts=%d stdout=%s stderr=%s", code, f.builds, f.verdicts, out, stderr)
+				wantBuilds := 0
+				if mode == "native" {
+					wantBuilds = 1
+				} // Native still requires a sealed, attested plan.
+				if code != 1 || len(out) != 0 || f.builds != wantBuilds || f.verdicts != 0 || !strings.Contains(string(stderr), "plan_refused:") || !strings.Contains(string(stderr), agentic.ErrToolReleaseUndetected.Error()) {
+					t.Fatalf("malformed release admitted: exit=%d builds=%d verdicts=%d stdout=%s stderr=%s", code, f.builds, f.verdicts, out, stderr)
 				}
 				f.assertNoChild(t)
+			})
+		}
+	}
+}
+
+// run -> resolvePermission probes a claim; the real module builder must
+// compare it with the selected binary's later attestation, for both postures.
+func TestMuseV3ReleaseMismatchRefusedThroughRun(t *testing.T) {
+	for _, mode := range []string{"native", "yolo"} {
+		t.Run(mode, func(t *testing.T) {
+			f, _ := museFixture(t)
+			original := f.deps.build
+			f.deps.build = func(ctx context.Context, r *vendorplugin.Registry, req vendorplugin.SpawnRequest, launchMode agentic.LaunchMode) (agentic.PlanWithEnvironment, error) {
+				if req.ToolRelease != "1.4.6" {
+					t.Fatalf("probe claim lost: %q", req.ToolRelease)
+				}
+				writeFixture(t, filepath.Join(f.dir, "muse-version"), []byte("Muse Code 1.4.7 (1.4.7-R5001.1)\n"), 0600)
+				return original(ctx, r, req, launchMode)
+			}
+			f.args = []string{"muse", "--permissions", mode}
+			code, out, stderr := f.run()
+			if code != 1 || len(out) != 0 || f.builds != 1 || f.verdicts != 0 || !strings.Contains(string(stderr), "caller tool release does not match the attested release") {
+				t.Fatalf("mismatch admitted: exit=%d builds=%d verdicts=%d stderr=%s", code, f.builds, f.verdicts, stderr)
+			}
+			f.assertNoChild(t)
+		})
+	}
+}
+
+func TestMuseV3YoloRequiresHelpEvidenceThroughRun(t *testing.T) {
+	for _, help := range []string{"", "Example: muse --yolo\n", "  --yolo-extra  Not the bypass flag\n"} {
+		t.Run(help, func(t *testing.T) {
+			f, _ := museFixture(t)
+			writeFixture(t, filepath.Join(f.dir, "muse-help"), []byte(help), 0600)
+			f.args = []string{"muse", "--permissions", "yolo"}
+			code, out, stderr := f.run()
+			wantDiagnostic := "permission_mode_unsupported:"
+			if help == "" {
+				wantDiagnostic = "plan_refused:"
+			}
+			if code != 1 || len(out) != 0 || f.builds != 1 || f.verdicts != 0 || !strings.Contains(string(stderr), wantDiagnostic) {
+				t.Fatalf("unproven yolo admitted: exit=%d builds=%d verdicts=%d stderr=%s", code, f.builds, f.verdicts, stderr)
+			}
+			f.assertNoChild(t)
+		})
+	}
+}
+
+func TestMuseV3NovelBuildAndWonderThroughRun(t *testing.T) {
+	for _, release := range []string{"1.4.6", "9.9.9"} {
+		for _, mode := range []string{"native", "yolo"} {
+			t.Run(release+"/"+mode, func(t *testing.T) {
+				f, _ := museFixture(t)
+				writeFixture(t, filepath.Join(f.dir, "muse-version"), []byte("Muse Code "+release+" ("+release+"-R5000.1)\n"), 0600)
+				f.args = []string{"muse", "--profile", "test-profile", "--model", "muse-wonder", "--permissions", mode}
+				code, out, stderr := f.run()
+				if code != 0 || f.builds != 1 || f.verdicts != 1 || f.request.Model != "muse-wonder" || f.request.Effort != "xhigh" || f.request.ToolRelease != release || f.plan.ToolRelease != release {
+					t.Fatalf("wonder admission: exit=%d request=%+v stderr=%s", code, f.request, stderr)
+				}
+				var child childCapture
+				if err := json.Unmarshal(out, &child); err != nil {
+					t.Fatal(err)
+				}
+				if !containsArg(child.Argv, "muse-wonder-1.0-contributor") {
+					t.Fatalf("alias not forwarded canonically: %q", child.Argv)
+				}
+				argv, err := os.ReadFile(filepath.Join(f.dir, "resolve-argv"))
+				if err != nil || !strings.Contains(string(argv), "--profile\ntest-profile") {
+					t.Fatalf("profile not forwarded: %q %v", argv, err)
+				}
 			})
 		}
 	}

@@ -38,9 +38,9 @@ const (
 
 // Producer identity of the pinned agents-management module. ModuleVersion is
 // pinned to the go.mod require by TestProducerMatchesBuild; ModuleCommit is
-// the peeled commit of the v0.5.53 tag, resolved by git ls-remote at pin
+// the peeled commit of the v0.5.62 tag, resolved at pin
 // time (Go exposes no dependency commit at runtime).
 const (
-	ProducerModuleVersion = "0.5.53"
-	ProducerModuleCommit  = "f07bbf3259679c45af13e2d665dd37bb76126ec5"
+	ProducerModuleVersion = "0.5.62"
+	ProducerModuleCommit  = "fcdc31740396c168285ae4999f84d946e064f01c"
 )

@@ -1,9 +1,9 @@
 {
   "Argv": [
     "--model",
-    "muse-spark-1.3-contributor",
+    "muse-wonder-1.0-contributor",
     "--reasoning-effort",
-    "max",
+    "xhigh",
     "--workspace",
     "<ROOT>"
   ],

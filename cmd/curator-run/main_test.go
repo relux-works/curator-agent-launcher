@@ -397,8 +397,8 @@ func TestRunProductionResolverAgainstFakeCurator(t *testing.T) {
 // version drifts from the changelog and install documentation.
 func TestReleaseVersionPinned(t *testing.T) {
 	const (
-		wantBuild = "0.2.0"
-		wantSpec  = "0.5.0-draft"
+		wantBuild = "0.3.0"
+		wantSpec  = "0.5.1-draft"
 	)
 	if buildVersion != wantBuild {
 		t.Fatalf("buildVersion = %q, want %q", buildVersion, wantBuild)
@@ -413,9 +413,9 @@ func TestReleaseVersionPinned(t *testing.T) {
 		{path: "../../SPEC.md", content: specVersion},
 		{path: "../../README.md", content: specVersion},
 		{path: "../../README.md", content: "github.com/relux-works/curator-agent-launcher/cmd/curator-run@v0.2.0"},
-		{path: "../../README.md", content: "The v0.2.0 release reports `0.2.0` (specification `0.5.0-draft`)."},
+		{path: "../../README.md", content: "The v0.3.0 candidate (pending tag) reports `0.3.0` (specification `0.5.1-draft`)."},
 		{path: "../../README.md", content: "curator v0.15.0-rc.3 or later, once published"},
-		{path: "../../CHANGELOG.md", content: "## 0.2.0 — 2026-10-02"},
+		{path: "../../CHANGELOG.md", content: "## 0.3.0 (pending tag)"},
 	} {
 		data, err := os.ReadFile(check.path)
 		if err != nil {

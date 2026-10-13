@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/relux-works/skill-agents-management/pkg/agentic"
+	museSystem "github.com/relux-works/skill-agents-management/pkg/agentic/systems/muse"
 	"github.com/relux-works/skill-agents-management/pkg/providerlimits"
 	"github.com/relux-works/skill-agents-management/pkg/vendorplugin"
 
@@ -34,10 +35,10 @@ import (
 
 const (
 	name        = cli.Name
-	specVersion = "0.5.0-draft"
+	specVersion = "0.5.1-draft"
 	// buildVersion is the launcher's own version; the specification
 	// version is reported beside it (SPEC §8).
-	buildVersion = "0.2.0"
+	buildVersion = "0.3.0"
 )
 
 func main() {
@@ -476,6 +477,12 @@ func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, ta
 	if isHosted && admitted.Plan.Stdin.Attached {
 		return emitFailure(stderr, diagnostics.CodeSessionHostStdinUnsupported, errors.New("session_host_stdin_unsupported: hosted launches in Phase 1 do not support attached stdin"))
 	}
+	// Muse's no-evidence mapping deliberately refuses yolo queries. Only the
+	// admitted plan can establish the selected binary's bounded help evidence;
+	// report that authority without guessing or parsing a provider flag.
+	if !inv.Tracked && decision.Mode == agentic.PermissionModeYolo && system.ID() == "muse" {
+		fmt.Fprintf(stderr, "curator-run: permissions=%s source=%s mapped=module-attested\n", decision.Mode, decision.Source)
+	}
 	// SPEC §4.4b: resolve and validate the explicit network selection
 	// after admission and before composition, reading the catalog with
 	// the operator's original parentEnv. The support check runs at the
@@ -705,6 +712,12 @@ func resolvePermission(ctx context.Context, inv cli.Invocation, frag *fragment.F
 		toolRelease, probeErr = agentic.ProbeToolRelease(ctx, system, parentEnv)
 	}
 	permissionMapping, mappingErr := agentic.Default.PermissionMapping(agentic.SystemID(target.System), toolRelease, decision.Mode)
+	deferredMapping := errors.Is(mappingErr, museSystem.ErrMuseHelpEvidenceRequired)
+	if deferredMapping {
+		// v0.5.62 requires live help evidence for Muse yolo. BuildLaunch owns
+		// that probe and refusal; a no-evidence query is not an admission.
+		mappingErr = nil
+	}
 	if mappingErr != nil {
 		if errors.Is(mappingErr, agentic.ErrPermissionModeUnsupported) {
 			return execution.PermissionDecision{}, "", nil, &execution.PermissionError{Code: diagnostics.CodePermissionModeUnsupported, Detail: mappingErr.Error()}
@@ -720,7 +733,7 @@ func resolvePermission(ctx context.Context, inv cli.Invocation, frag *fragment.F
 	if decision.Mode == agentic.PermissionModeYolo && probeErr != nil {
 		return execution.PermissionDecision{}, "", nil, fmt.Errorf("%s: tool release was not established: %v: %w", diagnostics.CodePlanRefused, probeErr, agentic.ErrPermissionModeUnverifiedRelease)
 	}
-	if !inv.Tracked {
+	if !inv.Tracked && !deferredMapping {
 		mapped := permissionMapping.Flag
 		if mapped == "" {
 			mapped = "none"

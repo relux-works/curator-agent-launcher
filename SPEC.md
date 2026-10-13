@@ -1,7 +1,12 @@
 # Curator Agent Launcher — Specification
 
-**Specification version:** `0.5.0-draft`
+**Specification version:** `0.5.1-draft`
 **Status:** in-repository draft (see [Versioning](#8-versioning))
+
+- 2026-10-13, 0.5.1-draft: launcher v0.3.0 (pending tag) pins
+  agents-management v0.5.62 for attested Muse builds, `muse-wonder` and
+  fragment v3; hosted launch is unavailable until the swarma dispatcher
+  path ships (§§3, 4.2, 4.8–4.9, 7–8).
 
 - 2026-10-13, 0.5.0-draft documentation revision (§§10.1–10.6,
   README and figures): apply R-TRANSFER, R-STANDING, R-EXEC and
@@ -216,7 +221,7 @@ change, not a flag addition.
 | `--permissions <native\|yolo>` | spawn | Permission mode resolved by §4.3. The launcher passes the selected mode to `LaunchRequest.PermissionMode` for `LaunchModeInteractive`; agents-management owns the mapping. |
 | `--yolo` | spawn | Exact alias of `--permissions yolo`, shipped in the same increment and occupying the same precedence level. Supplying both forms is a repeated permission request and a `usage` error. |
 | `-d`, `--danger` | — | Rejected before `--` as `usage`; neither spelling is an alias. After `--`, arguments remain opaque native arguments under the normal boundary rule. |
-| `--hosted`, `--native`, `--untracked` | session | The one host request slot (§4.8). `--hosted` runs on the managed session host; `--native` and its exact synonym `--untracked` run natively. A repeat or a combination is a `usage` error; permissions stay independent of the spelling. |
+| `--hosted`, `--native`, `--untracked` | session | The one host request slot (§4.8). `--hosted` is unavailable until the swarma dispatcher path ships; production receiver lookup refuses `session_host_missing` before any handoff; `--native` and its exact synonym `--untracked` run natively. A repeat or a combination is a `usage` error; permissions stay independent of the spelling. |
 | `resume [SES-HANDLE]`, `--resume <id>` | session | Hosted-only resume selectors (§4.8). `resume` selects the latest session, `resume SES-HANDLE` a handle, `--resume <id>` a provider identity. Handle and identity shape belong to the spawn plane's typed-intent grammar; in native mode any selector is a `usage` error. |
 | `--name <session-name>` | session | Tracked mode only (§4.6): the `ax` session name, replacing the default `<env-id>-<utc-stamp>`. MUST satisfy the `ax` §2.1 grammar `[A-Za-z0-9][A-Za-z0-9._-]{0,63}`; a longer or ill-formed value is a `usage` error naming `--name`, never a silent truncation. On an untracked machine the flag is accepted and has no effect. |
 | `--ax-profile <standard\|yolo>` | session | Tracked mode only (§4.6): the `ax` execution profile, forwarded as `ax start --profile <value>`. Absent, no `--profile` is passed and `ax`'s own default applies. This flag is the **only** way `--profile yolo` reaches `ax` from a launcher-mediated launch (Decision 0013 D6.4); the launcher never derives it from the fragment, the plan, or the native arguments. On an untracked machine the flag is a `usage` error: an execution profile is `ax`'s concept, and a value that would be silently discarded is a value the operator was misled about. |
@@ -464,11 +469,18 @@ are filled — the launcher does not exec untracked what it could not hand
 off tracked.
 
 The Muse row follows the binding 2026-10-01 task decision. Mapping does
-not attest launch-mode support. The pinned agents-management v0.5.48
-plugin declares interactive mode, implements ToolReleaseProber, and supplies
-release-pinned native/yolo permissions for Muse 1.4.1 and 1.4.2. The launcher
-probes the installed release before permission mapping and refuses unlisted
-releases. Interactive plans preserve inherited HOME and overlay only the four
+not attest launch-mode support. The pinned agents-management v0.5.62
+plugin declares interactive mode and implements ToolReleaseProber. It admits
+any well-formed build the selected binary attests, including Muse 1.4.6;
+there is no release table. The frozen-copy tuple is optional, and without it
+`muse` resolves on the handed PATH. The launcher passes the probed ToolRelease
+claim unchanged; the module refuses a mismatch with the binary attestation.
+Native adds no posture override; yolo requires the module's bounded help
+evidence from the selected binary. Its no-evidence mapping query cannot
+admit yolo; only the real builder's evidence-backed mapping does so, after
+which the launcher reports `mapped=module-attested`. The `muse-wonder` alias
+resolves to `muse-wonder-1.0-contributor` under the module's effort rules.
+Interactive plans preserve inherited HOME and overlay only the four
 fragment XDG parents. Its declaration-owned
 model rows are the module's system-only launch authority, without a
 resolved vendor; defaults consumes those rows as BuildLaunch does.
@@ -720,14 +732,18 @@ After admission and before composition, the launcher resolves the
 explicit `--network` selection through `curator-network-profiles`
 v0.3.1 (§7). Without `--network` this step is absent: no catalog is
 read, nothing probes, and the launch composes exactly as before —
-with one authorized exception: the agents-management v0.5.45+
+with the enumerated module-owned differences: agents-management v0.5.45+
 module appends its unconditional `--disallowedTools=AskUserQuestion`
 denial to the direct Claude argv (direct and tracked shapes) and to
-the §4.4 admission argv pin. Everything else in an unmanaged launch
-is byte-identical to baseline fbcdbaf0; the committed
+the §4.4 admission argv pin. The v0.5.62 lineup changes Muse fallback
+from `muse-spark-1.3-contributor` / `max` to
+`muse-wonder-1.0-contributor` / `xhigh`. Everything else in an unmanaged
+launch is byte-identical to baseline fbcdbaf0; the committed
 `TestUnmanagedGoldensMatchBaselineFbcdbaf0` pins that parity by
 comparing the shipped goldens against baseline copies and allowing
-exactly that one added line. With `--network`, the order is closed:
+exactly the Claude added line and the two Muse fallback value changes
+(alongside the stated permission-source normalization). With `--network`,
+the order is closed:
 
 1. A blank selection refuses as `network_profile_invalid` without any
    I/O.
@@ -1195,6 +1211,15 @@ their schemas stay.
 
 ### 4.8 Host selection
 
+Hosted launch is unavailable in v0.3.0 until the swarma dispatcher path ships.
+Production receiver lookup MUST fail closed with the existing
+`session_host_missing` (exit 1), before any handoff, even if `task-board` is
+on PATH. Earlier validation refusals below still apply. Machine and operator
+hosted defaults MUST NOT start a hosted launch; native execution, `--native`,
+`--untracked`, and direct `--network` retain their behavior. The hosted
+composition and payload rules below specify the dormant contract exercised
+with injected receivers; they are not evidence of an available public host.
+
 After normalization and configuration validation, and before permissions
 and the plan build, the launcher resolves the host: native execution, or
 the managed session host of §4.9. The host flag (§3) is the explicit
@@ -1232,7 +1257,7 @@ The defaults gate follows: a resolved machine hosted default refuses
 upgrade-without-hangup (Decision 0021 section 7 amendment pending). An
 operator hosted default is the operator's own opt-in and passes the
 gate (operator decision Q-D1a, 2026-10-05, = yes), as does an explicit
-`--hosted` flag. Next, a
+`--hosted` flag. Neither passes production receiver lookup in this release. Next, a
 hosted launch with a `--network` selection refuses
 `network_scope_unsupported` (exit 16, the hosted policy mapping) before
 permissions, the plan build, or any probe: the receiver cannot enforce a
@@ -1263,6 +1288,10 @@ the plan builds from the selector-free tail. The launcher never parses
 provider flags itself.
 
 ### 4.9 Hosted payload and receiver handoff
+
+This is the dormant payload contract. Production lookup refuses
+`session_host_missing` before any receiver handoff until the swarma dispatcher
+path ships (§4.8); test receivers do not establish hosted availability.
 
 Figures: [hosted handoff sequence](diagrams/launch-paths.puml) and
 [private payload and descriptor layout](diagrams/artifact-layout.puml).
@@ -1551,7 +1580,7 @@ receiving registry, which recognizes codes the launcher never emits.
 | system prompt | `sysprompt_channel_unavailable`, `sysprompt_file_unreadable` | §5.2: opt-in given but the fragment carries no non-`file` channel with the requested semantics; §5.1: a registry-declared file-kind channel's file exists but cannot be read (or is not a regular file) at the pre-exec probe — an absent managed-home file is not this diagnostic and says nothing about other native sources |
 | network | `network_profile_unknown`, `network_profile_denied`, `network_scope_unsupported`, `network_configuration_conflict`, `network_proxy_unreachable`, `network_proxy_auth_failed`, `network_profile_invalid`, `network_file_unreadable` | §4.4b: the explicit network selection could not be honored — an unknown profile name; a denied one (outside the host allowed set, or unconfirmed at the current digest); an unsupported launch shape (tracked mode, a refused adapter Decision or unsupported child scope — including any launch without a print selection — an unmapped launch mode, or an enforced assurance request); a proxy-family name in a composed overlay or an uncovered engine host under a proxy profile; an unreachable proxy (TCP, CONNECT, or TLS step, or a malformed endpoint; a `kind = "direct"` profile skips every probe step); a proxy demanding authentication; a malformed catalog or profile; or a catalog or ledger that cannot be located, read, or parsed — every one terminal, with no fallback to an unmanaged launch; a hosted launch with `--network` refuses `network_scope_unsupported` with exit 16 (§4.8) while every native network refusal exits 1 |
 | host | `host_configuration_conflict` | §4.8: a hosted flag or default with the `ax` integration enabled — exit 2, before the defaults gate, with no fallback to either side |
-| session host | `session_host_missing`, `session_host_unavailable`, `session_host_provider_unsupported`, `session_host_protocol_unsupported`, `session_host_scope_unsupported`, `session_host_execution_profile_unsupported`, `session_host_terminal_required`, `session_host_stdin_unsupported`, `session_host_default_not_ready` | §4.8, §4.9: the receiver is not on PATH or cannot start (exit 1); the status channel is corrupt (exit 1); a non-Claude environment seeks the Phase 1 host (exit 6); the receiver reports an unsupported protocol, scope, or execution profile (exit 6, receiver-mapped); no controlling terminal is available or the descriptor fails validation, checked before the plan build with zero lookup (exit 6); stdin is attached (exit 6); a machine hosted default awaits upgrade-without-hangup while an operator hosted default is admitted (Q-D1a = yes, exit 16) |
+| session host | `session_host_missing`, `session_host_unavailable`, `session_host_provider_unsupported`, `session_host_protocol_unsupported`, `session_host_scope_unsupported`, `session_host_execution_profile_unsupported`, `session_host_terminal_required`, `session_host_stdin_unsupported`, `session_host_default_not_ready` | §4.8, §4.9: hosted launch is unavailable until the swarma dispatcher path ships; production receiver lookup refuses `session_host_missing` before any handoff (exit 1), even with `task-board` on PATH; the status channel is corrupt (exit 1); a non-Claude environment seeks the Phase 1 host (exit 6); the receiver reports an unsupported protocol, scope, or execution profile (exit 6, receiver-mapped); no controlling terminal is available or the descriptor fails validation, checked before the plan build with zero lookup (exit 6); stdin is attached (exit 6); a machine hosted default awaits upgrade-without-hangup while an operator hosted default resolves but still refuses production receiver lookup (machine gate exit 16) |
 | resume | `session_resume_invalid` | §4.8: conflicting, ambiguous, or malformed resume selectors from the wrapper or the native tail, as elevated by the module typed-intent grammar — exit 2, before the plan build |
 | launch plan | `launch_plan_invalid` | §4.9: the composed plan cannot be projected into the closed payload shape — non-absolute paths, literal/env mismatches, missing lookup names, an inadmissible guard, a restart mismatch, or a wire-limit violation; no value in the detail — exit 2, before contact |
 | policy | `secret_policy_violation`, `policy_refused` | §4.9: the receiver reports a secret-policy violation or a refused policy — exit 16, receiver-mapped, with field and reason only |
@@ -1571,7 +1600,7 @@ invocation, and the operator retries deliberately.
 ## 7. Pinned dependencies
 
 The launcher pins
-`github.com/relux-works/skill-agents-management v0.5.53`, which carries
+`github.com/relux-works/skill-agents-management v0.5.62`, which carries
 `LaunchModeInteractive`, `LaunchRequest.PermissionMode`,
 `LaunchRequest.ToolRelease`, `LaunchRequest.NativeArgs`, the
 `permission-grammar-v1` token, `ErrPermissionModeUnverifiedRelease`,
@@ -1579,7 +1608,11 @@ the `ElevateResumeIntent` typed-intent API, the closed `claude-restart`
 template export and transformation check, the pinned hosted schemas,
 `Plan.ExportSeal`, and the typed `Plan.Session` (native name and RC
 intent with argv indices).
-The module owns the release-bound permission mapping, grammar, and
+The module also admits attested well-formed Muse builds without a release
+table, the optional frozen-copy tuple, `muse-wonder`, fragment v3, and bounded
+help-evidence-backed Muse yolo. ToolRelease is a claim cross-checked by the
+sealer, never caller-minted admission evidence.
+The module owns the permission mapping, grammar, and
 capability table; this SPEC deliberately contains no provider permission
 flag spelling. The pinned module's plans-as-values contract, argv
 parity goldens, frozen admitted-pair digests, per-model effort rules,
@@ -1596,8 +1629,10 @@ supports.
 
 ## 8. Versioning
 
+The launcher v0.3.0 candidate reports `0.3.0`; its tag is pending.
+
 - This specification is versioned semantically; the current version is
-  **`0.5.0-draft`**. Draft versions may change incompatibly between
+  **`0.5.1-draft`**. Draft versions may change incompatibly between
   commits; the `-draft` suffix is the signal that nothing downstream may
   pin them.
 - The `curator-run` binary reports both its build version and the

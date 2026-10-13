@@ -36,9 +36,12 @@ type Transport struct {
 	PreopenedTerminal *os.File
 }
 
-// LookupReceiver resolves the receiver binary on PATH.
+// LookupReceiver fails closed until the swarma dispatcher path ships.
+// A task-board binary on PATH does not implement the retired receiver CLI.
+// Injected Transport boundaries exercise the payload contract independently;
+// public launches always use this unavailable production boundary.
 func LookupReceiver() (string, error) {
-	return exec.LookPath("task-board")
+	return "", errors.New("hosted launch is unavailable until the swarma dispatcher path ships")
 }
 
 // OpenTerminal opens the controlling terminal read/write for fd3.
@@ -90,6 +93,9 @@ func (t Transport) Run(payload []byte, stdout, stderr io.Writer) int {
 	}
 	receiver, err := lookup()
 	if err != nil || receiver == "" {
+		if t.PreopenedTerminal != nil {
+			t.PreopenedTerminal.Close()
+		}
 		_ = diagnostics.Emit(stderr, CodeSessionHostMissing, "the task-board receiver is not available on PATH")
 		return diagnostics.ExitForCode(CodeSessionHostMissing)
 	}

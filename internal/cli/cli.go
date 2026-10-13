@@ -44,7 +44,7 @@ Launcher flags are recognized only before "--". Everything after "--" is
 forwarded to the tool verbatim, in order, uninspected.
 
 options:
-  --hosted                          run on the managed session host
+  --hosted                          unavailable until the swarma dispatcher path ships
   --native, --untracked             run natively; the two spellings are equal
   resume [SES-HANDLE]               hosted resume selector (latest or handle)
   --resume <id>                     hosted resume selector (provider identity)
@@ -63,7 +63,7 @@ options:
   --help, -h                        print this usage text and exit 0
   --version                         print the launcher name and version, exit 0
 
-Environments: claude_code (alias claude), codex_cli (alias codex), pi.
+Environments: claude_code (alias claude), codex_cli (alias codex), pi, muse.
 opencode is currently unsupported. Aliases normalize to the canonical id
 before validation or lookup; outputs carry the canonical id only.
 Omitting --profile uses Curator's current profile; resolution always repairs.
@@ -93,6 +93,10 @@ Host: --hosted, --native and --untracked share one host request: a repeat
 or a combination refuses. No flag and no configured default means native
 with no session-host probe. An explicit --native or --untracked on an
 ax-configured machine bypasses ax; a configured native default does not.
+Hosted launch is unavailable until the swarma dispatcher path ships.
+Production receiver lookup fails closed with session_host_missing (exit 1),
+before any handoff, even if task-board is on PATH. Earlier validation and
+machine-default refusals still apply; operator defaults cannot start a host.
 resume selectors and --resume are hosted-only; in native mode they refuse.
 --hosted with --network refuses network_scope_unsupported (exit 16).
 

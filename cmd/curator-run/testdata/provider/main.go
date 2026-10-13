@@ -42,6 +42,14 @@ func main() {
 		fmt.Fprintln(os.Stdout, os.Getenv("CURATOR_TEST_RELEASE"))
 		return
 	}
+	if filepath.Base(os.Args[0]) == "muse" && len(os.Args) == 2 && os.Args[1] == "--help" {
+		data, err := os.ReadFile(filepath.Join(filepath.Dir(os.Args[0]), "muse-help"))
+		if err != nil {
+			os.Exit(1)
+		}
+		os.Stdout.Write(data)
+		return
+	}
 	_ = os.WriteFile("started", []byte("started"), 0600)
 	data, _ := io.ReadAll(os.Stdin)
 	cwd, _ := os.Getwd()

@@ -42,7 +42,7 @@ tree=$(GIT_INDEX_FILE="$tmpindex" git write-tree)
 if [ "$tree" = "$(git rev-parse "$head^{tree}")" ]; then
   commit=$head
 else
-  commit=$(printf 'remote gate snapshot of %s\n\nworking tree of %s on top of %s\n' "$name" "$root" "$head" \
+  commit=$(printf 'remote gate snapshot of %s\n\nworking tree on top of %s\n' "$name" "$head" \
     | GIT_COMMITTER_NAME="remote-gate" GIT_COMMITTER_EMAIL="remote-gate@localhost" \
       GIT_AUTHOR_NAME="remote-gate" GIT_AUTHOR_EMAIL="remote-gate@localhost" \
       git -c commit.gpgsign=false commit-tree "$tree" -p "$head")

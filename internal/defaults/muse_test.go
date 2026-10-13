@@ -23,8 +23,8 @@ func TestMuseDefaultsUseDeclarationOwnedModels(t *testing.T) {
 	if got.Runtime != "muse" {
 		t.Fatalf("runtime=%q", got.Runtime)
 	}
-	lineupOrigin(t, got.Model, "muse-spark-1.3-contributor")
-	lineupOrigin(t, got.Effort, "max")
+	lineupOrigin(t, got.Model, "muse-wonder-1.0-contributor")
+	lineupOrigin(t, got.Effort, "xhigh")
 	// This is launch-only authority, not evidence of a resolved vendor.
 	if _, err := reg.ResolveRuntime("muse"); !errors.Is(err, vendorplugin.ErrRuntimeVendorUnresolved) {
 		t.Fatalf("vendor bound changed: %v", err)

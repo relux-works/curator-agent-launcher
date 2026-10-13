@@ -9,7 +9,7 @@
 # matches no source (the production text drifted) is reported as
 # NOT_APPLIED by name on stderr and in the summary, and a mutant the suite
 # survives is SURVIVED; either makes the script exit non-zero.
-# internal/mutantguard runs the required mutants (M-H1, M-H2, M-H3) through
+# internal/mutantguard runs the required mutants (M-H1, M-H2, M-H3, M-H22) through
 # this script in a scratch copy of the tree on every `go test ./...`.
 #
 # usage: .scripts/hosted-mutants.sh [evidence-dir]
@@ -29,18 +29,21 @@ DEFAULTS=internal/defaults/defaults.go
 PERM=internal/execution/permission.go
 PAYLOAD=internal/hosted/payload.go
 STATUSF=internal/hosted/status.go
+TRANSPORT=internal/hosted/transport.go
 cp "$CLI" "$out/cli.go.orig"
 cp "$MAIN" "$out/main.go.orig"
 cp "$DEFAULTS" "$out/defaults.go.orig"
 cp "$PERM" "$out/permission.go.orig"
 cp "$PAYLOAD" "$out/payload.go.orig"
 cp "$STATUSF" "$out/status.go.orig"
-restore() { cp "$out/cli.go.orig" "$CLI"; cp "$out/main.go.orig" "$MAIN"; cp "$out/defaults.go.orig" "$DEFAULTS"; cp "$out/permission.go.orig" "$PERM"; cp "$out/payload.go.orig" "$PAYLOAD"; cp "$out/status.go.orig" "$STATUSF"; }
+cp "$TRANSPORT" "$out/transport.go.orig"
+restore() { cp "$out/cli.go.orig" "$CLI"; cp "$out/main.go.orig" "$MAIN"; cp "$out/defaults.go.orig" "$DEFAULTS"; cp "$out/permission.go.orig" "$PERM"; cp "$out/payload.go.orig" "$PAYLOAD"; cp "$out/status.go.orig" "$STATUSF"; cp "$out/transport.go.orig" "$TRANSPORT"; }
 trap restore EXIT
 
 # Fields separated by "@@": id, file, expected failing test, from, to.
 # from/to are literal text; the first occurrence is replaced.
 mutants=(
+  'M-H22@@transport@@TestHostedUnavailableThroughRun/flag/native@@return "", errors.New("hosted launch is unavailable until the swarma dispatcher path ships")@@if path, err := exec.LookPath("task-board"); err == nil { return path, nil }; return "", errors.New("hosted launch is unavailable until the swarma dispatcher path ships")'
   'M-H1@@defaults@@TestResolveHostPrecedence/locked-ignores-operator@@lockedHost := f.machine.locked && named@@lockedHost := f.machine.locked && named && false'
   'M-H2@@main@@TestHostedRefusalsBeforeContact/receiver-missing@@return hosted.Transport{Lookup: deps.receiverLookup, Terminal: deps.receiverTerminal, PreopenedTerminal: preopenedTTY}.Run(wire, stdout, stderr)@@code := hosted.Transport{Lookup: deps.receiverLookup, Terminal: deps.receiverTerminal, PreopenedTerminal: preopenedTTY}.Run(wire, stdout, stderr); if code != diagnostics.ExitOperational { return code }; return runNative(inv, frag, target, value, decision, inspection, stdout, stderr, deps, boundary, at)'
   'M-H3@@main@@TestNativePerformsZeroReceiverLookup@@var nativePolicy *execution.EffectiveNativePolicy@@var nativePolicy *execution.EffectiveNativePolicy; if deps.receiverLookup != nil { _, _ = deps.receiverLookup() }'
@@ -74,7 +77,7 @@ for m in "${mutants[@]}"; do
   test="${rest%%@@*}"; rest="${rest#*@@}"
   from="${rest%%@@*}"; to="${rest#*@@}"
   restore
-  file="$MAIN"; [ "$which" = cli ] && file="$CLI"; [ "$which" = defaults ] && file="$DEFAULTS"; [ "$which" = perm ] && file="$PERM"; [ "$which" = payload ] && file="$PAYLOAD"; [ "$which" = status ] && file="$STATUSF"
+  file="$MAIN"; [ "$which" = cli ] && file="$CLI"; [ "$which" = defaults ] && file="$DEFAULTS"; [ "$which" = perm ] && file="$PERM"; [ "$which" = payload ] && file="$PAYLOAD"; [ "$which" = status ] && file="$STATUSF"; [ "$which" = transport ] && file="$TRANSPORT"
   FROM="$from" TO="$to" python3 -c '
 import os, sys
 p = sys.argv[1]; src = open(p).read()

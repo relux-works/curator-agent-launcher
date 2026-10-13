@@ -3,6 +3,8 @@ package hosted_test
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -561,3 +563,44 @@ type fakeErr string
 func (e fakeErr) Error() string { return string(e) }
 
 const errFakeLookup = fakeErr("fake failure")
+
+// Production Run must refuse before opening a terminal or executing a PATH
+// binary, and must close an already transferred terminal on the same refusal.
+func TestProductionTransportUnavailable(t *testing.T) {
+	dir := t.TempDir()
+	binary, err := os.ReadFile(testReceiver)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "task-board"), binary, 0700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", dir)
+	t.Setenv("RECEIVER_CAPTURE_DIR", dir)
+	for _, preopened := range []bool{false, true} {
+		t.Run(fmt.Sprint(preopened), func(t *testing.T) {
+			terminalCalls := 0
+			transport := hosted.Transport{Terminal: func() (*os.File, error) { terminalCalls++; return nil, errors.New("must not open terminal") }}
+			if preopened {
+				tty, err := os.CreateTemp(dir, "terminal")
+				if err != nil {
+					t.Fatal(err)
+				}
+				transport.PreopenedTerminal = tty
+			}
+			var stdout, stderr bytes.Buffer
+			code := transport.Run([]byte(`{"schema":"probe"}`), &stdout, &stderr)
+			if code != 1 || terminalCalls != 0 || stdout.Len() != 0 || !strings.Contains(stderr.String(), "session_host_missing:") {
+				t.Fatalf("exit=%d terminal=%d stdout=%q stderr=%q", code, terminalCalls, stdout.String(), stderr.String())
+			}
+			if preopened {
+				if _, err := transport.PreopenedTerminal.Stat(); !errors.Is(err, os.ErrClosed) {
+					t.Fatalf("transferred terminal not closed: %v", err)
+				}
+			}
+			if _, err := os.Stat(filepath.Join(dir, "argv.json")); !os.IsNotExist(err) {
+				t.Fatalf("receiver started or capture unreadable: %v", err)
+			}
+		})
+	}
+}

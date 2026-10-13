@@ -156,7 +156,7 @@ func TestHostedRefusalsBeforeContact(t *testing.T) {
 			wantCode: 2, wantLine: "curator-run: host_configuration_conflict: hosted execution conflicts with the enabled ax integration on this machine",
 		},
 		// Q-D1a (2026-10-05) = yes: an operator hosted default is
-		// admitted (TestOperatorHostedDefaultAdmitted). Only machine
+		// resolved (TestOperatorHostedDefaultResolvesWithInjectedReceiver). Only machine
 		// hosted defaults stay gated, locked or not.
 		{
 			name: "machine-hosted-default-not-ready", env: "claude_code",
@@ -373,7 +373,7 @@ func TestHostedRefusalsBeforeContact(t *testing.T) {
 // completes the hosted handoff — the payload reaches the receiver and
 // the launch exits 0 — while a machine hosted default still refuses
 // (TestHostedRefusalsBeforeContact/machine-hosted-default-not-ready).
-func TestOperatorHostedDefaultAdmitted(t *testing.T) {
+func TestOperatorHostedDefaultResolvesWithInjectedReceiver(t *testing.T) {
 	h := newHostedHarness(t, "claude_code", false)
 	writeDefaults(t, h.fix.deps.defaults.Operator, `{"schema":"curator-run-defaults-v3","defaults":{"claude_code":{"host":"hosted"}}}`)
 	code, _, stderr := h.run(t, []string{"claude_code", "--model", "claude-opus-5", "--effort", "medium", "--permissions", "native"})
@@ -1501,6 +1501,52 @@ func TestHostedConflictingNativeSessionNamesRefuse(t *testing.T) {
 			if h.lookupCalls != 0 {
 				t.Fatalf("hosted refusal looked up the receiver: lookup=%d", h.lookupCalls)
 			}
+		}
+	}
+}
+
+// Production call sites: run -> launch -> runHosted -> Transport.Run ->
+// LookupReceiver. A task-board executable on PATH is not a swarma dispatcher.
+// All three ways to select hosted must refuse without a receiver or provider
+// start. Existing injected-receiver tests cover the dormant payload contract.
+func TestHostedUnavailableThroughRun(t *testing.T) {
+	for _, selection := range []string{"flag", "operator", "machine", "locked-machine"} {
+		for _, mode := range []string{"native", "yolo"} {
+			t.Run(selection+"/"+mode, func(t *testing.T) {
+				h := newHostedHarness(t, "claude_code", false)
+				h.fix.usePermissionsFragment(t, "native", false, "default")
+				h.fix.deps.receiverLookup = nil // Use the public production boundary.
+				receiver, err := os.ReadFile(hostedReceiver)
+				if err != nil {
+					t.Fatal(err)
+				}
+				// Keep the receiver PATH directory separate from provider-limit
+				// state: LayoutAt uses a task-board directory under the fixture.
+				writeFixture(t, filepath.Join(h.captureDir, "task-board"), receiver, 0700)
+				t.Setenv("PATH", h.captureDir)
+				args := []string{"claude_code", "--model", "claude-opus-5", "--effort", "medium", "--permissions", mode}
+				wantCode, wantDiagnostic := 1, "session_host_missing"
+				switch selection {
+				case "flag":
+					args = append(args, "--hosted")
+				case "operator":
+					writeDefaults(t, h.fix.deps.defaults.Operator, `{"schema":"curator-run-defaults-v3","defaults":{"claude_code":{"host":"hosted"}}}`)
+				case "machine":
+					writeDefaults(t, h.fix.deps.defaults.Machine, `{"schema":"curator-run-defaults-v3","defaults":{"claude_code":{"host":"hosted"}}}`)
+					wantCode, wantDiagnostic = 16, "session_host_default_not_ready"
+				case "locked-machine":
+					writeDefaults(t, h.fix.deps.defaults.Machine, `{"schema":"curator-run-defaults-v3","locked":true,"defaults":{"claude_code":{"host":"hosted"}}}`)
+					wantCode, wantDiagnostic = 16, "session_host_default_not_ready"
+				}
+				code, out, stderr := h.run(t, args)
+				if code != wantCode || out != "" || !strings.Contains(stderr, "curator-run: "+wantDiagnostic+":") {
+					t.Fatalf("hosted selection escaped refusal: exit=%d stdout=%q stderr=%q", code, out, stderr)
+				}
+				h.fix.assertNoChild(t)
+				if _, err := os.Stat(filepath.Join(h.captureDir, "argv.json")); !os.IsNotExist(err) {
+					t.Fatalf("receiver started or capture unreadable: %v", err)
+				}
+			})
 		}
 	}
 }

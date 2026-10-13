@@ -1,78 +1,41 @@
 # Changelog
 
-## Unreleased
-
-### Added
-
-- Direct `curator run --network <profile>`: resolve and validate the
-  explicit selection through `curator-network-profiles v0.2.1` after
-  plan admission, probe the proxy once within a bounded preflight, and
-  apply the patch last in composition to the direct child environment.
-  A named `kind = "direct"` profile clears inherited proxy variables
-  and sets nothing, skipping every probe step. Managed launches print
-  a `curator-run: network: …` provenance line carrying the binding
-  Record once composition succeeds. Support is the STRICT network
-  policy: an explicit allowlist of verified (adapter, harness, build,
-  entrypoint) tuples, matched at the actual admitted entrypoint, which
-  holds exactly one verified tuple —
-  `(generic-env-v1, claude-code, 2.1.287, exec)` — the one-shot
-  `claude -p` shape. Every other `--network` launch refuses with
-  `network_scope_unsupported`, including interactive launches, which
-  the pinned verification expressly excludes. Tracked launches
-  refuse the same way. See SPEC §4.4b and §6.
-- Host selection and the hosted session-launch handoff
-  (TASK-261004-38ba6c). `curator-run` accepts `--hosted`, `--native`,
-  and `--untracked` in one host request slot, `resume [SES-HANDLE]`
-  and `--resume <id>` selectors, and the existing `--network <profile>`.
-  `curator-run-defaults-v3` adds the per-environment `host` member
-  (v1 and v2 stay accepted); machine lock, flag, operator default,
-  and the implicit native default resolve per the SPEC §4.8 table.
-  Explicit `--hosted` builds the same plan once and hands the
-  versioned `session-launch-plan` 1.0.0 payload with its content
-  digest to the `task-board` receiver over the private fd3/fd4
-  transport instead of exec'ing; machine hosted defaults refuse
-  `session_host_default_not_ready` until upgrade-without-hangup while
-  operator hosted defaults are admitted (Q-D1a = yes, 2026-10-05),
-  a `--hosted --network` selection refuses `network_scope_unsupported`
-  (exit 16; the native `--network` path above is unchanged),
-  and non-Claude environments refuse
-  `session_host_provider_unsupported`. Hosted permission resolution
-  follows the configured flag/profile/global ladder with the `yolo`
-  built-in default on every stdio shape, and hosted `yolo` builds and
-  exports with `execution_profile` `yolo` (Q-D3, 2026-10-05, literal:
-  headless signals never change the default; Decisions 0018/0013
-  amendments pending). Phase 1 admits
-  Claude only. No flag and no default stays native with no
-  session-host probe. A piped launcher stdin refuses before the plan
-  build; an attached plan stdin refuses after it. The fd4 status
-  channel accepts only closed refusal envelopes (135-member registry,
-  literal messages, D0/D1/D2 details) and normalizes anything else to
-  `session_host_protocol_error` with empty details; truncated frames
-  refuse `session_host_unavailable` unless a malformed frame already
-  poisoned the channel, which stays `session_host_protocol_error`. A
-  missing or invalid terminal descriptor refuses
-  `session_host_terminal_required` before the plan build with zero
-  receiver lookup, and the launcher marks and validates both fd3/fd4
-  descriptors before contact. At most 64 lookup names project.
-  Hosted diagnostics never copy native argument values (conflict names
-  the channel, unknown policy mode reports the fixed sentinel). The
-  payload carries the native session name and remote-control intent
-  read from the module's typed `Plan.Session` of the same plan (RC
-  indices carried only while the composed argv equals the plan argv,
-  no provider-flag parsing);
-  an authored tail naming two different sessions refuses
-  `plan_refused` from the module before any receiver contact.
+## 0.3.0 (pending tag)
 
 ### Changed
 
-- Pin `github.com/relux-works/skill-agents-management v0.5.53` for the
-  resume typed-intent API, the closed `claude-restart` template, the
-  pinned hosted schemas, `Plan.ExportSeal`, and the typed
-  `Plan.Session`. Claude plans carry the module's unconditional
-  `--disallowedTools=AskUserQuestion` denial after the prompt channel;
-  update direct and tracked Claude goldens. Hosted Codex argv and
-  environment are unchanged; the launcher registers no local-model
-  vendor, so no fixture needs `model_catalog_json`.
+- Pin `github.com/relux-works/skill-agents-management v0.5.62`.
+  Muse interactive launches admit any well-formed build attested by the
+  selected binary, including 1.4.6, with no release table. The optional
+  frozen-copy tuple stays supported; without it the binary resolves on the
+  handed PATH. Admit the `muse-wonder` alias and Curator launch fragment v3;
+  the module lineup now defaults Muse to `muse-wonder-1.0-contributor`
+  with `xhigh` effort.
+  Preserve the probed `ToolRelease` claim and refuse a mismatch with the
+  binary's attestation. Muse yolo requires bounded help evidence from the
+  selected binary; native contributes no posture override.
+- Hosted launch is unavailable until the swarma dispatcher path ships.
+  Production `--hosted` receiver lookup fails closed with the existing
+  `session_host_missing` (exit 1), before any handoff, even with `task-board`
+  on PATH. Earlier validation refusals remain in force; machine and operator
+  hosted defaults cannot start a hosted launch. `--native` and `--untracked`
+  retain native execution and the explicit ax bypass.
+
+### Added
+
+- Direct `curator run --network <profile>` as already landed, through
+  `curator-network-profiles v0.3.1`: explicit catalog/selection validation,
+  bounded proxy preflight, final child-environment patch and provenance.
+  A named `kind = "direct"` profile clears inherited proxies and skips
+  probing. The default optimistic policy admits known vendor builds as unqualified,
+  subject to fail-closed known-bad policy and the independent child-scope
+  ceiling (generic adapter, Claude print). `strict` and sensitive-egress
+  profiles require independent qualification; the qualification allowlist
+  remains empty in this release. `pinned:<sha256>` also requires that exact
+  binary but does not qualify it. Muse network tuples remain outside the
+  child-scope ceiling; interactive, tracked and hosted network launches
+  remain unsupported.
+  See SPEC §4.4b and §6.
 
 ## 0.2.0 — 2026-10-02
 

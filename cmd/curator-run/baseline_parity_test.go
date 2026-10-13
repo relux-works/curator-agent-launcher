@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-// authorizedUnmanagedDelta is the single unmanaged-launch difference
+// authorizedUnmanagedDelta is the Claude unmanaged-launch difference
 // this revision carries against baseline fbcdbaf0: the
 // agents-management v0.5.45+ module appends its unconditional Claude
 // denial after the prompt channel of the direct argv. The line below is
@@ -43,8 +43,9 @@ func normalizeAuthorizedPermissionsLine(t *testing.T, name string, current []byt
 // unmanaged launch shape the suite goldens — six direct/tracked
 // pipeline shapes plus three Muse shapes, all launched WITHOUT
 // --network — matches baseline fbcdbaf0, except the two Claude goldens,
-// which carry exactly the one authorized denial line above and nothing
-// else. Baseline bytes live in testdata/baseline-fbcdbaf0/, extracted
+// which carry exactly the one authorized denial line above; Muse carries
+// exactly the v0.5.62 lineup change from Spark/max to Wonder/xhigh.
+// Baseline bytes live in testdata/baseline-fbcdbaf0/, extracted
 // with `git show fbcdbaf0:cmd/curator-run/testdata/<name>.golden`
 // (provenance hashes in the task results); they are the pin, not a
 // second copy of the live fixtures.
@@ -72,8 +73,19 @@ func TestUnmanagedGoldensMatchBaselineFbcdbaf0(t *testing.T) {
 		if strings.HasSuffix(name, "-false") && (strings.HasPrefix(name, "pipeline-codex_cli") || strings.HasPrefix(name, "pipeline-pi")) {
 			current = normalizeAuthorizedPermissionsLine(t, name, current)
 		}
+		if strings.HasPrefix(name, "pipeline-muse-") {
+			for _, delta := range [][2]string{
+				{`"muse-wonder-1.0-contributor"`, `"muse-spark-1.3-contributor"`},
+				{`"xhigh"`, `"max"`},
+			} {
+				if n := bytes.Count(current, []byte(delta[0])); n != 1 {
+					t.Fatalf("%s: carries authorized lineup value %s %d times, want exactly once", name, delta[0], n)
+				}
+				current = bytes.Replace(current, []byte(delta[0]), []byte(delta[1]), 1)
+			}
+		}
 		if !bytes.Equal(current, base) {
-			t.Fatalf("%s: unmanaged golden differs from baseline fbcdbaf0 (%d bytes vs %d); only the Claude denial line is authorized",
+			t.Fatalf("%s: unmanaged golden differs from baseline fbcdbaf0 (%d bytes vs %d) after the exact authorized deltas",
 				name, len(current), len(base))
 		}
 	}

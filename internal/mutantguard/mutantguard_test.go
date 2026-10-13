@@ -33,6 +33,7 @@ var required = []struct {
 	{"M-H1", "./internal/defaults", "^TestResolveHostPrecedence$"},
 	{"M-H2", "./cmd/curator-run", "^TestHostedRefusalsBeforeContact$"},
 	{"M-H3", "./cmd/curator-run", "^TestNativePerformsZeroReceiverLookup$"},
+	{"M-H22", "./cmd/curator-run", "^TestHostedUnavailableThroughRun$"},
 }
 
 func repoRoot(t *testing.T) string {
