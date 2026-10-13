@@ -1,6 +1,8 @@
 # Changelog
 
-## 0.3.0 (pending tag)
+## Unreleased
+
+## 0.3.0 — 2026-10-13
 
 ### Changed
 

@@ -2,7 +2,7 @@
 
 `curator-run` composes Curator's managed environment, agents-management's
 admitted interactive plan, and optional ax tracking. The contract is
-[SPEC 0.5.0-draft](SPEC.md).
+[SPEC 0.5.1-draft](SPEC.md).
 
 ## Front doors
 
@@ -58,8 +58,12 @@ manager dispatcher directory for checked project commands. Repository
 `.agents/bin` never executes in a managed launch. The caller records PATH
 under the plan digest; the executor uses the verified value. R-EXEC places
 qualified light-check wrappers with fixed subcommand allowlists in that
-protected dispatcher directory; heavy entry points are not exposed. The
-user manager owns the OS-enforced executable allowlist; PATH alone is not
+protected dispatcher directory; heavy entry points are not exposed.
+Qualification covers the full invocation and transitive code/configuration
+inputs, with worker scripts, imports, plugins, environment/startup injection
+and direct/indirect shared-tool bypass refused. A tool that cannot prove
+inert worker inputs goes to R-VERIFY. The user manager owns the OS-enforced
+executable allowlist; PATH alone is not
 an enforcement boundary. Builds, tests and worker-code execution belong
 only to R-VERIFY runners on another machine, isolated and without secrets;
 `agent-headless-build` is withdrawn. This claims no
@@ -90,7 +94,8 @@ external tokens into a per-session app-server, no launch `auth.json` or
 broker-mode `codex exec`. The execution-side executor/runner owns renewal;
 the broker alone refreshes. Default renewal deadline: 8 s; timeout fails
 the turn with no late answer/fallback. Enterprise tokens are outside first
-release; Muse subscriptions remain an open channel/priority question.
+release; Muse subscription qualification is prioritised (2026-10-13),
+with broker channel (b) / fallback (c) proposed and qualification open.
 Explicit API-key channels and native per-home authentication stay separate.
 The first broker store is files 0600 in owner-only 0700 directories.
 
@@ -101,17 +106,24 @@ the dispatcher relays/journals its digest and holds no repository. Approved
 private Git administration, fresh config, no hooks/remotes/credential helpers.
 No cross-account linked worktree is allowed; within-account board worktrees
 remain. The composed plan covers B, manifest digest, write scope, exec-profile
-reference and read-only task-resource materialization by digest. Exact fields
+identity/body digest pinned by protected machine policy and read-only
+task-resource materialization by digest. The manifest covers path, Git kind/mode
+and content identity from immutable B; materialization verifies every archive
+entry before work, and import independently recomputes it from repository B.
+Exact fields
 and formats are unpublished with the intake contract (SPEC §10.1).
 
 The worker's Git history never enters the platform. After the round ends and
 account-wide absence is confirmed (plus a workplace write fence), approved
 `swarma-workspace-export` runs as the child UID with fixed environment and
-no network. It compares the manifest and emits only a capped change set;
+no network. It compares both kind/mode and content identity with the immutable
+manifest, preserving mode-only edits, regular↔symlink transitions and deletion
+prior modes, and emits only a capped change set;
 unsafe paths, collisions, special files and exceeded caps refuse the whole
 export. The dispatcher journals digests and returns it only to the original
-caller as `swarma-dispatcher workspace-result/1` (design label, unpublished
-schema/retention). The board accepts data as a resource; the orchestrator
+caller as `swarma-dispatcher workspace-result/1` (draft result fields published
+by the dispatcher; transport/retention and activation still gated). The board accepts data as a resource;
+the orchestrator
 performs deterministic import, candidate, review and integration through the
 board's change-request machinery. Code becomes a repository-signed candidate
 C in our repository and a trusted non-producing reviewer reviews exactly C.
@@ -375,12 +387,11 @@ made from this host's tests.
 Install the tagged release with the Go toolchain specified by `go.mod`:
 
 ```bash
-go install github.com/relux-works/curator-agent-launcher/cmd/curator-run@v0.2.0
+go install github.com/relux-works/curator-agent-launcher/cmd/curator-run@v0.3.0
 curator-run --version
 ```
 
-The v0.3.0 candidate (pending tag) reports `0.3.0` (specification `0.5.1-draft`).
-The install command above names the published v0.2.0; the v0.3.0 tag is pending.
+The v0.3.0 release reports `0.3.0` (specification `0.5.1-draft`).
 Compatible with curator v0.15.0-rc.3 or later, once published.
 Ensure `$(go env GOPATH)/bin` is on `PATH`, or set `GOBIN` to a dedicated
 trusted operator-owned directory on `PATH`. Do **not** install into Curator's

@@ -2,7 +2,7 @@
 title Launcher components and process authority
 skinparam componentStyle rectangle
 
-package "CURRENT interactive API - SPEC 0.5.0-draft" {
+package "CURRENT interactive API - SPEC 0.5.1-draft" {
   actor "Operator / invoking caller" as operator
   component "curator umbrella\ncaller-side process" as umbrella
   component "curator env resolve --repair\ncaller-side subprocess\ncontext / home repair owner" as curator
@@ -13,11 +13,11 @@ package "CURRENT interactive API - SPEC 0.5.0-draft" {
     component "Network selection\nin-process network / adapter libraries\noptional direct scope only" as network
     component "Composition / late checks\nno provider argv rebuilding" as compose
     component "Direct child executor\nwait / terminal restoration\nsignal forwarding, stop/continue" as executor
-    component "ax document / hosted payload exporter" as exporter
+    component "ax document exporter" as exporter
   }
   component "Native provider child\ncaller-side identity" as child
   component "ax start subprocess\nprocess / terminal / session owner" as ax
-  component "task-board session launch-plan\nprivate receiver subprocess\nterminal / deadlines / completion owner" as receiver
+  component "Hosted launch unavailable in v0.3.0\nsession_host_missing (exit 1)\nuntil swarma dispatcher path ships" as receiver
   database "Managed profile / home\npersistent: Curator owns\nlauncher never writes" as home
   database "Session Record\npersistent: ax owns" as record
   operator --> umbrella : curator run ...
@@ -35,7 +35,7 @@ package "CURRENT interactive API - SPEC 0.5.0-draft" {
   compose --> exporter : destination contract
   exporter --> ax : launch-plan on stdin
   ax --> record : records Curator extensions
-  exporter --> receiver : payload stdin + terminal FD3 / status FD4
+  compose --> receiver : receiver lookup refuses; no handoff / child
   note right of config
     [[../SPEC.md#2-discovery-and-naming SPEC 2]]: trust roots belong to Curator;
     revision A warns, revision B refuses outside roots.
@@ -50,16 +50,16 @@ package "CURRENT interactive API - SPEC 0.5.0-draft" {
     Deliberate retry re-runs Curator repair; no automatic downgrade.
   end note
   note bottom of receiver
-    Hosted Phase 1: Claude only, terminal stdin only (SPEC 4.8-4.9).
+    Hosted launch unavailable until the swarma dispatcher path ships (SPEC 4.8-4.9).
     Native paths do not probe a receiver.
-    ax and hosted destination process UID / hosted durable-state layout:
-    unspecified in spec 4.6 / 4.9; no launcher session state.
+    Earlier hosted validation gates remain; task-board on PATH does not enable hosting.
+    Native paths keep direct / ax behavior; no launcher session state.
     Direct child status propagates; signal exit 128 + signal.
     [[../README.md#environment-and-transport README Environment and transport]].
   end note
 }
 
-package "TARGET one-shot - dispatcher v0 local headless; NOT IMPLEMENTED" {
+package "TARGET one-shot - dispatcher Slice 0 local headless; NOT IMPLEMENTED" {
   component "Caller process\nresolves / composes immutable plan" as caller
   component "swarma-dispatcher\nUnix-socket service from first slice\nrecovery / readiness before admission" as dispatcher
   component "swarma-user-launcher\nroot, no-argument sudo entry\napproved executor / generation checks" as privileged
@@ -72,9 +72,9 @@ package "TARGET one-shot - dispatcher v0 local headless; NOT IMPLEMENTED" {
   component "swarma-session-runner\nagent-side approved executor" as targetrunner
   component "Workspace materialize / export\napproved executors under child UID\ndispatcher workspace contract (R-TRANSFER)" as workspaceexec
   component "Board change requests\norchestrator imports / exact C review / integrates" as changes
-  dispatcher --> workspaceexec : materialize before work; export after confirmed absence
+  dispatcher --> workspaceexec : archive-to-mode-aware-manifest check before work; export after confirmed absence
   workspaceexec --> dispatcher : change set only; no worker Git history / push
-  dispatcher --> changes : result only to original caller; board accepts resource
+  dispatcher --> changes : draft result only to original caller; board resource\nimport recomputes manifest from repository B
   caller --> dispatcher : Unix-socket client; composed plan; authority / size gates
   targethost --> dispatcher : host_start / host_stop in dispatch-op/1; session-scoped host admission permit
   privileged --> targetrunner : approved agent-side runner
@@ -93,7 +93,7 @@ package "TARGET one-shot - dispatcher v0 local headless; NOT IMPLEMENTED" {
     Broker via declared Unix socket; local trusted harness uses bound provider proxy only.
     First broker consumer: one protected Claude launch, Slice 0.
     Board runner / session host ask dispatcher; no embedded broker client.
-    No interactive / remote / resume / seeded path in dispatcher v0.
+    No interactive / remote / resume / seeded path in dispatcher Slice 0.
   end note
   note bottom of dispatcher
     [[../SPEC.md#104-signals-stop-receipts-and-cleanup SPEC 10.4]]:
@@ -130,19 +130,28 @@ package "TARGET one-shot - dispatcher v0 local headless; NOT IMPLEMENTED" {
     Binding, grants, ledger, source conflicts or unqualified channel refuse.
     Claude expiry / auth failure: re-enroll and restart, no refresh/fallback.
     Exact post-exec evidence / renewal owner transport: unspecified in spec 10.4.
-    Codex personal is later / qualification-dependent; Muse subscription reserved.
+    Codex personal later / qualification-dependent; Muse priority decided, channel proposed, qualification open.
     SH2 host_start / permit qualification and helper signatures remain open.
   end note
 }
 note left of agent
-  Wave-5 launch obligations - SPEC 10.1-10.2 / 10.6
-  R-TRANSFER: plan digest covers B / manifest digest / write scope / exec-profile reference.
+  Launch obligations - SPEC 10.1-10.2 / 10.5-10.6
+  R-TRANSFER: plan digest covers B / mode-aware manifest digest / write scope / pinned exec-profile identity and body digest.
+  Manifest from immutable B: path / Git kind-mode / content identity; archive exact-match before work.
+  Export compares mode and content: mode-only / equal-blob file-symlink modify; deletion prior mode.
+  Board import recomputes canonical manifest from repository B, never plan; base_commit / manifest_digest must match.
+  R-EXEC selection: protected machine policy beside R-NETBIND; profile-lock / placement / class bound.
+  Dispatcher pins at prepare; launch / retry / recovery use pin; out-of-bound request or drift refuses.
+  Launcher verifies policy body digest before any child code; existing class / host / qualification checks remain.
   R-NET-TOOL: read-only task resources covered by digest; bound provider proxy only.
   No web by default; plan disables provider-side search, invisible to network rules.
   Only operator-granted trusted-circle opt-in: qualified server search or platform Unix-socket web service.
   R-STANDING: verify settings / hooks / MCP / instructions by digest before exec, or root-owned surfaces.
   Drift refuses (code unpublished); repair is explicit re-materialization.
-  R-EXEC: D-PATH protected light-check wrappers / fixed subcommands; no heavy entry points.
+  R-EXEC: qualify full invocation / env / transitive interpreted code-config inputs; inert inspection only.
+  Protected entrypoints / config, disabled or pinned code loading; executable allowlist alone is insufficient.
+  Negative scripts / inline eval / imports / plugins / startup-env injection / direct-indirect heavy bypass; inert positive controls.
+  D-PATH wrapper ownership / fixed subcommand alone is insufficient; unprovable local tool goes to R-VERIFY.
   User manager owns OS exec allowlist; R-VERIFY builds / tests / code execution on another machine.
   R-UNTRUSTED refused in Slice 0 / user-manager v0; workplace zero egress / donor-side loop.
   Admission: R-CEILINGS / R-WATCH / R-ALLSTOP / R-RANGE-DENY / R-SOCKETS / R-SHARED (SPEC 10.6).

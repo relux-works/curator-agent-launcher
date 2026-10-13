@@ -1,7 +1,7 @@
 @startuml
 title Invocation states, refusal and recovery (not session records)
 
-state "CURRENT interactive API - SPEC 0.5.0-draft" as Current {
+state "CURRENT interactive API - SPEC 0.5.1-draft" as Current {
   state "Read / validate config\ncurator-run, caller identity" as Config
   state "Normalize / validate argv" as Args
   state "Resolve / repair\nCurator subprocess, caller-side" as Resolve
@@ -13,9 +13,9 @@ state "CURRENT interactive API - SPEC 0.5.0-draft" as Current {
   state "Direct execution / wait\ncurator-run owns child / terminal restoration" as Execute
   state "ax handoff\nax start subprocess" as Ax
   state "Accepted ax handoff\nax owns process / terminal / Session Record" as Accepted
-  state "Hosted receiver / wait\ntask-board owns terminal / deadlines / completion" as Hosted
+  state "Hosted unavailable in v0.3.0\nreceiver lookup refuses before handoff" as Hosted
   state "Refused\nterminal invocation; no weaker launch" as Refused
-  state "Exited\nchild status or classified receiver result" as Exited
+  state "Exited\nchild status" as Exited
   [*] --> Config
   Config --> Args : valid config; enabled / disabled / absent ax routes explicitly
   Config --> Refused : unreadable / malformed / unsafe file
@@ -31,7 +31,7 @@ state "CURRENT interactive API - SPEC 0.5.0-draft" as Current {
   Network --> Compose : serviceable verdict; optional network admitted
   Network --> Refused : failed / unknown verdict; limited provider; network refusal
   Compose --> Late : native (direct or ax)
-  Compose --> Hosted : valid hosted payload / transport
+  Compose --> Hosted : hosted selected; payload valid
   Compose --> Refused : payload / stdin / composition invalid
   Late --> Refused : first binary / MCP / prompt failure
   Late --> Execute : direct route
@@ -39,8 +39,7 @@ state "CURRENT interactive API - SPEC 0.5.0-draft" as Current {
   Execute --> Exited : waits; forwards signals / stop-continue\nrestores terminal; exit or 128 + signal
   Ax --> Refused : cannot start / rejects / nonzero; no direct fallback
   Ax --> Accepted : accepted handoff; launch work ends
-  Hosted --> Refused : missing receiver / valid refusal / protocol or transport loss
-  Hosted --> Exited : no refusal record; receiver exit unchanged
+  Hosted --> Refused : session_host_missing (exit 1), even with task-board on PATH\nuntil swarma dispatcher path ships; no native fallback
   Refused --> [*]
   Exited --> [*]
   Accepted --> [*]
@@ -50,14 +49,14 @@ note right of Current
   States are per-invocation descriptions, not a persisted launcher FSM.
   Current launcher owns no leases, checkpoints, resume records or session memory.
   Config is launcher-owned; homes / profiles are Curator-owned;
-  ax owns its Session Record. Hosted durable layout / destination UID:
-  unspecified in spec 4.9. Direct terminal / wait behavior:
+  ax owns its Session Record. Hosted has no receiver handoff in v0.3.0.
+  Earlier hosted validation gates remain. Direct terminal / wait behavior:
   [[../README.md#environment-and-transport README Environment and transport]].
   Refusal has no outgoing retry transition: operator deliberately starts a new invocation.
   New resolve --repair can restore a missing MCP layer; launcher never repairs it.
 end note
 
-state "TARGET one-shot - NOT IMPLEMENTED; dispatcher v0 local headless" as Target {
+state "TARGET one-shot - NOT IMPLEMENTED; dispatcher Slice 0 local headless" as Target {
   state "Caller composes immutable plan\ncaller-side identity" as CallerPlan
   state "Dispatcher intake / admission\nservice UID unspecified in spec 10.2" as Intake
   state "Provision / bind / claim\ndispatcher owns durable execution state" as Provision
@@ -72,21 +71,21 @@ state "TARGET one-shot - NOT IMPLEMENTED; dispatcher v0 local headless" as Targe
   state "Account-wide absence confirmed\nquiet period; escaped descendants included" as Absent
   state "Unknown / contradictory process evidence\nno claim release / replacement" as Unknown
   state "Export manifest-relative change set\napproved child UID; fixed env / no network\nworkspace write-fenced where applicable" as Export
-  state "Export recorded / result resource\noriginal caller only; board imports / reviews exact C / integrates" as Exported
+  state "Export recorded / draft result resource\noriginal caller only; board independently checks B / manifest\nimports mode-aware change set / reviews exact C / integrates" as Exported
   state "Export obligation retained\nno home deletion; explicit operator waiver possible" as ExportHeld
   state "Unbind then retire / delete home\nquiesce / declared-key cleanup; confirmed effects" as Cleanup
   state "Target refusal\nnon-success, typed metadata; no fallback" as TargetRefusal
   state "Account retired\noptional separate registered one-shot revocation" as Retired
   [*] --> CallerPlan
   CallerPlan --> Intake : already composed immutable plan, no secrets
-  Intake --> TargetRefusal : size / authority / capacity / unsupported v0 shape
-  Intake --> Provision : admitted; smallest path bound before provisioning
+  Intake --> TargetRefusal : size / authority / capacity / unsupported Slice 0 shape\nexec-policy caller reference outside protected bound
+  Intake --> Provision : prepare pins protected exec identity / body digest\nadmitted; smallest path bound before provisioning
   Provision --> Materialize : workspace-capable allocation
-  Materialize --> RootCheck : materialized; owned claim / approved executor
+  Materialize --> RootCheck : archive path / kind-mode / content matches manifest\nno missing / extra entries; owned claim / approved executor
   Materialize --> TargetRefusal : invalid archive / materialization failure
   Provision --> RootCheck : non-workspace allocation only
-  RootCheck --> TargetRefusal : inactive / unowned / unapproved / digest / duplicate receipt
-  RootCheck --> Drop : write receipt BEFORE privilege drop
+  RootCheck --> TargetRefusal : inactive / unowned / unapproved / digest / duplicate receipt\nexec-policy drift / class-host qualification mismatch
+  RootCheck --> Drop : apply pinned exec profile / verify body digest before child code\nwrite receipt BEFORE privilege drop
   Drop --> TargetRefusal : privilege_drop_failed
   Drop --> Verify : agent-side executor reads bounded plan once
   Verify --> TargetRefusal : missing / bad / unknown intake or digest / binding / surface drift
@@ -101,7 +100,7 @@ state "TARGET one-shot - NOT IMPLEMENTED; dispatcher v0 local headless" as Targe
   Stop --> Unknown : processes_remain / no confirmed termination receipt
   Stop --> Absent : verified termination receipt
   Absent --> Export : workspace round ended; write fence where applicable
-  Export --> Exported : whole export admitted; digests journaled
+  Export --> Exported : compare mode AND content; mode-only / type changes included\ndeletions carry prior mode; whole export admitted; digests journaled
   Export --> ExportHeld : unsafe paths / collisions / special files / cap / unknown
   Exported --> Cleanup : export recorded; confirmed cleanup effects only
   ExportHeld --> Cleanup : explicit operator act waives export; confirmed effects only
@@ -144,17 +143,26 @@ note right of Target
   R-TIME: authenticated / operator-controlled installer time source; durable dispatcher / broker watermark.
   Expiry max(now, watermark); not_before min(now, watermark); no untrusted advance; operator reset.
   Expiry-driven home / binding destruction also requires boot-inclusive monotonic elapsed lifetime.
-  no remote / native resume / seeded continuity in dispatcher v0.
+  no remote / native resume / seeded continuity in dispatcher Slice 0.
 end note
 note right of Verify
-  Wave-5 launch obligations - SPEC 10.1-10.2 / 10.6
-  R-TRANSFER: plan digest covers B / manifest digest / write scope / exec-profile reference.
+  Launch obligations - SPEC 10.1-10.2 / 10.5-10.6
+  R-TRANSFER: plan digest covers B / mode-aware manifest digest / write scope / pinned exec-profile identity and body digest.
+  Manifest from immutable B: path / Git kind-mode / content identity; archive exact-match before work.
+  Export compares mode and content: mode-only / equal-blob file-symlink modify; deletion prior mode.
+  Board import recomputes canonical manifest from repository B, never plan; base_commit / manifest_digest must match.
+  R-EXEC selection: protected machine policy beside R-NETBIND; profile-lock / placement / class bound.
+  Dispatcher pins at prepare; launch / retry / recovery use pin; out-of-bound request or drift refuses.
+  Launcher verifies policy body digest before any child code; existing class / host / qualification checks remain.
   R-NET-TOOL: read-only task resources covered by digest; bound provider proxy only.
   No web by default; plan disables provider-side search, invisible to network rules.
   Only operator-granted trusted-circle opt-in: qualified server search or platform Unix-socket web service.
   R-STANDING: verify settings / hooks / MCP / instructions by digest before exec, or root-owned surfaces.
   Drift refuses (code unpublished); repair is explicit re-materialization.
-  R-EXEC: D-PATH protected light-check wrappers / fixed subcommands; no heavy entry points.
+  R-EXEC: qualify full invocation / env / transitive interpreted code-config inputs; inert inspection only.
+  Protected entrypoints / config, disabled or pinned code loading; executable allowlist alone is insufficient.
+  Negative scripts / inline eval / imports / plugins / startup-env injection / direct-indirect heavy bypass; inert positive controls.
+  D-PATH wrapper ownership / fixed subcommand alone is insufficient; unprovable local tool goes to R-VERIFY.
   User manager owns OS exec allowlist; R-VERIFY builds / tests / code execution on another machine.
   R-UNTRUSTED refused in Slice 0 / user-manager v0; workplace zero egress / donor-side loop.
   Admission: R-CEILINGS / R-WATCH / R-ALLSTOP / R-RANGE-DENY / R-SOCKETS / R-SHARED (SPEC 10.6).

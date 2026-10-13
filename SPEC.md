@@ -3,7 +3,15 @@
 **Specification version:** `0.5.1-draft`
 **Status:** in-repository draft (see [Versioning](#8-versioning))
 
-- 2026-10-13, 0.5.1-draft: launcher v0.3.0 (pending tag) pins
+- 2026-10-13, 0.5.1-draft documentation revision: apply accepted
+  architecture-review findings (2026-10-13) in §§10.1–10.5, README and
+  figures: mode-aware base binding, protected exec-profile selection and
+  full-invocation qualification, owner-linked format references and the
+  Muse priority/channel/qualification split. Align release references and
+  hosted-unavailable figures with v0.3.0. No implementation, qualification
+  or activation is claimed.
+
+- 2026-10-13, 0.5.1-draft: launcher v0.3.0 pins
   agents-management v0.5.62 for attested Muse builds, `muse-wonder` and
   fragment v3; hosted launch is unavailable until the swarma dispatcher
   path ships (§§3, 4.2, 4.8–4.9, 7–8).
@@ -459,7 +467,7 @@ commit `a2a6e9f377f62a5872d99ecdfff0d1690e385f2a`: system `pi-native`
 provides native interactive Pi plans for managed homes. This mapping does
 not require a Go import. The published v0.5.11 tag (tag object
 `0ea486e46765ecf12fff7c2ac526e12da02e95ed`) introduced that support;
-this revision pins v0.5.48. §4.3 registers the real native-Pi plugin.
+this revision pins v0.5.62. §4.3 registers the real native-Pi plugin.
 
 An env-id outside this table that Curator nevertheless resolves is
 `env_unsupported`: the launcher refuses rather than guessing a system or
@@ -649,7 +657,7 @@ different pair.
 
 The launcher obtains the plan through
 `vendorplugin.BuildLaunchWithEnvironment(ctx, registry, request, agentic.LaunchModeInteractive)`,
-the entry point verified at `agents-management` tag `v0.5.48`.
+the entry point consumed from the pinned `agents-management` tag `v0.5.62`.
 `BuildLaunchWithEnvironment` resolves the runtime and vendor model row, admits the model
 and effort word against that row, and calls `agentic.BuildPlan` with the
 resulting `LaunchRequest`. The launcher MUST NOT bypass that admission
@@ -688,7 +696,7 @@ by calling `BuildPlan` with a bare model id or reconstructing the row's
 
 The mode is requested **by name**, `agentic.LaunchModeInteractive`
 (Decision 0013 D5). `LaunchRequest.PermissionMode` carries the resolved
-mode. In agents-management v0.5.48, `LaunchRequest.ToolRelease` and
+mode. In the pinned agents-management v0.5.62, `LaunchRequest.ToolRelease` and
 `LaunchRequest.NativeArgs` bind the request to the release-specific
 `permission-grammar-v1`; agents-management owns the permission mapping,
 argv grammar, and capability table. The launcher passes the request and
@@ -1761,7 +1769,7 @@ first-consumer role; it resolves the platform table's P1/N6 and C9 choices.
 Decision 0021 and the launcher must publish the amendment and its supported
 release/wire versions before activation;
 this document does not claim that upstream publication has happened.
-The executable's existing specification version remains `0.5.0-draft`;
+The executable's existing specification version remains `0.5.1-draft`;
 it does not advertise implementation of this target revision.
 
 The baseline is the [platform contract table at 177cb554](https://github.com/relux-works/curator/blob/177cb554/.research/261010_platform-contract-table.md),
@@ -1791,10 +1799,26 @@ launch or credential authority and is not evidence that execution occurred.
 
 **Composed plan (R-TRANSFER, R-EXEC, R-NET-TOOL).** The plan MUST carry
 its workspace section: admitted exact base commit B of the caller's
-repository, B's file-manifest digest (path to blob id), and the task's
-**write scope**. It MUST also carry the exec-profile reference. The plan
-digest covers all of these, plus the digests of task resources and their
-read-only materialization next to the workspace. Resources are data, never
+repository, B's canonical file-manifest digest, and the task's **write
+scope**. Each manifest entry maps a path to its supported Git kind/mode
+and content identity, derived from B's immutable repository objects, never
+from a working checkout. A symlink's blob identifies its exact link-text
+bytes; no alternate manifest representation is introduced.
+
+The plan MUST also carry the exec-profile identity and policy digest resolved
+and pinned by the dispatcher at `prepare`. The existing protected machine
+policy, beside R-NETBIND, maps the admitted Curator profile identity and lock
+digest, intersected with placement and admission-class minimums, to one
+exec-profile identity and policy digest. Caller text and the caller's home
+are never selection authority; a caller reference outside that bound MUST
+refuse. Workplaces get the narrowest entry by default; an interpreter-bearing
+profile requires an explicit per-placement entry. No separate service,
+register or grant dimension is added: grant `profiles` narrow the Curator
+profile and therefore its bound exec profile. The dispatcher pins the
+resolved identity and body digest in `input/1`; start, retry and recovery
+use that pin. Policy drift MUST refuse, never substitute another profile.
+The plan digest covers these bindings, plus the digests of task resources and
+their read-only materialization next to the workspace. Resources are data, never
 instructions. Exact workspace, exec-profile and resource fields, the
 canonical base archive and resource caps/formats are unpublished and owned
 with the intake contract; this section does not assign wire members.
@@ -1895,8 +1919,13 @@ board. The caller supplies a bounded canonical archive of admitted exact
 base B's tree with the start request; the dispatcher relays it and journals
 its digest, holding no repository. The approved executor (design label
 `swarma-workspace-materialize`) runs as the child UID before work. It writes
-a standalone repository in the private home, with freshly written local
-configuration, no hooks, no remotes and no credential helpers. Its `.git`,
+a standalone repository in the private home. Before work, it MUST verify
+all archive entries against the admitted canonical manifest by path,
+kind/mode and content identity; any mismatch, missing or extra entry MUST
+refuse. Each rework round repeats this check against its newly admitted
+base. The archive digest alone does not establish archive-to-manifest
+agreement. The repository has freshly written local configuration, no hooks,
+no remotes and no credential helpers. Its `.git`,
 common directory, refs and index are private; no source `.git` backlink or
 mutable hard-linked Git administration is inherited. Copy/reflink must
 preserve that boundary. Linked worktrees remain within one account only,
@@ -1918,9 +1947,14 @@ confirms account-wide process absence through the user manager's stop scope
 refuses further tool calls into that workspace. Only then does approved
 executor `swarma-workspace-export` (design label) run as the child UID, with
 a fixed environment and no network. It walks without following links,
-skips every `.git` component and compares file hashes with the admitted
-manifest. The change set contains added/modified regular files (content and
-executable bit), symlinks as link text and deleted paths. It caps file count,
+skips every `.git` component and compares both kind/mode and content
+identity with the immutable admitted manifest, without using worker Git
+metadata. Only entries equal in both are unchanged. Mode-only edits and
+regular-file↔symlink transitions, including equal-blob transitions, export
+as `modify`; deletions report the manifest's prior mode. The change set
+contains added/modified regular files (content and executable bit), symlinks
+as link text and deleted paths. The existing result field set is unchanged.
+It caps file count,
 per-file and total bytes, with a separate binary cap; values are unpublished.
 Special files, a path with a `.git` component however spelled, case-fold or
 Unicode-normalisation collisions, gitlinks/submodules, root escapes or an
@@ -1929,14 +1963,25 @@ administration never admits it into the result.
 
 The dispatcher journals the digests and returns the result only to the
 original caller principal, the requester of the run. The result kind's design
-label is `swarma-dispatcher workspace-result/1`; schema and retention remain
-unpublished. The board accepts it only as a resource. Import, candidate,
+label is `swarma-dispatcher workspace-result/1`; its draft result fields
+are defined by the dispatcher §5.2.1 and schema referenced in §10.5. Draft
+result bytes do not publish the complete transport or lifecycle: intake,
+blob delivery, retention and activation remain gates. The board accepts it only as a
+resource. Import, candidate,
 review and integration are board change-request machinery executed by the
 orchestrator, never agent-account work. RWP v2.1 §§8/10 gates apply; export
 uses the approved child-UID executor rather than reading a container volume.
 
-The board's deterministic import (command unpublished) builds the tree on B
-in a scratch index, with hooks disabled and no attribute filters or drivers.
+The board's deterministic import (command unpublished) MUST independently
+recompute the canonical manifest from the caller repository's immutable B,
+using the same canonical encoding as admission, never a manifest supplied
+by the orchestrator-composed plan. This is a bounded tree pass, not equality
+of two supplied strings. It MUST refuse unless the recomputed digest equals
+the result's `manifest_digest` and the result's `base_commit` equals B;
+existing result-to-admission checks remain required. It then builds the tree
+on B in a scratch index, with hooks disabled and no attribute filters or
+drivers. These checks establish base consistency; they do not prove who
+made an edit or replace exact-C review.
 It hard-refuses `.git` components, out-of-write-scope paths and `.task-board/`
 changes. Review-required flagged paths are `.github/**`, `.gitlab-ci.yml`,
 `.circleci/**`, `.gitattributes`, `.gitmodules`, `.githooks/**`, `.husky/**`,
@@ -1973,8 +2018,11 @@ use distinct effect IDs, with retries reusing their own effect ID.
 
 `swarma-user-launcher` is the root transition, not the agent executor.
 Through its no-argument sudo entry it verifies active owned generation,
-agent home, approved executor path and digest; follows the user manager's
-descriptor lifecycle (§10.1) and resets the environment; writes the atomic
+agent home, approved executor path and digest. Before any child code starts,
+it MUST apply the pinned exec profile and verify its policy body digest,
+alongside the existing recorded-class, qualified-host-matrix and admission/
+qualification checks; missing, mismatched or drifted evidence refuses.
+It follows the user manager's descriptor lifecycle (§10.1) and resets the environment; writes the atomic
 start receipt **before** clearing groups, setting GID/UID and executing the verified `curator-run`. A pre-existing
 execution receipt refuses a second start. No general command runner or
 arbitrary `sudo -u` substitutes for this boundary.
@@ -2041,7 +2089,9 @@ claims no current PATH implementation.
 **Exec profile (R-EXEC).** The protected manager dispatcher directory
 (D-PATH) carries qualified light-check wrappers with fixed subcommand
 allowlists when light and heavy actions share an executable. Heavy entry
-points are not exposed; qualification proves the heavy form refuses.
+points are not exposed; qualification proves that the actual invocation
+boundary refuses direct and indirect access to the heavy form. Root ownership
+of a wrapper or a fixed subcommand alone does not establish that boundary.
 The user manager owns the OS-enforced per-task-class executable allowlist:
 Linux makes all paths non-executable except the allowlist in the execution
 unit; macOS restricts process execution in the sandbox profile. PATH alone
@@ -2054,6 +2104,26 @@ from account-initiated execution. Only the admitted-plan executor starts
 the harness; no account starts its own agent loop or environment.
 `agent-headless-build` is withdrawn for agent accounts. Building, testing,
 generators and all execution of worker code belong only to R-VERIFY (§10.6).
+
+Qualification MUST cover the complete admitted invocation: executable,
+entrypoint and arguments, environment, and every transitive input interpreted
+as code or configuration. Inert inspection of candidate bytes stays local;
+candidate-supplied executable behavior does not. Protected fixed entrypoints
+and configuration, constrained environment and disabled or pinned code-loading
+mechanisms MUST prevent worker inputs from selecting or supplying executable
+behavior. Executable allowlists, non-executable writable areas and resource
+ceilings do not prove input inertness.
+
+The real task-tool path MUST exercise negative cases for readable worker
+scripts, inline evaluation, imported modules, project plugins/executable
+configuration, startup/environment injection and indirect shared-tool
+invocation, with positive controls for genuinely inert light checks. A tool
+that cannot demonstrate this boundary MUST be refused in the local profile
+and its operation sent to R-VERIFY. Qualification also MUST refuse an
+out-of-bound caller profile request and policy-body substitution/drift at
+prepare, start and retry. Tool/release-specific language profiles and the
+verification contract remain publication work (§10.5); no new privileged
+wrapper service is selected.
 
 **Provider proxy and web tools (R-NET-TOOL).** A managed platform launch
 sets proxy variables only for its bound provider proxy, with vendor names
@@ -2143,18 +2213,21 @@ is claimed. First store: broker-owned files 0600 in owner-only directories
 | Codex personal | Later slice: one broker auth owner, fresh broker enrollment, external access token/account ID into a per-session app-server; no launch `auth.json`, shared credential file, copy or broker-mode `codex exec`. |
 | Codex Business/Enterprise token | `CODEX_ACCESS_TOKEN`, no broker refresh; outside first release. |
 | API key | Explicit source and qualified provider env or supported stdin channel; no automatic substitution. Muse API-key support remains distinct from subscription research. |
-| Muse subscription | Reserved source/refresh/channel; no subscription parity or supported channel claimed. |
+| Muse subscription | Priority decided 2026-10-13: prioritise qualification. Broker §10.2 proposes channel (b), a single minting owner leasing the minted provider API key, never OAuth tokens, with fallback (c). Qualification remains open; no subscription parity or supported channel claimed. |
 
 The execution-side executor/runner owns lease renewal; only the broker auth
 owner refreshes rotating Codex accounts. The default renewal deadline is
 8 seconds; timeout fails the turn, with no late response or native-login
 fallback. Claude setup-token has no refresh.
 
-**Open owner questions (table C4/C7):** adopt Codex personal's single-owner
-lane with named supported-release qualification evidence, or defer it;
-prioritise Muse subscription qualification and choose a channel from
-evidence, or defer it while retaining the separate API-key lane. Neither
-provider lane is enabled by D-EXECUTOR's first-consumer decision.
+**Open owner question (table C4):** adopt Codex personal's single-owner
+lane with named supported-release qualification evidence, or defer it.
+**Muse qualification (table C7):** priority is decided; the channel is
+proposed and qualification remains open under the broker §§10.2/18.5
+reference in §10.5. Refresh, rotation, lifetime and billing semantics remain
+unknown; fallback (c)'s protocol remains unpublished. The separate API-key
+lane stays separate. Neither provider lane is enabled by D-EXECUTOR's
+first-consumer decision.
 
 ### 10.4 Signals, stop, receipts and cleanup
 
@@ -2251,7 +2324,7 @@ are existing platform/CIP refusals, not a newly shipped launcher registry.
 
 | Boundary | Refusal conditions / published names |
 |---|---|
-| Dispatcher intake | `payload_too_large`; `unsupported_combination` for interactive transport, native resume, seeded continuity or remote targets in v0. |
+| Dispatcher intake | `payload_too_large`; `unsupported_combination` for interactive transport, native resume, seeded continuity or remote targets in Slice 0. |
 | Privileged launch | `generation_not_active`, `target_not_owned`, `executor_not_approved`, `executable_digest_mismatch`, `execution_already_started`, `privilege_drop_failed`. |
 | Credential intake | Required extension/capability must be understood; unreachable broker: `credential_broker_unavailable`; conflicting sources: `credential_source_conflict`. Unpublished intake/version/digest codes remain a schema publication question (§10.1). |
 | Broker identity/authority | `principal_ledger_mismatch`, `lease_unbound`, `lease_not_authorised`, `lease_caller_revoked`, `revocation_state_unavailable`; revoked/expired chain is refused, never treated as missing. |
@@ -2268,15 +2341,33 @@ with the receipt transport. This section assigns neither invented values
 nor the interactive §6 mapping to the new mode. In all options, a refusal
 must be non-success and receipt/read failure must not be reported as success.
 
-D-WIRE-NAMES fixes new versioned wire identifiers to the repository name:
-`swarma-<component> <object>/<n>`. Broker signed domains become
-`swarma-credential-broker grant/1` and
-`swarma-credential-broker revocation/1`; dispatcher request domain is
-`swarma-dispatcher request/1`. The existing `broker/1` transport token is
-not a signed request domain. User-manager request kinds
-must follow the rule on publication; object names, signature grammar and
-canonical bytes are not supplied by the naming decision. Nothing has shipped,
-so no migration is needed (D-WIRE-NAMES); older pinned spellings are historical.
+D-WIRE-NAMES and format disposition belong to the shared naming/contract
+owners. The owner-linked index below distinguishes signing domains from
+transport/schema labels and provisional design labels; a signed-domain
+prefix does not rename a transport or schema token. Retain the owning
+modules' short labels, including `broker/1`, `dispatch-op/1`, `helper-op/1`
+and `launch-op/1`. Shared clarification of the naming rule's scope remains
+open; this consumer does not derive new spellings, signature grammar or
+canonical bytes. Removed launch tickets remain removed, not pending formats.
+
+**Owner-linked format reference index.** Stable IDs here are the existing
+format/rule names; these rows point to exact owner revisions, not a second
+status register. Decision disposition, draft/schema publication and
+implementation/qualification are separate states determined at the owners.
+The local prerequisites below remain necessary regardless of draft bytes.
+
+| Format/rule reference | Authoritative owner sections |
+|---|---|
+| `swarma-dispatcher workspace-result/1`, R-TRANSFER | [Dispatcher §5.2.1 and §16 question 22](https://github.com/relux-works/swarma-dispatcher/blob/74687e600e04817fa6e7a2e8904a9f7a3c83a1d8/spec/dispatcher.md#521-draft-swarma-dispatcher-workspace-result1), with its [draft result schema](https://github.com/relux-works/swarma-dispatcher/blob/74687e600e04817fa6e7a2e8904a9f7a3c83a1d8/schemas/workspace-result-1.schema.json) |
+| `input/1`, `dispatch-op/1`, `agent/1`, `run/1`, `dispatch-result/1`, `swarma-dispatcher request/1`, `swarma-dispatcher team/1`, R-SESSION | [Dispatcher §§4–5, 8, 16](https://github.com/relux-works/swarma-dispatcher/blob/74687e600e04817fa6e7a2e8904a9f7a3c83a1d8/spec/dispatcher.md) |
+| `helper-op/1`, `launch-op/1`, `swarma-user-manager helper-result/1`, R-FD3, R-EXEC | [User manager §§2–3, 7–8, 11–12, 14](https://github.com/relux-works/swarma-user-manager/blob/7b59da740037865dd42936982e5a069ea05eab53/spec/helper.md) |
+| `broker/1`, `credential_binding/1`, `credential-injection/1`, `swarma-credential-broker grant/1`, `swarma-credential-broker revocation/1`, C7 | [Broker §§6, 8, 10.2, 13, 18.5](https://github.com/relux-works/swarma-credential-broker/blob/df8c7385456e9588392900e000738d419ffee2ec/spec/broker.md) |
+| D-WIRE-NAMES and cross-module disposition | [Platform contract disposition, wire naming and open questions](https://github.com/relux-works/curator-spec/blob/a01542857678108a77d5e1b1f051989b00384f1d/cips/platform-contract-disposition.md#wire-naming-rule); its derived spellings need shared-owner reconciliation, not consumer renames |
+
+Joint publication would need a shared owner-linked index and mechanical
+docs reference/status checks; neither exists as an implemented gate in this
+module. Such a check must reject operative pending-ticket references while
+allowing historical or negative mentions.
 
 **Open publication questions (table W3/I4):** helper v2 would need a
 component-specific request signature/version/canonical-byte format or a
@@ -2293,14 +2384,21 @@ only the dispatcher performs privileged starts.
 settles source/result ownership and closes the dispatcher's open question 22
 and user manager's open question 15 except for unpublished formats. Activation
 would need the canonical base archive, exact plan workspace/exec-profile and
-read-only resource fields, resource/export caps, workspace-result schema and
-retention, deterministic import command and candidate trailer grammar.
+read-only resource fields, resource/export caps, blob delivery/retention,
+deterministic import command and candidate trailer grammar, under the owner
+references above. The canonical manifest encoding and the exporter's immutable
+access to it must be published with archive/intake. Qualification must reject
+content/mode archive mismatches, missing/extra paths, dirty-checkout archives
+and stale rework bases at materialization or import, and preserve mode-only
+modifications, equal-blob regular↔symlink transitions and deletion of every
+supported prior mode. Draft result fields are not a complete transfer contract.
 Optional immutable object sharing would need published provenance,
 authorised-object access and retention. An admitted base or accepted result
 does not prove secret-free content. R-STANDING would need harness-surface
 digest coverage and the drift refusal code; R-EXEC would need qualified
-wrappers/OS profiles; R-NET-TOOL would need opt-in records, harness search
-configuration and qualified tuples. No fields, codes or values are assigned
+wrappers/OS profiles, the protected selection relation and policy-body pin,
+full-invocation/transitive-input qualification and future language/tool
+profiles; R-NET-TOOL would need opt-in records, harness search configuration and qualified tuples. No fields, codes or values are assigned
 here.
 
 D-DONOR-PROVISIONING assigns donor provisioning to a separately specified
@@ -2315,7 +2413,7 @@ qualification row; different major/0.x minor refuses. Harness failure is
 `resume-failed`, with the caller deciding the next action, no automatic
 fallback and no portable seed on that path. Known vendor semver exceptions
 belong in per-harness notes. This decision does not enable native resume
-in dispatcher v0 or add session/resume state to this one-shot executor.
+in dispatcher Slice 0 or add session/resume state to this one-shot executor.
 
 ### 10.6 Admission and verification ownership (wave-5 references)
 
