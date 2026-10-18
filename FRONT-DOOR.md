@@ -1500,6 +1500,12 @@ schema `werkstatt-liveness-v1`, written atomically:
 - **No record yet.** If `status` cannot take the lock and no liveness file
   exists, for example during the first `up`, it outputs
   `{record, liveness: null, stale: true}` and exits 0.
+- **Unreadable manager record.** When the bound manager returns an
+  unreadable record (`readable: false`, §5.2), the liveness write sets only
+  `state: unknown` and `last_heartbeat_at`. Every other field keeps its
+  previous value; the projection's nulls are never copied in. `up` and
+  `down` refuse `session_liveness_unknown`. `readable` itself is never
+  stored in the liveness file.
 - **`last_heartbeat_at`** is the time of that manager read. A stale value
   means nobody looked, not that the session is down.
 - **`current_task` and `queue_depth`** are written only by the orchestrator,
