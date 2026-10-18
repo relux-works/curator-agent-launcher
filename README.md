@@ -601,8 +601,11 @@ worker in a separate session/process group without a terminal. The worker owns
 the selector IO and appends a decision record; the launcher appends its applied
 values and launch outcome. Records join by the SHA-256 digest of the CCJ-1
 request in `${XDG_STATE_HOME:-~/.local/state}/swarma/launcher/selector/observations.ndjson`.
-Each line is appended under a filesystem lock; selector and observation failures
-never change the launch. Hosted labels are wired in a later slice.
+The launcher attempts the append lock without waiting; contention or failure
+drops the line and best-effort increments `selector/dropped` beside the log.
+The detached worker can wait for this lock for at most five seconds. Observation
+and counter paths must be regular files, never symlinks. Selector and observation
+failures never change the launch. Hosted labels are wired in a later slice.
 
 The session-manager registry uses the closed schema
 `curator-run-session-managers-v1`: `{schema, selected?, managers}`. A system

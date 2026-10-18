@@ -388,7 +388,7 @@ func TestShadow(t *testing.T) {
 	}
 }
 
-// Concurrent appends remain complete JSON lines; symlink destinations are
+// Concurrent detached-writer appends remain complete JSON lines; symlink destinations are
 // refused without touching their target. This is a local filesystem assertion.
 func TestObservations(t *testing.T) {
 	path := StatePath(t.TempDir(), "")
@@ -397,7 +397,7 @@ func TestObservations(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if err := Append(path, Observation{Kind: "observation", RequestDigest: "sha256:abc", Outcome: "launched"}); err != nil {
+			if err := AppendWait(path, Observation{Kind: "observation", RequestDigest: "sha256:abc", Outcome: "launched"}); err != nil {
 				t.Error(err)
 			}
 		}()
@@ -524,5 +524,121 @@ func TestRequestEnrichment(t *testing.T) {
 	req.CWD = "relative"
 	if _, _, err := Encode(req); err == nil {
 		t.Fatal("relative cwd")
+	}
+}
+
+// A detached writer waits at most five seconds on contention and drops its line;
+// after unlocking, the same record succeeds. FIFO and symlink destinations fail
+// promptly without modifying their targets, including a poisoned counter path.
+func TestObservationLockBoundAndFileTypes(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "observations.ndjson")
+	f, err := openAppend(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+		t.Fatal(err)
+	}
+	record := Observation{Kind: "decision"}
+	start := time.Now()
+	if err := AppendWait(path, record); err == nil {
+		t.Fatal("accepted contended append")
+	}
+	if elapsed := time.Since(start); elapsed < 5*time.Second || elapsed > 7*time.Second {
+		t.Fatal("worker lock bound", elapsed)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil || len(data) != 0 {
+		t.Fatal("dropped line changed observations", err)
+	}
+	data, err = os.ReadFile(filepath.Join(filepath.Dir(path), "dropped"))
+	if err != nil || string(data) != "1\n" {
+		t.Fatal("missing drop count", string(data), err)
+	}
+	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_UN); err != nil {
+		t.Fatal(err)
+	}
+	if err := AppendWait(path, record); err != nil {
+		t.Fatal("uncontended worker", err)
+	}
+	for _, kind := range []string{"fifo", "symlink", "directory"} {
+		t.Run(kind, func(t *testing.T) {
+			dir := t.TempDir()
+			target := filepath.Join(dir, "target")
+			if err := os.WriteFile(target, []byte("preserved"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			path := filepath.Join(dir, "observations.ndjson")
+			var err error
+			switch kind {
+			case "fifo":
+				err = syscall.Mkfifo(path, 0600)
+			case "symlink":
+				err = os.Symlink(target, path)
+			case "directory":
+				err = os.Mkdir(path, 0700)
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Symlink(target, filepath.Join(dir, "dropped")); err != nil {
+				t.Fatal(err)
+			}
+			start := time.Now()
+			if err := Append(path, record); err == nil {
+				t.Fatal("accepted non-regular path")
+			}
+			if time.Since(start) > time.Second {
+				t.Fatal("non-regular append blocked")
+			}
+			data, err := os.ReadFile(target)
+			if err != nil || string(data) != "preserved" {
+				t.Fatal("modified symlink target", err)
+			}
+		})
+	}
+}
+
+// A locked best-effort counter is itself skipped promptly; once released,
+// subsequent dropped lines increment the existing decimal count exactly.
+func TestObservationDroppedCounterContention(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "observations.ndjson")
+	if err := os.Mkdir(path, 0700); err != nil {
+		t.Fatal(err)
+	}
+	counter := filepath.Join(dir, "dropped")
+	if err := os.WriteFile(counter, []byte("8\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	f, err := openRegular(counter, os.O_RDWR)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+		t.Fatal(err)
+	}
+	start := time.Now()
+	if err := Append(path, Observation{}); err == nil {
+		t.Fatal("accepted directory")
+	}
+	if time.Since(start) > time.Second {
+		t.Fatal("counter blocked append")
+	}
+	data, err := os.ReadFile(counter)
+	if err != nil || string(data) != "8\n" {
+		t.Fatal("locked counter changed", err)
+	}
+	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_UN); err != nil {
+		t.Fatal(err)
+	}
+	if err := Append(path, Observation{}); err == nil {
+		t.Fatal("accepted directory")
+	}
+	data, err = os.ReadFile(counter)
+	if err != nil || string(data) != "9\n" {
+		t.Fatal("counter did not increment", err, string(data))
 	}
 }

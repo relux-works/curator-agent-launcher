@@ -4,6 +4,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"os"
@@ -334,5 +335,86 @@ func TestRunSelectorLockedFlag(t *testing.T) {
 	code, _, stderr = f.run()
 	if code != 0 || f.builds != 1 || string(f.request.Model) != "gpt-5.6-sol" || f.request.Effort != "high" {
 		t.Fatal(code, string(stderr))
+	}
+}
+
+// A helper holding the observation lock cannot delay the production shadow
+// launch or change its bytes. An uncontended launch writes the positive line;
+// contention drops precisely that line and increments the best-effort counter.
+func TestRunSelectorObservationContention(t *testing.T) {
+	binary := selectorBinary(t)
+	f := entryFixture(t, "codex_cli", false)
+	insertLauncherArgs(f, "--permissions", "native")
+	selectorPolicy(t, f, binary, "shadow", "valid")
+	path := filepath.Join(t.TempDir(), "observations.ndjson")
+	f.deps.observationPath = func() string { return path }
+	f.deps.shadowStart = func(selector.ShadowJob) (*selector.Child, error) { return nil, nil }
+	code, positiveOut, positiveErr := f.run()
+	if code != 0 {
+		t.Fatal(code, string(positiveErr))
+	}
+	before, err := os.ReadFile(path)
+	if err != nil || len(bytes.Split(bytes.TrimSpace(before), []byte("\n"))) != 1 {
+		t.Fatal("missing uncontended line", err)
+	}
+	ctx, cancel := context.WithTimeout(t.Context(), 25*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, binary, "lock", path)
+	cmd.Dir = filepath.Dir(binary)
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	cmd.Cancel = func() error { return syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL) }
+	if err := cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan error, 1)
+	go func() { done <- cmd.Wait() }()
+	t.Cleanup(func() {
+		cancel()
+		select {
+		case <-done:
+		case <-time.After(3 * time.Second):
+			t.Fatal("lock helper did not exit")
+		}
+		assertSelectorGone(t, cmd.Process.Pid)
+		assertSelectorGone(t, -cmd.Process.Pid)
+	})
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		if _, err := os.Stat(path + ".ready"); err == nil {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("lock helper not ready")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	type result struct {
+		code        int
+		out, stderr []byte
+	}
+	launched := make(chan result, 1)
+	f.deps.stdin = strings.NewReader("parent stdin\n\x00\xff")
+	go func() { code, out, stderr := f.run(); launched <- result{code, out, stderr} }()
+	select {
+	case got := <-launched:
+		if got.code != code || !bytes.Equal(got.out, positiveOut) || !bytes.Equal(got.stderr, positiveErr) {
+			t.Fatal("contention changed launch", got.code, string(got.stderr))
+		}
+	case <-time.After(2 * time.Second):
+		cancel()
+		select {
+		case <-launched:
+		case <-time.After(3 * time.Second):
+			t.Fatal("launch did not recover after unlocking")
+		}
+		t.Fatal("launch waited for observation lock")
+	}
+	after, err := os.ReadFile(path)
+	if err != nil || !bytes.Equal(before, after) {
+		t.Fatal("contended append changed observations", err)
+	}
+	dropped, err := os.ReadFile(filepath.Join(filepath.Dir(path), "dropped"))
+	if err != nil || string(dropped) != "1\n" {
+		t.Fatal("missing dropped count", string(dropped), err)
 	}
 }

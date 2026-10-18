@@ -13,10 +13,14 @@ process = root / 'internal/selector/process_unix.go'
 selection = root / 'internal/defaults/selection.go'
 append = root / 'internal/selector/append_unix.go'
 main = root / 'cmd/curator-run/main.go'
+observations = root / 'internal/selector/observations.go'
 selectors = './internal/selector'
 defaults = './internal/defaults'
 entry = './cmd/curator-run'
 mutants = [
+ ('S26', observations, 'return appendRecord(path, record, 0)', 'return appendRecord(path, record, 5*time.Second)', './cmd/curator-run', 'TestRunSelectorObservationContention'),
+ ('S27', observations, 'incrementDropped(path)', '_ = path', selectors, 'TestObservationLockBoundAndFileTypes'),
+ ('S28', observations, 'return appendRecord(path, record, 5*time.Second)', 'return appendRecord(path, record, 0)', selectors, 'TestObservationLockBoundAndFileTypes'),
  ('S25', selection, 'if admitter, ok := system.(agentic.EffortAdmitter); ok {', 'if admitter, ok := system.(agentic.EffortAdmitter); ok && false {', defaults, 'TestSelectionNativeEffort'),
  ('S01', config, '!allowed[m.Key]', '!allowed[m.Key] && m.Key != "extra"', selectors, 'TestConfig/unknown'),
  ('S02', config, 'if layer == configfile.User {', 'if layer == configfile.User && false {', selectors, 'TestConfig'),
@@ -35,7 +39,7 @@ mutants = [
  ('S15', process, 'if ctx.Err() != nil {\n\t\treturn Decision{}, unavailable("timeout")', 'if ctx.Err() != nil {\n\t\treturn Decision{}, unavailable("exit")', selectors, 'TestEnforce/hang'),
  ('S16', process, 'Setsid: true', 'Setsid: false', selectors, 'TestShadow/valid'),
  ('S17', process, 'return &Child{PID: cmd.Process.Pid, Done: done}, nil', '<-done; return &Child{PID: cmd.Process.Pid, Done: done}, nil', selectors, 'TestShadow/hang'),
- ('S18', process, 'if Append(job.Observations, record) != nil {', 'if false {', selectors, 'TestShadow/valid'),
+ ('S18', process, 'if AppendWait(job.Observations, record) != nil {', 'if false {', selectors, 'TestShadow/valid'),
  ('S19', append, 'os.O_APPEND', 'os.O_TRUNC', selectors, 'TestObservations'),
  ('S20', selection, '!flags.Model.Present && selected.Model.Present', 'selected.Model.Present', defaults, 'TestSelectionPrecedence/model-flag'),
  ('S21', selection, '!flags.Effort.Present && selected.Effort.Present', 'selected.Effort.Present', defaults, 'TestSelectionPrecedence/effort-flag'),

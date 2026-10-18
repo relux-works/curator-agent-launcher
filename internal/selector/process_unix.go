@@ -190,7 +190,7 @@ func RunWorker(input io.Reader) int {
 	} else {
 		record.Decision = &decision
 	}
-	if Append(job.Observations, record) != nil {
+	if AppendWait(job.Observations, record) != nil {
 		return 1
 	}
 	return 0

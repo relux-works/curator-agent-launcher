@@ -36,6 +36,22 @@ func main() {
 	if len(os.Args) > 1 {
 		mode = os.Args[1]
 	}
+	if mode == "lock" {
+		f, err := os.OpenFile(os.Args[2], os.O_WRONLY, 0)
+		if err != nil {
+			os.Exit(2)
+		}
+		defer f.Close()
+		if unix.Flock(int(f.Fd()), unix.LOCK_EX|unix.LOCK_NB) != nil {
+			os.Exit(3)
+		}
+		if os.WriteFile(os.Args[2]+".ready", []byte("locked"), 0600) != nil {
+			os.Exit(4)
+		}
+		for {
+			time.Sleep(time.Second)
+		}
+	}
 	if mode == "hang" {
 		for {
 			time.Sleep(time.Second)
