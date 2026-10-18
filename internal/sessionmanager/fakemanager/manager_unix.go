@@ -730,6 +730,9 @@ func (m *manager) operate(op string, r request, data []byte) reply {
 	if !slices.Contains(m.config.Capabilities, cap) && !m.bad("missing-capability") {
 		return refusal("session_host_capability_missing", map[string]string{"capability": cap})
 	}
+	if op == "resume" && m.bad("advertised-resume") {
+		return m.fail("policy_refused")
+	}
 	if op == "launch" || op == "resume" {
 		if !slices.Contains(m.config.Runtimes[r.Runtime], op) && !m.bad("unsupported-runtime") {
 			return refusal("session_host_provider_unsupported", map[string]string{"environment": r.Runtime})

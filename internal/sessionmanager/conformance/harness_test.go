@@ -138,6 +138,9 @@ func buildFake(t *testing.T) string {
 	return binary
 }
 func newHarness(t *testing.T, binary string, bad []string) *harness {
+	return newHarnessWithConfig(t, binary, bad, nil)
+}
+func newHarnessWithConfig(t *testing.T, binary string, bad []string, config *fakemanager.Config) *harness {
 	t.Helper()
 	root, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
@@ -166,7 +169,7 @@ func newHarness(t *testing.T, binary string, bad []string) *harness {
 		}
 	})
 	if h.fixture.Path != "" {
-		result, err := h.control(fakemanager.FixtureRequest{Operation: "reset"})
+		result, err := h.control(fakemanager.FixtureRequest{Operation: "reset", Config: config})
 		if err != nil {
 			t.Fatal(err)
 		}

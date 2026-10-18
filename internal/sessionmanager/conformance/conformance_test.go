@@ -24,111 +24,113 @@ type scenario struct {
 	Tier  string
 	Run   func(*harness) error
 	Plant string
+	// Space-separated operation and capability prerequisites, including runtime cells.
+	Needs string
 }
 
 func scenarios() []scenario {
 	cases := []scenario{
 		// A normal describe response obeys the shared wire schema.
-		{"wire", "A", wireCase, "wire"},
+		{"wire", "A", wireCase, "wire", ""},
 		// Unknown operations refuse without replacing a valid describe.
-		{"unknown-operation", "A", unknownCase, "unknown-operation"},
+		{"unknown-operation", "A", unknownCase, "unknown-operation", ""},
 		// A requested unadvertised optional capability refuses.
-		{"missing-capability", "A", missingCapabilityCase, "missing-capability"},
+		{"missing-capability", "A", missingCapabilityCase, "missing-capability", "launch stop labels/1"},
 		// A valid but unadvertised runtime refuses.
-		{"unsupported-runtime", "A", unsupportedRuntimeCase, "unsupported-runtime"},
+		{"unsupported-runtime", "A", unsupportedRuntimeCase, "unsupported-runtime", "launch labels/1"},
 		// Each advertised launch runtime supports its lifecycle operations.
-		{"advertised-operations", "A", advertisedCase, "advertised-operations"},
+		{"advertised-operations", "A", advertisedCase, "advertised-operations", ""},
 		// A different resolved fragment digest refuses a fresh start.
-		{"profile-digest", "B", profileCase, "profile-digest"},
+		{"profile-digest", "B", profileCase, "profile-digest", "launch labels/1"},
 		// Secret-shaped child values refuse; harmless literals admit.
-		{"secret-child-env", "A", secretCase(false), "request-validation"},
+		{"secret-child-env", "A", secretCase(false), "request-validation", "launch labels/1"},
 		// Reserved child names refuse; harmless names admit.
-		{"reserved-child-env", "A", secretCase(true), "request-validation"},
+		{"reserved-child-env", "A", secretCase(true), "request-validation", "launch labels/1"},
 		// Stopping an unknown handle refuses after a valid stop control.
-		{"unknown-stop", "A", unknownStopCase, "unknown-stop"},
+		{"unknown-stop", "A", unknownStopCase, "unknown-stop", "launch stop labels/1"},
 		// Semantic JSON replay preserves the result and provider count.
-		{"idempotency", "A", idempotencyCase, "idempotency"},
+		{"idempotency", "A", idempotencyCase, "idempotency", "launch list admission/1 labels/1"},
 		// An old down handle cannot release a newer key owner.
-		{"admission-recycle", "A", recycleCase, "admission-ownership"},
+		{"admission-recycle", "A", recycleCase, "admission-ownership", "launch stop admission/1 labels/1"},
 		// A different request digest cannot replace the original operation.
-		{"operation-conflict", "A", conflictCase, "operation-conflict"},
+		{"operation-conflict", "A", conflictCase, "operation-conflict", "launch admission/1 labels/1"},
 		// A durable tombstone prevents late admission.
-		{"cancel-fence", "A", cancelCase(false), "cancel-fence"},
+		{"cancel-fence", "A", cancelCase(false), "cancel-fence", "launch cancel list labels/1"},
 		// Cancelling prepared evidence prevents a late start.
-		{"prepared-cancel", "B", cancelCase(true), "cancel-fence"},
+		{"prepared-cancel", "B", cancelCase(true), "cancel-fence", "launch cancel list labels/1"},
 		// Stale stop and attach refuse without changing the current generation.
-		{"generation", "A", generationCase, "generation"},
+		{"generation", "A", generationCase, "generation", "launch stop attach status labels/1"},
 		// Limit-one traversal returns every created handle exactly once.
-		{"pagination", "A", paginationCase, "pagination"},
+		{"pagination", "A", paginationCase, "pagination", "launch list labels/1"},
 		// Exact indexed values match; a value prefix never matches.
-		{"label-subset", "A", labelCase, "labels"},
+		{"label-subset", "A", labelCase, "labels", "launch list labels/1"},
 		// A missing target cannot create or start a session.
-		{"resume-missing", "A", resumeFailureCase("missing"), "resume-missing"},
+		{"resume-missing", "A", resumeFailureCase("missing"), "resume-missing", "launch stop resume list labels/1"},
 		// A foreign scope cannot resume or create a session.
-		{"resume-location", "A", resumeFailureCase("location"), "resume-location"},
+		{"resume-location", "A", resumeFailureCase("location"), "resume-location", "launch stop resume list labels/1"},
 		// A different requested profile name cannot replace stored identity.
-		{"resume-identity", "B", resumeFailureCase("identity"), "resume-identity"},
+		{"resume-identity", "B", resumeFailureCase("identity"), "resume-identity", "launch stop resume list labels/1"},
 		// Tied latest candidates refuse; an explicit handle disambiguates.
-		{"resume-ambiguous", "B", ambiguousCase, "resume-ambiguous"},
+		{"resume-ambiguous", "B", ambiguousCase, "resume-ambiguous", "launch stop resume labels/1"},
 		// Resume preserves the original admitted policy digest.
-		{"resume-preserves-policy", "B", resumePolicyCase, "resume-policy"},
+		{"resume-preserves-policy", "B", resumePolicyCase, "resume-policy", "launch stop resume labels/1"},
 		// Busy stop refusal changes no records, gate or provider.
-		{"not-busy-busy", "B", notBusyCase("busy"), "not-busy"},
+		{"not-busy-busy", "B", notBusyCase("busy"), "not-busy", "launch stop labels/1"},
 		// Unknown activity refuses not-busy with no lifecycle effects.
-		{"not-busy-unknown", "B", notBusyCase("unknown"), "not-busy"},
+		{"not-busy-unknown", "B", notBusyCase("unknown"), "not-busy", "launch stop labels/1"},
 		// Activity events, rather than polling or record updates, advance the timestamp.
-		{"activity-timestamp", "B", activityTimestampCase, "activity-on-read"},
+		{"activity-timestamp", "B", activityTimestampCase, "activity-on-read", "launch status list labels/1"},
 		// Missing evidence remains unknown; busy evidence is observable.
-		{"unknown-liveness", "B", unknownLivenessCase, "unknown-liveness"},
+		{"unknown-liveness", "B", unknownLivenessCase, "unknown-liveness", "launch status labels/1"},
 		// Stored drift wins refusal precedence during resume, retry and recovery.
-		{"identity-drift", "B", identityCase, "identity-drift"},
+		{"identity-drift", "B", identityCase, "identity-drift", "launch stop resume status admission/1 labels/1"},
 		// Old launch/resume refuse; the exact retention boundary still admits.
-		{"operation-expiry", "B", expiryCase, "operation-expiry"},
+		{"operation-expiry", "B", expiryCase, "operation-expiry", "launch stop resume admission/1 labels/1"},
 		// Started, failed and cancelled evidence survives seven days.
-		{"ledger-retention", "B", retentionCase, "ledger-retention"},
+		{"ledger-retention", "B", retentionCase, "ledger-retention", "launch cancel status admission/1 labels/1"},
 		// Pagination preserves membership and values across later mutations.
-		{"snapshot", "B", snapshotCase, "snapshot"},
+		{"snapshot", "B", snapshotCase, "snapshot", "launch stop list labels/1"},
 		// Unreadable status/list retain only indexed identity and labels.
-		{"unreadable-row", "B", unreadableCase, "unreadable"},
+		{"unreadable-row", "B", unreadableCase, "unreadable", "launch list status resume labels/1"},
 		// Missing label evidence refuses the entire filtered page.
-		{"filtered-index", "B", indexCase("missing-labels"), "index-unreadable"},
+		{"filtered-index", "B", indexCase("missing-labels"), "index-unreadable", "launch list labels/1"},
 		// Missing handle evidence refuses the entire page.
-		{"unreadable-index", "B", indexCase("missing-handle"), "index-unreadable"},
+		{"unreadable-index", "B", indexCase("missing-handle"), "index-unreadable", "launch list labels/1"},
 		// An unreadable current record cannot establish historical started.
-		{"started-unreadable", "B", unreadableOutcomeCase, "started-unreadable"},
+		{"started-unreadable", "B", unreadableOutcomeCase, "started-unreadable", "launch status admission/1 labels/1"},
 		// An invalid unreadable-started packet poisons every result field.
-		{"started-unreadable-poison", "B", unreadablePoisonCase, "poison-started-unreadable"},
+		{"started-unreadable-poison", "B", unreadablePoisonCase, "poison-started-unreadable", "launch status admission/1 labels/1"},
 		// An uncertain start keeps its admission key and starts no duplicate.
-		{"unknown-start", "B", crashCase, "unknown-start"},
+		{"unknown-start", "B", crashCase, "unknown-start", "launch status admission/1 labels/1"},
 		// Reservation survives an actual process exit before provider start.
-		{"reserved-crash", "B", reservationCase, "reservation"},
+		{"reserved-crash", "B", reservationCase, "reservation", "launch status admission/1 labels/1"},
 		// Closing an armed generation gate immediately projects off at that generation.
-		{"doorbell-gate-closure", "B", doorbellGateCase, "doorbell-gate-closure"},
+		{"doorbell-gate-closure", "B", doorbellGateCase, "doorbell-gate-closure", "launch stop labels/1 doorbell"},
 		// Stop and rebind preserve persisted prior uncertainty.
-		{"doorbell-uncertain", "B", doorbellCase, "doorbell-uncertain"},
+		{"doorbell-uncertain", "B", doorbellCase, "doorbell-uncertain", "launch stop resume labels/1 doorbell"},
 		// A live graceful timeout drains; retirement finishes after provider exit.
-		{"graceful-retirement", "B", gracefulCase, "graceful-retirement"},
+		{"graceful-retirement", "B", gracefulCase, "graceful-retirement", "launch stop status labels/1"},
 		// Rejected credential bytes never reach output or persisted records.
-		{"credential-sentinel", "B", credentialCase, "credential-leak"},
+		{"credential-sentinel", "B", credentialCase, "credential-leak", "launch labels/1"},
 		// Stale attach and unsupported exact launch emit fd4 refusals.
-		{"attach-framing", "A", attachCase(false), "attach-framing"},
+		{"attach-framing", "A", attachCase(false), "attach-framing", "launch attach labels/1"},
 		// A plain terminal exit remains distinct from a typed fd4 refusal.
-		{"attach-plain-exit", "B", attachCase(true), "attach-plain-exit"},
+		{"attach-plain-exit", "B", attachCase(true), "attach-plain-exit", "launch attach labels/1"},
 	}
 	// Each concurrent operation pairing admits exactly one active generation.
 	for _, pair := range []string{"launch-launch", "launch-resume", "resume-resume"} {
 		p := pair
-		cases = append(cases, scenario{"admission-" + p, "A", admissionCase(p), "admission"})
+		cases = append(cases, scenario{"admission-" + p, "A", admissionCase(p), "admission", "launch stop list admission/1 labels/1" + resumeNeed(p)})
 	}
 	// Each loss boundary reconciles to its own durable outcome and start count.
 	for _, fault := range []string{"before-admission", "after-admission", "failed-start"} {
 		f := fault
-		cases = append(cases, scenario{"lost-" + f, "B", lostCase(f), "lost-" + f})
+		cases = append(cases, scenario{"lost-" + f, "B", lostCase(f), "lost-" + f, "launch status admission/1 labels/1"})
 	}
 	// Every malformed wire/detail variant yields exit 6 without hostile diagnostics.
 	for _, fault := range []string{"malformed", "over-bound", "protocol", "exit-ok", "detail-text", "detail-control", "detail-secret"} {
 		f := fault
-		cases = append(cases, scenario{"poison-" + f, "B", poisonCase(f), "poison-" + f})
+		cases = append(cases, scenario{"poison-" + f, "B", poisonCase(f), "poison-" + f, "launch status labels/1"})
 	}
 	return cases
 }
@@ -140,6 +142,43 @@ func TestConformance(t *testing.T) {
 	if binary == "" {
 		binary = buildFake(t)
 	}
+	runConformance(t, func(t *testing.T) *harness { return newHarness(t, binary, nil) })
+}
+
+func resumeNeed(pair string) string {
+	if strings.Contains(pair, "resume") {
+		return " resume"
+	}
+	return ""
+}
+
+var operationCapability = map[string]string{"launch": "launch-delegated/1", "resume": "resume/1", "attach": "attach/1", "status": "status/1", "cancel": "admission/1", "list": "list/1", "stop": "stop/1"}
+
+func (c scenario) applicable(h *harness, d *client.Describe) error {
+	runtime, _ := h.template["runtime"].(string)
+	for _, need := range strings.Fields(c.Needs) {
+		cap := need
+		if need == "doorbell" {
+			cap = map[string]string{"codex_cli": "doorbell-codex/1", "claude_code": "doorbell-claude/1"}[runtime]
+		}
+		if v := operationCapability[need]; v != "" {
+			cap = v
+		}
+		if cap == "" || !slices.Contains(d.Capabilities, cap) {
+			return &notApplicable{Reason: "requires " + need}
+		}
+		if operationCapability[need] != "" && !slices.Contains(d.Runtimes[runtime], need) {
+			return &notApplicable{Reason: "requires runtime " + runtime + "/" + need}
+		}
+	}
+	// The terminal refusal case specifically requests an absent exact capability.
+	if c.Name == "attach-framing" && slices.Contains(d.Capabilities, "launch-exact/2") {
+		return &notApplicable{Reason: "exact capability advertised; absence probe does not apply"}
+	}
+	return nil
+}
+
+func runConformance(t *testing.T, makeHarness func(*testing.T) *harness) {
 	unqualified := 0
 	for _, c := range scenarios() {
 		t.Run(c.Tier+"/"+c.Name, func(t *testing.T) {
@@ -147,13 +186,20 @@ func TestConformance(t *testing.T) {
 				unqualified++
 				t.Skip("UNQUALIFIED: tier B requires -fixture")
 			}
-			h := newHarness(t, binary, nil)
-			if err := c.Run(h); err != nil {
+			h := makeHarness(t)
+			d, e := h.call("describe", map[string]any{})
+			if e != nil {
+				t.Fatal(setup(e))
+			}
+			if e = c.applicable(h, d.Describe); e == nil {
+				e = c.Run(h)
+			}
+			if e != nil {
 				var na *notApplicable
-				if errors.As(err, &na) {
+				if errors.As(e, &na) {
 					t.Skip(na.Error())
 				}
-				t.Fatal(err)
+				t.Fatal(e)
 			}
 		})
 	}
@@ -174,6 +220,9 @@ func TestKnownBadControls(t *testing.T) {
 			continue
 		}
 		plants := []string{c.Plant}
+		if c.Name == "advertised-operations" {
+			plants = append(plants, "advertised-resume")
+		}
 		if c.Name == "doorbell-uncertain" {
 			plants = append(plants, "doorbell-generation")
 		}
@@ -267,47 +316,86 @@ func unsupportedRuntimeCase(h *harness) error {
 	return &notApplicable{Reason: "all delegated runtimes advertised"}
 }
 func advertisedCase(h *harness) error {
+	const p = "advertised-operations"
 	d, e := h.call("describe", map[string]any{})
 	if e != nil {
 		return setup(e)
 	}
+	supports := func(ops []string, op string) bool {
+		return slices.Contains(ops, op) && slices.Contains(d.Describe.Capabilities, operationCapability[op])
+	}
+	exercised := false
 	for runtime, ops := range d.Describe.Runtimes {
-		if !slices.Contains(ops, "launch") {
+		if !supports(ops, "launch") {
 			continue
 		}
+		exercised = true
 		r := h.launch()
 		r["runtime"] = runtime
+		if !slices.Contains(d.Describe.Capabilities, "labels/1") {
+			r["labels"] = map[string]string{}
+		}
 		started, e := h.call("launch", r)
 		if e != nil || started.Session == nil {
-			return check("advertised-operations", false, "advertised launch refused")
+			return check(p, false, "advertised launch refused")
 		}
 		s := started.Session
 		if s.Runtime != runtime {
-			return check("advertised-operations", false, "runtime correlation")
+			return check(p, false, "runtime correlation")
 		}
-		if slices.Contains(ops, "status") {
+		if supports(ops, "status") {
 			if _, e = h.status(s); e != nil {
-				return check("advertised-operations", false, "status refused")
+				return check(p, false, "status refused")
 			}
 		}
-		if slices.Contains(ops, "attach") {
+		if supports(ops, "list") {
+			if _, e = h.all(r["labels"], 1); e != nil {
+				return check(p, false, "list refused")
+			}
+		}
+		if supports(ops, "attach") {
 			code, exit, e := h.attach(s, s.Generation)
 			if e != nil || code != "" || exit != 0 {
-				return check("advertised-operations", false, "attach refused")
+				return check(p, false, "attach refused")
 			}
 		}
-		if _, e = h.stop(s, "force", "none"); e != nil {
-			return check("advertised-operations", false, "stop refused")
+		if supports(ops, "cancel") {
+			v, e := h.call("cancel", map[string]any{"operation_id": operationID()})
+			if e != nil || v.Outcome == nil || v.Outcome.Outcome != "cancelled" {
+				return check(p, false, "cancel refused")
+			}
 		}
-		if slices.Contains(ops, "resume") {
-			v, e := h.call("resume", h.resume(s))
-			if e != nil || v.Session.Session != s.Session {
-				return check("advertised-operations", false, "resume did not preserve handle")
+		stopped := supports(ops, "stop")
+		if stopped {
+			if _, e = h.stop(s, "force", "none"); e != nil {
+				return check(p, false, "stop refused")
+			}
+		}
+		if supports(ops, "resume") {
+			resume := h.resume(s)
+			resume["scope"].(map[string]any)["labels"] = r["labels"]
+			if !stopped {
+				// Without a stop prerequisite, probe lookup without requiring an active
+				// session to restart. Full positive resume cases require advertised stop.
+				resume["selector"] = map[string]string{"kind": "handle", "handle": "SES-absent"}
+				_, e = h.call("resume", resume)
+				if e = h.expectCode(p, "session_resume_not_found", e); e != nil {
+					return e
+				}
+			} else {
+				v, e := h.call("resume", resume)
+				if e != nil || v.Session == nil || v.Session.Session != s.Session {
+					return check(p, false, "resume did not preserve handle")
+				}
 			}
 		}
 	}
+	if !exercised {
+		return &notApplicable{Reason: "no delegated launch runtime advertised"}
+	}
 	return nil
 }
+
 func profileCase(h *harness) error {
 	if _, e := h.start(h.launch()); e != nil {
 		return e
@@ -1247,7 +1335,7 @@ func recycleCase(h *harness) error {
 
 type notApplicable struct{ Reason string }
 
-func (n *notApplicable) Error() string { return "NOT APPLICABLE: " + n.Reason }
+func (n *notApplicable) Error() string { return "not_applicable: " + n.Reason }
 
 // A busy event supplies T; clock-only polling/listing and unknown evidence retain
 // T, while a subsequent idle event supplies a new timestamp.
