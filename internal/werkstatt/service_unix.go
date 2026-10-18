@@ -149,7 +149,11 @@ func (s Service) Run(ctx context.Context, c Command) (int, error) {
 	return exit, nil
 }
 func (s Service) output(c Command, rows []Status) error {
-	if c.JSON {
+	asJSON := c.JSON
+	for _, row := range rows {
+		asJSON = asJSON || row.Stale
+	}
+	if asJSON {
 		return json.NewEncoder(s.Stdout).Encode(rows)
 	}
 	for _, r := range rows {
@@ -306,6 +310,9 @@ func (s Service) one(ctx context.Context, c Command) (row Status, exit int, resu
 				}
 				next := *row.Liveness
 				next.State = "unknown"
+				if v != nil {
+					next.StateSource = "manager"
+				}
 				next.LastHeartbeatAt = s.now().UTC().Format(time.RFC3339)
 				written, writeErr := tx.RefreshSession(row.Liveness.Expected(), next)
 				if writeErr != nil {

@@ -129,3 +129,105 @@ func TestPrestartAbandon(t *testing.T) {
 		t.Fatal("late outcome wrote", ok, e)
 	}
 }
+
+// After a pre-start override, either binding can settle at the manager's own
+// generation. Stale tuples, zero generations and abandoned outcomes stay fenced.
+func TestPrestartSettlement(t *testing.T) {
+	for _, changed := range []bool{false, true} {
+		t.Run(map[bool]string{false: "same-binding", true: "new-binding"}[changed], func(t *testing.T) {
+			tx := transaction(t)
+			p := Pending{OperationID: operationID, Kind: "launch", SubmittedAt: stamp, AdmissionKey: "werkstatt:example", Manager: liveFor(operationID, 1).Manager}
+			putPending(t, tx, p)
+			if e := tx.Abandon(time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)); e != nil {
+				t.Fatal(e)
+			}
+			old, e := tx.Liveness()
+			if e != nil {
+				t.Fatal(e)
+			}
+			next := liveFor(secondID, 7)
+			if changed {
+				next.Manager.Executable = "/other"
+			}
+			before := readFile(t, filepath.Join(tx.dir, "example.json"))
+			stale := old.Expected()
+			stale.Generation = 1
+			abandoned := next
+			abandoned.OperationID = &p.OperationID
+			zero := next
+			zero.Generation = 0
+			for _, probe := range []struct {
+				expected Expected
+				next     Liveness
+			}{{stale, next}, {old.Expected(), abandoned}, {old.Expected(), zero}} {
+				if ok, e := tx.CompareAndSwap(probe.expected, probe.next); e != nil || ok {
+					t.Fatal("prestart fence bypassed", ok, e)
+				}
+				if !bytes.Equal(before, readFile(t, filepath.Join(tx.dir, "example.json"))) {
+					t.Fatal("rejected outcome changed bytes")
+				}
+			}
+			if ok, e := tx.CompareAndSwap(old.Expected(), next); e != nil || !ok {
+				t.Fatal("first settled generation refused", ok, e)
+			}
+			got, e := tx.Liveness()
+			if e != nil || got.Generation != 7 || got.Manager != next.Manager || len(got.AbandonedOperations) != 1 {
+				t.Fatal("first settlement lost generation/binding/tombstone", got, e)
+			}
+		})
+	}
+}
+
+// Dispatch edits cannot change an override-only record, but the same edits
+// apply after a session settles. Rejected edits preserve the exact file bytes.
+func TestPrestartDispatch(t *testing.T) {
+	for _, edit := range []string{"set-task", "clear-task", "queue"} {
+		t.Run(edit, func(t *testing.T) {
+			tx := transaction(t)
+			putPending(t, tx, Pending{OperationID: operationID, Kind: "launch", SubmittedAt: stamp, AdmissionKey: "werkstatt:example", Manager: liveFor(operationID, 1).Manager})
+			if e := tx.Abandon(time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)); e != nil {
+				t.Fatal(e)
+			}
+			old, e := tx.Liveness()
+			if e != nil {
+				t.Fatal(e)
+			}
+			task, depth := "sample-task", int64(2)
+			var taskValue *string
+			var queue *int64
+			if edit == "set-task" {
+				taskValue = &task
+			}
+			if edit == "queue" {
+				queue = &depth
+			}
+			before := readFile(t, filepath.Join(tx.dir, "example.json"))
+			ok, e := tx.EditDispatch(old.Expected(), edit != "queue", taskValue, queue)
+			if ok || !IsCode(e, "werkstatt_not_up") {
+				t.Fatal("prestart dispatch accepted", ok, e)
+			}
+			if !bytes.Equal(before, readFile(t, filepath.Join(tx.dir, "example.json"))) {
+				t.Fatal("dispatch changed override")
+			}
+			next := liveFor(secondID, 1)
+			if ok, e := tx.CompareAndSwap(old.Expected(), next); e != nil || !ok {
+				t.Fatal(ok, e)
+			}
+			if edit == "clear-task" {
+				if ok, e := tx.EditDispatch(next.Expected(), true, &task, nil); e != nil || !ok {
+					t.Fatal(ok, e)
+				}
+			}
+			if ok, e := tx.EditDispatch(next.Expected(), edit != "queue", taskValue, queue); e != nil || !ok {
+				t.Fatal("settled dispatch refused", ok, e)
+			}
+			got, e := tx.Liveness()
+			if e != nil {
+				t.Fatal(e)
+			}
+			if edit == "set-task" && (got.CurrentTask == nil || *got.CurrentTask != task) || edit == "clear-task" && got.CurrentTask != nil || edit == "queue" && got.QueueDepth != depth {
+				t.Fatal("dispatch not applied", got)
+			}
+		})
+	}
+}

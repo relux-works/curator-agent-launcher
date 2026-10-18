@@ -243,7 +243,7 @@ func (t *Transaction) Liveness() (*Liveness, error) {
 }
 
 // CompareAndSwap never orders UUIDs. The exact observed tuple must still hold,
-// and only a same-operation refresh or one-generation advance can be committed.
+// and only a documented binding/generation transition can be committed.
 func (t *Transaction) CompareAndSwap(expected Expected, next Liveness) (bool, error) {
 	return t.compareAndSwap(expected, next, false)
 }
@@ -263,7 +263,9 @@ func (t *Transaction) compareAndSwap(expected Expected, next Liveness, sessionRe
 	if actual.Generation != expected.Generation || !sameOperation(actual.OperationID, expected.OperationID) || !sameBinding(actual.Manager, expected.Manager) {
 		return false, nil
 	}
-	if old == nil {
+	if old == nil || old.Generation == 0 {
+		// A pre-start override has no generation to increment. The first
+		// settlement takes the bound manager's own positive generation.
 		if next.Generation < 1 {
 			return false, nil
 		}

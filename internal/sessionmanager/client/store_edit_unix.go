@@ -69,6 +69,9 @@ func (t *Transaction) writeEdited(next Liveness) error {
 // manager refresh so the latter cannot overwrite task metadata or ownership.
 func (t *Transaction) EditDispatch(expected Expected, setTask bool, task *string, queue *int64) (bool, error) {
 	return t.edit(expected, func(l *Liveness) error {
+		if l.Session == "" {
+			return refusal("werkstatt_not_up", map[string]string{"id": t.id})
+		}
 		if setTask {
 			l.CurrentTask = task
 		}

@@ -66,15 +66,19 @@ until a terminal outcome and a successful liveness write. Owner binding and
 expected tuple CAS prevent stale writes. `status --rebind-manager` explicitly
 accepts a re-registered owner after a matching session read;
 `status --abandon-operation` records an operator override and a tombstone,
-without stopping or cancelling anything remote. Dispatch edits require an
-existing liveness record (`werkstatt_not_up` otherwise).
+without stopping or cancelling anything remote. Dispatch edits require
+liveness with a non-null session (`werkstatt_not_up` for both a missing
+record and a pre-start override). A first settlement after a pre-start
+override takes the manager's own generation on either binding.
 
 Status JSON is a bare array of closed rows
 `{record,liveness,manager_session,a2a,stale}`. Manager and a2a evidence stay
 separate. The bounded `a2a who` read uses `--stale-after` at three times
 the configured doorbell heartbeat, or 3m without one; failures produce null
-a2a evidence. This threshold is display-only. An unreadable manager record changes only local state to unknown
-and the heartbeat time. A lock timeout returns a read-only stale snapshot,
+a2a evidence. This threshold is display-only. An unreadable manager record
+sets state to unknown, state_source to manager and the heartbeat time; every
+other field is preserved. `last_activity_at` may be null in any record.
+A lock timeout always returns the JSON array as a read-only stale snapshot,
 including null liveness before the first start. Recycle polls draining every
 second for at most 20 seconds; a timeout never starts another generation.
 
@@ -852,7 +856,7 @@ runs need their own explicit timeout budget, for example
 |---|---|---|---|
 | `curator-run session-manager` | inspect and atomically update the manager registry | `curator-run session-manager list/show/register/select/unregister` (forms above) | stdout or JSON; `session-managers.json` in the effective target config home |
 | `curator-run werkstatt` | hosted station lifecycle and separate manager/a2a status | commands above; `go test ./cmd/curator-run -run TestWerkstattBinary -count=1 -v` | liveness and journal in the XDG state home; bounded test children in `t.TempDir` |
-| `.scripts/werkstatt-mutants.py` | owner, workspace, admission, stop generation and CAS negative controls | `python3 .scripts/werkstatt-mutants.py [evidence-dir]` | logs and `summary.tsv`, default `.temp/werkstatt-mutants/`; restores exact source bytes; run alone |
+| `.scripts/werkstatt-mutants.py` | owner, workspace, admission, CAS, stale output, evidence and dispatch negative controls | `python3 .scripts/werkstatt-mutants.py [evidence-dir]` | logs and `summary.tsv`, default `.temp/werkstatt-mutants/`; restores exact source bytes; run alone |
 | `.scripts/selector-mutants.py` | bounded selector config, response, transport, precedence and shadow controls | `python3 .scripts/selector-mutants.py [evidence-dir]` | per-probe logs and `summary.tsv`, default `.temp/selector-mutants/`; restores source bytes |
 | `.scripts/plugin-client-mutants.py` | bounded plugin transport, schema, capability, reconciliation and CAS controls | `python3 .scripts/plugin-client-mutants.py [evidence-dir]`; inventory: `python3 .scripts/plugin-client-mutants.py --list` | per-control logs and `summary.tsv`, default `.temp/plugin-client-mutants/`; restores candidate bytes; run before other checks |
 | `.scripts/session-manager-mutants.py` | bounded registry/registration/atomic-write, transaction-lock and deadline negative controls | `python3 .scripts/session-manager-mutants.py [evidence-dir]` | per-probe logs and `summary.tsv`, default `.temp/session-manager-mutants/`; restores source bytes |
