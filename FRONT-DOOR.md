@@ -1567,7 +1567,11 @@ schema `werkstatt-liveness-v1`, written atomically:
   - `liveness`: the liveness record, or `null` when none exists;
   - `manager_session`: the bound manager's session record as returned,
     including `readable`, or `null` when no call was made or possible;
-  - `a2a`: the a2a `who` result for the identity, or `null`;
+  - `a2a`: the a2a `who` result for the identity, or `null`. It is read
+    with `a2a who --json --stale-after <d>`. `<d>` is three times the
+    record's `doorbell.heartbeat` when one is set, and `3m` otherwise. The
+    threshold is for display only. The launcher never derives liveness or
+    `state` from it;
   - `stale`: a boolean, true when the lock could not be taken (§5.7).
 
 ## 7. Muse
