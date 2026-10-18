@@ -35,6 +35,7 @@ controls = [
  ('W16', 'schemas/session-manager/liveness.schema.json', ',\n          "operation_id": {\n            "type": "string",\n            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"\n          }', '', './schemas/session-manager', 'TestLivenessNullableEvidence/operation_id', 'nullable operation_id valid=false: <nil>'),
  ('W17', 'schemas/session-manager/liveness.schema.json', '"last_activity_at": {\n      "anyOf": [', '"last_activity_at": {\n      "type": "string",\n      "anyOf": [', './schemas/session-manager', 'TestLivenessNullableEvidence/last_activity_at', 'nullable last_activity_at valid=true:'),
  ('W18', 'schemas/session-manager/resume.schema.json', '^[A-Za-z0-9._:/@+=-]{1,128}$', '^[A-Za-z0-9._:/@+-]{1,128}$', './schemas/session-manager', 'TestPublishedLabelGrammar/resume/readable/punctuation', 'label punctuation valid=true:'),
+ ('W19', service, 'if err != nil || response.Session == nil || !response.Session.Readable {', 'if err != nil || response.Session == nil || !response.Session.Readable || response.Session.State == "unknown" {', './cmd/curator-run', 'TestWerkstattReadableOwnerBinary/unknown', 'readable owner evidence not refreshed'),
 ]
 if a.only:
     wanted = set(a.only.split(','))

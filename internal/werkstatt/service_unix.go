@@ -92,7 +92,7 @@ func (s Service) ownerRead(ctx context.Context, reg sessionmanager.Registry, l *
 		return nil, err
 	}
 	response, err := call(ctx, s.remote(l.Manager.ID, e), "status", map[string]string{"session": l.Session})
-	if err != nil || response.Session == nil || !response.Session.Readable || response.Session.State == "unknown" {
+	if err != nil || response.Session == nil || !response.Session.Readable {
 		return response.Session, failure("session_liveness_unknown", nil)
 	}
 	return response.Session, nil
@@ -262,6 +262,9 @@ func (s Service) one(ctx context.Context, c Command) (row Status, exit int, resu
 				if e != nil {
 					return row, 0, e
 				}
+				if v.State == "unknown" {
+					return row, 0, failure("session_liveness_unknown", nil)
+				}
 				if e = refresh(tx, l, v, s.now()); e != nil {
 					return row, 0, e
 				}
@@ -374,6 +377,9 @@ func (s Service) up(ctx context.Context, c Command, tx *client.Transaction, reg 
 		confirmed, err = s.ownerRead(ctx, reg, l)
 		if err != nil {
 			return 0, err
+		}
+		if confirmed != nil && confirmed.State == "unknown" {
+			return 0, failure("session_liveness_unknown", nil)
 		}
 		if confirmed != nil && confirmed.State != "down" {
 			return 0, failure("werkstatt_already_up", map[string]string{"session": confirmed.Session})
@@ -493,6 +499,9 @@ func (s Service) down(ctx context.Context, c Command, tx *client.Transaction, re
 	v, err := s.ownerRead(ctx, reg, l)
 	if err != nil {
 		return err
+	}
+	if v.State == "unknown" {
+		return failure("session_liveness_unknown", nil)
 	}
 	if v.State == "down" {
 		if err = refresh(tx, l, v, s.now()); err == nil {
