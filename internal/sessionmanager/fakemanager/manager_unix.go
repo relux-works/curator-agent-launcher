@@ -63,7 +63,7 @@ type Control struct {
 
 func DefaultConfig() Config {
 	ops := []string{"launch", "resume", "attach", "status", "cancel", "list", "stop"}
-	return Config{ID: "fake", Capabilities: []string{"launch-delegated/1", "resume/1", "attach/1", "status/1", "list/1", "stop/1", "admission/1", "labels/1"}, Runtimes: map[string][]string{"codex_cli": ops, "claude_code": ops}, Profiles: map[string]Profile{"sample": {strings.Repeat("1", 64), fragment.DigestPrefix + strings.Repeat("2", 64)}}}
+	return Config{ID: "fake", Capabilities: []string{"launch-delegated/1", "resume/1", "attach/1", "status/1", "list/1", "stop/1", "admission/1", "labels/1", "doorbell-codex/1", "doorbell-claude/1"}, Runtimes: map[string][]string{"codex_cli": ops, "claude_code": ops}, Profiles: map[string]Profile{"sample": {strings.Repeat("1", 64), fragment.DigestPrefix + strings.Repeat("2", 64)}}}
 }
 
 type Stored struct {
@@ -617,7 +617,10 @@ func (m *manager) start(op string, r request, data []byte) reply {
 		_ = json.Unmarshal(s.Record, &prev)
 		if prev.Doorbell.Uncertain || slices.Contains(m.control.Uncertain, s.Handle) {
 			reason := "previous_generation_uncertain"
-			doorbell = client.Doorbell{State: "off", Uncertain: true, Reason: &reason}
+			doorbell = client.Doorbell{State: "off", Uncertain: true, Generation: prev.Doorbell.Generation, Reason: &reason}
+			if m.bad("doorbell-generation") {
+				doorbell.Generation = nil
+			}
 		}
 	}
 	row := map[string]any{"session": s.Handle, "operation_id": r.OperationID, "manager": m.config.ID, "runtime": r.Runtime, "native_id": s.Handle[4:], "readable": true, "state": "unknown", "labels": s.Labels, "generation": generation, "started_at": m.now.Format(time.RFC3339), "last_activity_at": nil, "doorbell": doorbell}
@@ -816,6 +819,14 @@ func (m *manager) operate(op string, r request, data []byte) reply {
 	}
 	if r.Mode == "graceful" && m.control.GracefulHang && s.Alive && !m.bad("graceful-retirement") {
 		row["state"] = "draining"
+		// Closing the gate and projecting off are one durable transaction.
+		if !m.bad("doorbell-gate-closure") {
+			d := row["doorbell"].(map[string]any)
+			d["state"], d["reason"] = "off", nil
+			if d["uncertain"] == true {
+				d["reason"] = "previous_generation_uncertain"
+			}
+		}
 		s.Record = encode(row)
 		s.Gate = false
 		s.Retirement = 1

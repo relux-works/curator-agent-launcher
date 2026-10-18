@@ -55,7 +55,6 @@ func TestConfiguredCapabilitiesAndDoorbell(t *testing.T) {
 		t.Fatal(e)
 	}
 	cfg := DefaultConfig()
-	cfg.Capabilities = append(cfg.Capabilities, "doorbell-codex/1")
 	if e := sessionmanager.WriteAtomic(filepath.Join(root, "config.json"), encode(cfg)); e != nil {
 		t.Fatal(e)
 	}

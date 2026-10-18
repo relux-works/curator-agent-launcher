@@ -102,6 +102,8 @@ func scenarios() []scenario {
 		{"unknown-start", "B", crashCase, "unknown-start"},
 		// Reservation survives an actual process exit before provider start.
 		{"reserved-crash", "B", reservationCase, "reservation"},
+		// Closing an armed generation gate immediately projects off at that generation.
+		{"doorbell-gate-closure", "B", doorbellGateCase, "doorbell-gate-closure"},
 		// Stop and rebind preserve persisted prior uncertainty.
 		{"doorbell-uncertain", "B", doorbellCase, "doorbell-uncertain"},
 		// A live graceful timeout drains; retirement finishes after provider exit.
@@ -172,6 +174,9 @@ func TestKnownBadControls(t *testing.T) {
 			continue
 		}
 		plants := []string{c.Plant}
+		if c.Name == "doorbell-uncertain" {
+			plants = append(plants, "doorbell-generation")
+		}
 		if strings.HasPrefix(c.Name, "not-busy-") {
 			plants = append(plants, "busy-side-effect")
 		}
@@ -850,23 +855,60 @@ func crashCase(h *harness) error {
 	o, e := h.observe()
 	return check("unknown-start", e == nil && o.Starts == 1, "uncertain start holds admission and forbids duplicates")
 }
-func doorbellCase(h *harness) error {
-	s, e := h.start(h.launch())
+func armedLaunch(h *harness) map[string]any {
+	r := h.launch()
+	if r["doorbell"] == nil {
+		r["doorbell"] = map[string]any{"identity": "conformance", "heartbeat": "30s", "max_wakes_per_hour": 1}
+	}
+	h.template["doorbell"] = r["doorbell"]
+	return r
+}
+func sameArmedGeneration(a, b *client.Session) bool {
+	return a.Doorbell.Generation != nil && b.Doorbell.Generation != nil && *a.Doorbell.Generation == *b.Doorbell.Generation
+}
+
+// An armed control supplies a non-null generation; gate closure and completed
+// retirement retain it while preventing wakes, even while the provider lives.
+func doorbellGateCase(h *harness) error {
+	const p = "doorbell-gate-closure"
+	s, e := h.start(armedLaunch(h))
 	if e != nil {
 		return e
 	}
-	if err := check("doorbell-uncertain", !s.Doorbell.Uncertain, "clean positive control"); err != nil {
+	if e = check(p, s.Doorbell.State == "armed" && s.Doorbell.Generation != nil && !s.Doorbell.Uncertain && s.Doorbell.Reason == nil, "armed positive control"); e != nil {
+		return e
+	}
+	if e = h.activity(s, "graceful-hang"); e != nil {
+		return e
+	}
+	v, e := h.stop(s, "graceful", "none")
+	if e = check(p, e == nil && v.Session.State == "draining" && v.Session.Doorbell.State == "off" && sameArmedGeneration(s, v.Session) && !v.Session.Doorbell.Uncertain && v.Session.Doorbell.Reason == nil, "closed gate must project off with armed generation"); e != nil {
+		return e
+	}
+	o, e := h.observe()
+	if e = check(p, e == nil && o.Alive[s.Session] && !o.Gates[s.Session] && o.Retirement[s.Session] == 1, "gate closure must retain live draining provider"); e != nil {
+		return e
+	}
+	v, e = h.stop(s, "force", "none")
+	return check(p, e == nil && v.Session.State == "down" && v.Session.Doorbell.State == "off" && sameArmedGeneration(s, v.Session), "completed retirement retains armed generation")
+}
+func doorbellCase(h *harness) error {
+	s, e := h.start(armedLaunch(h))
+	if e != nil {
+		return e
+	}
+	if err := check("doorbell-uncertain", s.Doorbell.State == "armed" && s.Doorbell.Generation != nil && !s.Doorbell.Uncertain, "armed positive control"); err != nil {
 		return err
 	}
 	if e = h.activity(s, "uncertain"); e != nil {
 		return e
 	}
 	v, e := h.stop(s, "force", "none")
-	if err := check("doorbell-uncertain", e == nil && v.Session.Doorbell.Uncertain, "retirement must preserve uncertainty"); err != nil {
+	if err := check("doorbell-uncertain", e == nil && v.Session.Doorbell.State == "off" && v.Session.Doorbell.Uncertain && sameArmedGeneration(s, v.Session), "retirement must preserve uncertainty and armed generation"); err != nil {
 		return err
 	}
 	v, e = h.call("resume", h.resume(s))
-	return check("doorbell-uncertain", e == nil && v.Session.Doorbell.Uncertain && v.Session.Doorbell.State == "off" && v.Session.Doorbell.Reason != nil && *v.Session.Doorbell.Reason == "previous_generation_uncertain", "rebind must not erase uncertainty")
+	return check("doorbell-uncertain", e == nil && v.Session.Doorbell.Uncertain && v.Session.Doorbell.State == "off" && sameArmedGeneration(s, v.Session) && v.Session.Doorbell.Reason != nil && *v.Session.Doorbell.Reason == "previous_generation_uncertain", "rebind must not erase uncertainty")
 }
 func gracefulCase(h *harness) error {
 	s, e := h.start(h.launch())
