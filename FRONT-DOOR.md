@@ -1485,9 +1485,12 @@ schema `werkstatt-liveness-v1`, written atomically:
 - **Operator override.** `--abandon-operation` sets `state: down`,
   `state_source: operator_override`, and appends the abandoned id to
   `abandoned_operations`.
-  - If no session ever started, `session` and `generation` are `null` and
-    `manager` is the binding copied from `op.json`. These are the only
-    records in which `session` and `generation` may be `null`.
+  - If no session ever started, `manager` is the binding copied from
+    `op.json`, and these fields are `null`, because nothing is fabricated:
+    `session`, `generation`, `operation_id`, `started_at`,
+    `last_heartbeat_at` and `last_activity_at`.
+  - In that case `doorbell` is `off` and `doorbell_uncertain` is `false`.
+  - This is the only record shape in which these fields may be `null`.
   - It does not cancel or stop anything remote.
   - `status` and the router show `state_source`. The router treats an
     override as not established, so it cannot be used as evidence of
