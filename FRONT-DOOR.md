@@ -1481,7 +1481,13 @@ schema `werkstatt-liveness-v1`, written atomically:
     `generation` is always the bound manager's number, and there is no
     cross-manager counter.
 
-  Every other write is dropped, as is any write for an abandoned id.
+  Every other write is dropped.
+  - **Abandoned ids.** The drop applies to *operation outcomes* for an id in
+    `abandoned_operations`: late `status {operation_id}` answers and
+    reconciliation results.
+  - An ordinary `status {session}` read through a valid binding is manager
+    evidence, not an operation outcome. It may always replace an operator
+    override, even when the record's `operation_id` is an abandoned id.
 - **Operator override.** `--abandon-operation` sets `state: down`,
   `state_source: operator_override`, and appends the abandoned id to
   `abandoned_operations`.
@@ -1510,6 +1516,9 @@ schema `werkstatt-liveness-v1`, written atomically:
   means nobody looked, not that the session is down.
 - **`current_task` and `queue_depth`** are written only by the orchestrator,
   through `werkstatt status <id> --set-task/--clear-task/--queue-depth`.
+  These edits require an existing liveness record. A Werkstatt that was
+  never up refuses `werkstatt_not_up` (1). There is no dispatch-only
+  liveness shape.
 - **`unknown`** is outside the router's five states. It means the manager
   answered `unknown`, or did not answer. The router treats it as not
   dispatchable.
@@ -1853,6 +1862,7 @@ Detail vocabularies are closed (§5.6). Grammar names:
 | `werkstatt_context_leak` | 2 | an instruction file above the clone | `path` |
 | `werkstatt_context_check_failed` | 2 | an ancestor could not be checked | `path` |
 | `werkstatt_identity_missing` | 1 | no a2a credential file | `identity`: from the record |
+| `werkstatt_not_up` | 1 | a dispatch edit with no liveness record (§6.5) | `id` |
 | `werkstatt_busy` | 1 | `not-busy` refusal, the lock is held, or `recycle` timed out while draining | `state`: `busy`, `draining`; `operation`: `in_progress` |
 | `werkstatt_liveness_write_failed` | 1 | session up, liveness file not written | `session`: `<handle>` |
 | `doorbell_setup_failed` | 1 | hook install or verification failed | `step`: `install`, `verify` |
