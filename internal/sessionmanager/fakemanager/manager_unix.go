@@ -366,7 +366,7 @@ func (m *manager) row(s *Stored) map[string]any {
 		if state == "unknown" && m.bad("unknown-liveness") {
 			r["state"] = "idle"
 		}
-		if state == "idle" || state == "busy" {
+		if (state == "idle" || state == "busy") && m.bad("activity-on-read") {
 			r["last_activity_at"] = m.now.Format(time.RFC3339)
 		}
 	}

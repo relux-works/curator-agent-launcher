@@ -98,6 +98,16 @@ func Fixture(dir string, input io.Reader, output io.Writer) int {
 				m.control.Activity = map[string]string{}
 			}
 			m.control.Activity[r.Session] = r.Activity
+			// Only a simulated provider activity event supplies a timestamp.
+			// Unknown/draining evidence retains the last observed event time.
+			if r.Activity == "idle" || r.Activity == "busy" {
+				s := m.state.Sessions[r.Session]
+				var row map[string]any
+				_ = json.Unmarshal(s.Record, &row)
+				row["last_activity_at"] = m.now.Format(time.RFC3339)
+				s.Record = encode(row)
+				m.dirty = true
+			}
 		case "uncertain":
 			s := m.state.Sessions[r.Session]
 			var row map[string]any

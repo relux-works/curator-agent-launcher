@@ -76,6 +76,8 @@ func scenarios() []scenario {
 		{"not-busy-busy", "B", notBusyCase("busy"), "not-busy"},
 		// Unknown activity refuses not-busy with no lifecycle effects.
 		{"not-busy-unknown", "B", notBusyCase("unknown"), "not-busy"},
+		// Activity events, rather than polling or record updates, advance the timestamp.
+		{"activity-timestamp", "B", activityTimestampCase, "activity-on-read"},
 		// Missing evidence remains unknown; busy evidence is observable.
 		{"unknown-liveness", "B", unknownLivenessCase, "unknown-liveness"},
 		// Stored drift wins refusal precedence during resume, retry and recovery.
@@ -1204,3 +1206,56 @@ func recycleCase(h *harness) error {
 type notApplicable struct{ Reason string }
 
 func (n *notApplicable) Error() string { return "NOT APPLICABLE: " + n.Reason }
+
+// A busy event supplies T; clock-only polling/listing and unknown evidence retain
+// T, while a subsequent idle event supplies a new timestamp.
+func activityTimestampCase(h *harness) error {
+	const p = "activity-timestamp"
+	s, e := h.start(h.launch())
+	if e != nil {
+		return e
+	}
+	now := time.Now().UTC().Truncate(time.Second)
+	clock := func(v time.Time) error {
+		_, e := h.control(fakemanager.FixtureRequest{Operation: "set_clock", Now: v.Format(time.RFC3339)})
+		return setup(e)
+	}
+	if e = clock(now); e != nil {
+		return e
+	}
+	if e = h.activity(s, "busy"); e != nil {
+		return e
+	}
+	v, e := h.status(s)
+	if e != nil {
+		return setup(e)
+	}
+	if e = check(p, v.State == "busy" && v.LastActivityAt != nil && *v.LastActivityAt == now.Format(time.RFC3339), "busy event must supply its timestamp"); e != nil {
+		return e
+	}
+	if e = clock(now.Add(time.Hour)); e != nil {
+		return e
+	}
+	for i := 0; i < 2; i++ {
+		v, e = h.status(s)
+		if e = check(p, e == nil && v.LastActivityAt != nil && *v.LastActivityAt == now.Format(time.RFC3339), "read manufactured activity"); e != nil {
+			return e
+		}
+	}
+	rows, e := h.all(h.template["labels"], 1)
+	if e = check(p, e == nil && len(rows) == 1 && rows[0].LastActivityAt != nil && *rows[0].LastActivityAt == now.Format(time.RFC3339), "list manufactured activity"); e != nil {
+		return e
+	}
+	if e = h.activity(s, "unknown"); e != nil {
+		return e
+	}
+	v, e = h.status(s)
+	if e = check(p, e == nil && v.State == "unknown" && v.LastActivityAt != nil && *v.LastActivityAt == now.Format(time.RFC3339), "unknown evidence erased last activity"); e != nil {
+		return e
+	}
+	if e = h.activity(s, "idle"); e != nil {
+		return e
+	}
+	v, e = h.status(s)
+	return check(p, e == nil && v.State == "idle" && v.LastActivityAt != nil && *v.LastActivityAt == now.Add(time.Hour).Format(time.RFC3339), "new activity event must advance timestamp")
+}
