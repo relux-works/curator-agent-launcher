@@ -134,3 +134,28 @@ func TestDelegatedTrial(t *testing.T) {
 		}
 	}
 }
+
+// Machine-scope value validation rejects unknown/wrong-type policy without
+// relying on the user authority gate; nearby valid values remain admitted.
+func TestMachinePolicyInvalidValues(t *testing.T) {
+	for _, test := range []struct{ name, valid, invalid string }{
+		{"host-unknown", `"host_mode":"auto"`, `"host_mode":"cloud"`},
+		{"host-type", `"host_mode":"hosted"`, `"host_mode":true`},
+		{"host-null", `"host_mode":"native"`, `"host_mode":null`},
+		{"trial-type", `"delegated_trial":true`, `"delegated_trial":"true"`},
+		{"trial-null", `"delegated_trial":false`, `"delegated_trial":null`},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			r := fixture(t)
+			put(t, r.Locations.System, `{"schema":"curator-run-launcher-v1",`+test.valid+`}`)
+			if _, err := Load(r); err != nil {
+				t.Fatal("valid machine policy", err)
+			}
+			put(t, r.Locations.System, `{"schema":"curator-run-launcher-v1",`+test.invalid+`}`)
+			got, err := Load(r)
+			if err == nil || got != (Config{}) || !strings.Contains(err.Error(), CodeInvalid) || !strings.Contains(err.Error(), filepath.Join(r.Locations.System, "launcher.json")) {
+				t.Fatalf("machine invalid policy: %+v %v", got, err)
+			}
+		})
+	}
+}
