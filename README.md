@@ -900,14 +900,25 @@ make vet        # go vet ./...
 make test       # go test ./... -count=1 (includes the CLI goldens)
 make race       # go test ./... -count=1 -race -timeout=12m (per package)
 make check      # all of the above
+make release-binary VERSION=0.6.0 [GOOS=… GOARCH=…]  # reproducible binary + .sha256 in dist/
+make release-repro                                 # two checkouts, identical bytes required
 ```
+
+`make release-binary` produces the binary that Curator's signed distribution
+ships (FRONT-DOOR §10). It builds with `CGO_ENABLED=0`, `-trimpath`,
+`-buildvcs=false` and `-ldflags "-s -w -buildid= -X main.buildVersion=…"`, using
+`GOFLAGS=-mod=readonly` and the toolchain pinned from `go.mod`. It writes
+`dist/curator-run-<version>-<os>-<arch>` and a checksum file in `sha256sum`
+format. Signing, notarization, packing and the release tag belong to
+Curator's release workflow, not to this repository.
 
 CI (`.github/workflows/ci.yml`) runs the same targets on `ubuntu-latest`
 and `macos-latest` with the toolchain from `go.mod`. An optional self-hosted
 job runs `make check` on `[self-hosted, macOS, ARM64]` when its repository
 opt-in is enabled; the workflow defines that setting. Enable it after
-registering a matching runner. Goldens run as part of `make test` and `make race`. There are no
-release or tag jobs. Windows is not in this launcher's hosted matrix;
+registering a matching runner. Goldens run as part of `make test` and `make race`. A
+`release-repro` job runs `make release-repro` on both hosted runners. There
+are no release or tag jobs. Windows is not in this launcher's hosted matrix;
 platform execution evidence must come from the corresponding runner.
 The race target allows 12 minutes per package for the conformance suite's
 intentional deadline controls and slower race runners; the hosted race job
@@ -932,6 +943,8 @@ runs need their own explicit timeout budget, for example
 | `.scripts/fake-manager-mutants.py` | bounded source controls for fake-manager/conformance invariants | `python3 .scripts/fake-manager-mutants.py [evidence-dir]` | per-probe logs and `summary.tsv`, default `.temp/fake-manager-mutants/`; restores exact source bytes |
 | `curator-run migrate` | copy legacy configs and remove withdrawn host defaults | `curator-run migrate [--dry-run]` | plan on stdout; new files in `/etc/swarma/launcher/` and `${XDG_CONFIG_HOME:-~/.config}/swarma/launcher/`, rewritten copies keep `.bak` |
 | `go` (build, vet, test, race) | build and behavioral suite | `make check` and the targets above | stdout; nothing written to the tree |
+| `make release-binary` | reproducible release binary for the Curator distribution | `make release-binary VERSION=<semver> [GOOS=… GOARCH=…] [DIST=dist]` | `dist/curator-run-<version>-<os>-<arch>` and `.sha256` (gitignored) |
+| `scripts/release-repro.sh` | committed-HEAD reproducibility across two checkout paths, checksum and `--version` checks, a different-version control and an invalid-version negative | `make release-repro` | temporary directory, removed on exit; one `OK <sha256>` line |
 | `python3` defaults mutant harness | weaken defaults gates individually and run the behavioral suite; restore exact candidate bytes | `python3 .scripts/defaults-mutants.py [evidence-dir]` | per-mutant logs and `summary.tsv` (default `.temp/defaults-mutants/`) |
 | `.scripts/context-mutants.py` | narrow carrier engagement, reserved-member exclusion, permissions, deprecated-alias refusal, native suffix and release configuration in an isolated candidate copy | `python3 .scripts/context-mutants.py [evidence-dir]` | isolated copy, per-mutant logs and `summary.tsv`, default `.temp/context-mutants/` |
 | production pipeline mutants | narrow the three late checks and ax mode selection at `run(...)`; restore exact candidate bytes | `python3 .scripts/pipeline-mutants.py [evidence-dir]` | per-mutant logs and `summary.tsv`; 9 named narrowing probes |

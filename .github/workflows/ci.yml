@@ -16,8 +16,9 @@ concurrency:
   cancel-in-progress: true
 
 # Minimal Go gate for a small CLI: build, gofmt, vet, tests with goldens,
-# and the race detector, on the two runners the launcher targets. No
-# release, tag, or publish step lives here.
+# and the race detector, on the two runners the launcher targets, plus a
+# release-binary reproducibility check. No release, tag, or publish step
+# lives here.
 jobs:
   test:
     name: Test (${{ matrix.os }})
@@ -63,6 +64,26 @@ jobs:
 
       - name: go test -race
         run: make race
+
+  # Builds `make release-binary` in two checkout directories and requires
+  # identical bytes (FRONT-DOOR §10). It publishes nothing.
+  release-repro:
+    name: Release reproducibility (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: make release-repro
+        run: make release-repro
 
   # Enable only after a matching runner is registered for this repository.
   test-self-hosted:
