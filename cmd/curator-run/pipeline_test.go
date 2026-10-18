@@ -26,11 +26,6 @@ import (
 
 var pipelineHelper string
 
-// hostedReceiver is the fake task-board receiver shared with the hosted
-// transport tests; it captures argv, stdin, env, and fd3, replays fd4
-// records, and exits controlled.
-var hostedReceiver string
-
 func TestMain(m *testing.M) {
 	dir, err := os.MkdirTemp("", "curator-entry-helper-")
 	if err != nil {
@@ -43,14 +38,6 @@ func TestMain(m *testing.M) {
 	if err := cmd.Run(); err != nil {
 		os.RemoveAll(dir)
 		fmt.Fprintln(os.Stderr, "helper build:", err)
-		os.Exit(1)
-	}
-	hostedReceiver = filepath.Join(dir, "receiver")
-	cmd = exec.Command("go", "build", "-o", hostedReceiver, "../../internal/hosted/testdata/receiver")
-	cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
-	if err := cmd.Run(); err != nil {
-		os.RemoveAll(dir)
-		fmt.Fprintln(os.Stderr, "receiver build:", err)
 		os.Exit(1)
 	}
 	code := m.Run()
@@ -134,6 +121,7 @@ func entryFixture(t *testing.T, environment string, tracked bool) *pipelineFixtu
 	if err := os.Mkdir(filepath.Dir(f.deps.defaults.Operator), 0700); err != nil {
 		t.Fatal(err)
 	}
+	writeDefaults(t, filepath.Join(f.dir, "machine", "launcher.json"), `{"schema":"curator-run-launcher-v1","host_mode":"native"}`)
 	if tracked {
 		writeFixture(t, filepath.Join(f.dir, "operator", "ax.json"), []byte(`{"schema":"curator-run-ax-v1","enabled":true}`), 0600)
 	}
@@ -465,6 +453,8 @@ func TestProductionLateChecks(t *testing.T) {
 	}
 }
 
+// Valid argv exposes invalid ax policy before profile resolution. Invalid argv
+// refuses first, without launching a child or resolving the profile.
 func TestProductionModeSelection(t *testing.T) {
 	for _, tc := range []struct {
 		name, machine, operator string
@@ -503,16 +493,19 @@ func TestProductionModeSelection(t *testing.T) {
 					writeFixture(t, path, []byte(data), 0600)
 				}
 			}
-			if tc.code != 0 {
-				f.args = []string{"--forbidden"}
-			}
 			code, out, stderr := f.run()
 			if code != tc.code {
 				t.Fatalf("exit=%d stderr=%s", code, stderr)
 			}
 			if tc.code != 0 {
 				if !bytes.HasPrefix(stderr, []byte("curator-run: defaults_config_invalid:")) || f.resolver.calls != 0 {
-					t.Fatalf("config did not precede argv: %s", stderr)
+					t.Fatalf("config did not precede profile resolution: %s", stderr)
+				}
+				f.assertNoChild(t)
+				f.args = []string{"--forbidden"}
+				code, _, stderr = f.run()
+				if code != 2 || !bytes.HasPrefix(stderr, []byte("curator-run: usage:")) || f.resolver.calls != 0 {
+					t.Fatalf("argv did not precede config: exit=%d stderr=%s", code, stderr)
 				}
 				f.assertNoChild(t)
 				return

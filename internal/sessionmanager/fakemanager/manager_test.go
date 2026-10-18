@@ -320,3 +320,29 @@ func TestUnreadableBindings(t *testing.T) {
 		})
 	}
 }
+
+// A persisted config replaces default runtime entries; removing one cannot
+// silently advertise it again on the next plugin invocation.
+func TestConfigReplacesRuntimeMap(t *testing.T) {
+	root, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := DefaultConfig()
+	delete(cfg.Runtimes, "claude_code")
+	if err := sessionmanager.WriteAtomic(filepath.Join(root, "config.json"), encode(cfg)); err != nil {
+		t.Fatal(err)
+	}
+	var out bytes.Buffer
+	exit := Run(root, []string{"describe"}, bytes.NewReader([]byte(`{}`)), nil, nil, &out)
+	response, err := client.DecodeResponse("describe", []byte(`{}`), out.Bytes(), exit, "fake")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := response.Describe.Runtimes["claude_code"]; ok {
+		t.Fatal("removed runtime restored from defaults")
+	}
+	if len(response.Describe.Runtimes["codex_cli"]) == 0 {
+		t.Fatal("retained runtime disappeared")
+	}
+}

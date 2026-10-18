@@ -1,23 +1,25 @@
+//go:build darwin || linux
+
 // Package mutantguard runs the required hosted narrowing mutants through
 // .scripts/hosted-mutants.sh as a committed check, so an anchor that drifts
 // from production can never silently turn a required mutant into a no-op.
 //
-// The script rewrites production sources in place, so every run happens in
-// a scratch copy of the tree under t.TempDir(): the working tree is never
-// mutated while sibling packages build. The package lives outside every
-// MUTANT_PKGS pattern the guard passes, so a mutant's own suite run never
-// re-enters this test.
+// Each run copies sources under t.TempDir(): the working tree is never
+// mutated while sibling packages build. Mutant tests name only the affected
+// package, so a mutant's own suite never re-enters this test.
 package mutantguard
 
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -25,15 +27,15 @@ import (
 // scriptTimeout bounds the one real external process each case waits for.
 const scriptTimeout = 8 * time.Minute
 
-// required names the mutants the AC makes mandatory, each with the bounded
-// package and -run mask that contain the test expected to kill it.
+// required names the retained host controls. Each id selects a bounded
+// package and exact behavioral test in the mutation driver.
 var required = []struct {
 	id, pkgs, run string
 }{
 	{"M-H1", "./internal/defaults", "^TestHostMemberWithdrawn$"},
-	{"M-H2", "./cmd/curator-run", "^TestHostedRefusalsBeforeContact$"},
-	{"M-H3", "./cmd/curator-run", "^TestNativePerformsZeroReceiverLookup$"},
-	{"M-H22", "./cmd/curator-run", "^TestHostedUnavailableThroughRun$"},
+	{"M-H2", "./cmd/curator-run", "^TestFrontDoorBinary$/^no-fallback$/^missing-capability$"},
+	{"M-H3", "./cmd/curator-run", "^TestFrontDoorBinary$/^registry-paths$/^invalid$/^--native$"},
+	{"M-H22", "./cmd/curator-run", "^TestFrontDoorBinary$/^no-fallback$/^missing-executable$"},
 }
 
 func repoRoot(t *testing.T) string {
@@ -109,6 +111,25 @@ func runScript(t *testing.T, scratch, id, pkgs, run string) (string, string, int
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "bash", filepath.Join(scratch, ".scripts", "hosted-mutants.sh"), evidence)
 	cmd.Dir = scratch
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	cmd.Cancel = func() error { return syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL) }
+	cmd.WaitDelay = time.Second
+	defer func() {
+		if cmd.Process == nil {
+			return
+		}
+		pid := cmd.Process.Pid
+		_ = syscall.Kill(-pid, syscall.SIGKILL)
+		for _, process := range []int{pid, -pid} {
+			deadline := time.Now().Add(time.Second)
+			for !errors.Is(syscall.Kill(process, 0), syscall.ESRCH) && time.Now().Before(deadline) {
+				time.Sleep(5 * time.Millisecond)
+			}
+			if !errors.Is(syscall.Kill(process, 0), syscall.ESRCH) {
+				t.Errorf("mutation child survived: %d", process)
+			}
+		}
+	}()
 	cmd.Env = append(os.Environ(), "MUTANTS_ONLY="+id, "MUTANT_PKGS="+pkgs, "MUTANT_RUN="+run)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &stdout, &stderr
@@ -176,17 +197,16 @@ func TestHarnessFailsClosedOnDriftedAnchor(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	const anchor = "PreopenedTerminal: preopenedTTY"
+	const anchor = "selected, err := resolveHost(ctx, inv, frag, stderr, deps)"
 	if n := strings.Count(string(src), anchor); n != 1 {
 		t.Fatalf("production call carries %q %d times, want once", anchor, n)
 	}
-	// A behavior-preserving respelling: the field is still passed, only
-	// the literal text the mutant anchors on moves.
-	drifted := strings.Replace(string(src), anchor, "PreopenedTerminal:  preopenedTTY", 1)
+	// A behavior-preserving respelling changes only the literal anchor.
+	drifted := strings.Replace(string(src), anchor, "selected, err :=  resolveHost(ctx, inv, frag, stderr, deps)", 1)
 	if err := os.WriteFile(main, []byte(drifted), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	_, stderr, code, rows := runScript(t, scratch, "M-H2", "./cmd/curator-run", "^TestHostedRefusalsBeforeContact$")
+	_, stderr, code, rows := runScript(t, scratch, "M-H2", "./cmd/curator-run", "^TestFrontDoorBinary$/^no-fallback$/^missing-capability$")
 	if code == 0 {
 		t.Fatalf("harness exited 0 for a mutant that matched no source")
 	}

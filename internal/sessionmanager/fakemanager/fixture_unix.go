@@ -41,6 +41,7 @@ type Observation struct {
 	Records json.RawMessage `json:"records"`
 }
 type FixtureResponse struct {
+	CallHistory *CallHistory    `json:"call_history,omitempty"`
 	OK          bool            `json:"ok"`
 	Code        string          `json:"code,omitempty"`
 	Launch      json.RawMessage `json:"launch,omitempty"`
@@ -84,6 +85,9 @@ func Fixture(dir string, input io.Reader, output io.Writer) int {
 		m.config = c
 		m.dirty = true
 		saveControl = true
+		if sessionmanager.WriteAtomic(filepath.Join(m.dir, "call-history.json"), encode(CallHistory{})) != nil {
+			return 2
+		}
 		if sessionmanager.WriteAtomic(filepath.Join(m.dir, "config.json"), encode(c)) != nil {
 			return 2
 		}
@@ -168,6 +172,13 @@ func Fixture(dir string, input io.Reader, output io.Writer) int {
 			return 2
 		}
 		saveControl = true
+	case "observe_calls": // Test telemetry is excluded from qualification snapshots.
+		var history CallHistory
+		if loadOptional(filepath.Join(m.dir, "call-history.json"), &history) != nil {
+			return 2
+		}
+		result.OK, result.Code, result.CallHistory = true, "", &history
+		return 0
 	case "observe": // Read-only evidence, outside the public plugin contract.
 	default:
 		return 2

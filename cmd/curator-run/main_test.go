@@ -144,10 +144,13 @@ func testDeps(t *testing.T, resolver fragmentResolver) launchDeps {
 		t.Fatal(err)
 	}
 	dir := t.TempDir()
+	os.MkdirAll(filepath.Join(dir, "machine"), 0700)
+	os.MkdirAll(filepath.Join(dir, "operator"), 0700)
+	writeFixture(t, filepath.Join(dir, "machine", "launcher.json"), []byte(`{"schema":"curator-run-launcher-v1","host_mode":"native"}`), 0600)
 	return launchDeps{
 		resolver:     resolver,
 		workdir:      func() (string, error) { return "", fmt.Errorf("early-stage fixture stops before plan admission") },
-		defaults:     defaults.Paths{Machine: filepath.Join(dir, "machine.json"), Operator: filepath.Join(dir, "operator.json")},
+		defaults:     defaults.Paths{Machine: filepath.Join(dir, "machine", "defaults.json"), Operator: filepath.Join(dir, "operator", "defaults.json")},
 		registry:     reg,
 		providerPath: func() string { return testProviderPath },
 	}

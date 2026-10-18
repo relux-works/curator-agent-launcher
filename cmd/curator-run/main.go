@@ -81,19 +81,28 @@ type fragmentResolver interface {
 // state.
 // Configuration directories are discovered before parsing for ax policy;
 // defaults file contents are read only after a supported fragment is mapped.
+// Configuration roots are fixed for distributed builds. Binary tests relocate
+// only these roots at link time, preserving real parsing, resolution and exec.
+var systemConfigDirectory = "/etc/swarma/launcher"
+var legacySystemConfigDirectory = "/etc/curator-run"
+
 func processConfigLocations() (configfile.Locations, error) {
 	home, err := os.UserHomeDir()
 	if err != nil && os.Getenv("XDG_CONFIG_HOME") == "" {
 		return configfile.Locations{}, err
 	}
-	return configfile.ConfigLocations(os.Getenv("XDG_CONFIG_HOME"), home), nil
+	locations := configfile.ConfigLocations(os.Getenv("XDG_CONFIG_HOME"), home)
+	locations.System, locations.LegacySystem = systemConfigDirectory, legacySystemConfigDirectory
+	return locations, nil
 }
 
 // Process boundaries are injectable; production uses the tagged builder and real execution.
 type launchDeps struct {
 	configLocations func() (configfile.Locations, error)
-	// launcherConfig is validated policy; later slices consume it.
+	// launcherConfig is validated machine policy for host resolution.
 	launcherConfig  launcherconfig.Config
+	configResolver  configfile.Resolver
+	hostedSelection *hostSelection
 	managerService  *sessionmanager.Service
 	selectorConfig  selector.Config
 	selectorRequest *selector.Request
@@ -140,11 +149,8 @@ type launchDeps struct {
 	// Nil selects agentic.Default, populated by the plan package's plugin
 	// imports; tests inject an explicit registry.
 	systems *agentic.Registry
-	// receiverLookup resolves the hosted receiver binary; receiverTerminal
-	// opens the controlling terminal for fd3. Nil selects the hosted
-	// production defaults. Native launches never call either: the
-	// zero-probe tests fail on any call.
-	receiverLookup   func() (string, error)
+	// receiverTerminal opens the controlling terminal before manager contact.
+	// Native execution never calls it.
 	receiverTerminal func() (*os.File, error)
 	// stdinTerminal reports whether the launcher stdin is a terminal.
 	// Nil checks deps.stdin. Hosted launches refuse a non-terminal stdin:
@@ -230,11 +236,24 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, deps laun
 		}
 		return 0
 	}
+	// Validate flag grammar before reading launch policy. Ax-dependent authority
+	// is checked again below against the actual configuration.
+	if _, parseErr := cli.Parse(args, cli.Options{AxConfigured: true}); parseErr != nil {
+		detail := parseErr.Error()
+		var usage *cli.UsageError
+		if errors.As(parseErr, &usage) {
+			detail = usage.Detail
+		}
+		_ = diagnostics.Emit(stderr, diagnostics.CodeUsage, detail)
+		fmt.Fprintf(stderr, "\n%s", cli.Usage)
+		return diagnostics.ExitUsage
+	}
 	policy, err := launcherconfig.Load(configResolver)
 	if err != nil {
 		return emitFailure(stderr, diagnostics.CodeDefaultsInvalid, err)
 	}
 	deps.launcherConfig = policy
+	deps.configResolver = configResolver
 	deps.selectorConfig, err = selector.Load(configResolver)
 	if err != nil {
 		return emitFailure(stderr, diagnostics.CodeDefaultsInvalid, err)
@@ -363,22 +382,18 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, deps laun
 			resolved, err = files.Complete(frag.Environment, flags, deps.registry)
 		}
 		if err == nil {
-			var host defaults.ResolvedHost
-			host, err = files.ResolveHost(frag.Environment, inv.HostFlag)
-			if err == nil {
-				provider := defaults.ResolveProviderPath()
-				if deps.providerPath != nil {
-					provider = deps.providerPath()
-				}
-				_ = defaults.EmitGroupWithProvider(stderr, resolved, provider)
-				if deps.selectorConfig.Mode == "shadow" {
-					capture := &selectorOutcomeWriter{Writer: stderr}
-					code := launch(ctx, inv, frag, target, resolved, host, files, stdout, capture, deps)
-					observeSelection(deps, resolved, capture.outcome())
-					return code
-				}
-				return launch(ctx, inv, frag, target, resolved, host, files, stdout, stderr, deps)
+			provider := defaults.ResolveProviderPath()
+			if deps.providerPath != nil {
+				provider = deps.providerPath()
 			}
+			_ = defaults.EmitGroupWithProvider(stderr, resolved, provider)
+			if deps.selectorConfig.Mode == "shadow" {
+				capture := &selectorOutcomeWriter{Writer: stderr}
+				code := launch(ctx, inv, frag, target, resolved, files, stdout, capture, deps)
+				observeSelection(deps, resolved, capture.outcome())
+				return code
+			}
+			return launch(ctx, inv, frag, target, resolved, files, stdout, stderr, deps)
 		}
 	}
 	if derr := (&defaults.Error{}); errors.As(err, &derr) {
@@ -419,49 +434,26 @@ func processAvailability() (plan.AvailabilityFunc, error) {
 	return store.AvailabilityFor, nil
 }
 
-func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, target mapping.Target, resolved defaults.Resolved, host defaults.ResolvedHost, files defaults.Files, stdout, stderr io.Writer, deps launchDeps) int {
-	// SPEC §4.8 order: host resolution is done; the legacy ax table, the
-	// defaults gate, and the network gate run before permissions and the
-	// plan build, and every refusal precedes any receiver contact.
-	isHosted := host.Host == defaults.HostHosted
-	if inv.Tracked {
-		if isHosted {
-			return emitFailure(stderr, diagnostics.CodeHostConflict, errors.New("host_configuration_conflict: hosted execution conflicts with the enabled ax integration on this machine"))
-		}
-		if cli.ExplicitNative(inv.HostFlag) {
-			// An explicit native request bypasses ax: the existing
-			// untracked native path. A configured native default keeps
-			// the existing ax behavior.
-			inv.Tracked = false
-		}
+func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, target mapping.Target, resolved defaults.Resolved, files defaults.Files, stdout, stderr io.Writer, deps launchDeps) int {
+	selected, err := resolveHost(ctx, inv, frag, stderr, deps)
+	if err != nil {
+		return emitHostFailure(stderr, err)
 	}
-	// Operator decision Q-D1a (2026-10-05) = yes: an operator-scope
-	// hosted default is the operator's own opt-in and passes the gate.
-	// Machine defaults and locks stay gated until upgrade-without-hangup
-	// (Decision 0021 section 7 amendment pending). Explicit --hosted
-	// always passes.
-	if isHosted && host.Origin == defaults.OriginHostMachine {
-		return emitFailure(stderr, diagnostics.CodeSessionHostDefaultNotReady, fmt.Errorf("session_host_default_not_ready: the machine hosted default for %s is not ready until upgrade-without-hangup; use explicit --hosted or an operator default", frag.Environment))
+	if selected.terminal != nil {
+		defer selected.terminal.Close()
+	}
+	deps.hostedSelection = &selected
+	isHosted := selected.route.Kind != "native"
+	if cli.ExplicitNative(inv.HostFlag) {
+		inv.Tracked = false
+	}
+	if !isHosted && (inv.BoardGoal || inv.Detach) {
+		return emitFailure(stderr, diagnostics.CodeUsage, errors.New("--board-goal and --detach require hosted execution"))
 	}
 	if !isHosted && (inv.ResumeRequested || inv.ResumeIDSet) {
-		_ = diagnostics.Emit(stderr, diagnostics.CodeUsage, "resume selectors require hosted execution; use --hosted or a hosted default")
-		fmt.Fprintf(stderr, "\n%s", cli.Usage)
-		return diagnostics.ExitForCode(diagnostics.CodeUsage)
-	}
-	if isHosted && inv.NetworkSet {
-		// Hosted execution supports no managed network scope: the
-		// receiver cannot enforce a source-side profile. The native
-		// --network path (SPEC §4.4b) is untouched; only this refusal
-		// maps to the hosted policy exit.
-		_ = diagnostics.Emit(stderr, diagnostics.CodeNetworkScopeUnsupported, "managed network selections are not supported by hosted execution")
-		return diagnostics.ExitPolicy
+		return emitFailure(stderr, diagnostics.CodeUsage, errors.New("resume selectors require hosted execution; use --hosted or a hosted default"))
 	}
 	if isHosted {
-		// Hosted runs tracked, but operator decision Q-D3 (2026-10-05)
-		// exempts the hosted path from tracked permission semantics:
-		// the configured ladder applies, silence defaults like native,
-		// and yolo is admitted. resolvePermission carries the
-		// exemption; nothing else in the hosted path reads Tracked.
 		inv.Tracked = true
 	}
 	wd, err := deps.workdir()
@@ -473,81 +465,14 @@ func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, ta
 	if err != nil {
 		return emitPermissionFailure(stderr, err)
 	}
-	if isHosted && frag.Environment != fragment.EnvClaudeCode {
-		return emitFailure(stderr, diagnostics.CodeSessionHostProviderUnsupported, fmt.Errorf("session_host_provider_unsupported: hosted execution in Phase 1 admits claude_code only; %s is not admitted", frag.Environment))
-	}
-	// The native tail for the plan build. Hosted elevation runs the module
-	// typed-intent API over the wrapper selectors and the verbatim tail and
-	// detaches elevated selectors; native mode never interprets the tail.
 	tail := inv.Native
 	intent := agentic.ResumeIntent{Kind: agentic.ResumeNew}
 	if isHosted {
-		systems := deps.systems
-		if systems == nil {
-			systems = agentic.Default
-		}
-		wrapper, err := hosted.WrapperArgs(inv.ResumeRequested, inv.ResumeHandle, inv.ResumeHandleSet, inv.ResumeID, inv.ResumeIDSet)
-		if err != nil {
-			return emitFailure(stderr, diagnostics.CodeSessionResumeInvalid, err)
-		}
-		elevation, err := hosted.ElevateResume(systems, target.System, wrapper, inv.Native)
-		if err != nil {
-			return emitFailure(stderr, diagnostics.CodeSessionResumeInvalid, err)
-		}
-		tail, intent = elevation.NativeArgs, elevation.Intent
+		tail, intent = selected.tail, selected.intent
 	}
-	// The piped-launcher-stdin property is known before composition, so
-	// it refuses here, after every higher-priority refusal (host, ax,
-	// defaults gate, network, permission, provider, resume) and before
-	// the plan build or any receiver contact. The attached-plan-stdin
-	// property below is only knowable from the built plan, so that gate
-	// necessarily stays after the build.
-	if isHosted {
-		terminal := deps.stdinTerminal
-		if terminal == nil {
-			stdin := deps.stdin
-			if stdin == nil {
-				stdin = os.Stdin
-			}
-			terminal = func() bool { return execution.StdinIsTerminal(stdin) }
-		}
-		if !terminal() {
-			return emitFailure(stderr, diagnostics.CodeSessionHostStdinUnsupported, errors.New("session_host_stdin_unsupported: hosted launches in Phase 1 do not support piped stdin"))
-		}
-	}
-	// The controlling-terminal property is known before composition
-	// (opening the terminal either succeeds or fails), so it refuses
-	// here, after every higher-priority refusal and before the plan
-	// build, composition, export, and receiver lookup. The opened
-	// descriptor is reused by the transport; it is never opened twice.
-	var preopenedTTY *os.File
-	if isHosted {
-		openTerminal := deps.receiverTerminal
-		if openTerminal == nil {
-			openTerminal = hosted.OpenTerminal
-		}
-		tty, err := openTerminal()
-		if err != nil || tty == nil {
-			if tty != nil {
-				tty.Close()
-			}
-			return emitFailure(stderr, diagnostics.CodeSessionHostTerminalRequired, errors.New("session_host_terminal_required: a hosted launch requires a controlling terminal"))
-		}
-		// r6 §4, before the build: the launcher's close-on-exec mark
-		// plus type/access/ownership validation. A wrong descriptor
-		// refuses here with zero builds and zero lookup, like a
-		// missing terminal; the transport re-validates before contact.
-		hosted.MarkCloseOnExec(tty)
-		if err := hosted.ValidateTerminal(tty); err != nil {
-			tty.Close()
-			return emitFailure(stderr, diagnostics.CodeSessionHostTerminalRequired, errors.New("session_host_terminal_required: a hosted launch requires a controlling terminal"))
-		}
-		preopenedTTY = tty
-		defer func() {
-			if preopenedTTY != nil {
-				preopenedTTY.Close()
-			}
-		}()
+	if isHosted && intent.Kind != agentic.ResumeNew {
+		startShadowSelection(deps)
+		return runDelegated(ctx, inv, frag, resolved, decision, wd, tail, intent, stdout, stderr, deps)
 	}
 	availability, err := deps.availability()
 	if err != nil {
@@ -719,15 +644,22 @@ func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, ta
 		return nil
 	}
 	if isHosted {
-		tty := preopenedTTY
-		preopenedTTY = nil
-		return runHosted(inv, frag, target, value, intent, inspection, admitted.Plan, decision, parentEnv, now(), stdout, stderr, deps, boundary, tty)
+		if selected.route.Kind == "delegated" {
+			for _, warning := range value.Warnings {
+				fmt.Fprintln(stderr, name+": "+warning)
+			}
+			if err := boundary(); err != nil {
+				return emitFailure(stderr, diagnostics.CodePlanRefused, err)
+			}
+			return runDelegated(ctx, inv, frag, resolved, decision, wd, tail, intent, stdout, stderr, deps)
+		}
+		return runHosted(inv, frag, target, value, intent, inspection, admitted.Plan, decision, parentEnv, now(), stdout, stderr, deps, boundary, selected.terminal)
 	}
 	return runNative(inv, frag, target, value, decision, inspection, stdout, stderr, deps, boundary, now())
 }
 
 // runNative is the existing native tail: report, prepare, and run the
-// composed value directly or through ax. It performs zero receiver contact;
+// composed value directly or through ax. It performs zero manager contact;
 // hosted failures never reach it, which the fallback mutant guards.
 func runNative(inv cli.Invocation, frag *fragment.Fragment, target mapping.Target, value composition.Value, decision execution.PermissionDecision, inspection agentic.StoredPolicyInspection, stdout, stderr io.Writer, deps launchDeps, boundary func() error, at time.Time) int {
 	var nativePolicy *execution.EffectiveNativePolicy
@@ -741,20 +673,9 @@ func runNative(inv cli.Invocation, frag *fragment.Fragment, target mapping.Targe
 	return prepared.Run(execution.Options{AxBinary: deps.axBinary, IO: execution.IO{Stdin: deps.stdin, Stdout: stdout, Stderr: stderr}, Boundary: boundary})
 }
 
-// runHosted serializes the once-composed plan into the versioned payload and
-// hands it to the receiver. It performs the only receiver contact in the
-// launcher; native execution never reaches it. There is no fallback: a
-// missing receiver refuses session_host_missing, never native execution.
-// preopenedTTY is the terminal the entry point opened before the build;
-// runHosted owns it and hands it to the transport, closing it on any
-// earlier return.
+// runHosted sends the sealed exact plan through the selected plugin. The caller
+// owns preopenedTTY and closes it after the terminal exchange.
 func runHosted(inv cli.Invocation, frag *fragment.Fragment, target mapping.Target, value composition.Value, intent agentic.ResumeIntent, inspection agentic.StoredPolicyInspection, base agentic.Plan, decision execution.PermissionDecision, parentEnv []string, at time.Time, stdout, stderr io.Writer, deps launchDeps, boundary func() error, preopenedTTY *os.File) int {
-	pendingTTY := preopenedTTY
-	defer func() {
-		if pendingTTY != nil {
-			pendingTTY.Close()
-		}
-	}()
 	for _, warning := range value.Warnings {
 		fmt.Fprintln(stderr, name+": "+warning)
 	}
@@ -813,8 +734,14 @@ func runHosted(inv cli.Invocation, frag *fragment.Fragment, target mapping.Targe
 		}
 		return emitFailure(stderr, diagnostics.CodePlanRefused, err)
 	}
-	pendingTTY = nil
-	return hosted.Transport{Lookup: deps.receiverLookup, Terminal: deps.receiverTerminal, PreopenedTerminal: preopenedTTY}.Run(wire, stdout, stderr)
+	result, err := deps.hostedSelection.client.Terminal(context.Background(), "launch-exact", wire, terminalStreams(preopenedTTY, stdout, stderr, deps.stdin))
+	if err != nil {
+		return emitHostFailure(stderr, err)
+	}
+	if result.Refusal != nil {
+		return emitHostFailure(stderr, result.Refusal)
+	}
+	return result.Exit
 }
 
 func resolvePermission(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, target mapping.Target, files defaults.Files, parentEnv []string, stderr io.Writer, deps launchDeps, hosted bool) (execution.PermissionDecision, string, agentic.System, error) {

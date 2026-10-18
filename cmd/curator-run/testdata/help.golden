@@ -22,8 +22,10 @@ Launcher flags are recognized only before "--". Everything after "--" is
 forwarded to the tool verbatim, in order, uninspected.
 
 options:
-  --hosted                          unavailable until the swarma dispatcher path ships
+  --hosted                          use the selected registered session manager
   --native, --untracked             run natively; the two spellings are equal
+  --board-goal                      bind the workspace board goal (hosted only)
+  --detach                          launch without attaching (hosted only)
   resume [SES-HANDLE]               hosted resume selector (latest or handle)
   --resume <id>                     hosted resume selector (provider identity)
   --profile <name>                  Curator profile forwarded to env resolve
@@ -68,15 +70,14 @@ configuration refuses even --help/--version. No direct fallback on ax failure.
 Repeated/unknown flags, missing values and extra operands before -- refuse.
 
 Host: --hosted, --native and --untracked share one host request: a repeat
-or a combination refuses. No flag means native in this slice. The v3 defaults
-host member is withdrawn; use migrate. Machine launcher.json policy is parsed
-and exposed to main, pending selection wiring. Native execution proceeds
-with no session-host probe. An explicit --native or --untracked on an
-ax-configured machine bypasses ax; silent native selection does not.
-Hosted launch is unavailable until the swarma dispatcher path ships.
-Production receiver lookup fails closed with session_host_missing (exit 1),
-before any handoff, even if task-board is on PATH. Earlier validation and
-configuration refusals still apply. No configuration silently starts a host.
+or a combination refuses. Machine launcher.json selects native, hosted or auto
+(default). Native skips the manager registry; explicit --native also bypasses
+ax. Auto uses the selected registered manager, or launches natively with a notice.
+An invalid registry refuses auto; hosted refusals never fall back to native.
+Delegated launches require explicit --hosted and machine delegated_trial:true
+until sign-off. Implicit auto stays native for delegated-only managers; implicit
+hosted refuses session_host_missing. A missing upgrade capability prints a notice.
+The v3 defaults host member is withdrawn; use migrate.
 resume selectors and --resume are hosted-only; in native mode they refuse.
 --hosted with --network refuses network_scope_unsupported (exit 16).
 

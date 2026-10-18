@@ -181,5 +181,41 @@
     "document": {
       "limit": null
     }
+  },
+  {
+    "name": "selector-spelling",
+    "valid": true,
+    "document": {
+      "labels": {
+        "selector": "decision/@+1"
+      }
+    }
+  },
+  {
+    "name": "label-space",
+    "valid": false,
+    "document": {
+      "labels": {
+        "selector": "decision 1"
+      }
+    }
+  },
+  {
+    "name": "label-semicolon",
+    "valid": false,
+    "document": {
+      "labels": {
+        "selector": "decision;1"
+      }
+    }
+  },
+  {
+    "name": "label-overlong",
+    "valid": false,
+    "document": {
+      "labels": {
+        "selector": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    }
   }
 ]

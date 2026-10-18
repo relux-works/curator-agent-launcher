@@ -14,10 +14,10 @@ No implementation, qualification or activation is claimed.
 | Entry | Composer | Process/lifetime owner | Status |
 |---|---|---|---|
 | Direct human `curator-run <env-id> …` | Caller-side interactive launcher | Launcher starts and waits for native child | Existing API below. |
-| Hosted or `ax` launch | Same caller-side interactive launcher | Hosted receiver or `ax` | Existing §§4.6/4.8–4.9 contracts; refusal never falls back to direct launch. |
+| Hosted or `ax` launch | Validated caller policy; plugin composes delegated launches | Registered session manager or `ax` | Explicit delegated trial route is wired for Claude/Codex; refusal never falls back to native. |
 | Agent one-shot exec | Caller composes; dispatcher admits/provisions/tracks | `curator-run` under `worker-<label>` verifies and executes; dispatcher/helper own stop and cleanup | **Target amendment (version pending), not implemented**; [SPEC §10](SPEC.md#10-agent-account-one-shot-exec-contract-target-amendment). |
 
-Target front-door amendment (draft, under review, not implemented):
+Front-door amendment (partially implemented; delegated activation remains gated):
 [FRONT-DOOR.md](FRONT-DOOR.md) makes `curator run` hosted by default through
 a registered session-manager plugin, adds `curator run werkstatt up|down`,
 Muse v4, setup-token injection, a2a doorbells and the signed distribution.
@@ -26,10 +26,10 @@ The launcher-side protocol library is available in
 `internal/sessionmanager/client`: validated RPCs, terminal fd4 transport,
 request-derived capability decisions, and durable operation reconciliation.
 Its [schemas and vectors](schemas/session-manager/README.md) are executable
-through Go tests. This library is not yet wired into host selection or the
-Werkstatt commands. A [reference fake manager and qualification suite](internal/sessionmanager/conformance/README.md)
-exercise the plugin contract with a durable no-op provider; launcher command
-wiring remains a separate step.
+through Go tests. The library is wired into host selection and plain hosted
+launch/resume/attach. Werkstatt commands remain a future slice. A [reference fake manager and qualification suite](internal/sessionmanager/conformance/README.md)
+exercise the plugin contract with a durable no-op provider. Real-binary tests
+cover host-mode resolution, launch projection and refusal ordering.
 
 ## Target one-shot exec mode
 
@@ -323,18 +323,18 @@ The launch pipeline follows these steps:
    `mapped=module-attested` only after the builder admits its help evidence.
    Pi uses the ordered convention `pi-anthropic`, `pi-openai`, `pi-google`; vendor
    scores are never compared. Explicit models bind their own runtime.
-4. Resolve the host from the `--hosted`/`--native`/`--untracked` flag,
-   with native as the implicit result in this slice. Per-environment v3 `host`
-   defaults are withdrawn and refuse with `host_member_withdrawn` (exit 2).
-   Machine `host_mode` is validated and exposed to the caller, pending selection wiring.
-   A hosted flag with `ax` enabled refuses `host_configuration_conflict`; any
-   `--hosted --network` selection refuses `network_scope_unsupported` (exit
-   16; native `--network` is the direct path below). No flag and no
-   default stays native with no session-host probe. Hosted launches resolve
-   permissions through the configured ladder with silence defaulting as on
-   the native path and yolo admitted by the builder (Q-D3), with the dormant
-   contract limited to Claude in Phase 1,
-   and elevate resume selectors through the module typed-intent grammar.
+4. Resolve host mode with [FRONT-DOOR §3.2](FRONT-DOOR.md#32-resolution).
+   Explicit native and machine native skip the registry. Explicit hosted checks
+   ax conflicts, network, terminal and stdin before reading the registry; auto
+   reads the registry first. An empty or unselected auto registry prints the
+   fixed native notice. Selected managers answer `describe` once; capabilities
+   and the per-runtime activation matrix decide the route without failure
+   fallback. Delegated trials require explicit `--hosted` and system
+   `delegated_trial: true`. Implicit auto remains native for delegated-only
+   managers until sign-off, and implicit hosted refuses `session_host_missing`.
+   A manager without an upgrade capability prints the upgrade disclosure.
+   Hosted Claude/Codex permissions use the native ladder, including yolo.
+   Resume selectors are elevated through the module's typed grammar.
 5. Call `vendorplugin.BuildLaunchWithEnvironment` in `LaunchModeInteractive`
    with `LaunchRequest.ToolRelease` and `LaunchRequest.NativeArgs` for the
    release-bound permission grammar (v2 for Claude Code and Codex CLI, v1 for
@@ -351,16 +351,19 @@ The launch pipeline follows these steps:
    arguments pass through. Pi retains its existing prompt/discovery path.
    v2/v3 Claude/Codex fragments project their v1-compatible context subset;
    permission mapping and original fragment transport metadata remain unchanged.
-7. Prepare direct execution, the ax launch-plan document, or the hosted
-   session-launch-plan payload. Immediately before either native launch, call
-   `systemprompt.PrepareLaunch`, check the provider binary,
-   and check the Codex MCP layer. Emit prompt/discovery warnings. A late refusal
-   starts neither provider nor ax. Hosted launch is unavailable until the
-   swarma dispatcher path ships.
-   Production receiver lookup fails closed with `session_host_missing`
-   (exit 1), before any handoff, even with `task-board` on PATH; there is
-   no native fallback. Existing injected-receiver tests cover the dormant
-   payload contract and do not demonstrate a working hosted launch.
+7. Prepare direct execution, the ax launch-plan document, or a plugin request.
+   Native launch retains its existing pre-exec checks and prompt preparation.
+   Delegated launch sends the resolved profile hashes, model/effort, permission
+   source, prompt semantics and selector-free native tail to `launch`, followed
+   by generation-fenced `attach` unless `--detach` is set. `--board-goal` asks for
+   `workspace` and requires `board-goal/1`; ordinary requests use `none`.
+   Selector decision ids are copied verbatim to the `selector` label. Credential
+   and doorbell requests remain null in this slice. Unsupported fragment
+   revisions refuse before manager contact. Muse hosted and Werkstatt commands
+   remain future slices. Exact-plan managers retain the qualified payload path.
+   Lost launch/resume answers use the client's single reconciliation loop,
+   without local `op.json`; unresolved outcomes disclose the operation id and
+   refuse `session_liveness_unknown`. No hosted refusal executes natively.
 
 The permission interface is implemented against upstream
 `skill-agents-management v0.5.62` (F-M1). It owns
@@ -464,7 +467,9 @@ scope. Resolution always requests repair.
 
 | Option | Meaning |
 |---|---|
-| `--hosted`, `--native`, `--untracked` | Hosted launch is unavailable until the swarma dispatcher path ships; production lookup refuses `session_host_missing` before handoff. One host request slot; `--untracked` equals `--native`; repeats and combinations refuse |
+| `--hosted`, `--native`, `--untracked` | Select one host request. Hosted uses the registered manager and activation gate; native skips the registry. `--untracked` equals `--native`; repeats and combinations refuse |
+| `--board-goal` | Hosted workspace goal request; requires `board-goal/1` |
+| `--detach` | Hosted launch without attach |
 | `resume [SES-HANDLE]`, `--resume <id>` | Hosted-only resume selectors; usage errors in native mode |
 | `--profile <name>` | Curator profile, forwarded to environment resolution |
 | `--system-prompt <append\|replace>` | Explicit prompt-channel opt-in; unavailable semantics refuse the launch |
@@ -557,11 +562,9 @@ refuse the invocation; absence alone permits fallback.
 `launcher.json` uses the closed schema `curator-run-launcher-v1` and optional
 `host_mode` (`auto`, `native`, `hosted`) in the system layer only. Absence
 means `auto`; an explicit value has source `machine`, absence source `default`.
-The optional system-only `delegated_trial` boolean is also validated and
-exposed, without enabling delegated execution in this slice.
-A user-layer `host_mode` or `delegated_trial` refuses and names the system path. The resolved mode
-is validated and exposed to the caller; host selection will use it in a later
-slice. The v3 defaults `host` member is withdrawn: it refuses
+The optional system-only `delegated_trial` boolean authorizes the explicit
+delegated launch row. It does not change implicit auto or hosted rows.
+A user-layer `host_mode` or `delegated_trial` refuses and names the system path. Host selection uses this mode and the per-launch flag. The v3 defaults `host` member is withdrawn: it refuses
 `host_member_withdrawn` (exit 2), naming `launcher.json`; see
 [FRONT-DOOR §3.1](FRONT-DOOR.md#31-the-machine-mode).
 
@@ -615,7 +618,9 @@ The launcher attempts the append lock without waiting; contention or failure
 drops the line and best-effort increments `selector/dropped` beside the log.
 The detached worker can wait for this lock for at most five seconds. Observation
 and counter paths must be regular files, never symlinks. Selector and observation
-failures never change the launch. Hosted labels are wired in a later slice.
+failures never change the launch. A fresh hosted launch carries the decision id
+verbatim in its `selector` label. Plain resume uses an empty label filter and
+retains the admitted session labels and policy.
 
 The session-manager registry uses the closed schema
 `curator-run-session-managers-v1`: `{schema, selected?, managers}`. A system
@@ -762,7 +767,7 @@ on stderr. Foreign Curator/provider/ax output is forwarded unchanged.
 | `network_profile_unknown`, `network_profile_denied`, `network_scope_unsupported`, `network_configuration_conflict`, `network_proxy_unreachable`, `network_proxy_auth_failed`, `network_profile_invalid`, `network_file_unreadable` | 1 (hosted `--network`: `network_scope_unsupported` exits 16) |
 | `session_host_missing`, `session_host_unavailable` | 1 |
 | `session_host_protocol_unsupported`, `session_host_provider_unsupported`, `session_host_scope_unsupported`, `session_host_execution_profile_unsupported`, `session_host_terminal_required`, `session_host_stdin_unsupported` | 6 |
-| `secret_policy_violation`, `policy_refused`, `session_host_default_not_ready` | 16 |
+| `secret_policy_violation`, `policy_refused`, `session_host_delegated_unauthorized` | 16 |
 | Direct child failure | Child's exit code unchanged |
 | Direct child terminated by signal | `128 + signal` |
 | Hosted receiver exit without a refusal record | Receiver exit unchanged |
@@ -807,8 +812,8 @@ platform execution evidence must come from the corresponding runner.
 | `.scripts/context-mutants.py` | narrow carrier engagement, reserved-member exclusion, permissions, deprecated-alias refusal, native suffix and release configuration in an isolated candidate copy | `python3 .scripts/context-mutants.py [evidence-dir]` | isolated copy, per-mutant logs and `summary.tsv`, default `.temp/context-mutants/` |
 | production pipeline mutants | narrow the three late checks and ax mode selection at `run(...)`; restore exact candidate bytes | `python3 .scripts/pipeline-mutants.py [evidence-dir]` | per-mutant logs and `summary.tsv`; 9 named narrowing probes |
 | CLI goldens | frozen accepted/rejected §3 shapes | `go test ./internal/cli -run TestGolden -update` to regenerate, then review the diff | `internal/cli/testdata/cases.golden` |
-| `.scripts/hosted-mutants.sh` | narrowing-mutant harness for the §4.8/§4.9 hosted gates (withdrawn host, fallback, probe-on-native, defaults diagnostics, network gate, status contract, payload limits, session projection); fails closed: a mutant whose anchor matches no source is reported `NOT_APPLIED` by name and exits non-zero | `.scripts/hosted-mutants.sh [evidence-dir]` (optional `MUTANTS_ONLY=M-H1,M-H2`, `MUTANT_PKGS`, `MUTANT_RUN` for bounded batches) | per-mutant logs and `summary.tsv` (default `.temp/hosted-mutants/`); the source tree is restored on exit |
-| `internal/mutantguard` | committed check that runs the required hosted mutants M-H1, M-H2, M-H3 and M-H22 through the harness in a scratch copy of the tree and requires each to be applied and killed | `go test ./internal/mutantguard` | scratch copy under the test temp dir; the working tree is never mutated |
+| `.scripts/hosted-mutants.sh` / `.scripts/host-launch-mutants.py` | Bounded host resolution, matrix and request controls; each plant requires its passing control and named behavioral assertion. Missing anchors fail closed. | `.scripts/hosted-mutants.sh [evidence-dir]` (`MUTANTS_ONLY=M-H1,M-H2` selects a subset) | isolated source copy, per-control logs and `summary.tsv` under `.temp/hosted-mutants/` by default; working source is untouched |
+| `internal/mutantguard` | committed check that runs required withdrawn-host, no-fallback, native-bypass and missing-registration mutants M-H1, M-H2, M-H3 and M-H22 through the harness in a scratch copy of the tree and requires each to be applied and killed | `go test ./internal/mutantguard` | scratch copy under the test temp dir; the working tree is never mutated |
 | `.scripts/cli-mutants.sh` | narrowing-mutant harness for the §3 gates: each mutant weakens one gate to admit one rejected shape and the named test must fail | `.scripts/cli-mutants.sh [evidence-dir]` (optional `MUTANT_PKGS`, `MUTANT_RUN` for bounded batches) | per-mutant logs and `summary.tsv` under the evidence dir (default `.temp/cli-mutants/`); the source tree is restored on exit |
 | `.scripts/fragment-mutants.sh` | narrowing-mutant harness for the §4.1 gates (argv, exit mapping, stderr transport, reader rules, schema closure, CCJ-1 emission, entry-point wiring); the behavioral suite runs against every mutant | `.scripts/fragment-mutants.sh [evidence-dir]` (optional `FRAGMENT_MUTANT_IDS="M27 M28" FRAGMENT_TEST_PATTERN="TestExecutableUnicodePathBoundary|TestConformanceCorpus"` for focused rework) | `mutants.log` under the evidence dir (default `.temp/fragment-mutants/`); sources are restored from byte copies on exit |
 | `.scripts/mapping-mutants.py` | §4.2 narrowing probes with named production-entry failures; restores candidate bytes after each mutation | `python3 .scripts/mapping-mutants.py [evidence-dir]` | per-mutant logs and `summary.tsv` (default `.temp/mapping-mutants/`) |

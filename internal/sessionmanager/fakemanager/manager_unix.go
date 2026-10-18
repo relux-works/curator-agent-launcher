@@ -99,6 +99,14 @@ type Snapshot struct {
 	Offset int               `json:"offset"`
 	Labels map[string]string `json:"labels"`
 }
+
+// Process records are bounded fixture evidence, not provider liveness evidence.
+type CallProcess struct{ PID, Group int }
+type CallHistory struct {
+	Calls         []string      `json:"calls"`
+	CallProcesses []CallProcess `json:"call_processes"`
+}
+
 type State struct {
 	Root        string              `json:"root"`
 	Sessions    map[string]*Stored  `json:"sessions"`
@@ -241,8 +249,19 @@ func open(dir string) (*manager, *os.File, error) {
 		time.Sleep(5 * time.Millisecond)
 	}
 	fresh := false
-	m := &manager{dir: dir, config: DefaultConfig(), now: time.Now().UTC().Truncate(time.Second)}
-	if err = loadOptional(filepath.Join(dir, "config.json"), &m.config); err == nil {
+	m := &manager{dir: dir, now: time.Now().UTC().Truncate(time.Second)}
+	// A persisted configuration replaces the default maps in full. Unmarshalling
+	// into populated defaults would silently restore omitted runtime entries.
+	configData, configErr := read(filepath.Join(dir, "config.json"), client.Limit)
+	if errors.Is(configErr, os.ErrNotExist) {
+		m.config = DefaultConfig()
+		err = nil
+	} else if configErr != nil {
+		err = configErr
+	} else {
+		err = strict(configData, &m.config)
+	}
+	if err == nil {
 		err = loadOptional(filepath.Join(dir, "control.json"), &m.control)
 	}
 	if err == nil {
@@ -925,6 +944,27 @@ func Run(dir string, args []string, input io.Reader, attachInput io.Reader, stat
 		return emit(refusal("session_host_unavailable", map[string]string{"reason": reason}), op, status, output)
 	}
 	defer lock.Close()
+	// Call telemetry is separate from admitted state. Reads and rejected RPCs
+	// must never rewrite the state or change qualification observations.
+	if slices.Contains([]string{"describe", "launch", "resume", "attach", "status", "cancel", "list", "stop"}, op) {
+		var history CallHistory
+		path := filepath.Join(m.dir, "call-history.json")
+		if loadOptional(path, &history) != nil {
+			return 1
+		}
+		group, _ := unix.Getpgid(0)
+		history.Calls = append(history.Calls, op)
+		history.CallProcesses = append(history.CallProcesses, CallProcess{PID: os.Getpid(), Group: group})
+		if len(history.Calls) > 1024 {
+			history.Calls = history.Calls[len(history.Calls)-1024:]
+		}
+		if len(history.CallProcesses) > 1024 {
+			history.CallProcesses = history.CallProcesses[len(history.CallProcesses)-1024:]
+		}
+		if sessionmanager.WriteAtomic(path, encode(history)) != nil {
+			return 1
+		}
+	}
 	if op == "attach" && m.control.Fault == "plain-attach-exit" {
 		if m.bad("attach-plain-exit") {
 			return terminal(status, "policy_refused")

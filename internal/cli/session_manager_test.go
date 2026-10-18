@@ -25,3 +25,20 @@ func TestSessionManagerGrammar(t *testing.T) {
 		t.Fatal(got, err)
 	}
 }
+
+// Hosted switches have a closed boolean grammar and remain opaque after --.
+func TestHostedSwitches(t *testing.T) {
+	inv, err := Parse([]string{"claude_code", "--hosted", "--board-goal", "--detach"}, Options{})
+	if err != nil || !inv.BoardGoal || !inv.Detach {
+		t.Fatalf("%+v %v", inv, err)
+	}
+	for _, args := range [][]string{{"claude_code", "--board-goal=true"}, {"claude_code", "--detach=false"}, {"claude_code", "--board-goal", "--board-goal"}, {"claude_code", "--detach", "--detach"}} {
+		if _, err := Parse(args, Options{}); !IsUsage(err) {
+			t.Fatalf("invalid switches admitted: %v %v", args, err)
+		}
+	}
+	inv, err = Parse([]string{"claude_code", "--", "--board-goal", "--detach"}, Options{})
+	if err != nil || inv.BoardGoal || inv.Detach || len(inv.Native) != 2 {
+		t.Fatalf("native tail changed: %+v %v", inv, err)
+	}
+}

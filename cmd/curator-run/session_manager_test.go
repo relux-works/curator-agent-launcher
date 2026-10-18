@@ -57,14 +57,14 @@ func TestRunSessionManagerCommands(t *testing.T) {
 	}
 }
 
-// A malformed registry cannot affect ordinary launches before S4; a manager
+// Auto refuses a malformed registry; a manager
 // binary on PATH alone also cannot make an unknown administrative id registered.
-func TestRunSessionManagerDoesNotWireLaunch(t *testing.T) {
+func TestRunSessionManagerLaunchUsesRegistry(t *testing.T) {
 	deps, runner, loc := configHomeFixture(t)
 	writeConfig(t, loc.System, sessionmanager.Filename, "{")
 	var out, stderr strings.Builder
 	code := run(context.Background(), []string{"pi"}, &out, &stderr, deps)
-	if code != 1 || runner.calls != 1 || !strings.Contains(stderr.String(), "plan_refused: early-stage fixture") || strings.Contains(stderr.String(), sessionmanager.CodeInvalid) {
+	if code != 2 || runner.calls != 1 || !strings.Contains(stderr.String(), sessionmanager.CodeInvalid) {
 		t.Fatalf("%d %s", code, &stderr)
 	}
 	os.Remove(filepath.Join(loc.System, sessionmanager.Filename))

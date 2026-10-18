@@ -25,8 +25,8 @@ func (e *Error) Unwrap() error { return e.Err }
 // system host_mode; absent file or member means auto/default.
 type Mode struct{ Value, Source string }
 
-// Config is validated policy, not execution authority. S1 exposes the trial
-// opt-in and mode to main; the selection/dispatch stages do not consume them.
+// Config is validated machine policy. Host resolution consumes the mode and
+// delegated trial opt-in before selecting a session-manager route.
 type Config struct {
 	HostMode          Mode
 	DelegatedTrial    bool

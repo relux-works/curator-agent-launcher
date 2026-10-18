@@ -25,7 +25,6 @@ func configHomeFixture(t *testing.T) (launchDeps, *scriptedRunner, configfile.Lo
 	deps.configLocations = func() (configfile.Locations, error) { return loc, nil }
 	deps.configPaths = nil
 	deps.axPaths = nil
-	deps.receiverLookup = func() (string, error) { t.Fatal("S1 machine mode changed host selection"); return "", nil }
 	return deps, runner, loc
 }
 func writeConfig(t *testing.T, dir, name, data string) {
@@ -33,8 +32,8 @@ func writeConfig(t *testing.T, dir, name, data string) {
 	writeFixture(t, filepath.Join(dir, name), []byte(data), 0600)
 }
 
-// Production dispatch uses one resolver for all three files, validates machine
-// policy without enabling hosted mode, and never reads shadowed legacy files.
+// Production dispatch uses one resolver for all three files, uses machine
+// policy for native routing, and never reads shadowed legacy files.
 func TestRunSharedConfigHome(t *testing.T) {
 	for _, shape := range []string{"new", "fallback", "both"} {
 		t.Run(shape, func(t *testing.T) {
@@ -43,7 +42,7 @@ func TestRunSharedConfigHome(t *testing.T) {
 			if shape == "fallback" {
 				machine, user = loc.LegacySystem, loc.LegacyUser
 			}
-			writeConfig(t, machine, "launcher.json", `{"schema":"curator-run-launcher-v1","host_mode":"hosted"}`)
+			writeConfig(t, machine, "launcher.json", `{"schema":"curator-run-launcher-v1","host_mode":"native"}`)
 			writeConfig(t, user, "ax.json", `{"schema":"curator-run-ax-v1","enabled":false}`)
 			writeConfig(t, user, "defaults.json", `{"schema":"curator-run-defaults-v3","defaults":{"pi":{"model":"claude-fable-5","effort":"high","permissions":"native"}}}`)
 			if shape == "both" {
