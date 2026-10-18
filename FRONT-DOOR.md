@@ -2,7 +2,7 @@
 
 **Amends:** [SPEC](SPEC.md) `0.5.1-draft` → `0.6.0-draft` (target; nothing
 here is implemented yet).
-**Status:** revision 6, draft. `ivmbp_curator_orch` accepted revision 1
+**Status:** revision 6.1, draft. The independent review accepted revision 6 (f8c2756); 6.1 adds only its three non-blocking clarifications. `ivmbp_curator_orch` accepted revision 1
 (0ed45c5) as the basis on 2026-10-18 with four must-change points. Revision 2
 folds those in, together with the independent reviews `review-1` and
 `review-2` and `review-3` (all rework, converging). Revision 3 also adopts the accepted
@@ -768,9 +768,7 @@ exclusive lock on `<state>/werkstatt/<id>.lock`.
     nothing. In `--json`, the output object (`werkstatt-status-v1`) carries
     `stale: true` beside the record. `stale` is an output field only and is
     never stored.
-- Every liveness write is also a compare-and-swap on `(operation_id,
-  generation)`: a write carrying an older generation than the file holds
-  is dropped.
+- Every liveness write is also the expected-value compare-and-swap of §6.5.
 - Manager admission still decides across clients and state roots.
 
 **Plain hosted launches** (no Werkstatt) are attached and interactive. A
@@ -894,15 +892,21 @@ local write.
       - An `unknown` session there is `session_liveness_unknown` (1).
    3. **Resume target.** This applies with `context_mode` `continue` and no
       `--new`.
-      - The target is the liveness record's session when the owner check
-        found it `down` on the bound manager, and the bound manager is the
-        selected one.
+      - First choice: the liveness record's session, when two conditions
+        hold:
+        - the binding equals the selected entry in full (id, executable,
+          `registered_at`);
+        - that session is `down`, either confirmed by step 4.1 or listed
+          as `down` by step 4.2, which covers a record already marked
+          `down`.
       - Otherwise it is the newest `down` session on the selected manager
         by `started_at`.
       - A tie, or an unreadable candidate, is `session_resume_ambiguous`
         (1).
       - If the bound manager is not the selected one, there is no
-        cross-manager resume: the launch is new.
+        cross-manager resume: the launch is new. A manager switch is
+        therefore the one case in which `continue` starts a new
+        conversation (§6.4).
    4. **Recovery.** Two explicit commands leave the fail-closed state.
       - `werkstatt status <id> --rebind-manager`:
         - asks the current entry with the binding's id for `status
@@ -1011,7 +1015,8 @@ Only public-key paths and socket paths appear here. Private keys never move.
 - **`continue`:** one long-lived session. Tasks arrive by doorbell into the
   same thread, and the harness compacts natively. After a crash, a machine
   restart or `down`, the next `up` resumes the same native conversation
-  (§6.2 step 8). Only `--new` or `recycle` starts a new thread.
+  (§6.2 steps 4 and 8). A new thread starts only through `--new`,
+  `recycle` or a manager switch (§6.2 step 4.3).
 - **`fresh`:** the orchestrator runs `werkstatt recycle <id>` before each
   task.
 - Rework after review continues the task's thread in both modes. That is
@@ -1042,12 +1047,23 @@ schema `werkstatt-liveness-v1`, written atomically:
 
   `state_source` is then `manager`.
 - **`manager`** is the owner binding: the registry entry the operation was
-  submitted to, frozen at submission. It changes only through
-  `--rebind-manager`.
+  submitted to, frozen at submission. It is immutable within a generation.
+  It changes only two ways:
+  - a successful new generation installs its own binding (§6.2 step 9);
+  - `--rebind-manager`.
+
+  After a confirmed-down generation on manager A and a new launch on B,
+  every later `status`, `stop` and `resume` goes to B.
 - **`operation_id`** is the last settled operation, and `null` before the
-  first one. It is the compare-and-swap key of §5.7, together with
-  `generation`. A write whose `(operation_id, generation)` is older than the
-  file's is dropped.
+  first one. Together with `generation` it is the compare-and-swap key of
+  §5.7, used as an **expected-value** check, never as an ordering of UUIDs.
+  A writer reads `(operation_id, generation)` under the lock, and commits
+  only if the file still holds exactly that tuple. One of two transitions
+  must then hold:
+  - the same operation keeps its generation (a status refresh);
+  - a newly settled operation moves `generation` up by exactly one.
+
+  Every other write is dropped, as is any write for an abandoned id.
 - **Operator override.** `--abandon-operation` sets `state: down`,
   `state_source: operator_override`, and appends the abandoned id to
   `abandoned_operations`.
