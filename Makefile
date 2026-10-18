@@ -7,11 +7,25 @@ GOFMT ?= gofmt
 # (FRONT-DOOR §10). Curator's release workflow calls it per platform, then
 # signs, notarizes and packs; none of that happens here.
 #   make release-binary VERSION=0.6.0 [GOOS=darwin GOARCH=arm64] [DIST=dist]
-GOOS ?= $(shell $(GO) env GOOS)
-GOARCH ?= $(shell $(GO) env GOARCH)
-DIST ?= dist
-RELEASE_TOOLCHAIN := go$(shell sed -n 's/^go //p' go.mod)
-RELEASE_NAME = curator-run-$(VERSION)-$(GOOS)-$(GOARCH)
+# The inputs are data. $(value ...) takes their text unexpanded, and the raw
+# VERSION and DIST are never exported. So a crafted value never runs in make
+# or in the shell, and scripts/release-binary.sh validates it before use.
+export RELEASE_VERSION := $(value VERSION)
+export RELEASE_GOOS := $(value GOOS)
+export RELEASE_GOARCH := $(value GOARCH)
+export RELEASE_DIST := $(value DIST)
+unexport VERSION DIST
+# GNU make expands a command-line variable when it exports it. For the
+# release goals, a command-line GOOS or GOARCH is therefore passed only as
+# data. Other targets keep the usual GOOS/GOARCH passthrough.
+ifneq ($(filter release-binary release-repro,$(MAKECMDGOALS)),)
+ifeq ($(origin GOOS),command line)
+unexport GOOS
+endif
+ifeq ($(origin GOARCH),command line)
+unexport GOARCH
+endif
+endif
 
 build:
 	$(GO) build ./...
@@ -39,20 +53,8 @@ check: build fmt-check vet test race
 clean:
 	$(GO) clean ./...
 
-# VERSION goes into the ldflags, so it must be a plain semantic version.
-# The toolchain is pinned to go.mod, and -buildid= keeps the bytes the same
-# across hosts. The checksum is in sha256sum format, so `sha256sum -c` (or
-# `shasum -a 256 -c`) verifies it.
 release-binary:
-	@printf '%s\n' "$(VERSION)" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$$' || \
-		{ echo "release-binary: VERSION must be a semantic version, got '$(VERSION)'" >&2; exit 2; }
-	@mkdir -p $(DIST)
-	CGO_ENABLED=0 GOOS=$(GOOS) GOARCH=$(GOARCH) GOFLAGS=-mod=readonly GOTOOLCHAIN=$(RELEASE_TOOLCHAIN) \
-		$(GO) build -trimpath -buildvcs=false \
-		-ldflags "-s -w -buildid= -X main.buildVersion=$(VERSION)" \
-		-o $(DIST)/$(RELEASE_NAME) ./cmd/curator-run
-	@cd $(DIST) && if command -v sha256sum >/dev/null 2>&1; then sha256sum $(RELEASE_NAME); \
-		else shasum -a 256 $(RELEASE_NAME); fi > $(RELEASE_NAME).sha256 && cat $(RELEASE_NAME).sha256
+	@scripts/release-binary.sh
 
 # Builds the committed HEAD in two separate checkout directories and requires
 # identical bytes.

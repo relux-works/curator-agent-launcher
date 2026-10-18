@@ -907,7 +907,9 @@ make release-repro                                 # two checkouts, identical by
 `make release-binary` produces the binary that Curator's signed distribution
 ships (FRONT-DOOR §10). It builds with `CGO_ENABLED=0`, `-trimpath`,
 `-buildvcs=false` and `-ldflags "-s -w -buildid= -X main.buildVersion=…"`, using
-`GOFLAGS=-mod=readonly` and the toolchain pinned from `go.mod`. It writes
+`GOFLAGS=-mod=readonly` and the toolchain pinned from `go.mod`. Its inputs are
+treated as data and validated before use, so a crafted `VERSION` cannot run
+anything. It writes
 `dist/curator-run-<version>-<os>-<arch>` and a checksum file in `sha256sum`
 format. Signing, notarization, packing and the release tag belong to
 Curator's release workflow, not to this repository.
@@ -944,7 +946,8 @@ runs need their own explicit timeout budget, for example
 | `curator-run migrate` | copy legacy configs and remove withdrawn host defaults | `curator-run migrate [--dry-run]` | plan on stdout; new files in `/etc/swarma/launcher/` and `${XDG_CONFIG_HOME:-~/.config}/swarma/launcher/`, rewritten copies keep `.bak` |
 | `go` (build, vet, test, race) | build and behavioral suite | `make check` and the targets above | stdout; nothing written to the tree |
 | `make release-binary` | reproducible release binary for the Curator distribution | `make release-binary VERSION=<semver> [GOOS=… GOARCH=…] [DIST=dist]` | `dist/curator-run-<version>-<os>-<arch>` and `.sha256` (gitignored) |
-| `scripts/release-repro.sh` | committed-HEAD reproducibility across two checkout paths, checksum and `--version` checks, a different-version control and an invalid-version negative | `make release-repro` | temporary directory, removed on exit; one `OK <sha256>` line |
+| `scripts/release-binary.sh` | the release build itself; validates VERSION, GOOS, GOARCH and DIST before any use (the Makefile passes them as unexpanded data) | `make release-binary …` (not run directly) | as above; invalid input exits 2 and writes nothing |
+| `scripts/release-repro.sh` | committed-HEAD reproducibility across two checkout paths, checksum and `--version` checks, a different-version control, and crafted-input negatives that must run and write nothing | `make release-repro` | temporary directory, removed on exit; one `OK <sha256>` line |
 | `python3` defaults mutant harness | weaken defaults gates individually and run the behavioral suite; restore exact candidate bytes | `python3 .scripts/defaults-mutants.py [evidence-dir]` | per-mutant logs and `summary.tsv` (default `.temp/defaults-mutants/`) |
 | `.scripts/context-mutants.py` | narrow carrier engagement, reserved-member exclusion, permissions, deprecated-alias refusal, native suffix and release configuration in an isolated candidate copy | `python3 .scripts/context-mutants.py [evidence-dir]` | isolated copy, per-mutant logs and `summary.tsv`, default `.temp/context-mutants/` |
 | production pipeline mutants | narrow the three late checks and ax mode selection at `run(...)`; restore exact candidate bytes | `python3 .scripts/pipeline-mutants.py [evidence-dir]` | per-mutant logs and `summary.tsv`; 9 named narrowing probes |

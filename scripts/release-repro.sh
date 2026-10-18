@@ -11,7 +11,9 @@
 #   - the binary reports VERSION in --version;
 #   - control: a different VERSION gives different bytes, so the comparison
 #     is not vacuous;
-#   - negative: an invalid VERSION is refused by the guard and writes no binary.
+#   - negatives: crafted VERSION, GOOS, GOARCH and DIST values (spaces,
+#     $(shell), backticks, $$(), ;, a leading -) are refused by the input guard,
+#     run nothing and write nothing.
 #
 # Usage: scripts/release-repro.sh  (from the repository root; needs git, make, go)
 set -eu
@@ -61,17 +63,34 @@ if cmp -s "$A/dist/$name" "$B/dist/curator-run-0.0.1-repro-$host_os-$host_arch";
 	exit 1
 fi
 
-# Negative: an invalid VERSION is refused by the version guard, not by a
-# later build failure, and nothing is written. make reports any recipe failure
-# as exit 2, so the guard's message is the evidence.
-set +e
-refusal=$(make -s -C "$B" release-binary VERSION='1.0 -X main.x=y' DIST=bad-dist 2>&1 >/dev/null)
-status=$?
-set -e
-if [ "$status" -eq 0 ] || [ -e "$B/bad-dist" ] ||
-	! printf '%s\n' "$refusal" | grep -q "VERSION must be a semantic version"; then
-	echo "release-repro: invalid VERSION was not refused by the guard (exit $status): $refusal" >&2
-	exit 1
-fi
+# Negatives: crafted inputs are data. Each one is refused by the input guard
+# (exit 2 from the script, which make reports as a failure). None of them
+# runs (no marker file appears), and nothing is written (no output
+# directory). Every payload would create its marker if it were evaluated by
+# make or by the shell.
+MARK="$WORK/marks"
+mkdir -p "$MARK"
+refused() {
+	label=$1
+	shift
+	set +e
+	out=$(make -s -C "$B" release-binary "$@" 2>&1 >/dev/null)
+	status=$?
+	set -e
+	if [ "$status" -eq 0 ] || [ -e "$B/bad-dist" ] || [ -n "$(ls -A "$MARK")" ] ||
+		! printf '%s\n' "$out" | grep -q "^release-binary: "; then
+		echo "release-repro: negative '$label' FAIL (exit $status, marks: $(ls -A "$MARK")): $out" >&2
+		exit 1
+	fi
+}
+refused version-space VERSION='1.0 -X main.x=y' DIST=bad-dist
+refused version-make-shell VERSION="\$(shell touch $MARK/v1)" DIST=bad-dist
+refused version-backtick VERSION="\`touch $MARK/v2\`" DIST=bad-dist
+refused version-dollar-paren VERSION="\$\$(touch $MARK/v3)" DIST=bad-dist
+refused version-semicolon VERSION="0.6.0;touch $MARK/v4" DIST=bad-dist
+refused goos-make-shell VERSION=0.6.0 GOOS="\$(shell touch $MARK/g1)" DIST=bad-dist
+refused goarch-backtick VERSION=0.6.0 GOARCH="\`touch $MARK/g2\`" DIST=bad-dist
+refused dist-make-shell VERSION=0.6.0 DIST="\$(shell touch $MARK/d1)"
+refused dist-option VERSION=0.6.0 DIST=-rf
 
 echo "release-repro: OK $(sum "$A/dist/$name" | cut -d' ' -f1) $name"
