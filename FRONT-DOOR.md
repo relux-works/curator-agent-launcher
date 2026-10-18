@@ -712,7 +712,7 @@ is `session_host_provider_unsupported` (6). Both are checked before any
 | `submitted_at` | UTC RFC 3339 time at which the launcher created the operation. |
 | `admission_key` | `null`, or `werkstatt:<id>`. |
 | `runtime` | Canonical env-id: `claude_code`, `codex_cli` or `muse`. |
-| `profile` | `{name, lock_sha256, fragment_digest}` from the launcher's resolve. The plugin MUST resolve the same profile, and refuse `policy_refused` (16) when its fragment digest differs. |
+| `profile` | `{name, lock_sha256, fragment_digest}` from the launcher's resolve. `lock_sha256` is spelled as in the fragment: 64 lowercase hex characters, no prefix. `fragment_digest` is spelled as the SPEC §4.6 digest: `sha256:` followed by 64 lowercase hex characters, over the CCJ-1 canonical bytes of the parsed fragment. The plugin MUST resolve the same profile, and refuse `policy_refused` (16) when its fragment digest differs. |
 | `cwd` | Absolute workspace. |
 | `model`, `effort` | Resolved by SPEC §4.3. They are values, never flags. Either may be `null`, meaning the runtime's native default where the module admits one (agents-management v0.5.68 or later for managed Codex). |
 | `service_tier` | `null`, or a value the module admits. A plugin that cannot apply it refuses rather than ignoring it. |
@@ -941,8 +941,33 @@ Attach:
 
 - a status record on fd 4, versus a plain exit status.
 
-`cmd/curator-run-fake-manager` is the reference plugin. A manager is
-**conforming** when it passes the suite for the capabilities it advertises.
+**Two tiers.**
+
+- **Tier A, black-box.** These cases need no control over the plugin: wire
+  and bounds, unknown operations, capabilities, idempotency and conflict,
+  cancel tombstones, generation mismatch, and pagination over sessions the
+  suite creates itself.
+- **Tier B, controlled.** These cases need to set a state the plugin wire
+  cannot set: activity (busy or draining), identity drift, injected faults,
+  the clock for expiry, and an unreadable index. Tier B drives a separate
+  **fixture-adapter executable**, given as `-fixture <abs path>
+  [-fixture-prefix …]`. It speaks its own small JSON contract, published
+  with the suite: `set_activity`, `set_identity_drift`, `inject_fault`,
+  `set_clock`, `corrupt_index` and `reset`.
+  - Fixture controls never pass through the plugin's environment or its
+    requests, and the plugin wire stays closed.
+  - Without `-fixture`, tier B cases report `unqualified`. They are never
+    counted as passed, and the overall result is "not conforming (tier B
+    unqualified)".
+
+**Instrument control.** The suite ships a known-bad control: flags on the
+fake manager that violate each property, one at a time. The suite must
+fail each of them, so it detects what it claims.
+
+`cmd/curator-run-fake-manager` is the reference plugin. It ships its own
+fixture adapter. A manager is
+**conforming** when it passes tiers A and B for the capabilities it
+advertises.
 Werkstätten use only protocol operations.
 
 ### 5.6 Refusals and value validation
