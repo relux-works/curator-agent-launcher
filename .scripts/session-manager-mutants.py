@@ -13,6 +13,8 @@ transaction = root / 'internal/sessionmanager/transaction.go'
 transaction_unix = root / 'internal/sessionmanager/transaction_unix.go'
 atomic = root / 'internal/sessionmanager/atomic.go'
 mutants = [
+ ('R25', service, 'if exists && old.Executable != entry.Executable {', 'if exists && old.Executable != func() string { _, raw, _ := ParseManifest(data); return raw.Executable }() {', 'TestRegistrationSymlinkedParent/keep'),
+ ('R26', service, 'oneLine(entry.Executable)', 'oneLine(func() string { _, raw, _ := ParseManifest(data); return raw.Executable }())', 'TestRegistrationSymlinkedParent/keep'),
  ('R01', registry, 'schema != Schema', 'schema != Schema && schema != "other"', 'TestRegistryClosedSchema/schema'),
  ('R02', registry, 'if !allowed[member.Key] {', 'if !allowed[member.Key] && member.Key != "extra" {', 'TestRegistryClosedSchema/root-extra'),
  ('R03', registry, 'return idPattern.MatchString(id)', 'return idPattern.MatchString(id) || id == "Bad"', 'TestRegistryClosedSchema/bad-id'),

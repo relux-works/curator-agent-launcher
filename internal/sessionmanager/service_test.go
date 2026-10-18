@@ -537,3 +537,76 @@ func TestRegistrationOutputFailurePreservesRegistry(t *testing.T) {
 type failedWriter struct{}
 
 func (failedWriter) Write([]byte) (int, error) { return 0, io.ErrClosedPipe }
+
+// Re-registering through a symlinked parent is silent for the same executable;
+// a distinct file through that parent emits exactly one line with resolved
+// paths. Real registrations seed the registry; selection flags remain effective.
+func TestRegistrationSymlinkedParent(t *testing.T) {
+	for _, tc := range []struct {
+		name                 string
+		selectFlag, noSelect bool
+		selected             string
+	}{
+		{"keep", false, false, "other"},
+		{"no-select", false, true, "other"},
+		{"select", true, false, "board"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s, out, prompt := service(t)
+			e := entry(t)
+			realParent, err := filepath.EvalSymlinks(filepath.Dir(e.Executable))
+			if err != nil {
+				t.Fatal(err)
+			}
+			alias := filepath.Join(t.TempDir(), "install-bin")
+			if err := os.Symlink(realParent, alias); err != nil {
+				t.Fatal(err)
+			}
+			e.Executable = filepath.Join(alias, "manager")
+			oldResolved := filepath.Join(realParent, "manager")
+			if e.Executable == oldResolved {
+				t.Fatal("fixture does not traverse a symlink")
+			}
+			if err := s.Run(Command{Operation: "register", Manifest: manifest(t, "board", e)}); err != nil {
+				t.Fatal(err)
+			}
+			if got := readTarget(t, s).Managers["board"].Executable; got != oldResolved {
+				t.Fatalf("registration stored %q, want resolved %q", got, oldResolved)
+			}
+			if err := s.Run(Command{Operation: "register", Manifest: manifest(t, "other", e), Select: true}); err != nil {
+				t.Fatal(err)
+			}
+			out.Reset()
+			prompt.Reset()
+			s.IsTerminal = func() bool { t.Fatal("upgrade asked terminal"); return true }
+			command := Command{Operation: "register", Manifest: manifest(t, "board", e), Select: tc.selectFlag, NoSelect: tc.noSelect}
+			if err := s.Run(command); err != nil {
+				t.Fatal(err)
+			}
+			if out.Len() != 0 {
+				t.Fatalf("same executable emitted a change line: %s", out)
+			}
+			got := readTarget(t, s)
+			if got.Selected != tc.selected || got.Managers["board"].Executable != oldResolved || prompt.Len() != 0 {
+				t.Fatal(got, prompt.String())
+			}
+			newResolved := filepath.Join(realParent, "replacement")
+			if err := os.WriteFile(newResolved, []byte("fixture; never executed"), 0700); err != nil {
+				t.Fatal(err)
+			}
+			e.Executable = filepath.Join(alias, "replacement")
+			command.Manifest = manifest(t, "board", e)
+			if err := s.Run(command); err != nil {
+				t.Fatal(err)
+			}
+			want := "session manager board: executable changed " + oldResolved + " -> " + newResolved + "\n"
+			if out.String() != want {
+				t.Fatalf("change line = %q, want resolved paths %q", out.String(), want)
+			}
+			got = readTarget(t, s)
+			if got.Selected != tc.selected || got.Managers["board"].Executable != newResolved || got.Managers["other"].Executable != oldResolved || prompt.Len() != 0 {
+				t.Fatal(got, prompt.String())
+			}
+		})
+	}
+}

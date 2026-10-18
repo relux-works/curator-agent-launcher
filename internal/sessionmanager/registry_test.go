@@ -22,13 +22,20 @@ func fixture(t *testing.T) configfile.Resolver {
 	}
 	return configfile.Resolver{Locations: l}
 }
+
+// Registry fixtures model persisted registrations, whose executable paths are
+// resolved even when the temporary directory itself is reached through a link.
 func entry(t *testing.T) Entry {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "manager")
 	if err := os.WriteFile(path, []byte("fixture; never executed"), 0700); err != nil {
 		t.Fatal(err)
 	}
-	return Entry{Executable: path, ArgvPrefix: []string{"session-manager", "plugin"}, Protocol: Protocol, RegisteredAt: "2026-10-18T09:00:00Z", RegisteredBy: "test installer"}
+	resolved, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return Entry{Executable: resolved, ArgvPrefix: []string{"session-manager", "plugin"}, Protocol: Protocol, RegisteredAt: "2026-10-18T09:00:00Z", RegisteredBy: "test installer"}
 }
 func putRegistry(t *testing.T, dir string, r Registry) {
 	t.Helper()
