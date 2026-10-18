@@ -130,7 +130,7 @@ func scenarios() []scenario {
 	// Every malformed wire/detail variant yields exit 6 without hostile diagnostics.
 	for _, fault := range []string{"malformed", "over-bound", "protocol", "exit-ok", "detail-text", "detail-control", "detail-secret"} {
 		f := fault
-		cases = append(cases, scenario{"poison-" + f, "B", poisonCase(f), "poison-" + f, "launch status labels/1"})
+		cases = append(cases, scenario{"poison-" + f, "B", poisonCase(f), "poison-" + f, "launch status admission/1 labels/1"})
 	}
 	return cases
 }

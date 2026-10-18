@@ -58,7 +58,8 @@ label; all profile, policy and working-directory fields come from this known
 valid template. Each scenario declares its operation/capability prerequisites
 and checks both capabilities and the template runtime's operation cells from
 `describe` before exercising them. Missing advertised prerequisites produce
-**SKIP: not_applicable**, never pass or failure. The advertised-operations case
+**SKIP: not_applicable**, never pass or failure. Operation-outcome probes also
+require `admission/1`. The advertised-operations case
 probes each runtime's available cells independently and does not require stop,
 list, attach or resume when absent. Label-scoped scenarios require `labels/1`;
 the launch-only control still exercises wire, unknown operations and advertised
