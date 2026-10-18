@@ -7,9 +7,12 @@ starts only after acceptance.
 **Board:** `relux-works/curator-run-board`, EPIC-261018-cuz7sp `front-door`,
 TASK-261018-st9yo0.
 
-Sections marked **[pending Qn]** follow the recommendation sent to
-`ivmbp_curator_orch` on 2026-10-18 (`#curator` › `curator-run`). They change
-if the answer differs. Section 15 lists the questions.
+Five shape questions went to `ivmbp_curator_orch` on 2026-10-18 (`#curator`
+› `curator-run`). It decided Q2–Q5 as Ivan's delegate, the same day, as
+recommended. Sections that follow those answers are marked **[decided Qn]**.
+Q1 (`launch-delegated/1`) is recommended by `ivmbp_curator_orch` and **needs
+Ivan's sign-off**. Its sections are marked **[pending Q1, Ivan]**. Section 15
+records the answers.
 
 ## 0. Sources and decisions applied
 
@@ -134,7 +137,7 @@ Rules that carry over unchanged:
   when no manager is registered. It never falls back after a manager has been
   selected and fails.
 - `--native` beats the machine mode on every machine. The machine mode is a
-  default for launches, not a lock. **[pending Q2]** A future
+  default for launches, not a lock. A future
   `"host_mode_locked": true` member may forbid `--native`. It is not part of
   v1.
 - Legacy `ax.json`: when enabled, any hosted result from the table is
@@ -163,7 +166,7 @@ Rules that carry over unchanged:
   0021 §4 ("board behaviour follows the workspace") to an explicit opt-in.
   Orchestrator sessions that want the goal pass `--board-goal`, and the
   `task-board claude|codex` aliases pass it for compatibility.
-- **[pending Q2]** Upgrade without hang-up (Decision 0021 §7, SPEC §4.8
+- **[decided Q2]** Upgrade without hang-up (Decision 0021 §7, SPEC §4.8
   `session_host_default_not_ready`): the machine mode replaces the old
   defaults gate. A hosted launch whose manager advertises neither
   `survives-upgrade` nor `drains-on-upgrade` (§5.2) proceeds, and prints one
@@ -177,7 +180,7 @@ Rules that carry over unchanged:
 
 ## 4. Session-manager registry
 
-### 4.1 Locations [pending Q3]
+### 4.1 Locations [decided Q3]
 
 | Layer | Directory | Who writes |
 | --- | --- | --- |
@@ -327,9 +330,14 @@ credential helpers. Each operation is one subprocess:
 
 Capability tokens (closed in v1; unknown tokens confer nothing):
 
-- `launch-delegated/1`: the transitional launch shape **[pending Q1]**. The
+- `launch-delegated/1`: the transitional launch shape **[pending Q1, Ivan]**. The
   plugin composes through the same agents-management construction site, from
-  the profile the request names (§5.3).
+  the profile the request names (§5.3). It is a proposed CIP-0016 amendment
+  (Appendix A). Until Ivan signs it off, the implementation uses it only for
+  explicit `--hosted` and `werkstatt up`. A machine `host_mode` of `hosted`
+  or `auto` treats a manager that offers only `launch-delegated/1` as not
+  registered, so the launch goes native with the `auto` notice. After the
+  sign-off, that restriction is removed by this spec's next revision.
 - `launch-exact/2`: the CIP-0016 exact-plan shape. Its wire is the jointly
   published successor (CIP-0016 §8 question 1). This protocol reserves only
   the token. The request member `plan` carries that payload unchanged.
@@ -439,7 +447,7 @@ follows the registry.
 
 ## 6. Werkstätten
 
-### 6.1 The record [pending Q4]
+### 6.1 The record [decided Q4]
 
 A Werkstatt is project × role profile × environment, with its own managed
 home, clone and identity. Its record is `werkstatt-record-v1`, closed:
@@ -460,6 +468,7 @@ home, clone and identity. Its record is `werkstatt-record-v1`, closed:
 | `context_mode` | `continue` (default) or `fresh`. |
 | `harness_memory` | Boolean. Default `true` while `context_mode` is `continue`. |
 | `sandbox` | `none` (current decision) or `workspace-write`. |
+| `weights_id` | Optional exact local-weights id (router snapshot field); passed to the spawn plane as the model's weights pin when present. |
 | `trust_class` | Router vocabulary (open with Ivan); stored, not interpreted by the launcher. |
 | `doorbell` | `{heartbeat: "1m", max_wakes_per_hour: 6}`. |
 | `config_decision_id` | Optional router decision id. |
@@ -467,8 +476,12 @@ home, clone and identity. Its record is `werkstatt-record-v1`, closed:
 Sources, in order:
 
 1. the board's `station` element, read with
-   `task-board station get <id> --json`, once that element exists (the
-   router and task-board lanes freeze its fields; this list is the proposal);
+   `task-board station get <id> --json`, once that element exists. The
+   router and task-board lanes freeze its fields. The record fields above,
+   together with the liveness fields of §6.5, are kept identical to the
+   router's station snapshot (`id, identity, role, project, runtime, model,
+   effort, weights_id, trust_class, state, current_task, queue_depth,
+   last_heartbeat_at, config_decision_id`);
 2. otherwise `~/.config/swarma/launcher/werkstatt/<id>.json`.
 
 When both exist, the board decides, and a differing local file is a warning.
@@ -564,17 +577,22 @@ State file: `~/.local/state/swarma/launcher/werkstatt/<id>.json`, schema
 ```json
 { "id": "...", "state": "starting|idle|busy|draining|down|unknown",
   "manager": "task-board", "session": "SES-…", "generation": 3,
-  "started_at": "…Z", "observed_at": "…Z", "last_activity_at": "…Z",
-  "doorbell": "armed|unavailable|off", "current_task": null }
+  "started_at": "…Z", "last_heartbeat_at": "…Z", "last_activity_at": "…Z",
+  "doorbell": "armed|unavailable|off", "current_task": null, "queue_depth": 0 }
 ```
 
 - curator-run writes it on `up`, `down`, `recycle` and every `status`. Each
   time, it is computed from the manager's `status`, and nothing else is
   inferred. `current_task` is written by the orchestrator through
-  `werkstatt status <id> --set-task <ID>|--clear-task`. The launcher never
-  derives it.
+  `werkstatt status <id> --set-task <ID>|--clear-task`, and so is
+  `queue_depth` (`--queue-depth N`). The launcher never derives either.
+- `last_heartbeat_at` is the time of the manager `status` read that produced
+  the record. A stale value means nobody looked, not that the session is down.
+- `unknown` is outside the router's five states. It means the manager
+  answered `unknown`, or did not answer. The router treats it as not
+  dispatchable.
 - The router's snapshot reads this record. Once the board's `station`
-  element exists, the launcher also mirrors `state`, `observed_at` and
+  element exists, the launcher also mirrors `state`, `last_heartbeat_at` and
   `session` to it.
 - a2a liveness (`a2a status set` / `who`) stays the Werkstatt's own
   heartbeat. `status` shows both and does not merge them.
@@ -663,7 +681,7 @@ endpoint can run it, so it belongs to the manager (`doorbell-codex/1`).
   still works and the orchestrator can ring by relaunch. Qualifying 0.162.x
   is an a2a item (§12).
 
-## 9. Claude setup-token injection [pending Q5]
+## 9. Claude setup-token injection [decided Q5]
 
 ### 9.1 Source
 
@@ -782,7 +800,7 @@ Existing codes reused with their meaning:
 - `session_liveness_unknown`, `policy_refused`, `secret_policy_violation`;
 - `launch_plan_invalid`, `host_configuration_conflict`.
 
-`session_host_default_not_ready` is retired [pending Q2].
+`session_host_default_not_ready` is retired [decided Q2].
 
 ## 12. What other lanes must deliver
 
@@ -836,25 +854,69 @@ its refusals, next to positive controls.
 S1–S6 run against the fake manager and do not wait for task-board. S10 is
 the first claim that anything works for real.
 
-## 15. Open questions sent to `ivmbp_curator_orch` (2026-10-18)
+## 15. Questions and answers (2026-10-18)
 
-1. **Q1, transitional launch shape.** Accept `launch-delegated/1` (the
-   manager composes through the same construction site, against the live
-   profile home, with stated limits) until `launch-exact/2` activates?
-   Without it, hosted-by-default and `werkstatt up` wait for CIP-0014
-   snapshots and the CIP-0016 successor wire.
-2. **Q2, upgrade without hang-up.** The machine mode replaces the old
-   defaults gate, and the upgrade behaviour becomes a disclosure line
-   instead of a refusal?
-3. **Q3, config element name:** `swarma/launcher/` or `swarma/curator-run/`?
-4. **Q4, Werkstatt record:** a local file until the board's `station` lands,
-   or the board only from day one?
-5. **Q5, setup-token interim source:** the macOS Keychain without UI, until
-   the CIP-0010 node ships?
+Asked of `ivmbp_curator_orch` in `#curator` › `curator-run`. It answered as
+Ivan's delegate.
 
-Also open, not blocking the draft:
+1. **Q1, transitional launch shape: (b), pending Ivan.** `launch-exact`
+   remains the target. `launch-delegated/1` is transitional: declared per
+   manager, and retired once the manager advertises `launch-exact`. It is
+   recorded as a proposed CIP-0016 amendment (Appendix A), with these
+   limits: no snapshot isolation, and "host never composes" holds only at
+   daemon level. It needs Ivan's sign-off because it deviates from an
+   accepted owner design. Delegated hosting is not shipped as a default
+   before that sign-off (§5.2).
+2. **Q2, upgrade without hang-up: yes.** The machine mode replaces the
+   defaults gate. A manager that neither survives upgrades nor drains gets
+   the one-line disclosure (§3.3).
+3. **Q3, config element: `launcher`.** `~/.config/swarma/launcher/` and
+   `/etc/swarma/launcher/`, with the old paths read for one release (§4.1).
+4. **Q4, Werkstatt record: as proposed.** The board `station` element when
+   it exists, `~/.config/swarma/launcher/werkstatt/<id>.json` until then.
+   The fields stay identical to the router's station snapshot (§6.1, §6.5).
+5. **Q5, setup-token interim source: the Keychain is accepted.** One
+   generic-password item, read non-interactively and refused if access would
+   prompt. It is never written to a home file, argv, plan or fragment, and
+   it is redacted in diagnostics. `curator-node` takes over once CIP-0010
+   ships (§9).
+
+Still open, not blocking:
 
 - `host_mode_locked`, which would forbid `--native` on a machine;
 - a per-env host mode;
 - whether `werkstatt up` should post the Werkstatt's arrival to its room
   (today: no, the orchestrator does).
+
+## Appendix A. Proposed CIP-0016 amendment: delegated local launches
+
+Proposed text, for `ivmbp_curator_orch` to file in curator-spec once Ivan
+signs off Q1.
+
+> **Amendment (proposed 2026-10-18): delegated local launches.** Until a
+> session manager advertises the exact-plan successor capability, a
+> registered local session manager MAY host interactive sessions through
+> `launch-delegated/1` of the curator-run session-manager protocol.
+>
+> In that mode, `curator-run` remains the front door. It resolves the
+> profile and fragment, the model and effort, the permissions and the
+> credentials. It hands the manager a closed request naming them. The
+> manager's own caller-side component composes the process through the same
+> agents-management construction site (Decision 0019), against the profile's
+> managed home. The manager MUST refuse when its fragment digest differs from
+> the request's.
+>
+> Stated limits:
+> - there is no session snapshot: a running session uses the live managed
+>   home, so repair, profile switching and skill sync can change it underneath
+>   the session (the CIP-0014 isolation does not hold);
+> - "a host never composes" holds for the daemon only, not for the manager's
+>   caller-side component;
+> - the CIP-0016 digest-covered provenance is replaced by the request's
+>   profile pin and fragment digest.
+>
+> The mode is declared per manager. It is retired for a manager once that
+> manager advertises the exact-plan capability, and curator-run then prefers
+> exact-plan. Hosted refusals still never fall back to native. Section 2's
+> backend-selection question is answered by the curator-run session-manager
+> registry.
