@@ -29,6 +29,7 @@ import (
 	"github.com/relux-works/curator-agent-launcher/internal/migrate"
 	"github.com/relux-works/curator-agent-launcher/internal/network"
 	"github.com/relux-works/curator-agent-launcher/internal/plan"
+	"github.com/relux-works/curator-agent-launcher/internal/sessionmanager"
 	"github.com/relux-works/curator-agent-launcher/internal/systemprompt"
 	"github.com/relux-works/curator-network-profiles/pkg/adapterprobe"
 	"github.com/relux-works/curator-network-profiles/pkg/binding"
@@ -85,6 +86,7 @@ type launchDeps struct {
 	configLocations func() (configfile.Locations, error)
 	// launcherConfig is validated policy; later slices consume it.
 	launcherConfig launcherconfig.Config
+	managerService *sessionmanager.Service
 
 	axPaths      func() (defaults.Paths, error)
 	workdir      func() (string, error)
@@ -158,6 +160,46 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, deps laun
 		configResolver = configfile.Resolver{Locations: loc, Stderr: stderr}
 	} else {
 		configResolver = configfile.Resolver{Locations: configfile.Locations{System: filepath.Dir(paths.Machine), User: filepath.Dir(paths.Operator)}, Stderr: stderr}
+	}
+	// Registry commands are administrative operations, independent of launch
+	// policy, fragments and manager transport. Normal launches do not load it yet.
+	if len(args) > 0 && args[0] == "session-manager" {
+		inv, err := cli.Parse(args, cli.Options{})
+		if err != nil {
+			return emitFailure(stderr, diagnostics.CodeUsage, err)
+		}
+		service := sessionmanager.Service{}
+		if deps.managerService != nil {
+			service = *deps.managerService
+		}
+		service.Resolver = configResolver
+		service.Stdin = deps.stdin
+		service.Stdout = stdout
+		service.Stderr = stderr
+		if service.Now == nil {
+			service.Now = deps.now
+		}
+		if service.IsTerminal == nil {
+			service.IsTerminal = deps.stdinTerminal
+			if service.IsTerminal == nil {
+				service.IsTerminal = func() bool {
+					in := deps.stdin
+					if in == nil {
+						in = os.Stdin
+					}
+					return execution.StdinIsTerminal(in)
+				}
+			}
+		}
+		if err := service.Run(*inv.SessionManager); err != nil {
+			code := sessionmanager.CodeInvalid
+			var managerError *sessionmanager.Error
+			if errors.As(err, &managerError) {
+				code = managerError.Code
+			}
+			return emitFailure(stderr, code, err)
+		}
+		return 0
 	}
 	// Migration must remain available when the legacy host member prevents a
 	// normal launch. Parse its closed grammar before loading the configs.
