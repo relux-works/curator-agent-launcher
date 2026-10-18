@@ -456,6 +456,9 @@ func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, ta
 	if cli.ExplicitNative(inv.HostFlag) {
 		inv.Tracked = false
 	}
+	if !isHosted && inv.A2A != "" {
+		return emitFailure(stderr, diagnostics.CodeUsage, errors.New("--a2a requires hosted execution"))
+	}
 	if !isHosted && (inv.BoardGoal || inv.Detach) {
 		return emitFailure(stderr, diagnostics.CodeUsage, errors.New("--board-goal and --detach require hosted execution"))
 	}

@@ -16,6 +16,7 @@ import (
 	"github.com/relux-works/curator-agent-launcher/internal/configfile"
 	"github.com/relux-works/curator-agent-launcher/internal/defaults"
 	"github.com/relux-works/curator-agent-launcher/internal/diagnostics"
+	"github.com/relux-works/curator-agent-launcher/internal/doorbell"
 	"github.com/relux-works/curator-agent-launcher/internal/execution"
 	"github.com/relux-works/curator-agent-launcher/internal/fragment"
 	"github.com/relux-works/curator-agent-launcher/internal/hosted"
@@ -52,6 +53,11 @@ func runWerkstatt(ctx context.Context, c werkstatt.Command, stdout, stderr io.Wr
 	if credentials == "" {
 		credentials = filepath.Join(home, ".config", "a2a-swarm")
 	}
+	invocationDirectory, _ := os.Getwd()
+	if deps.workdir != nil {
+		invocationDirectory, _ = deps.workdir()
+	}
+	installer := doorbell.Installer{Environment: env, InvocationDirectory: invocationDirectory, Diagnostics: stderr}
 	service := werkstatt.Service{
 		Loader:            werkstatt.Loader{Directory: filepath.Join(config.Locations.User, "werkstatt")},
 		Store:             client.Store{Directory: filepath.Join(state, "swarma", "launcher", "werkstatt")},
@@ -60,7 +66,11 @@ func runWerkstatt(ctx context.Context, c werkstatt.Command, stdout, stderr io.Wr
 		Trial:    func() (bool, error) { p, e := launcherconfig.Load(config); return p.DelegatedTrial, e },
 	}
 	service.Prepare = func(ctx context.Context, r *werkstatt.Record, c werkstatt.Command, target string) (werkstatt.Prepared, error) {
-		return prepareWerkstatt(ctx, r, c, target, stderr, config, deps, env)
+		prepared, err := prepareWerkstatt(ctx, r, c, target, stderr, config, deps, env)
+		if err == nil && r.Runtime == fragment.EnvClaudeCode && r.Doorbell != nil {
+			err = installer.Ensure(ctx, r.Clone, r.Identity)
+		}
+		return prepared, err
 	}
 	service.Attach = func(ctx context.Context, id string, e sessionmanager.Entry, v *client.Session) (int, error) {
 		open := deps.receiverTerminal
@@ -91,7 +101,11 @@ func runWerkstatt(ctx context.Context, c werkstatt.Command, stdout, stderr io.Wr
 		}
 		ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
 		defer cancel()
-		cmd := exec.CommandContext(ctx, "a2a", "who", "--stale-after", staleAfter.String(), "--json")
+		executable, err := installer.Resolve(record.Clone)
+		if err != nil {
+			return nil
+		}
+		cmd := exec.CommandContext(ctx, executable, "who", "--stale-after", staleAfter.String(), "--json")
 		cmd.Env = env
 		cmd.WaitDelay = 100 * time.Millisecond
 		// Bound untrusted CLI output using the same writer contract as other helpers.

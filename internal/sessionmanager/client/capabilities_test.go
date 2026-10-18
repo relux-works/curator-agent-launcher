@@ -79,6 +79,7 @@ func TestNeededCapabilities(t *testing.T) {
 			requireCode(t, err, "session_host_capability_missing")
 		})
 	}
+	n.Doorbell = false // The exact preference below is for a plain request.
 	d.Capabilities = append(d.Capabilities, "launch-exact/2")
 	d.Runtimes["muse"] = []string{"launch-exact"}
 	r, err = Required(d, n)
@@ -129,4 +130,33 @@ func TestRequestDerivedNeeds(t *testing.T) {
 	}
 	_, err = RequiredForRequest(d, "launch", []byte(`{}`), Needs{})
 	requireCode(t, err, "launch_plan_invalid")
+}
+
+// Doorbells select the delegated wire even with exact support. Exact-only
+// managers refuse before start, and trial authorization still governs this path.
+func TestDoorbellRoute(t *testing.T) {
+	d := delegatedDescription()
+	d.Capabilities = append(d.Capabilities, "launch-exact/2")
+	d.Runtimes["codex_cli"] = append(d.Runtimes["codex_cli"], "launch-exact")
+	n := Needs{Runtime: "codex_cli", ExplicitHosted: true, DelegatedTrial: true, Doorbell: true}
+	r, err := Required(d, n)
+	if err != nil || r.Kind != "delegated" {
+		t.Fatalf("doorbell route=%s err=%v", r.Kind, err)
+	}
+	n.Doorbell = false
+	r, err = Required(d, n)
+	if err != nil || r.Kind != "exact" {
+		t.Fatalf("plain exact control=%s err=%v", r.Kind, err)
+	}
+	n.Doorbell = true
+	n.DelegatedTrial = false
+	_, err = Required(d, n)
+	requireCode(t, err, "session_host_delegated_unauthorized")
+	n.DelegatedTrial = true
+	d.Runtimes["codex_cli"] = []string{"launch-exact", "attach", "resume"}
+	_, err = Required(d, n)
+	requireCode(t, err, "session_host_capability_missing")
+	if e, ok := err.(*Error); !ok || e.Details["capability"] != "launch-exact-doorbell" {
+		t.Fatal("wrong exact-only refusal", err)
+	}
 }

@@ -169,6 +169,7 @@ func (s Service) output(c Command, rows []Status) error {
 		if _, err := fmt.Fprintf(s.Stdout, "%s state=%s state_source=%s session=%s stale=%t a2a=%v\n", r.Record.ID, state, source, session, r.Stale, r.A2A); err != nil {
 			return err
 		}
+		client.WriteDoorbell(s.Stdout, r.Manager)
 	}
 	return nil
 }
@@ -217,6 +218,7 @@ func (s Service) one(ctx context.Context, c Command) (row Status, exit int, resu
 		}
 		if recovered != nil && c.Action == "up" {
 			fmt.Fprintln(s.Stdout, recovered.Session)
+			client.WriteDoorbell(s.Stderr, recovered)
 			if c.Attach && s.Attach != nil {
 				exit, err = s.Attach(ctx, p.Manager.ID, reg.Managers[p.Manager.ID], recovered)
 			}
@@ -487,6 +489,7 @@ func (s Service) up(ctx context.Context, c Command, tx *client.Transaction, reg 
 	}
 	if session != nil {
 		fmt.Fprintln(s.Stdout, session.Session)
+		client.WriteDoorbell(s.Stderr, session)
 	}
 	if err != nil {
 		return 0, err

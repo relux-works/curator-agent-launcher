@@ -57,10 +57,13 @@ func Required(d Describe, n Needs) (Route, error) {
 	route := "delegated"
 	launchCap := "launch-delegated/1"
 	launchOp := "launch"
-	if !n.Detached && slices.Contains(operations, "launch-exact") {
+	if !n.Detached && !n.Doorbell && slices.Contains(operations, "launch-exact") {
 		route = "exact"
 		launchCap = "launch-exact/2"
 		launchOp = "launch-exact"
+	}
+	if n.Doorbell && !slices.Contains(operations, "launch") && slices.Contains(operations, "launch-exact") {
+		return Route{}, refusal("session_host_capability_missing", map[string]string{"capability": "launch-exact-doorbell"})
 	}
 	if n.Detached && !slices.Contains(operations, "launch") && slices.Contains(operations, "launch-exact") {
 		return Route{}, refusal("session_host_capability_missing", map[string]string{"capability": "launch-exact-detached"})

@@ -58,7 +58,8 @@ and checks only the presence of the identity file. Continue resumes the bound
 conversation; `--new`, fresh mode, recycle or a manager switch starts a new one.
 The child environment comes only from the record plus launcher-owned identity
 and separate-git values. Credentials remain null. Doorbell configuration is
-passed through; hook installation and runtime binds are a later slice.
+passed through. Claude transitional hooks are installed and verified before
+start; runtime binding remains the manager's responsibility.
 
 State, operation journal and lock files live under
 `${XDG_STATE_HOME:-~/.local/state}/swarma/launcher/werkstatt/`. The journal stays
@@ -81,6 +82,41 @@ other field is preserved. `last_activity_at` may be null in any record.
 A lock timeout always returns the JSON array as a read-only stale snapshot,
 including null liveness before the first start. Recycle polls draining every
 second for at most 20 seconds; a timeout never starts another generation.
+
+## Hosted doorbells
+
+```sh
+curator-run claude_code --hosted --a2a example.dev
+curator-run codex_cli --hosted --detach --a2a example.dev
+```
+
+`--a2a` accepts `[a-z0-9._=-]{1,64}` and requires hosted execution. It asks
+for a doorbell with heartbeat `1m` and six wakes per hour. Werkstatt records
+supply their own values. A doorbell selects delegated launch/resume, even
+when the manager also supports exact launch, so delegated trial authorization
+still applies. Exact-only managers refuse `launch-exact-doorbell`; missing
+runtime doorbell capabilities refuse before hook installation or start.
+
+For Claude, the launcher runs the resolved absolute `a2a` executable with
+`hook install --agent <identity> --runtime claude --settings
+<cwd>/.claude/settings.local.json`. Its invocation PATH choice is frozen and
+printed in diagnostics; relative PATH entries and candidates inside lexical
+or physical workspace, `GIT_WORK_TREE` or `GIT_DIR` paths are excluded. The
+installer is bounded to ten seconds. Existing `.claude` directories must be
+owned by the invoking user, have no group/world write permission and be real
+directories. Existing settings files must be regular, owned by that user and
+have exactly one hard link; symlinks are refused, including contained ones.
+The same checks apply after installation. Readback is bounded to 1 MiB and checks
+`env.A2A_AGENT` and matching command hooks for `SessionStart`,
+`UserPromptSubmit` and `Stop`. Unrelated settings/hooks may coexist. Failure
+refuses `doorbell_setup_failed step=install|verify` before any start. Codex
+binding and long-lived owners belong to the manager; the launcher installs
+no Claude hooks for Codex.
+
+A successful start reports one doorbell line on stderr. Text status reports
+one line per returned manager session, including reason and uncertainty;
+JSON retains the complete manager record without an extra doorbell line.
+Presence from `a2a who` remains independent of this manager evidence.
 
 ## Target one-shot exec mode
 
@@ -409,9 +445,10 @@ The launch pipeline follows these steps:
    by generation-fenced `attach` unless `--detach` is set. `--board-goal` asks for
    `workspace` and requires `board-goal/1`; ordinary requests use `none`.
    Selector decision ids are copied verbatim to the `selector` label. Credential
-   and doorbell requests remain null in this slice. Unsupported fragment
-   revisions refuse before manager contact. Muse hosted and Werkstatt commands
-   remain future slices. Exact-plan managers retain the qualified payload path.
+   requests remain null. Doorbell requests follow the hosted doorbell path
+   above. Unsupported fragment revisions refuse before manager contact. Muse
+   hosted remains a future slice. Plain exact-plan requests retain the qualified
+   payload path.
    Lost launch/resume answers use the client's single reconciliation loop,
    without local `op.json`; unresolved outcomes disclose the operation id and
    refuse `session_liveness_unknown`. No hosted refusal executes natively.
@@ -521,6 +558,7 @@ scope. Resolution always requests repair.
 | `--hosted`, `--native`, `--untracked` | Select one host request. Hosted uses the registered manager and activation gate; native skips the registry. `--untracked` equals `--native`; repeats and combinations refuse |
 | `--board-goal` | Hosted workspace goal request; requires `board-goal/1` |
 | `--detach` | Hosted launch without attach |
+| `--a2a <identity>` | Hosted runtime doorbell request; delegated route and per-runtime capability required |
 | `resume [SES-HANDLE]`, `--resume <id>` | Hosted-only resume selectors; usage errors in native mode |
 | `--profile <name>` | Curator profile, forwarded to environment resolution |
 | `--system-prompt <append\|replace>` | Explicit prompt-channel opt-in; unavailable semantics refuse the launch |
@@ -858,6 +896,7 @@ runs need their own explicit timeout budget, for example
 | `curator-run werkstatt` | hosted station lifecycle and separate manager/a2a status | commands above; `go test ./cmd/curator-run -run TestWerkstattBinary -count=1 -v` | liveness and journal in the XDG state home; bounded test children in `t.TempDir` |
 | `.scripts/werkstatt-mutants.py` | owner, workspace, admission, CAS, stale output, evidence and dispatch negative controls | `python3 .scripts/werkstatt-mutants.py [evidence-dir]` | logs and `summary.tsv`, default `.temp/werkstatt-mutants/`; restores exact source bytes; run alone |
 | `.scripts/selector-mutants.py` | bounded selector config, response, transport, precedence and shadow controls | `python3 .scripts/selector-mutants.py [evidence-dir]` | per-probe logs and `summary.tsv`, default `.temp/selector-mutants/`; restores source bytes |
+| `.scripts/doorbell-mutants.py` | bounded hook, PATH trust, doorbell projection, routing and surfacing controls | `python3 .scripts/doorbell-mutants.py [evidence-dir]`; inventory: `python3 .scripts/doorbell-mutants.py --list` | per-control logs and `summary.tsv`, default `.temp/doorbell-mutants/`; restores source bytes; run before other checks |
 | `.scripts/plugin-client-mutants.py` | bounded plugin transport, schema, capability, reconciliation and CAS controls | `python3 .scripts/plugin-client-mutants.py [evidence-dir]`; inventory: `python3 .scripts/plugin-client-mutants.py --list` | per-control logs and `summary.tsv`, default `.temp/plugin-client-mutants/`; restores candidate bytes; run before other checks |
 | `.scripts/session-manager-mutants.py` | bounded registry/registration/atomic-write, transaction-lock and deadline negative controls | `python3 .scripts/session-manager-mutants.py [evidence-dir]` | per-probe logs and `summary.tsv`, default `.temp/session-manager-mutants/`; restores source bytes |
 | `curator-run-fake-manager` | durable reference session-manager plugin and separate fixture adapter | `go build -o .temp/curator-run-fake-manager ./cmd/curator-run-fake-manager`; see [qualification](internal/sessionmanager/conformance/README.md) | explicit `--state` directory; no-op provider, no daemon |

@@ -53,6 +53,7 @@ type Config struct {
 // Control is an out-of-band fixture adapter, never a plugin RPC. It carries
 // no credentials. Bad selects deliberately nonconforming qualification plants.
 type Control struct {
+	DoorbellReason     string            `json:"doorbell_reason,omitempty"`
 	Now                string            `json:"now"`
 	Fault              string            `json:"fault"`
 	Bad                []string          `json:"bad"`
@@ -644,6 +645,14 @@ func (m *manager) start(op string, r request, data []byte) reply {
 		g := token()
 		doorbell.State = "armed"
 		doorbell.Generation = &g
+		switch m.control.DoorbellReason {
+		case "unsupported_version":
+			reason := m.control.DoorbellReason
+			doorbell = client.Doorbell{State: "unavailable", Reason: &reason}
+		case "previous_generation_uncertain":
+			reason := m.control.DoorbellReason
+			doorbell = client.Doorbell{State: "off", Uncertain: true, Generation: &g, Reason: &reason}
+		}
 	}
 	if len(s.Record) > 0 {
 		var prev client.Session

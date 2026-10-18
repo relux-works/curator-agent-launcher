@@ -54,7 +54,13 @@ func newWS(t *testing.T, bin frontBinaries) *wsFixture {
 	if err != nil {
 		t.Fatal(err)
 	}
-	writeFixture(t, filepath.Join(f.root, "bin", "a2a"), b, 0700)
+	trusted := t.TempDir()
+	writeFixture(t, filepath.Join(trusted, "a2a"), b, 0700)
+	for n, value := range f.env {
+		if strings.HasPrefix(value, "PATH=") {
+			f.env[n] = "PATH=" + trusted + string(os.PathListSeparator) + strings.TrimPrefix(value, "PATH=")
+		}
+	}
 	w := &wsFixture{frontFixture: f, id: "example", record: map[string]any{
 		"schema": "werkstatt-record-v1", "id": "example", "project": "sample", "role": "developer", "runtime": "claude_code",
 		"model": "claude-opus-5", "effort": "medium", "profile": "sample", "clone": f.root, "identity": "sample.dev",

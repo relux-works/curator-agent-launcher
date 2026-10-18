@@ -180,7 +180,7 @@ func resolveHost(ctx context.Context, inv cli.Invocation, frag *fragment.Fragmen
 	result.route, err = client.Required(*response.Describe, client.Needs{
 		Runtime: frag.Environment, HostMode: mode, ExplicitHosted: inv.HostFlag == cli.HostFlagHosted,
 		Detached: inv.Detach, Resume: elevation.Intent.Kind != agentic.ResumeNew, BoardGoal: inv.BoardGoal,
-		DelegatedTrial: deps.launcherConfig.DelegatedTrial,
+		DelegatedTrial: deps.launcherConfig.DelegatedTrial, Doorbell: inv.A2A != "",
 	})
 	if err != nil {
 		return result, err

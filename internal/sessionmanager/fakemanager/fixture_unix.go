@@ -96,6 +96,14 @@ func Fixture(dir string, input io.Reader, output io.Writer) int {
 			template["model"] = c.Models[0]
 		}
 		result.Launch = encode(template)
+	case "set_doorbell":
+		switch r.Name {
+		case "", "unsupported_version", "previous_generation_uncertain":
+			m.control.DoorbellReason = r.Name
+			saveControl = true
+		default:
+			return 2
+		}
 	case "set_activity":
 		if m.state.Sessions[r.Session] == nil {
 			return 2

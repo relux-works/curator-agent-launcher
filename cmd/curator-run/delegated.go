@@ -11,6 +11,7 @@ import (
 
 	"github.com/relux-works/curator-agent-launcher/internal/cli"
 	"github.com/relux-works/curator-agent-launcher/internal/defaults"
+	"github.com/relux-works/curator-agent-launcher/internal/doorbell"
 	"github.com/relux-works/curator-agent-launcher/internal/execution"
 	"github.com/relux-works/curator-agent-launcher/internal/fragment"
 	"github.com/relux-works/curator-agent-launcher/internal/sessionmanager/client"
@@ -49,6 +50,9 @@ func delegatedRequest(inv cli.Invocation, frag *fragment.Fragment, resolved defa
 		"operation_id": id, "submitted_at": at.UTC().Format("2006-01-02T15:04:05Z"), "admission_key": nil,
 		"runtime": frag.Environment, "profile": map[string]string{"name": frag.Profile.Name, "lock_sha256": frag.Profile.LockSHA256, "fragment_digest": frag.Digest},
 		"credential_source": nil, "doorbell": nil, "detach": inv.Detach,
+	}
+	if inv.A2A != "" {
+		request["doorbell"] = map[string]any{"identity": inv.A2A, "heartbeat": "1m", "max_wakes_per_hour": 6}
 	}
 	op := "launch"
 	if intent.Kind != agentic.ResumeNew {
@@ -108,10 +112,17 @@ func runDelegated(ctx context.Context, inv cli.Invocation, frag *fragment.Fragme
 	if err != nil {
 		return emitHostFailure(stderr, err)
 	}
+	if inv.A2A != "" && frag.Environment == fragment.EnvClaudeCode {
+		installer := doorbell.Installer{Environment: deps.environ(), InvocationDirectory: cwd, Diagnostics: stderr}
+		if err := installer.Ensure(ctx, cwd, inv.A2A); err != nil {
+			return emitHostFailure(stderr, err)
+		}
+	}
 	session, err := deps.hostedSelection.client.Start(ctx, op, data)
 	if err != nil {
 		return emitHostFailure(stderr, err)
 	}
+	client.WriteDoorbell(stderr, session)
 	if deps.hostedSession != nil {
 		deps.hostedSession(session.Session)
 	}

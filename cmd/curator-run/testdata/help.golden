@@ -31,6 +31,7 @@ options:
   --hosted                          use the selected registered session manager
   --native, --untracked             run natively; the two spellings are equal
   --board-goal                      bind the workspace board goal (hosted only)
+  --a2a <identity>                  request runtime doorbell wiring (hosted only)
   --detach                          launch without attaching (hosted only)
   resume [SES-HANDLE]               hosted resume selector (latest or handle)
   --resume <id>                     hosted resume selector (provider identity)

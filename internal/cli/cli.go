@@ -62,6 +62,7 @@ options:
   --hosted                          use the selected registered session manager
   --native, --untracked             run natively; the two spellings are equal
   --board-goal                      bind the workspace board goal (hosted only)
+  --a2a <identity>                  request runtime doorbell wiring (hosted only)
   --detach                          launch without attaching (hosted only)
   resume [SES-HANDLE]               hosted resume selector (latest or handle)
   --resume <id>                     hosted resume selector (provider identity)
@@ -228,6 +229,7 @@ type Invocation struct {
 	// HostFlag is the literal host request: --hosted, --native, or
 	// --untracked; empty when no host flag was given.
 	HostFlag          string
+	A2A               string
 	BoardGoal, Detach bool
 	// ResumeRequested reports the `resume` positional selector; ResumeHandle
 	// carries its optional SES handle verbatim (ResumeHandleSet tells
@@ -307,6 +309,8 @@ func IsUsage(err error) bool {
 }
 
 // valueFlags is the closed set of value-taking launcher flags.
+var a2aIdentityPattern = regexp.MustCompile(`^[a-z0-9._=-]{1,64}$`)
+
 var binaryDigestPattern = regexp.MustCompile(`^[0-9a-f]{64}$`)
 
 var valueFlags = map[string]bool{
@@ -318,6 +322,7 @@ var valueFlags = map[string]bool{
 	"--name":              true,
 	"--ax-profile":        true,
 	"--resume":            true,
+	"--a2a":               true,
 	"--network":           true,
 	"--network-policy":    true,
 	"--network-known-bad": true,
@@ -502,6 +507,9 @@ func Parse(args []string, opts Options) (Invocation, error) {
 	if inv.AxProfile != AxProfileNone && ExplicitNative(inv.HostFlag) {
 		return inv, usageErr("--ax-profile %s conflicts with %s: explicit native execution bypasses ax, so an execution profile would be discarded", inv.AxProfile, inv.HostFlag)
 	}
+	if inv.A2A != "" && ExplicitNative(inv.HostFlag) {
+		return inv, usageErr("--a2a requires hosted execution")
+	}
 	inv.Native = append([]string{}, args[i:]...)
 	return inv, nil
 }
@@ -509,6 +517,11 @@ func Parse(args []string, opts Options) (Invocation, error) {
 // set stores one validated flag value.
 func (inv *Invocation) set(flag, value string, opts Options) error {
 	switch flag {
+	case "--a2a":
+		if !a2aIdentityPattern.MatchString(value) {
+			return usageErr("invalid --a2a identity")
+		}
+		inv.A2A = value
 	case "--profile":
 		inv.Profile, inv.ProfileSet = value, true
 	case "--model":

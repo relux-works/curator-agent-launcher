@@ -33,7 +33,7 @@ mutants = [
  ('P14', client+'transport_unix.go', 'left := Limit - len(s.captured)', 'left := 3*Limit - len(s.captured)', 'TestCollectorsAndDeadlines', 'stderr not bounded/countable'),
  ('P15', client+'transport_unix.go', 'if err := markDescriptorsCloseOnExec(); err != nil {', 'if err := error(nil); err != nil {', 'TestRPCDescriptorIsolation', 'unrelated descriptor inherited'),
  ('P16', client+'capabilities.go', 'if !n.DelegatedTrial {', 'if !n.DelegatedTrial && false {', 'TestActivationMatrix/explicit0', 'wanted session_host_delegated_unauthorized'),
- ('P17', client+'capabilities.go', '!n.Detached && slices.Contains(operations, "launch-exact")', '!n.Detached && slices.Contains(d.Capabilities, "launch-exact/2")', 'TestNeededCapabilities', 'foreign runtime exact leaked'),
+ ('P17', client+'capabilities.go', '!n.Detached && !n.Doorbell && slices.Contains(operations, "launch-exact")', '!n.Detached && !n.Doorbell && slices.Contains(d.Capabilities, "launch-exact/2")', 'TestNeededCapabilities', 'foreign runtime exact leaked'),
  ('P18', client+'capabilities.go', '!slices.Contains(d.Capabilities, cap) ||', '(!slices.Contains(d.Capabilities, cap) && false) ||', 'TestNeededCapabilities/missing-board-goal/1', 'wanted session_host_capability_missing'),
  ('P19', client+'reconcile_unix.go', 'if entry.Executable != p.Manager.Executable {', 'if entry.Executable != p.Manager.Executable && false {', 'TestScriptedSubmissionAndBinding/owner-changed', 'wanted werkstatt_operation_unresolved'),
  ('P20', client+'reconcile_unix.go', 'if err := tx.WritePending(p); err != nil {', 'if err := error(nil); err != nil {', 'TestScriptedSubmissionAndBinding/success', 'remote submission preceded durable correlation'),
