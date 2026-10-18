@@ -684,12 +684,33 @@ is `session_host_provider_unsupported` (6). Both are checked before any
 | `harness_memory` | Boolean. |
 | `session_name` | The SPEC §3 `--name` grammar. |
 | `labels` | At most 16 entries; keys `[a-z0-9.-]{1,32}`, values `[A-Za-z0-9._@:-]{1,128}`. |
-| `child_env` | Non-secret literals: at most 32 names `[A-Z][A-Z0-9_]{0,63}`, none reserved (§9.2), values at most 4096 bytes, passing the SPEC §4.9 secret-pattern check. Otherwise `secret_policy_violation` (16). |
+| `child_env` | Non-secret literals: at most 32 names `[A-Z][A-Z0-9_]{0,63}`, none reserved (§9.2), values at most 4096 bytes, passing the **secret check** below. Otherwise `secret_policy_violation` (16). |
 | `board_goal` | `none` or `workspace`. |
-| `doorbell` | `null`, or `{identity, heartbeat, max_wakes_per_hour}` (§8). |
-| `credential_source` | `null` (per-home), or the fragment's `source-projection-v1` `{source, source_generation, policy_generation}` (§9). The manager re-resolves the source itself, and a different projection refuses `credential_source_stale`. |
+| `doorbell` | `null`, or `{identity, heartbeat, max_wakes_per_hour}` (§8). `identity` matches the a2a identity grammar `[a-z0-9._=-]{1,64}`. `heartbeat` is a duration string `<n>s` or `<n>m` from 30 s to 60 m. `max_wakes_per_hour` is an integer from 1 to 60. |
+| `credential_source` | `null` (per-home), or the fragment's `source-projection-v1` `{source, source_generation, policy_generation}` (§9). Its exact types follow curator-spec `protocol/local-setup-token-source.md` §5: `source` is `{mode: "node", source_ref: "local:<32 lowercase hex>", harness_channel: "CLAUDE_CODE_OAUTH_TOKEN"}`, and both generations are positive JSON safe integers. The manager re-resolves the source itself, and a different projection refuses `credential_source_stale`. |
 | `native_tail` | The selector-free tail after the module's typed-intent elevation (SPEC §4.8). |
 | `detach` | Boolean. |
+
+**Secret check for `child_env`.** This check is a closed rule set,
+versioned with this document.
+
+1. **Name check.** A name is refused if it equals `TOKEN`, `SECRET`,
+   `PASSWORD`, `PASSWD`, `API_KEY` or `APIKEY`. It is also refused if it
+   ends with `_TOKEN`, `_SECRET`, `_PASSWORD`, `_PASSWD`, `_API_KEY`,
+   `_APIKEY`, `_PRIVATE_KEY`, `_CREDENTIALS`, `_COOKIE` or `_SESSION_KEY`,
+   or if it starts with `AWS_SECRET`.
+2. **Value check.** A value is refused if it contains `-----BEGIN`. It is
+   also refused if it starts with `sk-`, `ghp_`, `gho_`, `ghs_`,
+   `github_pat_`, `xoxa-`, `xoxb-`, `xoxp-`, `glpat-` or `AKIA`, or if it is
+   a JWT-shaped value: three base64url segments separated by dots, the
+   first starting with `eyJ`.
+3. **No allowlist.** The name rules are suffix-based, so `GIT_AUTHOR_NAME`,
+   `SSH_AUTH_SOCK` and `RELEASE_SIGNING_KEY` pass by construction.
+   Reserved credential names (§9.2) are refused separately, as
+   `credential_reserved_name`.
+
+This check is a guard against mistakes, not a secret classifier. A secret
+that matches none of the rules still must not be put there.
 
 **Schemas.** S3 publishes these in the repository as JSON Schemas under
 `schemas/session-manager/`: the launch request, the resume request, the
@@ -700,8 +721,10 @@ selector-free tail), and the bounds. The plugin and the launcher both
 validate against them.
 
 **Resume** — `urn:relux:curator-run:delegated-resume` `1.0.0`, closed. It
-carries the launch members `operation_id`, `admission_key`, `runtime`,
-`profile`, `credential_source`, `doorbell` and `detach`, plus:
+carries the launch members `operation_id`, `submitted_at`,
+`admission_key`, `runtime`, `profile`, `credential_source`, `doorbell` and
+`detach`, plus the following. The §5.7 expiry rule applies to resume as
+well.
 
 | Member | Content |
 | --- | --- |
