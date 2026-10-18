@@ -934,6 +934,11 @@ Validation:
     poisoned (`session_host_protocol_error`).
   - Launcher-local details such as `path`, `field` and `identity` are
     therefore always sourced by the launcher.
+  - **Scope.** This allowlist covers every plugin JSON response, including
+    the `code` of a historical `failed` outcome (§5.7). It does not cover
+    the fd-4 status records of `attach` and `launch-exact`. Those keep the
+    SPEC §4.9 classifier and registry unchanged, because their transport is
+    CIP-0016's byte for byte.
 - Each code admits only the detail fields that §11 lists for it. Each field
   has a closed vocabulary or a fixed grammar, also listed in §11.
 - **Any** field or value outside its vocabulary, an unexpected field, or a
@@ -984,7 +989,8 @@ this payload in the common envelope:
 - The status operation itself always exits 0 with `ok: true`. The
   launcher's own exit for a reconciled `failed` outcome is the registry
   exit of its `code`.
-- `code` is drawn from the union of:
+- `code` is drawn from the plugin-emittable set of §5.6, which is part of
+  the union of:
   - the SPEC §6 registry, for example `plan_refused` and
     `launch_plan_invalid`;
   - §11 of this document;
