@@ -49,6 +49,40 @@ func TestScenarioPrerequisites(t *testing.T) {
 	}
 }
 
+// Mandatory launch validation and replay cannot depend on optional lifecycle,
+// labels or admission support. Optional operations keep their own refusal gates.
+func TestMandatoryLaunchPrerequisites(t *testing.T) {
+	h := &harness{template: map[string]any{"runtime": "codex_cli"}}
+	launch := client.Describe{Capabilities: []string{"launch-delegated/1"}, Runtimes: map[string][]string{"codex_cli": {"launch"}}}
+	mandatory := []string{"missing-capability", "unsupported-runtime", "profile-digest", "secret-child-env", "reserved-child-env", "idempotency", "operation-conflict", "operation-expiry"}
+	optional := []string{"label-subset", "filtered-index", "resume-missing", "resume-operation-expiry", "idempotency-list", "generation", "generation-stop"}
+	for _, name := range append(slices.Clone(mandatory), optional...) {
+		t.Run(name, func(t *testing.T) {
+			var found bool
+			for _, c := range scenarios() {
+				if c.Name != name {
+					continue
+				}
+				found = true
+				err := c.applicable(h, &launch)
+				if slices.Contains(mandatory, name) {
+					if err != nil {
+						t.Fatalf("mandatory launch property hidden: %v", err)
+					}
+				} else {
+					var na *notApplicable
+					if !errors.As(err, &na) {
+						t.Fatalf("absent optional operation must be not_applicable: %v", err)
+					}
+				}
+			}
+			if !found {
+				t.Fatal("missing contract scenario")
+			}
+		})
+	}
+}
+
 // A truthfully smaller capability set qualifies through the very same driver.
 // No-resume exercises the review witness; individual omissions catch implicit
 // lifecycle prerequisites, and launch-only exercises a minimal launch surface.

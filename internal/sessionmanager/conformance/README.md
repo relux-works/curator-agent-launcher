@@ -58,12 +58,18 @@ label; all profile, policy and working-directory fields come from this known
 valid template. Each scenario declares its operation/capability prerequisites
 and checks both capabilities and the template runtime's operation cells from
 `describe` before exercising them. Missing advertised prerequisites produce
-**SKIP: not_applicable**, never pass or failure. Operation-outcome probes also
-require `admission/1`. The advertised-operations case
-probes each runtime's available cells independently and does not require stop,
-list, attach or resume when absent. Label-scoped scenarios require `labels/1`;
-the launch-only control still exercises wire, unknown operations and advertised
-launches without adding labels. If a plugin supports every optional capability or all three
+**SKIP: not_applicable**, never pass or failure. Each prerequisite belongs to
+an operation or assertion actually exercised. Launch validation, semantic replay,
+conflict and launch expiry remain applicable to launch-only plugins. Replay list
+membership, resume expiry, stale attach and stale stop have separate scenarios
+so unrelated optional operations cannot suppress these checks. Operation-outcome
+lookup requires status support; admission-key checks require `admission/1`.
+The advertised-operations case probes each runtime's available cells independently
+and does not require stop, list, attach or resume when absent. Only label subset
+and filtered missing-label evidence require `labels/1`. Other scenarios use empty
+labels when that capability is absent; their disposable fixture provides isolation.
+Without an adapter, the caller must likewise supply isolated manager state.
+If a plugin supports every optional capability or all three
 delegated runtimes, the corresponding absence case is explicitly not applicable.
 No absent feature is invented just to obtain a refusal.
 
@@ -175,7 +181,13 @@ and falsely advertised resume controls must reach their specific assertions.
 `TestAdvertisedSubsets` runs the same qualification driver against individual capability omissions,
 launch-only and runtime-without-resume configurations, reporting absent features
 as not_applicable. `TestScenarioPrerequisites` checks every declared prerequisite
-in both capability and runtime directions. Poison cases verify the exact injected wire sample reached
+in both capability and runtime directions. `TestMandatoryLaunchPrerequisites`
+independently pins launch-only properties. `TestLimitedCapabilityValidation`
+executes the actual gated qualification driver in bounded test subprocesses for
+labels-free and launch-only configurations: valid controls must pass all three
+profile/child-env checks, while active request-validation and profile-digest
+plants must fail their exact properties. Skips and setup failures never count.
+Poison cases verify the exact injected wire sample reached
 the validator; known-bad wire controls corrupt ordinary status instead of skipping
 the injection. Additional busy controls preserve the refusal while changing state,
 and the credential control preserves the refusal while leaking into records, so
