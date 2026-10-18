@@ -3,7 +3,10 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
+	"github.com/relux-works/curator-agent-launcher/internal/sessionmanager/fakemanager"
+	"os"
 	"reflect"
 	"testing"
 
@@ -28,6 +31,10 @@ func TestWerkstattReadableOwnerBinary(t *testing.T) {
 			}
 			w.activity(state)
 			w.activity("uncertain")
+			// Distinct old timestamps make omission of either copied field visible.
+			prior.StartedAt = "2000-01-01T00:00:00Z"
+			oldActivity := "2000-01-01T00:00:01Z"
+			prior.LastActivityAt = &oldActivity
 			prior.LastHeartbeatAt = "2000-01-01T00:00:00Z"
 			writeFixture(t, w.path(".json"), frontJSON(prior), 0600)
 			rows := w.rows(w.runWS("status", 0, "", "--json"))
@@ -67,5 +74,78 @@ func TestWerkstattReadableOwnerBinary(t *testing.T) {
 				w.expectStarts(2)
 			}
 		})
+	}
+}
+
+// Poison and typed owner refusals retain their code on every lifecycle surface
+// and leave liveness byte-for-byte unchanged. An unreachable owner still gives
+// unknown evidence to status and refuses down/recycle; idle above is the control.
+func TestWerkstattOwnerRefusalBinary(t *testing.T) {
+	bin := frontBuild(t)
+	for _, kind := range []string{"protocol", "identity", "unreachable"} {
+		actions := []string{"status", "up", "down", "recycle"}
+		if kind == "unreachable" {
+			actions = []string{"status", "down", "recycle"}
+		}
+		for _, action := range actions {
+			t.Run(kind+"/"+action, func(t *testing.T) {
+				w := newWS(t, bin)
+				w.runWS("up", 0, "")
+				before, err := os.ReadFile(w.path(".json"))
+				if err != nil {
+					t.Fatal(err)
+				}
+				calls := w.calls()
+				code, diagnostic := 1, "session_curator_identity_stale"
+				switch kind {
+				case "protocol":
+					w.control(fakemanager.FixtureRequest{Operation: "inject_fault", Name: "malformed"})
+					code, diagnostic = 6, "session_host_protocol_error"
+				case "identity":
+					w.control(fakemanager.FixtureRequest{Operation: "set_identity_drift", Enabled: true})
+				case "unreachable":
+					if err := os.Chmod(bin.manager, 0600); err != nil {
+						t.Fatal(err)
+					}
+					t.Cleanup(func() {
+						if err := os.Chmod(bin.manager, 0700); err != nil {
+							t.Error(err)
+						}
+					})
+					diagnostic = "session_liveness_unknown"
+					if action == "status" {
+						code, diagnostic = 0, ""
+					}
+				}
+				w.runWS(action, code, diagnostic)
+				after, err := os.ReadFile(w.path(".json"))
+				if err != nil {
+					t.Fatal(err)
+				}
+				if kind == "unreachable" && action == "status" {
+					got := *w.live()
+					var prior client.Liveness
+					if err := json.Unmarshal(before, &prior); err != nil {
+						t.Fatal(err)
+					}
+					if got.State != "unknown" {
+						t.Fatal("unreachable owner did not yield unknown")
+					}
+					got.State, got.LastHeartbeatAt = prior.State, prior.LastHeartbeatAt
+					if !reflect.DeepEqual(got, prior) {
+						t.Fatal("unreachable owner destroyed evidence")
+					}
+				} else if !bytes.Equal(before, after) {
+					t.Fatal("owner refusal wrote liveness")
+				}
+				for _, call := range w.calls()[len(calls):] {
+					if call == "stop" || call == "launch" || call == "resume" {
+						t.Fatal("owner refusal performed lifecycle action", call)
+					}
+				}
+				w.expectStarts(1)
+				w.noOperation()
+			})
+		}
 	}
 }

@@ -92,6 +92,11 @@ func (s Service) ownerRead(ctx context.Context, reg sessionmanager.Registry, l *
 		return nil, err
 	}
 	response, err := call(ctx, s.remote(l.Manager.ID, e), "status", map[string]string{"session": l.Session})
+	// Unavailability carries no owner evidence. Poison and admitted typed
+	// refusals retain their own diagnostic and must not become a refresh.
+	if err != nil && !client.IsCode(err, "session_host_unavailable") {
+		return response.Session, err
+	}
 	if err != nil || response.Session == nil || !response.Session.Readable {
 		return response.Session, failure("session_liveness_unknown", nil)
 	}

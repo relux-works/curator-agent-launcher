@@ -36,6 +36,8 @@ controls = [
  ('W17', 'schemas/session-manager/liveness.schema.json', '"last_activity_at": {\n      "anyOf": [', '"last_activity_at": {\n      "type": "string",\n      "anyOf": [', './schemas/session-manager', 'TestLivenessNullableEvidence/last_activity_at', 'nullable last_activity_at valid=true:'),
  ('W18', 'schemas/session-manager/resume.schema.json', '^[A-Za-z0-9._:/@+=-]{1,128}$', '^[A-Za-z0-9._:/@+-]{1,128}$', './schemas/session-manager', 'TestPublishedLabelGrammar/resume/readable/punctuation', 'label punctuation valid=true:'),
  ('W19', service, 'if err != nil || response.Session == nil || !response.Session.Readable {', 'if err != nil || response.Session == nil || !response.Session.Readable || response.Session.State == "unknown" {', './cmd/curator-run', 'TestWerkstattReadableOwnerBinary/unknown', 'readable owner evidence not refreshed'),
+ ('W20', service, 'if err != nil && !client.IsCode(err, "session_host_unavailable") {', 'if false {', './cmd/curator-run', 'TestWerkstattOwnerRefusalBinary/protocol/status', 'status exit=0 want=6 diagnostic=session_host_protocol_error'),
+ ('W21', service, 'if err != nil && !client.IsCode(err, "session_host_unavailable") {', 'if false {', './cmd/curator-run', 'TestWerkstattOwnerRefusalBinary/identity/status', 'status exit=0 want=1 diagnostic=session_curator_identity_stale'),
 ]
 if a.only:
     wanted = set(a.only.split(','))
