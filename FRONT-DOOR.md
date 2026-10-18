@@ -2,10 +2,10 @@
 
 **Amends:** [SPEC](SPEC.md) `0.5.1-draft` → `0.6.0-draft` (target; nothing
 here is implemented yet).
-**Status:** revision 3, draft. `ivmbp_curator_orch` accepted revision 1
+**Status:** revision 4, draft. `ivmbp_curator_orch` accepted revision 1
 (0ed45c5) as the basis on 2026-10-18 with four must-change points. Revision 2
 folds those in, together with the independent reviews `review-1` and
-`review-2` (both rework). Revision 3 also adopts the accepted
+`review-2` and `review-3` (all rework, converging). Revision 3 also adopts the accepted
 `protocol/local-setup-token-source.md`, which revision 2 had missed (§9). Implementation of S1–S3
 is authorised against the fake manager.
 **Board:** `relux-works/curator-run-board`, EPIC-261018-cuz7sp `front-door`,
@@ -89,7 +89,7 @@ curator-run werkstatt up <id> [--attach] [--new]
 curator-run werkstatt down <id> [--force]
 curator-run werkstatt recycle <id>
 curator-run werkstatt status [<id>] [--json]
-            [--set-task <ID> | --clear-task] [--queue-depth N]
+            [--set-task <ID> | --clear-task] [--queue-depth N] [--abandon-operation]
 curator-run werkstatt list [--json]
 
 curator-run session-manager list [--json]
@@ -166,27 +166,43 @@ notice-empty:      curator-run: no session manager registered; launching nativel
 notice-unselected: curator-run: no session manager selected (<N> registered); launching natively (curator run session-manager select <id>)
 ```
 
-A registry that exists but is invalid (§4.2) is
-`session_manager_registry_invalid` in every row except `--native` and
-mode `native`. It never counts as empty.
+**Resolution algorithm.** This is the one order. The first refusal wins.
+
+1. Parse the flags, then read `ax.json` and the system `launcher.json`.
+2. `--native` (or `--untracked`), or `host_mode: native` with no flag:
+   native. No registry read, no hosted checks.
+3. Explicit `--hosted`, or `host_mode: hosted` with no flag:
+   1. if `ax.json` is enabled, `host_configuration_conflict` (2);
+   2. the SPEC §4.8 hosted checks: `network_scope_unsupported` (16),
+      `session_host_terminal_required` (6), `session_host_stdin_unsupported`
+      (6);
+   3. the registry: invalid is `session_manager_registry_invalid` (2);
+      empty or unselected is `session_host_missing` (1);
+   4. `describe` and the capability checks (§5.2);
+   5. the activation matrix (§5.8).
+4. `host_mode: auto` with no flag:
+   1. the registry: invalid is `session_manager_registry_invalid` (2), never
+      empty;
+   2. empty or unselected gives native, plus its notice. If `ax.json` is
+      enabled, `ax` routing applies;
+   3. selected:
+      1. if `ax.json` is enabled, `host_configuration_conflict` (2);
+      2. the hosted checks of step 3.2;
+      3. `describe` and the capability checks;
+      4. the activation matrix. Its native row gives `notice-unselected`.
+
+   After the registry read, nothing in `auto` turns a refusal into native.
+   The matrix row is decided by capability, not by a failure.
+
+`werkstatt up` follows step 3, except that it needs no terminal unless
+`--attach` is given.
 
 Rules that carry over:
 
 - A hosted refusal never falls back to native, to another manager, or to
-  another runtime (CIP-0016 §2). `auto` decides native only from the
-  registry state. Once a manager is selected, any failure refuses.
+  another runtime (CIP-0016 §2).
 - `--native` beats the machine mode. The mode is a default for launches,
   not a lock (`host_mode_locked` is open, §15).
-- Legacy `ax.json`: when it is enabled, any hosted row is
-  `host_configuration_conflict` (2), as in SPEC §4.8. `ax` routing applies
-  when the table yields native without an explicit `--native`.
-- The SPEC §4.8 refusals keep their order and codes, and come before any
-  registry read:
-  - hosted `--network`: `network_scope_unsupported` (16);
-  - a missing terminal: `session_host_terminal_required` (6);
-  - a piped stdin: `session_host_stdin_unsupported` (6).
-
-  `werkstatt up` without `--attach` needs no terminal.
 - Hosted permissions stay as in SPEC §4.8 (Q-D3).
 
 ### 3.3 The managed home and the board goal
@@ -637,77 +653,142 @@ Exit status follows the registry.
 ### 5.7 Admission, idempotency and reconciliation
 
 **Admission.** Under `admission/1`, launch and resume share one atomic
-transition per `admission_key`: from "no active generation" to "generation
-N admitted". A second launch or resume for the key while a generation is
-active refuses `werkstatt_already_up` (1), with the detail
-`session=<handle>`, and has no effect.
+transition per `admission_key`, from "no active generation" to "generation
+N admitted". Admission is per manager. Cross-manager exclusion is the
+launcher's job (§6.2 step 4).
 
-**Operation outcomes.** `status {operation_id}` and `cancel` return
-`{outcome, session?, code?}`:
+A second launch or resume for the key while a generation is active refuses
+`werkstatt_already_up` (1) and has no effect.
 
-| `outcome` | Meaning | Launcher action |
-| --- | --- | --- |
-| `not_found` | Never received, or cancelled before receipt | Refuse `session_host_unavailable` (1) |
-| `prepared` | Received, not yet admitted | `cancel`, then refuse `session_host_unavailable` |
-| `admitted` | Admitted, start pending | Poll `status` every 2 s, up to 60 s. Still `admitted` after that: `session_liveness_unknown` (1). |
-| `started` | Started; carries the session record | Complete normally |
-| `failed` | Admitted, but the start failed; carries a refusal `code` from §11 | Refuse with that code |
-| `cancelled` | Fenced by `cancel` | Refuse `session_host_unavailable` |
-| `unknown` | The manager cannot tell | `session_liveness_unknown` (1) |
+**Operation outcomes.** `status {operation_id}` and `cancel
+{operation_id}` are ordinary operations, and both answer `ok: true` with
+this payload in the common envelope:
 
+```json
+{ "protocol": "curator-session-manager/1", "ok": true,
+  "outcome": "not_found|prepared|admitted|started|failed|cancelled|unknown",
+  "session": { …session record… },   // only with started
+  "code": "…" }                     // only with failed
+```
+
+- A historical failed start is a successful `status` answer that carries
+  the failure's `code`. It is not a refusal of `status` itself.
+- `code` is drawn from the union of:
+  - the SPEC §6 registry, for example `plan_refused` and
+    `launch_plan_invalid`;
+  - §11 of this document;
+  - the Curator local-credential codes (§11).
+- Its exit status is the registry's.
+- A code outside that union poisons the response
+  (`session_host_protocol_error`).
 - **Idempotency.** A repeated `operation_id` returns the recorded outcome
   and never starts a second process.
 - **Fencing.** `cancel` on a `not_found` or `prepared` operation records a
-  tombstone, so a late delivery of that operation never starts. `cancel` on
-  `admitted` or `started` changes nothing and returns the current outcome.
+  tombstone and answers `cancelled`. A late delivery of that operation never
+  starts. `cancel` on any other state changes nothing and answers the
+  current outcome.
 
-**Durable correlation.** Before submitting a launch or resume for a
-Werkstatt, the launcher writes `<state>/werkstatt/<id>.op.json` atomically:
-`{operation_id, kind, submitted_at, admission_key}`.
+**Reconciliation loop.** A launch or resume whose answer was lost runs this
+loop. So does any later invocation that finds a pending operation. All
+calls go to the operation's **own** manager (below), and the whole loop is
+bounded by 60 s.
 
-- The file is removed only after a terminal outcome: `started`, `failed`,
-  `cancelled`, or `not_found` after a `cancel`.
-- Every later `up`, `down`, `recycle` or `status` for that Werkstatt first
-  reconciles a pending `op.json` through `status {operation_id}`. A fresh
-  operation is never generated while one is pending and unresolved.
-- If reconciliation stays `unknown`, `up` refuses
-  `session_liveness_unknown` and names the operation.
+```text
+r := status{operation_id}
+loop:
+  started   → success: write liveness, clear op.json, done
+  failed    → refuse with r.code, clear op.json, done
+  cancelled → refuse session_host_unavailable (reason=cancelled), clear op.json, done
+  admitted  → wait 2 s; r := status{operation_id}; continue
+  not_found, prepared → r := cancel{operation_id}; continue   // consume cancel's own outcome
+  unknown   → refuse session_liveness_unknown, keep op.json, done
+on transport failure, timeout or a poisoned response of status/cancel:
+  refuse session_liveness_unknown, keep op.json, done
+on deadline while admitted:
+  refuse session_liveness_unknown, keep op.json, done
+```
 
-A plain hosted launch, one without a Werkstatt, is attached and
-interactive. A lost answer prints the `operation_id` and refuses
+A `cancel` that fails or is lost is not a confirmed cancellation. The
+operation stays pending.
+
+Two traces settle the review's cases:
+
+- **Crash before send.** `status` answers `not_found`, `cancel` answers
+  `cancelled`, and `op.json` is cleared.
+- **Start that races the cancel.** The `cancel` answers `started`, and the
+  loop completes as success.
+
+**Durable correlation.** Before submitting a Werkstatt launch or resume,
+the launcher writes `<state>/werkstatt/<id>.op.json` atomically, under the
+lock:
+
+```json
+{ "operation_id": "…", "kind": "launch|resume", "submitted_at": "…Z",
+  "admission_key": "werkstatt:<id>",
+  "manager": { "id": "task-board", "executable": "/abs/path", "registered_at": "…Z" } }
+```
+
+- **Ownership.**
+  - A pending operation is reconciled only through the manager it records.
+    That manager must still be in the effective registry with the same
+    `executable`, but it need not be selected.
+  - If the entry is missing, the reconciliation refuses
+    `werkstatt_operation_unresolved` (1), `reason=manager_missing`.
+  - If the executable differs, it refuses the same code with
+    `reason=manager_changed`.
+  - Neither case ever reroutes the operation to the selected manager.
+  - Re-registering the original entry, or an explicit operator
+    `werkstatt status <id> --abandon-operation`, clears the refusal.
+    `--abandon-operation` is a manual decision: it clears `op.json` and
+    records the abandoned id in the liveness record.
+- **No overlap.** No new operation is generated while one is pending.
+
+**Local serialisation.** Every mutation of a Werkstatt's `op.json` or
+liveness file, including those made by `status`, happens under an
+exclusive lock on `<state>/werkstatt/<id>.lock`.
+
+- `up`, `down` and `recycle` hold the lock for their whole run.
+- `status` takes it to reconcile and write.
+- A second invocation waits up to 5 s:
+  - `up`, `down` and `recycle` then refuse `werkstatt_busy` (1),
+    `operation=in_progress`;
+  - `status` then prints the last liveness record read-only, marked
+    `stale: true`, and writes nothing.
+- Every liveness write is also a compare-and-swap on `(operation_id,
+  generation)`: a write carrying an older generation than the file holds
+  is dropped.
+- Manager admission still decides across clients and state roots.
+
+**Plain hosted launches** (no Werkstatt) are attached and interactive. A
+lost answer runs the loop once in the same invocation, without `op.json`.
+If it stays unresolved, the launcher prints the `operation_id` and refuses
 `session_liveness_unknown`.
-
-**Local serialisation.** `up`, `down` and `recycle` hold an exclusive lock
-on `<state>/werkstatt/<id>.lock`. A second invocation waits up to 5 s, then
-refuses `werkstatt_busy` (1) with the detail `operation=in_progress`. Manager
-admission still decides across clients and state roots.
 
 ### 5.8 Activation boundary for `launch-delegated/1`
 
-| Stage | Allowed before Ivan signs off Q1 |
-| --- | --- |
-| Implementation and fake-manager tests (S1–S8) | Yes |
-| A live trial on ivmbp (S10) with explicit `--hosted` / `werkstatt up` through a real manager | Only after `ivmbp_curator_orch` or Ivan explicitly authorises that trial; not implied by this document |
-| Production activation: any default use, or a release that ships delegated hosting enabled | No |
+`delegated_trial` (system-layer `launcher.json`, §3.1) authorises a live
+trial. The owner sets it only after `ivmbp_curator_orch` or Ivan explicitly
+authorises that trial. Nothing in this document implies the authorisation.
 
-Until sign-off, the shipped launcher treats a delegated-only manager as
-**unselected** for every launch without `--hosted`, including `auto`
-(`notice-unselected`). `werkstatt up` uses it only under the trial
-authorisation, which is recorded in `launcher.json` as
-`"delegated_trial": true`. That member is system layer only and is removed
-at sign-off.
+The matrix below applies to a selected manager that offers
+`launch-delegated/1` but not `launch-exact/2` for the runtime:
 
-`auto` therefore has one capability-based exception to the rule "native is
-decided by the registry alone" (§3.2). The order is:
+| Invocation | Before Q1 sign-off, `delegated_trial` absent or false | Before sign-off, `delegated_trial: true` | After sign-off |
+| --- | --- | --- | --- |
+| `--hosted` | Refuse `session_host_delegated_unauthorized` (16) | Hosted | Hosted |
+| `werkstatt up` | Refuse `session_host_delegated_unauthorized` (16) | Hosted | Hosted |
+| No flag, `host_mode: auto` | Native with `notice-unselected` | Native with `notice-unselected` | Hosted |
+| No flag, `host_mode: hosted` | Refuse `session_host_missing`, `reason=no manager selected` | Refuse, the same | Hosted |
+| `--native`, or `host_mode: native` | Native | Native | Native |
 
-1. read the registry;
-2. if `selected`, run the hosted checks of SPEC §4.8 (terminal, stdin,
-   network);
-3. `describe`;
-4. a manager that is delegated-only and not trial-authorised gives
-   `notice-unselected` and native.
+- The trial flag never changes the two implicit rows.
+- Fake-manager tests set `delegated_trial` in their fixture configuration.
+- At sign-off, the next revision lifts the implicit-row restriction, and the
+  flag is withdrawn.
+- A manager with `launch-exact/2` for the runtime is outside this matrix.
 
-A failure in step 2 or step 3 refuses. It never goes native.
+The paired test vectors are the 15 cells of the matrix, each with its
+expected outcome.
 
 ## 6. Werkstätten
 
@@ -774,7 +855,14 @@ local write.
    - An empty or unselected registry is
      `werkstatt_session_manager_required` (1).
    - `up` is always hosted, whatever the machine mode is.
-4. **Existing sessions.** `list {labels: {werkstatt: id}}`.
+4. **Existing sessions.** `list {labels: {werkstatt: id}}` on the selected
+   manager. If the liveness record names a different manager that is still
+   in the registry and not `down`, also run `status` there:
+   - a session there that is not `down` is `werkstatt_already_up` (1);
+   - an unreachable manager is `session_liveness_unknown` (1).
+
+   The launcher does not start a second generation on another manager while
+   the first may live.
    - A session in a state other than `down` is `werkstatt_already_up` (1).
    - An `unknown` session is `session_liveness_unknown` (1).
    - The resume target, with `context_mode` `continue` and no `--new`, is
@@ -789,8 +877,11 @@ local write.
      physical path is outside the clone's, the worktree has no `.git`
      entry, and `core.worktree` names the clone. Otherwise
      `werkstatt_git_layout_invalid`.
-   - No context leak, checked on both the lexical and the physical
-     ancestors. A found file is `werkstatt_context_leak`. An unreadable
+   - **No context leak.** No strict ancestor up to `/` contains any of the
+     four files `CLAUDE.md`, `CLAUDE.local.md`, `AGENTS.md` or
+     `AGENTS.override.md`. Both the lexical path as given and the physical
+     path, with all symlinks resolved, are checked. A found file is
+     `werkstatt_context_leak`. An unreadable
      ancestor is `werkstatt_context_check_failed`, never clean. Files
      inside config directories, such as `~/.claude/CLAUDE.md`, are not
      ancestors.
@@ -1189,6 +1280,8 @@ Detail vocabularies are closed (§5.6). Grammar names:
 | `fragment_version_unsupported` | 2 | Muse with a pre-v4 fragment | `environment`: `muse`; `required`: `launch-env-fragment-v4` |
 | `credential_reserved_name` | 2 | a reserved credential name in `child_env` | `name`: one of the reserved names |
 | `migrate_destination_exists` | 2 | `migrate` would overwrite a different file | `path` |
+| `werkstatt_operation_unresolved` | 1 | a pending operation's manager is missing or changed (§5.7) | `reason`: `manager_missing`, `manager_changed`; `operation`: UUID |
+| `session_host_delegated_unauthorized` | 16 | a delegated-only manager before Q1 sign-off without a trial authorisation (§5.8) | none |
 
 **Reused with their meaning.** These codes keep their meaning. Plugin-borne
 detail values are allowed only from the vocabularies shown:
@@ -1292,8 +1385,9 @@ Ivan's delegate.
 
 1. **Q1: transitional launch shape. Answer (b), pending Ivan.**
    - `launch-exact` remains the target.
-   - `launch-delegated/1` is declared per manager and retired once that
-     manager advertises `launch-exact`.
+   - `launch-delegated/1` is declared per manager and per runtime. It is
+     retired for a runtime once the manager advertises an exact form for it
+     that also covers detached launches (Appendix A).
    - It is recorded as a proposed CIP-0016 amendment (Appendix A), with the
      stated limits.
    - It needs Ivan's sign-off, because it deviates from an accepted owner
@@ -1364,8 +1458,12 @@ signs off Q1.
 > continues to govern the exact-plan release.
 >
 > **Retirement and backend selection.** The mode is declared per manager
-> and retired for a manager once that manager advertises the exact-plan
-> capability. curator-run then uses exact plan. The backend-selection
+> and per runtime. For a given runtime it is retired once the manager
+> advertises the exact-plan capability for that runtime, together with a
+> detached form; curator-run then uses exact plan for attached launches of
+> that runtime. Until the exact form supports detach, detached launches
+> keep the delegated route. Exact support for one runtime retires nothing
+> for another. The backend-selection
 > question of section 2 is answered by the curator-run session-manager
 > registry. An absent backend selection becomes "no registered manager",
 > and task-board's installer registers task-board.
@@ -1383,7 +1481,7 @@ amendment to `protocol/local-setup-token-source.md` §7.
 >    calls `localcredential.AuthorizeAndStart` with a non-nil `Terminal`.
 >    Qualification adds to §7 the interactive-specific leak surfaces:
 >    - terminal scrollback and transcript;
->    - `/login` inside the session, which then shows the CIP-0010 C6
+>    - `/login` inside the session, which then shows the CIP-0010 C3.6
 >      warning;
 >    - settings reload while the session runs.
 > 2. **Delegated local hosted, same UID** (only with the CIP-0016 delegated
@@ -1403,3 +1501,21 @@ amendment to `protocol/local-setup-token-source.md` §7.
 > For both routes, `credential-injection/1` is advertised per qualified
 > tuple: route, platform, harness release and configuration. Without
 > qualification, the routes refuse `credential_injection_unavailable`.
+
+**Publication gates for Appendix B.** Neither route is published by copying
+`source-projection-v1`. Before activation, the amendment must publish four
+things:
+
+- the route strings;
+- the `pkg/localcredential` version pin;
+- for the hosted route, the carrier rule;
+- the qualification tuples.
+
+**The carrier rule.** In the delegated request, `credential_source` is a
+**non-authoritative staleness reference**. The manager's per-session owner
+re-resolves the source through Curator and compares it with the reference,
+and the request confers no authority. It is not an embedding of source
+metadata into a jointly published plan, which local-setup-token-source §5
+would require to be digest-covered. The amendment must either confirm that
+classification, or define canonical digest coverage of the whole delegated
+request.
