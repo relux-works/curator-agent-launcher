@@ -1586,10 +1586,23 @@ revision drops it (§0.1 C10).
   launch refuses `credential_injection_unavailable` before contacting the
   manager. A manager that advertises `credential-node/1` passes only the
   capability gate, never the authorisation itself.
-- **Reserved names.** `CLAUDE_CODE_OAUTH_TOKEN`, the other names the
-  protocol's §6 step 3 lists, and the loader and startup prefixes it
-  rejects never pass through `child_env` (`credential_reserved_name`, 2).
-  The final check is Curator's.
+- **Reserved names (the launcher's guard, closed).** The local
+  setup-token protocol names its competing inputs only by category (§6
+  step 3). The launcher therefore enforces this concrete closed list for
+  `child_env`:
+  - exact names:
+    - `CLAUDE_CODE_OAUTH_TOKEN`, `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`;
+    - `ANTHROPIC_BASE_URL`, `ANTHROPIC_CUSTOM_HEADERS`;
+    - `CLAUDE_CODE_USE_BEDROCK`, `CLAUDE_CODE_USE_VERTEX`;
+    - `OPENAI_API_KEY`, `CODEX_API_KEY`;
+    - `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `XDG_CONFIG_HOME`,
+      `XDG_DATA_HOME`, `XDG_STATE_HOME`, `XDG_CACHE_HOME`;
+    - `TBH_CREDENTIAL_BACKEND`;
+  - the prefixes `LD_`, `DYLD_`, `NODE_` and `PYTHON`.
+
+  The home and XDG names are the fragment's channel. A Werkstatt must not
+  redirect them. A match is `credential_reserved_name` (2). This list is a
+  guard: the authoritative check is Curator's, at its final boundary.
 - **No Remote Control.** The launcher adds no RC flag, and the source does
   not carry RC.
 
