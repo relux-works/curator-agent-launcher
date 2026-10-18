@@ -121,6 +121,8 @@ const (
 
 	CodeDefaultsInvalid                = "defaults_config_invalid"
 	CodeDefaultsUnresolvable           = "defaults_unresolvable"
+	CodeSelectorUnavailable            = "selector_unavailable"
+	CodeSelectorAbstained              = "selector_abstained"
 	CodeHostWithdrawn                  = "host_member_withdrawn"
 	CodeMigrateDestinationExists       = "migrate_destination_exists"
 	CodeSessionManagerRegistryBusy     = "session_manager_registry_busy"
@@ -187,6 +189,8 @@ func Codes() []string {
 		CodeResolveFragmentInvalid,
 		CodeDefaultsInvalid,
 		CodeDefaultsUnresolvable,
+		CodeSelectorUnavailable,
+		CodeSelectorAbstained,
 		CodeSessionManagerRegistryInvalid,
 		CodeSessionManagerRegistryShadowed,
 		CodeSessionManagerNotRegistered,

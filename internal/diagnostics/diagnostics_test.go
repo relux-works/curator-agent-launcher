@@ -19,6 +19,7 @@ import (
 	"github.com/relux-works/curator-agent-launcher/internal/fragment"
 	"github.com/relux-works/curator-agent-launcher/internal/hosted"
 	"github.com/relux-works/curator-agent-launcher/internal/migrate"
+	"github.com/relux-works/curator-agent-launcher/internal/selector"
 	"github.com/relux-works/curator-agent-launcher/internal/sessionmanager"
 	sp "github.com/relux-works/curator-agent-launcher/internal/systemprompt"
 	"github.com/relux-works/curator-network-profiles/pkg/refusal"
@@ -136,6 +137,8 @@ func TestOwnedCodesMatchOwners(t *testing.T) {
 		{diagnostics.CodeDefaultsUnresolvable, defaults.CodeUnresolvable},
 		{diagnostics.CodeHostWithdrawn, defaults.CodeHostWithdrawn},
 		{diagnostics.CodeMigrateDestinationExists, migrate.CodeDestinationExists},
+		{diagnostics.CodeSelectorUnavailable, selector.CodeUnavailable},
+		{diagnostics.CodeSelectorAbstained, selector.CodeAbstained},
 		{diagnostics.CodeSessionManagerRegistryInvalid, sessionmanager.CodeInvalid},
 		{diagnostics.CodeSessionManagerRegistryShadowed, sessionmanager.CodeShadowed},
 		{diagnostics.CodeSessionManagerNotRegistered, sessionmanager.CodeNotRegistered},

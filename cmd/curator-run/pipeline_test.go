@@ -250,67 +250,77 @@ func golden(t *testing.T, name string, value any, root string) {
 		t.Fatalf("%s mismatch\ngot %s\nwant %s", name, raw, want)
 	}
 }
+
+// Existing direct/tracked payload goldens match with the seam off and with a
+// detached crashing selector in shadow mode; no golden bytes are changed.
 func TestProductionPipelineGoldens(t *testing.T) {
 	for _, env := range []string{"claude_code", "codex_cli", "pi"} {
 		for _, tracked := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%s/tracked=%v", env, tracked), func(t *testing.T) {
-				f := entryFixture(t, env, tracked)
-				insertLauncherArgs(f, "--permissions", "native")
-				t.Setenv("PARENT", "ax-only")
-				code, out, stderr := f.run()
-				if code != 0 {
-					t.Fatalf("exit=%d stderr=%s", code, stderr)
-				}
-				if !bytes.HasPrefix(stderr, []byte(f.resolver.stderr)) {
-					t.Fatal("Curator stderr bytes changed")
-				}
-				if f.builds != 1 || f.verdicts != 1 || f.resolver.calls != 1 {
-					t.Fatalf("calls=%d/%d/%d", f.builds, f.verdicts, f.resolver.calls)
-				}
-				if !reflect.DeepEqual(f.resolver.argv, []string{"env", "resolve", env, "--repair", "--format", "json"}) {
-					t.Fatalf("resolve args %q", f.resolver.argv)
-				}
-				var child childCapture
-				if err := json.Unmarshal(out, &child); err != nil {
-					t.Fatal(err)
-				}
-				var payload any
-				if tracked {
-					if !strings.Contains("\n"+strings.Join(child.Env, "\n")+"\n", "\nPARENT=ax-only\n") {
-						t.Fatal("ax did not inherit the launcher environment")
-					}
-					var doc map[string]any
-					if err := json.Unmarshal(child.Stdin, &doc); err != nil {
-						t.Fatal(err)
-					}
-					if bytes.Contains(child.Stdin, []byte("source-secret")) || bytes.Contains(child.Stdin, []byte("direct-only")) {
-						t.Fatal("inherited environment serialized")
-					}
-					parsed, err := fragment.Parse([]byte(f.resolver.stdout))
-					if err != nil {
-						t.Fatal(err)
-					}
-					extensions := doc["extensions"].(map[string]any)
-					if extensions["works.relux.curator.fragment-digest"] != parsed.Digest {
-						t.Fatal("fragment digest changed")
-					}
-					extensions["works.relux.curator.fragment-digest"] = "<DIGEST>"
-					payload = struct {
-						Argv     []string
-						WorkDir  string
-						Document any
-						Stderr   string
-					}{child.Argv, child.WorkDir, doc, string(stderr)}
-				} else {
-					sort.Strings(child.Env)
-					payload = struct {
-						Child  childCapture
-						Stderr string
-					}{child, string(stderr)}
-				}
-				golden(t, fmt.Sprintf("pipeline-%s-%v", env, tracked), payload, f.dir)
-				if _, err := os.Stat(filepath.Join(f.dir, "started")); err != nil {
-					t.Fatal("missing fake process side effect", err)
+				for _, seam := range []string{"off", "shadow"} {
+					t.Run(seam, func(t *testing.T) {
+						f := entryFixture(t, env, tracked)
+						if seam == "shadow" {
+							shadowFixture(t, f, selectorBinary(t), selectorWorker(t), "exit")
+						}
+						insertLauncherArgs(f, "--permissions", "native")
+						t.Setenv("PARENT", "ax-only")
+						code, out, stderr := f.run()
+						if code != 0 {
+							t.Fatalf("exit=%d stderr=%s", code, stderr)
+						}
+						if !bytes.HasPrefix(stderr, []byte(f.resolver.stderr)) {
+							t.Fatal("Curator stderr bytes changed")
+						}
+						if f.builds != 1 || f.verdicts != 1 || f.resolver.calls != 1 {
+							t.Fatalf("calls=%d/%d/%d", f.builds, f.verdicts, f.resolver.calls)
+						}
+						if !reflect.DeepEqual(f.resolver.argv, []string{"env", "resolve", env, "--repair", "--format", "json"}) {
+							t.Fatalf("resolve args %q", f.resolver.argv)
+						}
+						var child childCapture
+						if err := json.Unmarshal(out, &child); err != nil {
+							t.Fatal(err)
+						}
+						var payload any
+						if tracked {
+							if !strings.Contains("\n"+strings.Join(child.Env, "\n")+"\n", "\nPARENT=ax-only\n") {
+								t.Fatal("ax did not inherit the launcher environment")
+							}
+							var doc map[string]any
+							if err := json.Unmarshal(child.Stdin, &doc); err != nil {
+								t.Fatal(err)
+							}
+							if bytes.Contains(child.Stdin, []byte("source-secret")) || bytes.Contains(child.Stdin, []byte("direct-only")) {
+								t.Fatal("inherited environment serialized")
+							}
+							parsed, err := fragment.Parse([]byte(f.resolver.stdout))
+							if err != nil {
+								t.Fatal(err)
+							}
+							extensions := doc["extensions"].(map[string]any)
+							if extensions["works.relux.curator.fragment-digest"] != parsed.Digest {
+								t.Fatal("fragment digest changed")
+							}
+							extensions["works.relux.curator.fragment-digest"] = "<DIGEST>"
+							payload = struct {
+								Argv     []string
+								WorkDir  string
+								Document any
+								Stderr   string
+							}{child.Argv, child.WorkDir, doc, string(stderr)}
+						} else {
+							sort.Strings(child.Env)
+							payload = struct {
+								Child  childCapture
+								Stderr string
+							}{child, string(stderr)}
+						}
+						golden(t, fmt.Sprintf("pipeline-%s-%v", env, tracked), payload, f.dir)
+						if _, err := os.Stat(filepath.Join(f.dir, "started")); err != nil {
+							t.Fatal("missing fake process side effect", err)
+						}
+					})
 				}
 			})
 		}

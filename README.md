@@ -539,7 +539,7 @@ qualified merely because a file has a native executable header. See SPEC
 
 ### Configuration family
 
-The launcher owns `defaults.json`, `ax.json`, `launcher.json` and `session-managers.json` in the operator directory
+The launcher owns `defaults.json`, `ax.json`, `launcher.json`, `session-managers.json` and `selector.json` in the operator directory
 `${XDG_CONFIG_HOME:-~/.config}/swarma/launcher` (default `~/.config/swarma/launcher`) and machine
 directory `/etc/swarma/launcher`. These are separate from Curator's configuration.
 All use closed schemas: unknown members, malformed data and unreadable files
@@ -572,6 +572,37 @@ in `.bak`; final transformed bytes count as already migrated.
 Uniform old machine `host` values become `launcher.json` `host_mode`; mixed
 values refuse. User `host` values are listed and dropped. Unwritable system
 files are listed once for a privileged installer. A repeated run is a no-op.
+
+`selector.json` is optional, system-only policy with schema
+`curator-run-selector-v1`. It requires `mode` (`shadow` or `enforce`), an
+absolute `executable`, and `argv_prefix` (0–4 words matching
+`[a-z0-9-]{1,32}`). Optional `timeout_seconds` is 1–60, default 5, and applies
+only to enforce. Any user-layer file refuses `defaults_config_invalid`.
+
+The selector receives one bounded JSON request containing the profile, cwd,
+explicit model/effort flags, and exact admitted runtime/model/effort tuples
+from the same agents-management lineup and registry used by defaults. Plain
+launches carry null role, project, Werkstatt and task fields. An effort-less
+candidate and response use JSON null; empty effort strings are invalid.
+Responses are closed, limited to 64 KiB, and must choose an exact candidate.
+Decision/runtime/model/effort strings follow `[A-Za-z0-9._:/@+-]{1,128}`;
+non-null weights use `gguf-sha256:` followed by 64 lowercase hex digits.
+
+Enforce waits within the deadline, applies the choice above file defaults and
+below explicit flags, and reports `selector=<decision_id>` in the defaults
+line. Runtime remains bound through the existing mapped system; the selector's
+runtime is retained as provenance. A typed abstention refuses
+`selector_abstained` (exit 1, `code`); transport or validation failure refuses
+`selector_unavailable` (exit 1, `reason=timeout/exit/invalid`). Neither falls
+back to defaults.
+
+Shadow leaves composition and output unchanged. After composition it starts a
+worker in a separate session/process group without a terminal. The worker owns
+the selector IO and appends a decision record; the launcher appends its applied
+values and launch outcome. Records join by the SHA-256 digest of the CCJ-1
+request in `${XDG_STATE_HOME:-~/.local/state}/swarma/launcher/selector/observations.ndjson`.
+Each line is appended under a filesystem lock; selector and observation failures
+never change the launch. Hosted labels are wired in a later slice.
 
 The session-manager registry uses the closed schema
 `curator-run-session-managers-v1`: `{schema, selected?, managers}`. A system
@@ -750,6 +781,7 @@ platform execution evidence must come from the corresponding runner.
 | Tool | Purpose | Entry point | Output |
 |---|---|---|---|
 | `curator-run session-manager` | inspect and atomically update the manager registry | `curator-run session-manager list/show/register/select/unregister` (forms above) | stdout or JSON; `session-managers.json` in the effective target config home |
+| `.scripts/selector-mutants.py` | bounded selector config, response, transport, precedence and shadow controls | `python3 .scripts/selector-mutants.py [evidence-dir]` | per-probe logs and `summary.tsv`, default `.temp/selector-mutants/`; restores source bytes |
 | `.scripts/session-manager-mutants.py` | bounded registry/registration/atomic-write, transaction-lock and deadline negative controls | `python3 .scripts/session-manager-mutants.py [evidence-dir]` | per-probe logs and `summary.tsv`, default `.temp/session-manager-mutants/`; restores source bytes |
 | `curator-run migrate` | copy legacy configs and remove withdrawn host defaults | `curator-run migrate [--dry-run]` | plan on stdout; new files in `/etc/swarma/launcher/` and `${XDG_CONFIG_HOME:-~/.config}/swarma/launcher/`, rewritten copies keep `.bak` |
 | `go` (build, vet, test, race) | build and behavioral suite | `make check` and the targets above | stdout; nothing written to the tree |

@@ -29,6 +29,7 @@ import (
 	"github.com/relux-works/curator-agent-launcher/internal/migrate"
 	"github.com/relux-works/curator-agent-launcher/internal/network"
 	"github.com/relux-works/curator-agent-launcher/internal/plan"
+	"github.com/relux-works/curator-agent-launcher/internal/selector"
 	"github.com/relux-works/curator-agent-launcher/internal/sessionmanager"
 	"github.com/relux-works/curator-agent-launcher/internal/systemprompt"
 	"github.com/relux-works/curator-network-profiles/pkg/adapterprobe"
@@ -46,6 +47,13 @@ const (
 )
 
 func main() {
+	if len(os.Args) == 2 && os.Args[1] == selector.WorkerArgument {
+		input := os.NewFile(3, "selector-request")
+		if input == nil {
+			os.Exit(1)
+		}
+		os.Exit(selector.RunWorker(input))
+	}
 	registry, err := defaults.NewRegistry()
 	if err != nil {
 		_ = diagnostics.Emit(os.Stderr, diagnostics.CodePlanRefused, fmt.Sprintf("cannot build the spawn-plane registry: %v", err))
@@ -85,8 +93,12 @@ func processConfigLocations() (configfile.Locations, error) {
 type launchDeps struct {
 	configLocations func() (configfile.Locations, error)
 	// launcherConfig is validated policy; later slices consume it.
-	launcherConfig launcherconfig.Config
-	managerService *sessionmanager.Service
+	launcherConfig  launcherconfig.Config
+	managerService  *sessionmanager.Service
+	selectorConfig  selector.Config
+	selectorRequest *selector.Request
+	shadowStart     func(selector.ShadowJob) (*selector.Child, error)
+	observationPath func() string
 
 	axPaths      func() (defaults.Paths, error)
 	workdir      func() (string, error)
@@ -223,6 +235,10 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, deps laun
 		return emitFailure(stderr, diagnostics.CodeDefaultsInvalid, err)
 	}
 	deps.launcherConfig = policy
+	deps.selectorConfig, err = selector.Load(configResolver)
+	if err != nil {
+		return emitFailure(stderr, diagnostics.CodeDefaultsInvalid, err)
+	}
 	configured, err := axconfig.LoadResolved(configResolver)
 	if err != nil {
 		return emitFailure(stderr, diagnostics.CodeDefaultsInvalid, err)
@@ -312,8 +328,40 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, deps laun
 		if inv.PermissionSet {
 			flags.Permissions = defaults.Member{Value: string(inv.PermissionMode), Present: true}
 		}
+		// Preserve existing locked-flag refusals before invoking external policy.
+		if deps.selectorConfig.Mode == "enforce" {
+			if _, resolveErr := files.Resolve(frag.Environment, flags); resolveErr != nil {
+				var derr *defaults.Error
+				if errors.As(resolveErr, &derr) {
+					return emitFailure(stderr, derr.Code, derr.Err)
+				}
+				return emitFailure(stderr, diagnostics.CodeDefaultsInvalid, resolveErr)
+			}
+		}
 		var resolved defaults.Resolved
-		resolved, err = files.Complete(frag.Environment, flags, deps.registry)
+		if deps.selectorConfig.Mode != "" {
+			var request selector.Request
+			request, err = selectionRequest(inv, frag, deps)
+			if err != nil && deps.selectorConfig.Mode == "enforce" {
+				return emitFailure(stderr, diagnostics.CodeSelectorUnavailable, errors.New("selector unavailable reason=invalid"))
+			}
+			if err == nil {
+				deps.selectorRequest = &request
+			}
+		}
+		if deps.selectorConfig.Mode == "enforce" {
+			decision, selectionError := selector.Enforce(ctx, deps.selectorConfig, *deps.selectorRequest)
+			if selectionError != nil {
+				failure := selectionError.(*selector.Failure)
+				return emitFailure(stderr, failure.Code, failure)
+			}
+			selected := defaults.Pair{Model: defaults.Member{Value: decision.Model, Present: true}, Effort: defaults.Member{Value: selectedEffort(decision), Present: true}}
+			resolved, err = files.CompleteWithSelection(frag.Environment, flags, selected, deps.registry)
+			resolved.SelectorDecisionID = decision.DecisionID
+			resolved.SelectorRuntime = decision.Runtime
+		} else {
+			resolved, err = files.Complete(frag.Environment, flags, deps.registry)
+		}
 		if err == nil {
 			var host defaults.ResolvedHost
 			host, err = files.ResolveHost(frag.Environment, inv.HostFlag)
@@ -323,6 +371,12 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, deps laun
 					provider = deps.providerPath()
 				}
 				_ = defaults.EmitGroupWithProvider(stderr, resolved, provider)
+				if deps.selectorConfig.Mode == "shadow" {
+					capture := &selectorOutcomeWriter{Writer: stderr}
+					code := launch(ctx, inv, frag, target, resolved, host, files, stdout, capture, deps)
+					observeSelection(deps, resolved, capture.outcome())
+					return code
+				}
 				return launch(ctx, inv, frag, target, resolved, host, files, stdout, stderr, deps)
 			}
 		}
@@ -634,6 +688,7 @@ func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, ta
 	if err != nil {
 		return emitNetworkFailure(stderr, err)
 	}
+	startShadowSelection(deps)
 	if snapshot != nil {
 		value.Binary = snapshot.Path()
 	}

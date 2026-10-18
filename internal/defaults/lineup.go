@@ -67,6 +67,9 @@ const piRuntimePreference = "pi-anthropic pi-openai pi-google"
 type Resolved struct {
 	Model, Effort ResolvedMember
 	Runtime       string
+	// SelectorDecisionID is ready for the later hosted-label carrier.
+	SelectorDecisionID string
+	SelectorRuntime    string
 }
 
 // NewRegistry builds the production compatibility registry from the real
@@ -134,6 +137,10 @@ func (f Files) Complete(environment string, flags Pair, reg *vendorplugin.Regist
 	if err != nil {
 		return Resolved{}, err
 	}
+	return complete(environment, target, partial, reg)
+}
+
+func complete(environment string, target mapping.Target, partial Partial, reg *vendorplugin.Registry) (Resolved, error) {
 	if reg == nil {
 		return Resolved{}, &Error{CodeUnresolvable, fmt.Errorf("no compatibility registry completes %s defaults", environment)}
 	}
@@ -295,7 +302,11 @@ func (r Resolved) Describe() string {
 // Line is the stderr defaults line of the §4.3 line-group: one line
 // naming each resolved value and its origin.
 func (r Resolved) Line() string {
-	return cli.Name + ": defaults: " + r.Describe()
+	line := cli.Name + ": defaults: " + r.Describe()
+	if r.SelectorDecisionID != "" {
+		line += " selector=" + foldValue(r.SelectorDecisionID)
+	}
+	return line
 }
 
 // ProviderUnavailable is the SPEC §4.3 diagnostic-safe fallback carried
