@@ -2,10 +2,11 @@
 
 **Amends:** [SPEC](SPEC.md) `0.5.1-draft` → `0.6.0-draft` (target; nothing
 here is implemented yet).
-**Status:** revision 2, draft. `ivmbp_curator_orch` accepted revision 1
+**Status:** revision 3, draft. `ivmbp_curator_orch` accepted revision 1
 (0ed45c5) as the basis on 2026-10-18 with four must-change points. Revision 2
-folds those in, together with the independent review `review-1` (verdict
-rework: four blocking and four should-fix findings). Implementation of S1–S3
+folds those in, together with the independent reviews `review-1` and
+`review-2` (both rework). Revision 3 also adopts the accepted
+`protocol/local-setup-token-source.md`, which revision 2 had missed (§9). Implementation of S1–S3
 is authorised against the fake manager.
 **Board:** `relux-works/curator-run-board`, EPIC-261018-cuz7sp `front-door`,
 TASK-261018-st9yo0.
@@ -25,6 +26,7 @@ amendment proposes to an accepted text.
 | Ivan, via `ivmbp_curator_orch`, 2026-10-18 (binding) | A session manager registers once, at install. It is automatic when no other manager is registered. When one or more are, the installer asks once, and an agent installer asks its human. After that the choice is fixed in config, with no prompt on any launch. curator-run is installed first, together with Curator, in the signed distribution. Without a session manager an ordinary launch goes native and prints one line, and `werkstatt up` refuses. |
 | Curator Decision 0010 §6 | The launcher composes three planes: spawn (agents-management), context (`curator env resolve`) and session (now a session-manager plugin). |
 | Decision 0021 and its amendment v2; CIP-0016 / `protocol/local-hosted-launches.md` | One interactive entry point. A host never composes in the exact-plan mode. No fallback after a hosted refusal. Snapshots, not live homes, for exact-plan sessions. Typed resume that never becomes a new session. Section 8 question 2 (backend configuration) is answered by §4 here. |
+| curator-spec `protocol/local-setup-token-source.md` revision 1 (accepted 2026-10-16) | The setup-token source, custody, binding, final boundary and API (`pkg/localcredential`). Curator owns all of it; curator-run consumes it (§9). |
 | CIP-0010 (draft) C3, C6 and its test plan | setup-token: a user-owned source choice that no system lock can select; a protected binding re-resolved by the final executor; every competing source refuses; injected names never reach MCP children; nothing in plans, fragments or logs. |
 | CIP-0017, environments §10.2 | `launch-env-fragment-v4`, Muse `root_context`. |
 | environments §9.4, §11 | `curator-*` providers come only from Curator's trust roots, never from profiles. Revision A selects by `PATH` with a warning; revision B refuses outside the roots. |
@@ -50,6 +52,7 @@ decided it as Ivan's delegate.
 | C7 | SPEC §§4.3, 4.7 paths (`~/.config/curator-run/`, `/etc/curator-run/`) | Move to `swarma/launcher/`, with one release of fallback | Q3, decided |
 | C8 | environments §11 (no provider-specific version coupling) | Curator's release reports the bundled `curator-run` version (§10) | Proposed; owner `ivmbp_curator_orch` |
 | C9 | Decision 0021 open question 4 (how a non-task-board host learns about boards) | Answered by `board-goal/1` and an explicit request member | Proposed here |
+| C10 | `local-setup-token-source.md` §7 (interactive PTY separately qualified; hosted token route needs an amendment; no daemon lookup) | Two new routes: direct local interactive, and delegated hosted through a per-session owner calling Curator's API | Proposed; Appendix B; owner `ivmbp_curator_orch`. This supersedes the Keychain answer to Q5, which conflicted with "no node Keychain backend". |
 
 Not changed: the CIP-0016 receiver transport (private plan stdin, terminal
 fd3, status fd4, the §4.9 framing and classification). `launch-exact/2`
@@ -95,11 +98,10 @@ curator-run session-manager register --manifest <path|-> [--select | --no-select
 curator-run session-manager select <id>
 curator-run session-manager unregister <id>
 
-curator-run credential enroll <env-id>
 curator-run migrate [--dry-run]
 ```
 
-- `werkstatt`, `session-manager`, `credential` and `migrate` are reserved
+- `werkstatt`, `session-manager` and `migrate` are reserved
   operands. They are not environment ids. A future environment id with one
   of these names is a specification conflict.
 - `--untracked` remains an exact synonym of `--native` (SPEC §3).
@@ -124,6 +126,9 @@ The host mode is machine policy. It lives in `launcher.json` (schema
 ```json
 { "schema": "curator-run-launcher-v1", "host_mode": "auto" }
 ```
+
+`delegated_trial`, an optional boolean, is the only other member. It is
+system-layer only and is defined in §5.8.
 
 - `host_mode` is exactly `hosted`, `native` or `auto`. Any other value, or
   an unknown member, is `defaults_config_invalid`.
@@ -150,7 +155,7 @@ then the machine mode. Closed table, first match wins:
 | none | `native` | any | Native. Zero registry read. |
 | none | `hosted` | selected | Hosted. |
 | none | `hosted` | empty, or unselected | Refuse `session_host_missing` (1), with the same details. |
-| none | `auto` | selected | Hosted, subject to the default-use restriction of §5.2. |
+| none | `auto` | selected | Hosted, subject to the activation boundary and its capability exception (§5.8). |
 | none | `auto` | empty | Native, and exactly one stderr line, `notice-empty`. |
 | none | `auto` | unselected | Native, and exactly one stderr line, `notice-unselected`. |
 
@@ -333,72 +338,66 @@ A session manager is an executable plugin, in the same family as git
 credential helpers. Each operation is one subprocess:
 `<executable> <argv_prefix…> <operation>`.
 
-Descriptors and streams by operation:
+| Operation | stdin | stdout | fd 3 | fd 4 | Terminal |
+| --- | --- | --- | --- | --- | --- |
+| `describe`, `status`, `list`, `stop`, `cancel`, `launch`, `resume` | request JSON | response JSON | — | — | none |
+| `attach` | terminal | terminal | request JSON | status records | fd 0–2 |
+| `launch-exact` | CIP-0016 plan payload | terminal | terminal (read/write) | status records | as SPEC §4.9 |
 
-| Operation | stdin | stdout | fd 3 | fd 4 | fd 5 | Terminal |
-| --- | --- | --- | --- | --- | --- | --- |
-| `describe`, `status`, `list`, `stop` | request JSON | response JSON | — | — | — | none |
-| `launch`, `resume` | request JSON | response JSON | — | — | secrets, if any | none |
-| `attach` | terminal | terminal | request JSON | status records | — | fd 0–2 |
-| `launch-exact` | CIP-0016 plan payload | terminal | terminal (read/write) | status records | — | as SPEC §4.9 |
+**Request/response operations**
 
-Rules for the request/response operations:
-
-- **Request:** one JSON object, at most 64 KiB, then EOF.
-- **Response:** one JSON object on stdout, at most 64 KiB, then EOF.
-  - Exit 0 carries `ok: true`. Any other exit carries a refusal object
-    (§5.6).
-  - An exit/`ok` mismatch, invalid JSON, an over-bound body, or a missing
-    or different `protocol` member is `session_host_protocol_error` (6).
-- **stderr** is captured, bounded at 64 KiB, and discarded. Its bytes never
-  reach the launcher's output. Only their count appears, in `--json`
+- The request is one JSON object of at most 64 KiB, then EOF.
+- The response is one JSON object on stdout, at most 64 KiB, then EOF.
+- Exit 0 carries `ok: true`. Any other exit carries a refusal object (§5.6).
+- These are `session_host_protocol_error` (6):
+  - an exit status that disagrees with `ok`;
+  - invalid JSON;
+  - a body over the bound;
+  - a missing or different `protocol` member;
+  - a response that fails §5.6 validation.
+- stderr is captured up to 64 KiB and then discarded. Its bytes never reach
+  the launcher's output; only their count may appear, in `--json`
   diagnostics.
+- No operation carries secrets. Credentials never pass through this
+  protocol (§9).
 
-Rules for `attach` and `launch-exact` (the terminal operations):
+**Terminal operations** (`attach`, `launch-exact`)
 
 - They reuse the SPEC §4.9 status channel exactly: fd 4 carries 32-bit
-  big-endian length-prefixed JSON refusal records of at most 64 KiB,
-  classified against the closed registry. The poison and truncation rules
-  also apply.
-- A typed refusal exists only as an fd-4 record. Without a record, the exit
-  status is the session's own (detach is 0, otherwise the provider's), and
-  it is never reclassified.
-- For `launch-exact`, the arguments, fd 3, fd 4 and the plan on stdin are
-  the CIP-0016 receiver transport byte for byte. That shape is unchanged
-  (§0.1).
+  big-endian length-prefixed JSON refusal records of at most 64 KiB, with
+  registry classification, poison and truncation rules.
+- A typed refusal exists only as an fd-4 record. Without one, the exit
+  status is the session's own and is never reclassified.
+- For `launch-exact`, the argv, fd 3, fd 4 and stdin plan are the CIP-0016
+  receiver transport byte for byte, so that shape is unchanged (§0.1).
+  - Because it is a lifetime terminal operation, it cannot serve a detached
+    launch (`werkstatt up`) or return a session record.
+  - Detached exact-plan launches stay unavailable until the CIP-0016
+    successor publishes a detached form. A launch that needs detach through
+    an exact-only manager refuses `session_host_capability_missing` (6),
+    with the detail `capability=launch-exact-detached`.
 
-Secrets (fd 5):
+**Plugin environment and descriptors**
 
-- One JSON object, 32-bit big-endian length-prefixed, at most 16 KiB:
-  `{"credentials":[{"name":…,"value":…,"binding":{…}}]}` (§9.3).
-- The launcher writes it and closes its end before reading stdout.
-- The plugin MUST read fd 5 to EOF and close it before it starts any child
-  process or contacts its daemon. It MUST also set close-on-exec on fd 5 as
-  its first action at startup.
-- Secrets never appear in stdin, argv, environment, stdout, stderr,
-  responses, records or logs.
+- The launcher composes the plugin's environment: `PATH` and `HOME` from the
+  caller, `CURATOR_RUN_PROTOCOL=curator-session-manager/1`, and nothing
+  else.
+- The plugin owns its transport to its daemon (for task-board, the private
+  control socket of `tb-sessiond`).
+- The launcher marks its own copies of fd 3 and fd 4 close-on-exec, and
+  hands the plugin exactly the descriptors in the table.
 
-The plugin's environment is composed by the launcher:
+**Deadlines**
 
-- `PATH` and `HOME` from the caller;
-- `CURATOR_RUN_PROTOCOL=curator-session-manager/1`;
-- nothing else.
+| Operations | Deadline |
+| --- | --- |
+| `describe`, `status`, `list`, `stop`, `cancel` | 10 s |
+| `launch`, `resume` | 60 s |
+| terminal operations | none |
 
-The plugin owns its transport to its daemon (task-board: the private
-control socket of `tb-sessiond`).
-
-Every launcher-side copy of fds 3–5 is close-on-exec. The launcher hands the
-plugin exactly the descriptors in the table.
-
-Deadlines:
-
-- `describe`, `status`, `list`, `stop`: 10 s;
-- `launch`, `resume`: 60 s;
-- `attach` and `launch-exact`: none, because they are the session.
-
-An overrun kills the plugin's process group and is
-`session_host_unavailable` (1). For `launch` and `resume`, the overrun is
-followed by reconciliation (§5.7).
+An overrun kills the plugin's process group. For `launch` and `resume`, the
+overrun is followed by reconciliation (§5.7); otherwise it is
+`session_host_unavailable` (1).
 
 ### 5.2 Operations and capabilities
 
@@ -409,55 +408,51 @@ followed by reconciliation (§5.7).
 | `launch-exact` | CIP-0016 successor payload | terminal session | `launch-exact/2` |
 | `resume` | resume request (§5.3) | session record | `resume/1` |
 | `attach` | `{session}` on fd 3 | session exit status | `attach/1` |
-| `status` | `{session}` or `{operation_id}` | session record, or `{outcome}` (§5.7) | `status/1` |
+| `status` | `{session}` or `{operation_id}` | session record, or an operation outcome (§5.7) | `status/1` |
+| `cancel` | `{operation_id}` | an operation outcome | `admission/1` |
 | `list` | `{labels?}` | `{sessions: [record…]}` | `list/1` |
 | `stop` | `{session, mode: "graceful"\|"force", precondition: "none"\|"not-busy"}` | session record | `stop/1` |
 
-Capability tokens. The v1 set is closed, and an unknown token confers
-nothing:
+The v1 capability tokens are closed. An unknown token confers nothing.
 
 - **`launch-delegated/1` [pending Q1, Ivan].** The plugin composes through
   the same agents-management construction site, from the profile the request
-  names. It is a proposed CIP-0016 amendment (Appendix A).
-  - **Default-use restriction, until Ivan signs off:** a manager that offers
-    only `launch-delegated/1` is used for explicit `--hosted` and for
-    `werkstatt up`.
-  - Under machine `host_mode` `hosted` or `auto` without a flag, such a
-    manager counts as **unselected**. The launch therefore goes native with
-    `notice-unselected` under `auto`, and refuses under `hosted`.
-  - The next revision of this document lifts the restriction after the
-    sign-off.
-- **`launch-exact/2`.** The CIP-0016 exact-plan shape. Its payload is the
-  jointly published successor (CIP-0016 §8 question 1). When a manager
-  offers both shapes, the launcher uses `launch-exact/2`.
+  names. This is the proposed CIP-0016 amendment (Appendix A). The activation
+  boundary is in §5.8.
+- **`launch-exact/2`.** The CIP-0016 exact-plan shape, with the jointly
+  published successor payload. The launcher prefers it **per runtime**: when
+  `describe` lists `launch-exact` for that env-id and the launch is attached.
+  Exact support for one runtime never retires delegated support for another.
 - **`resume/1`, `attach/1`, `status/1`, `list/1`, `stop/1`.**
-- **`admission/1`.** The manager enforces `admission_key` uniqueness and
-  `operation_id` idempotency atomically (§5.7).
+- **`admission/1`.** The manager enforces, atomically, one active generation
+  per `admission_key` across launch and resume, `operation_id` idempotency,
+  operation outcomes, and `cancel` fencing (§5.7).
 - **`board-goal/1`.** Workspace board goal binding (§3.3).
 - **`doorbell-claude/1`, `doorbell-codex/1`.** See §8.
-- **`credential-env/1`.** fd-5 credential intake, under the rules of §9.3.
-  Advertising it is necessary, not sufficient: the manager also re-resolves
-  the binding.
-- **`labels/1`.** Sessions keep the request's labels, and `list` filters by
-  them.
-- **`survives-upgrade`, `drains-on-upgrade`.** Upgrade behaviour (§3.3).
+- **`credential-node/1`.** The manager starts Claude through Curator's
+  protected local credential API, as the hosted token route of Appendix B
+  requires. It is only an intake gate (§9).
+- **`labels/1`.** Labels are retained, and `list` filters by them.
+- **`survives-upgrade`, `drains-on-upgrade`.** The manager's upgrade
+  behaviour (§3.3).
 
-`runtimes` maps each env-id the manager hosts to the operations it supports
-for that env-id. The launcher calls `describe` once per invocation, before
-composition, and computes the needed set from the request:
+**Required capabilities**
 
-- a launch shape;
-- `attach/1` unless `detach`;
-- `resume/1` for resume selectors;
-- `board-goal/1` for `--board-goal`;
-- `credential-env/1` when credentials are configured (§9);
-- the doorbell capability for the runtime when a doorbell is requested;
-- for Werkstätten, also `admission/1`, `labels/1`, `list/1`, `status/1`
-  and `stop/1`.
+The launcher calls `describe` once per invocation, before composition, and
+computes the capabilities the launch needs:
 
-A missing token is `session_host_capability_missing` (6), and the detail
-names the token. A missing env-id is `session_host_provider_unsupported` (6).
-Both are checked before any `launch` or `resume`.
+- a launch shape for the runtime;
+- `attach/1`, unless detached;
+- `resume/1`, for resume selectors;
+- `board-goal/1`, for `--board-goal`;
+- `credential-node/1`, when the profile selects a node source (§9);
+- the runtime's doorbell capability, when a doorbell is requested;
+- for Werkstätten, also `admission/1`, `labels/1`, `list/1`, `status/1` and
+  `stop/1`.
+
+A missing token is `session_host_capability_missing` (6). A missing env-id
+is `session_host_provider_unsupported` (6). Both are checked before any
+`launch` or `resume`.
 
 ### 5.3 Launch and resume requests
 
@@ -465,63 +460,61 @@ Both are checked before any `launch` or `resume`.
 
 | Member | Content |
 | --- | --- |
-| `operation_id` | UUIDv4 chosen by the launcher, unique per invocation (§5.7). |
-| `admission_key` | Absent, or `werkstatt:<id>` (§6). |
+| `operation_id` | UUIDv4 (§5.7). |
+| `admission_key` | `null`, or `werkstatt:<id>`. |
 | `runtime` | Canonical env-id: `claude_code`, `codex_cli` or `muse`. |
 | `profile` | `{name, lock_sha256, fragment_digest}` from the launcher's resolve. The plugin MUST resolve the same profile, and refuse `policy_refused` (16) when its fragment digest differs. |
 | `cwd` | Absolute workspace. |
-| `model`, `effort` | Resolved by SPEC §4.3; values, never flags. |
+| `model`, `effort` | Resolved by SPEC §4.3. They are values, never flags. |
+| `weights_id` | `null`, or an exact local-weights id. The plugin passes it to the module as the weights pin. A module without weights pinning refuses `session_host_capability_missing` with the detail `capability=weights-pin`. |
 | `permissions` | `{mode: native\|yolo, source}` from SPEC §4.3. |
-| `system_prompt` | `null`, or `{semantics: "append"\|"replace"}`: the SPEC §5 opt-in. The plugin passes it to the module. Leaving it out is not an option, because `null` is explicit. |
-| `sandbox` | `{mode: "none"\|"workspace-write", writable_roots: [abs…]}`. Policy, which the plugin spells. |
-| `harness_memory` | Boolean; the plugin spells it (Codex `features.memories`). |
-| `session_name` | The SPEC §3 `--name` grammar. The default is `<env-id>-<utc-stamp>`, or `werkstatt-<id>` for a Werkstatt. |
-| `labels` | At most 16 entries; keys `[a-z0-9.-]{1,32}`, values at most 128 bytes. |
-| `child_env` | Non-secret literals for the provider child: at most 32 names matching `[A-Z][A-Z0-9_]{0,63}`, none reserved (§9.2), values at most 4096 bytes, passing the SPEC §4.9 secret-pattern check (otherwise `secret_policy_violation`, 16). |
+| `system_prompt` | `null`, or `{semantics: "append"\|"replace"}` (the SPEC §5 opt-in). |
+| `sandbox` | `{mode: "none"\|"workspace-write", writable_roots: [abs…]}`. |
+| `harness_memory` | Boolean. |
+| `session_name` | The SPEC §3 `--name` grammar. |
+| `labels` | At most 16 entries; keys `[a-z0-9.-]{1,32}`, values `[A-Za-z0-9._@:-]{1,128}`. |
+| `child_env` | Non-secret literals: at most 32 names `[A-Z][A-Z0-9_]{0,63}`, none reserved (§9.2), values at most 4096 bytes, passing the SPEC §4.9 secret-pattern check. Otherwise `secret_policy_violation` (16). |
 | `board_goal` | `none` or `workspace`. |
-| `doorbell` | Absent, or `{identity, heartbeat, max_wakes_per_hour}` (§8). |
-| `credentials` | The names delivered on fd 5, for example `["CLAUDE_CODE_OAUTH_TOKEN"]`. Names only. |
-| `native_tail` | The selector-free native tail after the module's typed-intent elevation (SPEC §4.8), verbatim. |
-| `detach` | Boolean; when true, the launcher does not attach. |
+| `doorbell` | `null`, or `{identity, heartbeat, max_wakes_per_hour}` (§8). |
+| `credential_source` | `null` (per-home), or the fragment's `source-projection-v1` `{source, source_generation, policy_generation}` (§9). The manager re-resolves the source itself, and a different projection refuses `credential_source_stale`. |
+| `native_tail` | The selector-free tail after the module's typed-intent elevation (SPEC §4.8). |
+| `detach` | Boolean. |
 
 **Resume** — `urn:relux:curator-run:delegated-resume` `1.0.0`, closed. It
-carries the launch members `operation_id`, `profile`, `credentials`,
-`doorbell`, `detach` and `runtime`, plus:
+carries the launch members `operation_id`, `admission_key`, `runtime`,
+`profile`, `credential_source`, `doorbell` and `detach`, plus:
 
 | Member | Content |
 | --- | --- |
-| `selector` | `{kind: "latest"}`, `{kind: "handle", handle}`, or `{kind: "provider_id", id}`: the typed intent of SPEC §4.8. |
-| `scope` | `{cwd, labels?}`. `latest` is resolved within this scope. |
+| `selector` | `{kind: "latest"}`, `{kind: "handle", handle}`, or `{kind: "provider_id", id}` (SPEC §4.8). |
+| `scope` | `{cwd, labels}`. `latest` resolves within this scope. |
 
 Resume rules:
 
-- **No new session.** Resume never creates a session. Missing, ambiguous,
-  unreadable or mismatched targets refuse:
+- Resume never creates a session. Refusals (all exit 1, CIP-0016 §6):
   - `session_resume_not_found`;
   - `session_resume_ambiguous`;
   - `session_resume_unreadable`;
   - `session_resume_location_mismatch`;
-  - `session_resume_identity_mismatch`.
+  - `session_resume_identity_mismatch`;
+  - `session_liveness_unknown`.
+- `latest` with two or more candidate sessions whose `started_at` ties, or
+  where one candidate's record is unreadable, is
+  `session_resume_ambiguous`.
+- A different profile name is `session_resume_identity_mismatch`. The same
+  name with a different digest is `policy_refused` (16).
+- Native resume flags in `native_tail` never select.
 
-  Unknown liveness refuses `session_liveness_unknown` (all exit 1, as
-  CIP-0016 §6).
-- **Same session only.** The manager resumes the same native conversation,
-  with the profile from that session's record. A request profile whose name
-  differs is `session_resume_identity_mismatch`. A request profile with the
-  same name but a different fragment digest is `policy_refused` (16), the
-  drift rule.
-- **Credentials again.** Credentials are delivered again on fd 5 (§9.3).
-- **Selectors stay typed.** Native resume flags in `native_tail` are never
-  used to select.
+What the plugin may add:
 
-What the plugin may and may not add:
-
-- It MUST NOT add profile content, change model, effort or permissions, add
+- It MUST NOT add profile content, change any resolved value, add
   instruction files or MCP servers, or enable Remote Control.
-- It MAY add only its own host plumbing: the PTY or app-server endpoint,
-  private session state, the per-session owner (§8.2), and the goal adapter
-  when `board_goal` is `workspace`.
-- Anything it cannot apply exactly is a refusal, never an approximation.
+- It MAY add its own host plumbing only:
+  - the PTY or app-server endpoint;
+  - private session state;
+  - the per-session owner (§8.2);
+  - the goal adapter, when `board_goal` is `workspace`.
+- Anything it cannot apply exactly is a refusal.
 
 ### 5.4 The session record
 
@@ -541,88 +534,180 @@ Schema `urn:relux:curator-run:session` `1.0.0`:
   "generation": 3,
   "started_at": "…Z",
   "last_activity_at": "…Z",
-  "doorbell": {"state": "armed|unavailable|off|unreconciled", "generation": "…", "reason": "…"}
+  "doorbell": {"state": "armed|unavailable|off", "uncertain": false,
+               "generation": "…", "reason": "…"}
 }
 ```
 
-- `state` uses the router's five states plus `unknown`, and the same
-  vocabulary as the liveness record (§6.5).
-- `unknown` is a real state, and the launcher MUST NOT read it as `down`.
-- `session` is the manager's opaque handle.
+Validation (§5.6 applies to the whole record):
+
+- `session` matches `SES-[A-Za-z0-9]{1,48}`.
+- `native_id` matches `[A-Za-z0-9-]{1,64}`.
+- `manager` equals the registry id.
+- `state` is one of the six values. `unknown` MUST NOT be read as `down`.
+- Timestamps are RFC 3339 UTC.
 - `doorbell.reason` comes from the closed set `unsupported_version`,
   `not_requested`, `owner_unavailable`, `bind_failed` and
   `previous_generation_uncertain`.
+- `doorbell.uncertain` is the durable a2a uncertainty flag of §8.2. It is
+  independent of `state`.
 
 ### 5.5 Conformance
 
-The repository ships `internal/sessionmanager/conformance`. The suite runs a
-candidate plugin through every operation it advertises. Each negative case
-has a passing control:
+`internal/sessionmanager/conformance` runs a candidate plugin through every
+operation it advertises. Each negative case has a passing control.
+
+Wire:
 
 - an unknown operation;
 - malformed, over-bound and exit/`ok`-mismatched responses;
 - a protocol mismatch;
 - a missing capability;
-- an unsupported runtime;
+- an unsupported runtime.
+
+Values:
+
 - a profile digest mismatch;
-- a secret in `child_env`;
-- a reserved name in `child_env`;
+- a secret, or a reserved name, in `child_env`;
+- detail values outside their vocabulary: arbitrary text, control
+  characters, a secret sentinel. Each yields `session_host_protocol_error`
+  and the sentinel never reaches output.
+
+Admission:
+
 - `stop` of an unknown session;
 - `stop` with `not-busy` on a busy session: refused, and no state, gate or
-  process change is observed;
-- concurrent `launch` with one `admission_key`: exactly one session;
-- a retried `operation_id`: the same result, with no second process;
-- `resume` of a missing, an ambiguous and a down-mismatched target: refused,
-  and no session created;
+  process change observed;
+- concurrent launch-vs-launch, launch-vs-resume and resume-vs-resume on one
+  `admission_key`: exactly one active generation;
+- a retried `operation_id`: the same result, and no second process;
+- a lost reply before admission, after admission, and after a failed start,
+  each reconciled to the correct outcome;
+- `cancel` of a prepared operation, followed by a late delivery: never
+  starts.
+
+Resume:
+
+- missing, ambiguous and mismatched targets: refused, with no session
+  created.
+
+Liveness and doorbell:
+
 - `unknown` liveness;
-- fd 5 not inherited by any grandchild;
-- no secret byte in stdout, stderr, responses or the manager's records (a
-  grep over every artifact);
-- for `attach`: a status record on fd 4 versus a plain exit status.
+- an uncertain doorbell kept across stop and rebind.
 
-`cmd/curator-run-fake-manager` is the reference plugin for the suite and for
-the launcher's tests. It is in-memory and in-process per invocation, with a
-state file under a test directory. A manager is **conforming** when it
-passes the suite for the capabilities it advertises. Werkstätten (§6) use
-only protocol operations, so any conforming manager with the Werkstatt set
-(§5.2) hosts them.
+Credentials:
 
-### 5.6 Refusals
+- no credential byte in stdout, stderr, responses or the manager's records,
+  checked by a grep with a sentinel.
 
-The refusal object is `{protocol, ok: false, code, details}`. Rules:
+Attach:
 
-- `code` comes from the SPEC §6 registry plus §11. A code outside it is
+- a status record on fd 4, versus a plain exit status.
+
+`cmd/curator-run-fake-manager` is the reference plugin. A manager is
+**conforming** when it passes the suite for the capabilities it advertises.
+Werkstätten use only protocol operations.
+
+### 5.6 Refusals and value validation
+
+The refusal object is `{protocol, ok: false, code, details}`.
+
+Validation:
+
+- `code` comes from the SPEC §6 registry plus §11. Any other code is
   `session_host_protocol_error`.
-- `details` is a flat object of string values. Only the fields §11 lists
-  for that code are kept; anything else is dropped silently.
-- The launcher prints its own constant message for the code and the kept
-  details. Plugin text is never printed.
-- Exit status follows the registry.
+- Each code admits only the detail fields that §11 lists for it. Each field
+  has a closed vocabulary or a fixed grammar, also listed in §11.
+- **Any** field or value outside its vocabulary, an unexpected field, or a
+  non-string value makes the whole response `session_host_protocol_error`
+  (6). The response is poisoned, not partially kept, which matches SPEC
+  §4.9.
+
+What the launcher prints:
+
+- the constant message of the code;
+- enumerated detail values;
+- values it can source from its own side: the configuration path it read,
+  the record field it validated, its own request's identifiers.
+- A plugin-supplied path or free string is never printed.
+
+Exit status follows the registry.
 
 ### 5.7 Admission, idempotency and reconciliation
 
-- **Admission.** With `admission/1`, the manager admits at most one
-  non-`down` session per `admission_key`, atomically. A second launch is
-  refused `werkstatt_already_up` (1), with the detail `session=<handle>`,
-  and has no effect.
-- **Idempotency.** A launch or resume whose `operation_id` the manager has
-  already seen returns the recorded outcome and never starts a second
-  process.
-- **Lost answer.** When a launch or resume times out or loses its answer,
-  the launcher calls `status {operation_id}`. The outcome is one of
-  `not_found`, `prepared`, `admitted`, `started` (with the session record)
-  or `unknown`.
-  - `not_found` and `prepared` are refused `session_host_unavailable` (1).
-    The manager releases a prepared reservation.
-  - `admitted` and `started` complete the invocation normally.
-  - `unknown`, or no answer at all, is `session_liveness_unknown` (1). The
-    launcher never retries under a new `operation_id`.
-  - A later `werkstatt status` reconciles the result.
-- **Local serialisation.** `werkstatt up`, `down` and `recycle` hold an
-  exclusive lock on `<state>/werkstatt/<id>.lock` for their whole run. A
-  second invocation waits up to 5 s, then refuses `werkstatt_busy` (1) with
-  the detail `operation=in_progress`. Manager admission still decides
-  across hosts and crashed locks.
+**Admission.** Under `admission/1`, launch and resume share one atomic
+transition per `admission_key`: from "no active generation" to "generation
+N admitted". A second launch or resume for the key while a generation is
+active refuses `werkstatt_already_up` (1), with the detail
+`session=<handle>`, and has no effect.
+
+**Operation outcomes.** `status {operation_id}` and `cancel` return
+`{outcome, session?, code?}`:
+
+| `outcome` | Meaning | Launcher action |
+| --- | --- | --- |
+| `not_found` | Never received, or cancelled before receipt | Refuse `session_host_unavailable` (1) |
+| `prepared` | Received, not yet admitted | `cancel`, then refuse `session_host_unavailable` |
+| `admitted` | Admitted, start pending | Poll `status` every 2 s, up to 60 s. Still `admitted` after that: `session_liveness_unknown` (1). |
+| `started` | Started; carries the session record | Complete normally |
+| `failed` | Admitted, but the start failed; carries a refusal `code` from §11 | Refuse with that code |
+| `cancelled` | Fenced by `cancel` | Refuse `session_host_unavailable` |
+| `unknown` | The manager cannot tell | `session_liveness_unknown` (1) |
+
+- **Idempotency.** A repeated `operation_id` returns the recorded outcome
+  and never starts a second process.
+- **Fencing.** `cancel` on a `not_found` or `prepared` operation records a
+  tombstone, so a late delivery of that operation never starts. `cancel` on
+  `admitted` or `started` changes nothing and returns the current outcome.
+
+**Durable correlation.** Before submitting a launch or resume for a
+Werkstatt, the launcher writes `<state>/werkstatt/<id>.op.json` atomically:
+`{operation_id, kind, submitted_at, admission_key}`.
+
+- The file is removed only after a terminal outcome: `started`, `failed`,
+  `cancelled`, or `not_found` after a `cancel`.
+- Every later `up`, `down`, `recycle` or `status` for that Werkstatt first
+  reconciles a pending `op.json` through `status {operation_id}`. A fresh
+  operation is never generated while one is pending and unresolved.
+- If reconciliation stays `unknown`, `up` refuses
+  `session_liveness_unknown` and names the operation.
+
+A plain hosted launch, one without a Werkstatt, is attached and
+interactive. A lost answer prints the `operation_id` and refuses
+`session_liveness_unknown`.
+
+**Local serialisation.** `up`, `down` and `recycle` hold an exclusive lock
+on `<state>/werkstatt/<id>.lock`. A second invocation waits up to 5 s, then
+refuses `werkstatt_busy` (1) with the detail `operation=in_progress`. Manager
+admission still decides across clients and state roots.
+
+### 5.8 Activation boundary for `launch-delegated/1`
+
+| Stage | Allowed before Ivan signs off Q1 |
+| --- | --- |
+| Implementation and fake-manager tests (S1–S8) | Yes |
+| A live trial on ivmbp (S10) with explicit `--hosted` / `werkstatt up` through a real manager | Only after `ivmbp_curator_orch` or Ivan explicitly authorises that trial; not implied by this document |
+| Production activation: any default use, or a release that ships delegated hosting enabled | No |
+
+Until sign-off, the shipped launcher treats a delegated-only manager as
+**unselected** for every launch without `--hosted`, including `auto`
+(`notice-unselected`). `werkstatt up` uses it only under the trial
+authorisation, which is recorded in `launcher.json` as
+`"delegated_trial": true`. That member is system layer only and is removed
+at sign-off.
+
+`auto` therefore has one capability-based exception to the rule "native is
+decided by the registry alone" (§3.2). The order is:
+
+1. read the registry;
+2. if `selected`, run the hosted checks of SPEC §4.8 (terminal, stdin,
+   network);
+3. `describe`;
+4. a manager that is delegated-only and not trial-authorised gives
+   `notice-unselected` and native.
+
+A failure in step 2 or step 3 refuses. It never goes native.
 
 ## 6. Werkstätten
 
@@ -669,82 +754,81 @@ warning. `werkstatt up` prints the source it used.
 
 ### 6.2 `werkstatt up <id>`
 
-Ordered steps. Steps 1–8 have no effect outside the launcher. Step 9 is the
-only one that creates anything:
+Ordered steps. Steps 1–7 start no process and change nothing at the
+manager. Two of them write locally, as stated: step 6 may let Curator repair
+the managed home, and step 7 writes the transitional hook file. Step 8 is
+the only call that starts anything. For Werkstätten the manager is described
+before the profile is resolved. That is a deliberate exception to §3.3: the
+`describe` call is read-only, and the already-up check must come before any
+local write.
 
-1. **Lock** (§5.7).
+1. **Lock and reconcile.** Take the §5.7 lock. Reconcile any pending
+   `op.json` first. If that stays `unknown`, the result is
+   `session_liveness_unknown` (1).
 2. **Record.** Load and validate it.
    - Missing: `werkstatt_not_found` (1).
-   - Invalid: `werkstatt_record_invalid` (2), with the detail
-     `field=<name>`.
+   - Invalid: `werkstatt_record_invalid` (2).
 3. **Manager.** Resolve the selected manager (§4.2) and `describe` it. The
-   Werkstatt capability set is required (§5.2).
-   - Empty or unselected registry: `werkstatt_session_manager_required` (1).
-     `up` is always hosted, whatever the machine mode is.
-   - A delegated-only manager is allowed here (§5.2).
-4. **Workspace checks.** Each is read-only. An inconclusive check refuses.
-   - The clone exists and is a directory. Otherwise
-     `werkstatt_clone_missing` (1).
-   - If `git_dir` is set:
-     - it exists;
-     - its physical path is outside the clone's physical path;
-     - the worktree has no `.git` entry;
-     - `git_dir`'s `core.worktree` names the clone.
-
-     Otherwise `werkstatt_git_layout_invalid` (2), with the detail
-     `reason=<missing|inside|dotgit_present|worktree_mismatch>`.
-   - **Context leak.** For both the lexical path as given and the physical
-     path (all symlinks resolved), no strict ancestor up to `/` contains
-     `CLAUDE.md`, `CLAUDE.local.md`, `AGENTS.md` or `AGENTS.override.md`.
-     - Claude and Codex read these upward, and `CLAUDE_CONFIG_DIR` /
-       `CODEX_HOME` do not stop that.
-     - A found file is `werkstatt_context_leak` (2), with the detail
-       `path=<path>`.
-     - An ancestor that cannot be read or stat'ed is
-       `werkstatt_context_check_failed` (2), with the detail
-       `path=<path>`. It is never treated as clean.
-     - Files inside config directories, such as `~/.claude/CLAUDE.md`, are
-       not ancestors.
-   - The a2a credential file for `identity` exists. This is checked by
-     presence, never read. Otherwise `werkstatt_identity_missing` (1).
-5. **Context plane.** Resolve the fragment for `profile` (SPEC §4.1, with
-   `--repair`).
-6. **Spawn-plane admission** of the record's `model` and `effort`, as SPEC
-   §4.3.
-7. **Credentials** for the runtime (§9). For `claude_code` with a source
-   configured, this includes the conflict checks of §9.2.
-8. **Existing session.** `list {labels: {werkstatt: id}}`.
-   - A non-`down` session is `werkstatt_already_up` (1), with the detail
-     `session=<handle>`.
+   Werkstatt capability set is required (§5.2), and §5.8 bounds a
+   delegated-only manager.
+   - An empty or unselected registry is
+     `werkstatt_session_manager_required` (1).
+   - `up` is always hosted, whatever the machine mode is.
+4. **Existing sessions.** `list {labels: {werkstatt: id}}`.
+   - A session in a state other than `down` is `werkstatt_already_up` (1).
    - An `unknown` session is `session_liveness_unknown` (1).
-   - A `down` session with `context_mode` `continue` and without `--new` is
-     the resume target: step 9 resumes it.
-9. **Start.** Exactly one manager call, with a fresh `operation_id` and
-   `admission_key: werkstatt:<id>`:
-   - `resume {selector: {kind: handle, handle: <down session>}}` in the
-     continue case of step 8;
-   - otherwise `launch`, with:
-     - the record's `runtime`, `profile`, `model`, `effort`, `sandbox`,
-       `harness_memory`, `child_env` and `doorbell`;
-     - `cwd = clone`;
-     - `board_goal: none`;
-     - `system_prompt: null`;
-     - `detach: true`;
-     - the credential names;
-     - the labels `werkstatt=<id>`, `generation=<previous + 1>` and
-       `identity=<identity>`.
-
-   Both calls are subject to §5.7. There is no first-run bootstrap prompt:
-   the orchestrator's first task message is the bootstrap.
-10. **Liveness.** Write the §6.5 record from the returned session record.
-    If the write fails, the session is still up: print the handle and
-    refuse `werkstatt_liveness_write_failed` (1). The next `status`
-    rewrites the record.
-11. **Attach.** `--attach` attaches afterwards. Detaching leaves the
+   - The resume target, with `context_mode` `continue` and no `--new`, is
+     the session named in the liveness record (§6.5), if that session is
+     listed as `down`. Otherwise it is the newest `down` session by
+     `started_at`. A tie, or an unreadable candidate, is
+     `session_resume_ambiguous` (1).
+5. **Workspace checks.** All of them are read-only, and an inconclusive
+   check refuses.
+   - The clone exists and is a directory (`werkstatt_clone_missing`).
+   - If `git_dir` is set, the layout must hold: `git_dir` exists, its
+     physical path is outside the clone's, the worktree has no `.git`
+     entry, and `core.worktree` names the clone. Otherwise
+     `werkstatt_git_layout_invalid`.
+   - No context leak, checked on both the lexical and the physical
+     ancestors. A found file is `werkstatt_context_leak`. An unreadable
+     ancestor is `werkstatt_context_check_failed`, never clean. Files
+     inside config directories, such as `~/.claude/CLAUDE.md`, are not
+     ancestors.
+   - The a2a credential file exists, checked by presence only
+     (`werkstatt_identity_missing`).
+6. **Context plane and admission.**
+   - Resolve the fragment for `profile` (SPEC §4.1, `--repair`).
+   - Admit `model` and `effort` (SPEC §4.3).
+   - Read the fragment's credential projection (§9). A node source refuses
+     here until §9.2 allows it.
+7. **Doorbell preparation.** For `claude_code`, write the transitional
+   hooks (§8.1).
+8. **Start.**
+   - Write `op.json` (§5.7).
+   - Make exactly one call, with `admission_key: werkstatt:<id>`:
+     - `resume {selector: {kind: handle, handle: <target>}, scope: {cwd: clone, labels: {werkstatt: id}}}`
+       when step 4 found a target;
+     - otherwise `launch`, with:
+       - from the record: `runtime`, `profile`, `model`, `effort`,
+         `weights_id`, `sandbox`, `harness_memory`, `child_env` and
+         `doorbell`;
+       - `cwd = clone`;
+       - `board_goal: none`;
+       - `system_prompt: null`;
+       - `detach: true`;
+       - `credential_source` from the fragment;
+       - the labels `werkstatt=<id>`, `generation=<previous + 1>` and
+         `identity`.
+   - Reconcile per §5.7.
+9. **Liveness.** Write the §6.5 record and remove `op.json`.
+   - If the liveness write fails, the session is still up: print the
+     handle, and refuse `werkstatt_liveness_write_failed` (1).
+   - The next `status` rewrites the record.
+10. **Attach.** With `--attach`, attach afterwards. A detach leaves the
     Werkstatt up.
 
-`--new` forces a new session (a new thread) in the continue case.
-`context_mode` `fresh` always launches new.
+`--new` forces a new thread in the continue case. `context_mode` `fresh`
+always launches new.
 
 ### 6.3 Child environment for a Werkstatt
 
@@ -800,14 +884,15 @@ schema `werkstatt-liveness-v1`, written atomically:
 { "id": "...", "state": "starting|idle|busy|draining|down|unknown",
   "manager": "task-board", "session": "SES-…", "generation": 3,
   "started_at": "…Z", "last_heartbeat_at": "…Z", "last_activity_at": "…Z",
-  "doorbell": "armed|unavailable|off|unreconciled",
+  "doorbell": "armed|unavailable|off", "doorbell_uncertain": false,
   "current_task": null, "queue_depth": 0 }
 ```
 
 - **Who writes:** curator-run writes the file on `up`, `down`, `recycle` and
   every `status`. Each time it copies `state`, `session`, `generation`,
-  `started_at`, `last_activity_at` and `doorbell.state` from the manager's
-  session record, and infers nothing else.
+  `started_at`, `last_activity_at`, `doorbell.state` and
+  `doorbell.uncertain` from the manager's session record, and infers
+  nothing else.
 - **`last_heartbeat_at`** is the time of that manager read. A stale value
   means nobody looked, not that the session is down.
 - **`current_task` and `queue_depth`** are written only by the orchestrator,
@@ -832,8 +917,8 @@ schema `werkstatt-liveness-v1`, written atomically:
   - `--force` sends `mode: force, precondition: none`.
   - An already `down` session exits 0 with one line.
   - The liveness record is written from the answer.
-- **`recycle <id>`:** `down` (graceful, `not-busy`), then `up --new`, in
-  one lock. If `down` refuses, nothing else happens.
+- **`recycle <id>`:** `down` (graceful, `not-busy`), then `up --new`,
+  under one lock. If `down` refuses, nothing else happens.
 - **`status [<id>]` and `list`:** the record, the manager status, the a2a
   `who` line and the doorbell state. `--json` gives `werkstatt-status-v1`, an
   array of `{record, liveness, a2a}`.
@@ -910,25 +995,37 @@ a2a runtime bind --codex-thread <thread> --endpoint unix://<socket>
   environment.
 - The bind generation is reported in the session record.
 
-**Retirement**, in this order, on `stop` and before any rebind:
+**Retirement.** The order below applies on `stop` and before any rebind. A
+`not-busy` refusal happens before step 1.
 
-1. `a2a runtime gate --generation G stopping`.
-2. Read `a2a runtime status`. An in-flight attempt is waited for up to the
-   stop deadline. If it is still uncertain after that, the doorbell becomes
-   `unreconciled`, and that state is recorded.
+1. Run `a2a runtime gate --generation G stopping`.
+2. Read `a2a runtime status`. Wait for an in-flight attempt up to the stop
+   deadline. An attempt that is still uncertain sets
+   `doorbell.uncertain: true`. The manager persists that flag in its own
+   session state, and the liveness record mirrors it.
 3. Stop the thread.
 4. The owner exits.
 5. The manager observes the owner's death and runs
    `a2a runtime abandon --generation G`.
-6. The doorbell becomes `off`.
+6. `doorbell.state` becomes `off`. **`uncertain` is not cleared.**
+   Abandoning a generation does not reconcile its attempts, as the a2a
+   contract states.
 
-A `not-busy` precondition refusal happens before step 1 (§6.6).
+**Rebind gate.** Before binding a new generation for the identity, the
+manager reads a2a's durable ledger (`a2a runtime status`) for the previous
+generation. The gate opens only when both conditions hold:
 
-**Rebind.** A new `up` for the same identity does not bind while the
-previous generation is `unreconciled`. The session starts with
-`doorbell.state: unreconciled`, reason `previous_generation_uncertain`, and
-`up` prints one line. Reconciling it is the orchestrator's decision, outside
-v1. a2a may add a lifecycle extension for live-owner release later (§12).
+- a2a reports no uncertain attempt;
+- the manager's `uncertain` flag is false.
+
+The flag is cleared only when a2a's ledger shows that the attempt was
+reconciled. Neither `off` nor a successful abandon clears it. While the gate
+is closed:
+
+- the session starts without a doorbell, with `doorbell.state: off`,
+  `uncertain: true` and reason `previous_generation_uncertain`;
+- `up` prints one line;
+- reconciliation stays with a2a and the orchestrator (§12).
 
 **Unsupported versions.** The a2a native adapter verifies app-server
 0.160.0–0.161.0. On the installed Codex 0.162.1 the bind reports
@@ -936,150 +1033,95 @@ unavailable, so the record shows `doorbell.state: unavailable`, reason
 `unsupported_version`, and `up` prints one line. The launch is not refused.
 Qualifying 0.162.x is an a2a item.
 
-## 9. Claude setup-token injection [decided Q5]
+## 9. Claude setup-token
 
-### 9.1 Source
+### 9.1 Curator owns the source
 
-The token reaches the provider as `CLAUDE_CODE_OAUTH_TOKEN`.
+The protected local setup-token source is already normative in curator-spec
+[`protocol/local-setup-token-source.md`](https://github.com/relux-works/curator-spec/blob/main/protocol/local-setup-token-source.md)
+(revision 1, owner decision 2026-10-16). curator-run consumes it and adds no
+source of its own. It has no `credentials.json`, no Keychain reader, no
+enrolment command and no fd-borne secret. That protocol fixes:
 
-**The source choice is user-owned** (CIP-0010 C3.1).
-`credentials.json`, schema `curator-run-credentials-v1`, lives in the
-**user layer only** (§4.1):
+- **Selection.**
+  `environments.credential_source.<profile>.claude_code = per-home | node:<label>`.
+  This is user-owned machine configuration and no system lock can select
+  it. Absent means `per-home`.
+- **Custody.**
+  - The per-user file `~/.curator/auth/<label>/secret` (0700 directory,
+    0600 file), on macOS and Linux.
+  - **No Keychain backend is admitted.**
+  - Enrolment is `curator env credential enrol claude_code --node <label>
+    --token-stdin`.
+- **One token for every home.** Every profile selects the same
+  `node:<label>`.
+- **Carriers.** Fragment v6 carries `source-projection-v1`, and the
+  required extension is `works.relux.curator.credential/1`.
+- **The final boundary.** Curator's public in-process API
+  `github.com/relux-works/curator/pkg/localcredential.AuthorizeAndStart`
+  is the only way a process starts with the token. It re-resolves the
+  protected `credential_binding/1`, which covers UID, host reference,
+  profile, harness, node, source reference and generation, channel,
+  endpoint, executable SHA-256 and policy generation. It also rejects every
+  competing input, rechecks under the node lock, and injects
+  `CLAUDE_CODE_OAUTH_TOKEN` only into the approved child.
 
-- A system-layer `credentials.json` is `defaults_config_invalid`. No system
-  lock can select a source.
-- A single-user host needs no root, and the Keychain item stays in the
-  user's login keychain.
-- An agent account with its own OS user has its own user layer.
-- This follows CIP-0010 in place of the machine-first wording of the
-  Curator review point 2. The aim of that point, no root on single-user
-  hosts, is met.
+**[decided Q5] is superseded.** It accepted a Keychain interim source. That
+contradicts the accepted protocol's "no node Keychain backend", so this
+revision drops it (§0.1 C10).
 
-```json
-{ "schema": "curator-run-credentials-v1",
-  "claude_code": { "source": "macos-keychain", "generation": 1,
-                   "service": "swarma.claude-setup-token", "account": "default",
-                   "profiles": ["*"] } }
-```
+### 9.2 What curator-run does
 
-| `source` | Behaviour |
-| --- | --- |
-| `curator-node` | Through Curator's CIP-0010 node and its protected binding, once that ships. This is the target. |
-| `macos-keychain` | One generic-password item, read through the Security framework with `kSecUseAuthenticationUIFail`. If reading it would prompt, or the item is absent, the launch refuses `credential_store_unreadable` (1). There is no fallback. |
-| `none` | No injection; the home's own login applies. This is the default when the file or the entry is absent. |
+- **Per-home.** With a `per-home` source (the default), nothing changes.
+- **Node source, native launch.** curator-run is the final executor. It
+  starts Claude through `localcredential.AuthorizeAndStart` with:
+  - the composed invocation (absolute binary, its SHA-256, cwd, argv, the
+    admitted non-secret baseline environment, the endpoint);
+  - the fragment's source projection;
+  - its process IO.
 
-**Enrolment** is out of band:
+  It never handles the token. A refusal is passed through with its closed
+  code, never followed by a native fallback.
+- **The interactive gap.** The API refuses a non-nil `Terminal` until
+  Curator qualifies the interactive mode (protocol §8, §7 "Interactive
+  hosted PTY"). Until then, an interactive node-source launch refuses
+  `credential_injection_unavailable` (2). This is Curator's
+  qualification item, and §12 asks for it.
+- **Node source, hosted launch.** The protocol refuses this today: "A later
+  hosted token route needs an explicit separately reviewed amendment and
+  qualification", and it forbids daemon lookup. Appendix B proposes that
+  amendment:
+  - the manager's per-session owner, running under the same UID, calls
+    `AuthorizeAndStart` with its PTY as `Terminal`;
+  - the request carries only the source projection, which the manager
+    compares with its own resolve (`credential_source_stale` on mismatch);
+  - restart and resume call the API again; nothing is stored.
 
-- `curator-run credential enroll claude_code` reads the token from a TTY
-  with echo off, stores it in the configured item and increments
-  `generation`.
-- The token is never an argument.
-- One token serves every home. No home gets a copy.
+  Until the amendment is accepted and qualified, a hosted node-source
+  launch refuses `credential_injection_unavailable` before contacting the
+  manager. A manager that advertises `credential-node/1` passes only the
+  capability gate, never the authorisation itself.
+- **Reserved names.** `CLAUDE_CODE_OAUTH_TOKEN`, the other names the
+  protocol's §6 step 3 lists, and the loader and startup prefixes it
+  rejects never pass through `child_env` (`credential_reserved_name`, 2).
+  The final check is Curator's.
+- **No Remote Control.** The launcher adds no RC flag, and the source does
+  not carry RC.
 
-### 9.2 Conflicts
+### 9.3 Consequence for the mission
 
-When a source other than `none` applies to the launch, these refuse
-`credential_source_conflict` (2). The detail is `source=<kind>`, where kind
-is one of `ambient_env`, `api_key_helper`, `native_login`, `cloud_provider`
-or `child_env`:
+Mission item 5 ("`CLAUDE_CODE_OAUTH_TOKEN` from a protected source, no
+per-home login") is delivered through Curator:
 
-- **`ambient_env`:** any of `CLAUDE_CODE_OAUTH_TOKEN`, `ANTHROPIC_API_KEY`
-  or `ANTHROPIC_AUTH_TOKEN` in the caller's environment, the fragment `env`
-  or the plan's own literals.
-- **`cloud_provider`:** `CLAUDE_CODE_USE_BEDROCK` or `CLAUDE_CODE_USE_VERTEX`
-  set.
-- **`api_key_helper`:** an `apiKeyHelper` key in the managed home's
-  `settings.json`, or in the workspace's `.claude/settings.json` or
-  `.claude/settings.local.json`.
-- **`native_login`:** the managed home holds its own login. Two forms count:
-  - a `.credentials.json` in `CLAUDE_CONFIG_DIR`;
-  - the Keychain item that Claude keys by that `CLAUDE_CONFIG_DIR`. That
-    item is detected by an attribute-only query (no secret data) with
-    `kSecUseAuthenticationUIFail`. A query that cannot complete without
-    interaction refuses `credential_store_unreadable`.
-- **`child_env`:** a reserved name in a request's `child_env`. This is
-  refused earlier, as `credential_reserved_name` (2).
+| Step | Owner | State |
+| --- | --- | --- |
+| Source, enrolment, `pkg/localcredential` (T1–T3a) | Curator | Specified; not in rc.7 |
+| Interactive mode qualification | Curator | Open |
+| Hosted token route amendment (Appendix B) and its qualification | Curator spec, the manager, curator-run | Proposed here |
+| curator-run consumption: native via the API; hosted through `credential-node/1` | curator-run (S5) | Implementable once the API is pinned |
 
-The reserved names are `CLAUDE_CODE_OAUTH_TOKEN`, `ANTHROPIC_API_KEY`,
-`ANTHROPIC_AUTH_TOKEN` and every name the fragment's credential section
-reserves.
-
-### 9.3 Binding and injection
-
-**The binding.** The binding is the user-layer `credentials.json` entry,
-with these fields:
-
-- env-id;
-- source kind and item reference (service, account);
-- `generation`;
-- the profile allowlist (`profiles`, where `"*"` admits any);
-- the file's owner UID.
-
-The **final executor** re-resolves it at exec time. A caller-supplied
-reference never substitutes for that check.
-
-**Native launches.** curator-run is the final executor:
-
-1. It re-reads the entry.
-2. It checks the env-id, the profile allowlist and the UID.
-3. It reads the token.
-4. It puts the token only into the exec'd provider's environment.
-
-**Hosted launches.** The manager is the final executor:
-
-- The fd-5 object carries `{name, value, binding: {env, profile,
-  generation, source_kind, service, account}}`.
-- The manager MUST re-read the same user-layer `credentials.json` itself:
-  - the same path rules;
-  - the same file checks;
-  - the same UID as the manager process.
-- It compares env, profile allowlist, `generation` and item reference.
-  Any mismatch refuses `credential_binding_mismatch` (2), and the value is
-  dropped.
-- It injects the value only into the provider process's environment.
-- It persists the value nowhere: not in records, restart templates, plans
-  or logs.
-- `credential-env/1` alone never authorises injection.
-- A resume or cold restart gets the token again from `curator run …
-  resume` (§5.3). The manager never stores it in order to restart on its
-  own.
-
-**MCP children.** CIP-0010 C3.4 requires that injected names never reach
-MCP children.
-
-- The launcher asks the module, and the fragment's MCP channel, to strip
-  the reserved names from every MCP server's environment. For Claude, that
-  is an `env -u` wrapper or an equivalent declared by Curator's MCP
-  materialization. This is a Curator and agents-management item (§12).
-- Until a probe shows that no MCP child sees the token, S5 may be
-  implemented but **not activated**. An activated launch that carries both
-  a token and MCP servers would otherwise break C3.4.
-
-**Residual.** The harness itself can read its own environment, and so can
-its shell-tool children. CIP-0010 states this residual.
-
-**Redaction.** The value never appears in diagnostics, `--json`, liveness
-records or `status`. Only the source kind, the service, the account and the
-generation may appear.
-
-No Remote Control: the launcher adds no RC flag.
-
-### 9.4 Qualification before activation
-
-Each item is a live probe, with a positive control and a negative control:
-
-- **Fresh home.** Claude Code with `CLAUDE_CODE_OAUTH_TOKEN` in a fresh
-  managed home starts interactively, with no login screen and no first-run
-  onboarding screen.
-- **Effective source.** No Keychain read of the native item occurs while the
-  token is present. This is CIP-0010's effective-source check.
-- **Native login refuses.** A home with a native login and a configured
-  source refuses `credential_source_conflict`. The token does not win
-  silently.
-- **MCP children.** A probe MCP server does not see the token.
-- **fd 5 lifetime.** A grandchild of the manager inherits no fd 5.
-- **No leak.** A grep over the plan, the fragment, the records, the logs
-  and `status` output finds no token byte.
+S5 lands the launcher side behind the API pin. It shows no token behaviour
+until Curator publishes the pin.
 
 ## 10. Signed distribution
 
@@ -1115,46 +1157,58 @@ Other rules:
 
 ## 11. Diagnostics added
 
-Each row's `details` lists the only fields that may be kept (§5.6).
+Detail vocabularies are closed (§5.6). Grammar names:
 
-| Code | Exit | When | Details |
+| Name | Values |
+| --- | --- |
+| `<handle>` | `SES-[A-Za-z0-9]{1,48}` |
+| `<id>` | the manager or Werkstatt id grammars of §§4.2, 6.1 |
+| `<cap>` | a §5.2 capability token, or one of `launch-exact-detached`, `weights-pin` |
+| `<env>` | a §4.2 SPEC env-id |
+| `<path>`, `<field>` | sourced only by the launcher from its own configuration or validated record, never from a plugin |
+
+| Code | Exit | When | Details (field: vocabulary) |
 | --- | ---: | --- | --- |
-| `host_member_withdrawn` | 2 | `defaults.json` still has `host` (§3.1), or `migrate` meets mixed values | `path`, `reason` (`present`, `mixed_values`) |
-| `session_manager_registry_invalid` | 2 | registry unreadable or failing the checks (§4.2) | `path`, `reason` |
-| `session_manager_registry_shadowed` | 2 | user registration while a system registry exists (§4.3) | `system_path` |
-| `session_manager_not_registered` | 2 | `select` or `unregister` of an unknown id | `id` |
-| `session_board_goal_unavailable` | 1 | `--board-goal`, manager capable, no workspace board (§3.3) | `cwd` |
-| `werkstatt_not_found` | 1 | no record (§6.2) | `id` |
+| `host_member_withdrawn` | 2 | `defaults.json` has `host` (§3.1), or `migrate` meets mixed values | `path`; `reason`: `present`, `mixed_values` |
+| `session_manager_registry_invalid` | 2 | registry unreadable or failing the checks (§4.2) | `path`; `reason`: `unreadable`, `parse`, `schema`, `symlink`, `owner`, `mode` |
+| `session_manager_registry_shadowed` | 2 | user registration while a system registry exists | `path` |
+| `session_manager_not_registered` | 2 | `select`/`unregister` of an unknown id | `id`: `<id>` |
+| `session_board_goal_unavailable` | 1 | manager capable, no workspace board | none |
+| `werkstatt_not_found` | 1 | no record | `id` |
 | `werkstatt_record_invalid` | 2 | the record fails the schema | `id`, `field` |
-| `werkstatt_session_manager_required` | 1 | `up` with an empty or unselected registry | `state` (`empty`, `unselected`) |
-| `werkstatt_already_up` | 1 | a non-`down` session holds the admission key | `session` |
-| `werkstatt_clone_missing` | 1 | the clone path is absent or not a directory | `path` |
-| `werkstatt_git_layout_invalid` | 2 | bad separate-git-dir layout | `reason` |
+| `werkstatt_session_manager_required` | 1 | `up` with an empty or unselected registry | `state`: `empty`, `unselected` |
+| `werkstatt_already_up` | 1 | an active generation holds the key | `session`: `<handle>` |
+| `werkstatt_clone_missing` | 1 | the clone is absent or not a directory | `path` |
+| `werkstatt_git_layout_invalid` | 2 | bad separate-git-dir layout | `reason`: `missing`, `inside`, `dotgit_present`, `worktree_mismatch` |
 | `werkstatt_context_leak` | 2 | an instruction file above the clone | `path` |
 | `werkstatt_context_check_failed` | 2 | an ancestor could not be checked | `path` |
-| `werkstatt_identity_missing` | 1 | no a2a credential file for the identity | `identity` |
-| `werkstatt_busy` | 1 | `down`/`recycle` refused by `not-busy`, or the lock is held | `state`, `operation` |
-| `werkstatt_liveness_write_failed` | 1 | the session is up but the liveness file was not written | `session` |
-| `doorbell_setup_failed` | 1 | hook install or verification failed (§8.1) | `step` |
-| `fragment_version_unsupported` | 2 | Muse with a pre-v4 fragment (§7) | `environment`, `required` |
-| `credential_store_unreadable` | 1 | the source cannot be read without interaction, or is absent (§9.1) | `source_kind` |
-| `credential_source_conflict` | 2 | a competing credential source (§9.2) | `source` |
-| `credential_reserved_name` | 2 | a reserved name from a non-credential channel | `name` |
-| `credential_binding_mismatch` | 2 | the manager's binding re-read differs (§9.3) | `field` |
-| `migrate_destination_exists` | 2 | `migrate` would overwrite a different destination file | `path` |
+| `werkstatt_identity_missing` | 1 | no a2a credential file | `identity`: from the record |
+| `werkstatt_busy` | 1 | `not-busy` refusal, or the lock is held | `state`: `busy`; `operation`: `in_progress` |
+| `werkstatt_liveness_write_failed` | 1 | session up, liveness file not written | `session`: `<handle>` |
+| `doorbell_setup_failed` | 1 | hook install or verification failed | `step`: `install`, `verify` |
+| `fragment_version_unsupported` | 2 | Muse with a pre-v4 fragment | `environment`: `muse`; `required`: `launch-env-fragment-v4` |
+| `credential_reserved_name` | 2 | a reserved credential name in `child_env` | `name`: one of the reserved names |
+| `migrate_destination_exists` | 2 | `migrate` would overwrite a different file | `path` |
 
-The last three credential codes come from CIP-0010's refusal set where it
-names them.
+**Reused with their meaning.** These codes keep their meaning. Plugin-borne
+detail values are allowed only from the vocabularies shown:
 
-Existing codes reused with their meaning:
-
-- `session_host_missing` and `session_host_unavailable` (detail `reason`);
-- `session_host_protocol_error` and `session_host_protocol_unsupported`;
-- `session_host_capability_missing` (detail `capability`);
-- `session_host_provider_unsupported` (detail `environment`);
-- the `session_resume_*` codes and `session_liveness_unknown`;
-- `policy_refused`, `secret_policy_violation`, `launch_plan_invalid` and
-  `host_configuration_conflict`.
+- `session_host_missing`, with `reason`: `no manager registered`,
+  `no manager selected` or `registered executable missing`;
+- `session_host_unavailable`, with `reason`: `timeout`, `transport`,
+  `not_found`, `prepared`, `cancelled` or `unreachable`;
+- `session_host_protocol_error`, `session_host_protocol_unsupported`;
+- `session_host_capability_missing`, with `capability`: `<cap>`;
+- `session_host_provider_unsupported`, with `environment`: `<env>`;
+- the `session_resume_*` codes, `session_liveness_unknown` (`operation`:
+  UUID), `policy_refused`, `secret_policy_violation`, `launch_plan_invalid`
+  and `host_configuration_conflict`;
+- the Curator local-credential refusals (protocol §9), passed through with
+  no details: `credential_injection_unavailable`,
+  `credential_source_conflict`, `credential_node_missing`,
+  `credential_store_unreadable`, `credential_binding_mismatch`,
+  `credential_source_stale`, `credential_source_revoked`,
+  `credential_source_expired` and `environment_credential_store_unsupported`.
 
 `session_host_default_not_ready` is retired [decided Q2].
 
@@ -1162,10 +1216,9 @@ Existing codes reused with their meaning:
 
 | Owner | Item |
 | --- | --- |
-| task-board (infra-exit, `#skill-project-management`) | 1. `task-board session-manager register --for curator-run` (§4.3), called by its installer. 2. A plugin entry `task-board session-manager plugin <op>` implementing §5: `launch-delegated/1`, `resume/1`, `attach/1`, `status/1` with `operation_id`, `list/1`, `stop/1` with `not-busy`, `admission/1`, `labels/1`, `board-goal/1`, `credential-env/1` with the §9.3 binding re-read, `doorbell-codex/1` with a per-session owner (§8.2), and `doorbell-claude/1`. It must pass the §5.5 suite. 3. **A board-less session daemon mode:** keyed by the user state root, not a board directory; sessions keyed by cwd and labels; no primary goal unless `board_goal: workspace`. 4. `--profile` for hosted sessions (TASK-261018-cliw6c, in flight). 5. The v4 Muse consumer (TASK-261018-yzorfb). 6. `task-board claude\|codex` become aliases of `curator run <env> --hosted --board-goal` (Decision 0021 §5). This is not a blocker. |
+| task-board (infra-exit, `#skill-project-management`) | 1. `task-board session-manager register --for curator-run` (§4.3), called by its installer. 2. A plugin entry `task-board session-manager plugin <op>` implementing §5: `launch-delegated/1`, `resume/1`, `attach/1`, `status/1` with operation outcomes, `cancel`, `list/1`, `stop/1` with `not-busy`, `admission/1` covering launch and resume, `labels/1`, `board-goal/1`, `doorbell-codex/1` with a per-session owner and the rebind gate (§8.2), `doorbell-claude/1`, and later `credential-node/1` (Appendix B). It must pass the §5.5 suite. 3. **A board-less session daemon mode:** keyed by the user state root, not a board directory; sessions keyed by cwd and labels; no primary goal unless `board_goal: workspace`. 4. `--profile` for hosted sessions (TASK-261018-cliw6c, in flight). 5. The v4 Muse consumer (TASK-261018-yzorfb). 6. `task-board claude\|codex` become aliases of `curator run <env> --hosted --board-goal` (Decision 0021 §5). This is not a blocker. |
 | Router lane (`#model-routing`) | Freeze the `station` fields with task-board against §6.1. Read `werkstatt-liveness-v1` as the snapshot liveness source, with `unknown` treated as not dispatchable. |
-| `ivmbp_curator_orch` (Curator) | 1. The release-workflow change (§10, C8). 2. The CIP-0016 amendment (Appendix A) after Ivan's sign-off. 3. Manifest-declared home-level hooks under strict mode (§8.1). 4. Reserved credential names stripped from MCP children in the materialized MCP channel (§9.3). 5. The Curator config-home CIP. 6. The CIP-0010 node. |
-| agents-management | Strip the reserved credential names from MCP child environments in the plans it builds (§9.3), with Curator. |
+| `ivmbp_curator_orch` (Curator) | 1. The release-workflow change (§10, C8). 2. The CIP-0016 amendment (Appendix A), after Ivan's sign-off. 3. Implement `local-setup-token-source` T1–T3a and publish the `pkg/localcredential` pin, plus fragment v6. 4. Qualify the interactive mode, and file Appendix B (C10). 5. Manifest-declared home-level hooks under strict mode (§8.1). 6. The Curator config-home CIP. |
 | a2a (Courier) | 1. Verify the native Codex adapter on app-server 0.162.x (§8.2). 2. Optionally, a live-owner release for a generation, so that a manager can retire a binding without the owner's death. |
 
 ## 13. Compatibility and migration
@@ -1174,16 +1227,20 @@ Existing codes reused with their meaning:
   `ax.json` behaves as `auto` with an empty registry: native, plus
   `notice-empty`. Compared with today, that line is the only visible
   difference.
-- **`curator-run migrate [--dry-run]`** first computes a complete plan and
-  prints it. Then it applies the plan all or nothing: on any failure it
-  restores from the backups it made. Its steps:
+- **`curator-run migrate`** first computes a complete plan and prints it.
+  Then it applies the plan all or nothing, and on any failure it restores
+  from the backups it made. `--dry-run` prints the plan and stops. It never
+  applies anything, writes no file and makes no backup. The plan's steps:
   - **Copy.** Each old-path file is copied to the same layer's new
     directory. User-layer files are always copied. System-layer files are
     copied only when the process can write `/etc/swarma/launcher/`;
     otherwise one line lists them. Old files are never moved or deleted.
-  - **Existing destination.** A destination that exists with different
-    bytes refuses `migrate_destination_exists` (2), and nothing is written.
-    Identical bytes count as already migrated.
+  - **Existing destination.** The launcher compares an existing destination
+    with the bytes that migrate **would produce** from the current old file,
+    after the `host` transformation below.
+    - Equal bytes count as already migrated.
+    - Different bytes refuse `migrate_destination_exists` (2), and nothing
+      is written.
   - **The `host` member.** It is removed from every `defaults.json` entry.
     An entry that held only `host` is removed entirely, because an empty
     entry is invalid. Then:
@@ -1216,9 +1273,9 @@ its refusals, next to positive controls.
 | --- | --- | --- | --- |
 | S1 | Config home and fallback, `launcher.json`, `host` withdrawal, `migrate` (§§3.1, 4.1, 13) | spec | Yes |
 | S2 | Registry, states, `session-manager` commands, registration rules (§§4.2–4.3) | S1 | Yes |
-| S3 | Plugin client: transport table, bounds, stderr discard, fd 4 status reuse, fd 5 intake rules, refusal filtering, reconciliation client (§§5.1–5.2, 5.6–5.7). The conformance suite and the fake manager (§5.5). | S2 | Yes |
-| S4 | Host-mode resolution and notices (§3.2), with the default-use restriction; hosted `launch`, `resume` and `attach` through the plugin (§5.3) | S3 | Yes, as launcher logic. A fake host is not runtime qualification. |
-| S5 | Credential sources, conflicts, binding, native injection and fd-5 delivery (§9) | S3 | Implementation yes; activation needs the §9.4 live probes |
+| S3 | Plugin client: the transport table, bounds, stderr discard, fd 4 status reuse, value validation and poisoning, outcomes, `cancel` and durable `op.json` correlation (§§5.1–5.2, 5.6–5.7). The conformance suite and the fake manager (§5.5). | S2 | Yes |
+| S4 | Host-mode resolution and notices (§3.2); the activation boundary (§5.8); hosted `launch`, `resume` and `attach` through the plugin (§5.3) | S3 | Yes, as launcher logic. A fake host is not runtime qualification. |
+| S5 | Credential projection reading; native start through `pkg/localcredential`; the hosted `credential-node/1` gate; reserved names (§9) | S3, Curator's API pin | Launcher side, behind the pin. Token behaviour needs Curator's T1–T3a and the Appendix B qualification. |
 | S6 | Werkstatt record, `up`/`down`/`recycle`/`status`/`list`, admission, locks, liveness (§6), with injectable record and a2a-presence sources | S4, S5 | Yes |
 | S7 | Doorbell requests and the Claude transitional hooks (§8.1); Codex doorbell request handling against the fake (§8.2) | S6 | Launcher side yes; real delivery in S10 |
 | S8 | Muse v4 natively, and hosted forwarding against the fake (§7) | S4 | Launcher side yes; real hosting in S10 |
@@ -1251,9 +1308,11 @@ Ivan's delegate.
    - it is never written to a home file, argv, plan or fragment;
    - it is redacted in diagnostics.
 
-   Revision 2 keeps CIP-0010's user-owned selection, binding and
-   child-isolation rules unchanged (§9). It does not trade them for the
-   interim source.
+   **Superseded in revision 3 (C10).** The accepted
+   `local-setup-token-source.md` admits no node Keychain backend, and it
+   makes Curator the owner of the source, the binding and the final start
+   API. curator-run consumes that API (§9). Appendix B proposes the
+   interactive and hosted routes the mission needs.
 
 Still open, not blocking:
 
@@ -1307,3 +1366,37 @@ signs off Q1.
 > question of section 2 is answered by the curator-run session-manager
 > registry. An absent backend selection becomes "no registered manager",
 > and task-board's installer registers task-board.
+
+## Appendix B. Proposed amendment to the local setup-token source: interactive and hosted routes
+
+Proposed text, for `ivmbp_curator_orch` to file in curator-spec as an
+amendment to `protocol/local-setup-token-source.md` §7.
+
+> **Amendment (proposed 2026-10-18): interactive and delegated-hosted
+> setup-token routes.** Two routes are added to the §7 qualification table.
+> Each route is admitted only after its own behavioural qualification.
+>
+> 1. **Direct local interactive.** `curator-run` is the final executor and
+>    calls `localcredential.AuthorizeAndStart` with a non-nil `Terminal`.
+>    Qualification adds to §7 the interactive-specific leak surfaces:
+>    - terminal scrollback and transcript;
+>    - `/login` inside the session, which then shows the CIP-0010 C6
+>      warning;
+>    - settings reload while the session runs.
+> 2. **Delegated local hosted, same UID** (only with the CIP-0016 delegated
+>    amendment).
+>    - The manager's per-session owner process, running under the enrolling
+>      UID, calls `AuthorizeAndStart` with its own PTY as `Terminal`.
+>    - The caller supplies only the fragment's `source-projection-v1`. The
+>      owner compares it with its own Curator resolve and refuses
+>      `credential_source_stale` on any difference.
+>    - Restart and resume call the API again, under the node lock. No
+>      material, binding or token-derived value is stored by the daemon,
+>      the plan, the session record or any receipt.
+>    - The daemon itself never looks up material.
+>    - This route does not change the exact-plan matrix (§7, last
+>      paragraph). Exact-plan hosting keeps its own future token route.
+>
+> For both routes, `credential-injection/1` is advertised per qualified
+> tuple: route, platform, harness release and configuration. Without
+> qualification, the routes refuse `credential_injection_unavailable`.
