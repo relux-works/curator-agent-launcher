@@ -1622,11 +1622,48 @@ terminal typing is used for doorbells, for any runtime.
 launcher ensures the hooks before the start call:
 
 - It runs `a2a hook install --agent <identity> --runtime claude --settings
-  <cwd>/.claude/settings.local.json`. The command is idempotent.
+  <path>`. The command is idempotent.
 - It reads the file back. It checks only the three hook entries and
   `env.A2A_AGENT`.
 - A failure is `doorbell_setup_failed` (1), with the detail
   `step=install|verify`.
+
+**Containment.** The target is `<cwd>/.claude/settings.local.json`, and no
+byte may be written outside it, even when the tree changes concurrently. A
+check of the pathname followed by a write through the pathname is not enough,
+because the directory can be swapped in between. So the helper never writes
+the target directly:
+
+1. The launcher opens `<cwd>` and then `.claude` relative to it, with no
+   symlink following at either step, and keeps the `.claude` descriptor
+   pinned. `.claude` must be a directory owned by the user and not group- or
+   world-writable. An existing `settings.local.json` must be a regular file
+   with one link, owned by the user. It is read through the pinned descriptor,
+   with no symlink following and a bounded size. A missing `.claude` is
+   created relative to the `<cwd>` descriptor, with mode `0700`, and then
+   opened the same way. Any failure here is `step=install`.
+2. The launcher copies those bytes to a staged file in a fresh private
+   directory under its state directory (mode `0700`). An absent target gives
+   an absent staged file. The helper runs with `--settings <staged file>`.
+   Its output depends only on the input bytes, the identity, the runtime and
+   the `a2a` executable, never on the path.
+3. The launcher checks the staged result with the predicate above. A failure
+   is `step=verify`, and the target is left untouched.
+4. The launcher commits the staged bytes through the pinned descriptor. It
+   creates a temporary file there exclusively, with no symlink following and
+   mode `0600`, writes and syncs it, and renames it over
+   `settings.local.json` within the same directory. Just before the rename,
+   it checks that the target is still the file it read in step 1 (same
+   device and inode, or still absent). If not, it removes the temporary file
+   and refuses `step=install`.
+5. It reads the target back through the pinned descriptor and applies the
+   predicate, then checks that `<cwd>/.claude` still resolves to the pinned
+   directory. A failure is `step=verify`.
+
+The private staging directory is removed on every path. If the pinned
+directory is moved elsewhere during these steps, the write still lands in the
+user's own directory, never in a target chosen by whoever moved it; step 5
+then refuses.
 
 `doorbell-claude/1` means the manager's Claude composition keeps
 project-local settings active. It never means task-board's board-notice
