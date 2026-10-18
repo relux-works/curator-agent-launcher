@@ -722,7 +722,7 @@ is `session_host_provider_unsupported` (6). Both are checked before any
 | `sandbox` | `{mode: "none"\|"workspace-write", writable_roots: [abs…]}`. |
 | `harness_memory` | Boolean. |
 | `session_name` | The SPEC §3 `--name` grammar. |
-| `labels` | At most 16 entries; keys `[a-z0-9.-]{1,32}`, values `[A-Za-z0-9._@:-]{1,128}`. |
+| `labels` | At most 16 entries. Keys match `[a-z0-9.-]{1,32}`, and values match `[A-Za-z0-9._:/@+-]{1,128}`, the same set as the §3.4 selector values, so a `selector=<decision_id>` label always fits. |
 | `child_env` | Non-secret literals: at most 32 names `[A-Z][A-Z0-9_]{0,63}`, none reserved (§9.2), values at most 4096 bytes, passing the **secret check** below. Otherwise `secret_policy_violation` (16). |
 | `board_goal` | `none` or `workspace`. |
 | `doorbell` | `null`, or `{identity, heartbeat, max_wakes_per_hour}` (§8). `identity` matches the a2a identity grammar `[a-z0-9._=-]{1,64}`. `heartbeat` is a duration string `<n>s` or `<n>m` from 30 s to 60 m. `max_wakes_per_hour` is an integer from 1 to 60. |
@@ -943,10 +943,15 @@ Attach:
 
 **Two tiers.**
 
-- **Tier A, black-box.** These cases need no control over the plugin: wire
-  and bounds, unknown operations, capabilities, idempotency and conflict,
-  cancel tombstones, generation mismatch, and pagination over sessions the
-  suite creates itself.
+- **Tier A, black-box.** These cases need no control over the plugin.
+  - Wire and bounds: the normal wire and request-side probes. Intentionally
+    malformed, oversized or poisoned *responses* are tier B (fault
+    injection) or instrument controls, because a correct plugin never
+    produces them on its own.
+  - Unknown operations and capabilities.
+  - Idempotency and conflict, and cancel tombstones.
+  - Generation mismatch.
+  - Pagination over sessions the suite creates itself.
 - **Tier B, controlled.** These cases need to set a state the plugin wire
   cannot set: activity (busy or draining), identity drift, injected faults,
   the clock for expiry, and an unreadable index. Tier B drives a separate
