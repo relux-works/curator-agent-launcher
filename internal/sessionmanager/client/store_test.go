@@ -4,6 +4,7 @@ package client
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -162,7 +163,7 @@ func TestStoreGuards(t *testing.T) {
 }
 
 // A terminal start remains observable even when its liveness cannot be written;
-// confirmed terminal correlation is cleared, rather than submitted a second time.
+// its owner-bound journal survives a failed CAS or invalid storage unchanged.
 func TestTerminalLivenessFailure(t *testing.T) {
 	for _, mode := range []string{"stale", "corrupt-storage"} {
 		t.Run(mode, func(t *testing.T) {
@@ -184,9 +185,104 @@ func TestTerminalLivenessFailure(t *testing.T) {
 			if got == nil || got.Session != s.Session {
 				t.Fatal("confirmed live handle lost")
 			}
-			assertPending(t, tx, false)
+			assertPending(t, tx, true)
 			if !reflect.DeepEqual(readFile(t, path), data) {
 				t.Fatal("failed CAS changed liveness")
+			}
+		})
+	}
+}
+
+// A start keeps its exact journal and live handle when the destination or writer
+// is obstructed after admission. Repair allows a later invocation to recover by
+// status, durably bind liveness, then clear correlation without another launch.
+// The unobstructed neighbor persists liveness and clears correlation immediately.
+func TestLivenessFailureRecovery(t *testing.T) {
+	for _, mode := range []string{"success", "destination-directory", "unwritable-directory"} {
+		t.Run(mode, func(t *testing.T) {
+			tx := transaction(t)
+			p := Pending{OperationID: operationID, Kind: "launch", SubmittedAt: stamp, AdmissionKey: "werkstatt:example", Manager: Binding{ID: "demo", Executable: "/protocol", RegisteredAt: stamp}}
+			path := filepath.Join(tx.dir, "example.json")
+			journal := filepath.Join(tx.dir, "example.op.json")
+			s := session()
+			s.State = "idle"
+			var saved []byte
+			var calls []string
+			r := Reconciler{Registry: map[string]sessionmanager.Entry{"demo": {Executable: "/protocol", RegisteredAt: stamp}}}
+			r.Caller = func(string, sessionmanager.Entry) Caller {
+				return callerFunc(func(_ context.Context, op string, _ []byte) (Response, error) {
+					calls = append(calls, op)
+					stored, err := tx.Pending()
+					if err != nil || stored == nil || *stored != p {
+						t.Fatal("remote call lacks durable owner-bound correlation")
+					}
+					if op == "launch" {
+						saved = readFile(t, journal)
+						switch mode {
+						case "destination-directory":
+							if err := os.Mkdir(path, 0700); err != nil {
+								t.Fatal(err)
+							}
+						case "unwritable-directory":
+							if err := os.Chmod(tx.dir, 0500); err != nil {
+								t.Fatal(err)
+							}
+							t.Cleanup(func() { _ = os.Chmod(tx.dir, 0700) })
+						}
+						return Response{Session: &s}, nil
+					}
+					if op != "status" {
+						t.Fatalf("unexpected recovery call: %s", op)
+					}
+					return Response{Outcome: &Outcome{Outcome: "started", Session: &s}}, nil
+				})
+			}
+			var request map[string]any
+			if err := json.Unmarshal(document(t, "launch"), &request); err != nil {
+				t.Fatal(err)
+			}
+			request["admission_key"] = p.AdmissionKey
+			got, err := r.Submit(bounded(t), tx, p, encoded(request))
+			if mode != "success" {
+				e := requireCode(t, err, "werkstatt_liveness_write_failed")
+				if e.ExitCode() != 1 || e.Details["session"] != s.Session {
+					t.Fatal("live-handle diagnostic lost", e)
+				}
+				retained, readErr := os.ReadFile(journal)
+				if readErr != nil || !reflect.DeepEqual(saved, retained) {
+					t.Fatal("failed liveness persistence lost journal")
+				}
+				if mode == "destination-directory" {
+					if err := os.Remove(path); err != nil {
+						t.Fatal(err)
+					}
+				} else if err := os.Chmod(tx.dir, 0700); err != nil {
+					t.Fatal(err)
+				}
+				if err := tx.Close(); err != nil {
+					t.Fatal(err)
+				}
+				tx, err = (Store{Directory: tx.dir}).Lock(bounded(t), "example")
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer tx.Close()
+				got, err = r.Recover(bounded(t), tx)
+			}
+			if err != nil || got == nil || got.Session != s.Session {
+				t.Fatal("settled live handle lost", got, err)
+			}
+			live, err := tx.Liveness()
+			if err != nil || live == nil || live.Manager != p.Manager || live.OperationID == nil || *live.OperationID != p.OperationID || live.Generation != s.Generation || live.Session != s.Session || live.State != "idle" {
+				t.Fatal("settled owner-bound liveness missing", live, err)
+			}
+			assertPending(t, tx, false)
+			want := []string{"launch"}
+			if mode != "success" {
+				want = append(want, "status")
+			}
+			if !reflect.DeepEqual(calls, want) {
+				t.Fatal("start submitted again", calls)
 			}
 		})
 	}

@@ -152,6 +152,10 @@ func (r Reconciler) finish(tx *Transaction, p Pending, expected Expected, outcom
 		} else if !written {
 			resultErr = refusal("werkstatt_liveness_write_failed", map[string]string{"session": result.Session})
 		}
+		// Recovery still needs the operation and owner until liveness commits.
+		if resultErr != nil {
+			return result, resultErr
+		}
 	case "failed":
 		resultErr = refusal(outcome.Code, nil)
 	case "cancelled":
