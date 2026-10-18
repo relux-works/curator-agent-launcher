@@ -306,7 +306,7 @@ func profileCase(h *harness) error {
 		return e
 	}
 	r := h.launch()
-	r["profile"].(map[string]any)["fragment_digest"] = strings.Repeat("f", 64)
+	r["profile"].(map[string]any)["fragment_digest"] = "sha256:" + strings.Repeat("f", 64)
 	_, e := h.call("launch", r)
 	return h.expectCode("profile-digest", "policy_refused", e)
 }
@@ -711,7 +711,7 @@ func retentionCase(h *harness) error {
 		return setup(e)
 	}
 	failed := h.launch()
-	failed["profile"].(map[string]any)["fragment_digest"] = strings.Repeat("f", 64)
+	failed["profile"].(map[string]any)["fragment_digest"] = "sha256:" + strings.Repeat("f", 64)
 	_, e = h.call("launch", failed)
 	if !client.IsCode(e, "policy_refused") {
 		return setup(errors.New("failed outcome control"))

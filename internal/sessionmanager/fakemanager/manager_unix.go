@@ -63,7 +63,7 @@ type Control struct {
 
 func DefaultConfig() Config {
 	ops := []string{"launch", "resume", "attach", "status", "cancel", "list", "stop"}
-	return Config{ID: "fake", Capabilities: []string{"launch-delegated/1", "resume/1", "attach/1", "status/1", "list/1", "stop/1", "admission/1", "labels/1"}, Runtimes: map[string][]string{"codex_cli": ops, "claude_code": ops}, Profiles: map[string]Profile{"sample": {strings.Repeat("1", 64), strings.Repeat("2", 64)}}}
+	return Config{ID: "fake", Capabilities: []string{"launch-delegated/1", "resume/1", "attach/1", "status/1", "list/1", "stop/1", "admission/1", "labels/1"}, Runtimes: map[string][]string{"codex_cli": ops, "claude_code": ops}, Profiles: map[string]Profile{"sample": {strings.Repeat("1", 64), fragment.DigestPrefix + strings.Repeat("2", 64)}}}
 }
 
 type Stored struct {

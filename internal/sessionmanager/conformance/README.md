@@ -146,7 +146,10 @@ A previously unseen operation older than seven days refuses expired; an existing
 operation replays retained evidence. Exactly seven days is still admissible.
 
 `config.json` can override `id`, `capabilities`, `runtimes`, `profiles` and the
-nonsecret `credential_source` binding. Defaults enable the implemented delegated
+nonsecret `credential_source` binding. Profile `lock_sha256` is 64 lowercase
+hex characters without a prefix; `fragment_digest` is `sha256:` followed by
+64 lowercase hex characters, matching the shared launch/resume schemas.
+Defaults enable the implemented delegated
 lifecycle, admission and labels for Claude and Codex. Exact launch and upgrade
 claims are never advertised. Doorbell capabilities enable simulated record
 shapes only; this fixture sends no a2a traffic. Configuring an unimplemented
