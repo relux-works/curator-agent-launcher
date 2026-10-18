@@ -129,7 +129,7 @@ func TestDoorbellBinary(t *testing.T) {
 			})
 		}
 	})
-	// Launch and text status print manager evidence exactly once; JSON stays a
+	// Launch, text status and list print manager evidence exactly once; JSON stays a
 	// bare array and carries all reason/uncertainty fields without extra text.
 	t.Run("surface", func(t *testing.T) {
 		for _, variant := range []string{"armed", "off", "unsupported_version", "previous_generation_uncertain"} {
@@ -159,21 +159,27 @@ func TestDoorbellBinary(t *testing.T) {
 				} else {
 					hookEvidence(t, w.frontFixture)
 				}
-				code, out, stderr := w.invokeWS("status")
-				if code != 0 {
-					t.Fatal(stderr)
-				}
-				doorbellLine(t, out+stderr, state, reason)
-				if variant == "previous_generation_uncertain" && !strings.Contains(out, "uncertain=true") {
-					t.Fatal("uncertainty lost", out)
-				}
-				code, out, stderr = w.invokeWS("status", "--json")
-				if code != 0 {
-					t.Fatal(stderr)
-				}
-				rows := w.rows(out)
-				if !strings.Contains(string(rows[0]["manager_session"]), `"state":"`+state+`"`) || strings.Contains(out+stderr, "curator-run: doorbell ") {
-					t.Fatal("JSON surface", out, stderr)
+				for _, action := range []string{"status", "list"} {
+					args := []string{"werkstatt", action}
+					if action == "status" {
+						args = append(args, w.id)
+					}
+					code, out, stderr := w.command(bin.launcher, args, nil, false, false, 35*time.Second)
+					if code != 0 {
+						t.Fatal(action, stderr)
+					}
+					doorbellLine(t, out+stderr, state, reason)
+					if !strings.Contains(out, "uncertain="+map[bool]string{false: "false", true: "true"}[variant == "previous_generation_uncertain"]) {
+						t.Fatal(action, "uncertainty lost", out)
+					}
+					code, out, stderr = w.command(bin.launcher, append(args, "--json"), nil, false, false, 35*time.Second)
+					if code != 0 {
+						t.Fatal(action, stderr)
+					}
+					rows := w.rows(out)
+					if !strings.Contains(string(rows[0]["manager_session"]), `"state":"`+state+`"`) || strings.Contains(out+stderr, "curator-run: doorbell ") {
+						t.Fatal(action, "JSON surface", out, stderr)
+					}
 				}
 				w.expectStarts(1)
 			})
