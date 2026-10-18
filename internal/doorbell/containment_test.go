@@ -140,6 +140,12 @@ func TestStagedContainment(t *testing.T) {
 			}
 			helper := filepath.Join(trusted, "a2a")
 			put(t, helper, binary, 0700)
+			// The installer freezes the physical executable even when TMPDIR
+			// gives this fixture a lexical path through a symlink.
+			resolvedHelper, err := filepath.EvalSymlinks(helper)
+			if err != nil {
+				t.Fatal(err)
+			}
 			directory := filepath.Join(workspace, ".claude")
 			settings := filepath.Join(directory, "settings.local.json")
 			old := []byte(`{"unrelated":{"kept":true}}`)
@@ -266,7 +272,7 @@ func TestStagedContainment(t *testing.T) {
 			}
 			if variant == "swap-outside" || variant == "swap-back" {
 				got, err := os.ReadFile(filepath.Join(root, "pinned", "settings.local.json"))
-				if err != nil || !verify(got, "sample.dev", helper) {
+				if err != nil || !verify(got, "sample.dev", resolvedHelper) {
 					t.Error("commit missed pinned directory")
 				}
 				leftovers, err := os.ReadDir(filepath.Join(root, "pinned"))
@@ -278,7 +284,7 @@ func TestStagedContainment(t *testing.T) {
 				return
 			}
 			got, err = os.ReadFile(settings)
-			if err != nil || !verify(got, "sample.dev", helper) {
+			if err != nil || !verify(got, "sample.dev", resolvedHelper) {
 				t.Fatal("installed hooks missing", err)
 			}
 			info, _ := os.Stat(settings)
