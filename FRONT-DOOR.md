@@ -203,7 +203,7 @@ copies the files. Nothing is deleted automatically.
   "selected": "task-board",
   "managers": {
     "task-board": {
-      "executable": "/Users/iv/.local/bin/task-board",
+      "executable": "/usr/local/bin/task-board",
       "argv_prefix": ["session-manager", "plugin"],
       "protocol": "curator-session-manager/1",
       "registered_at": "2026-10-18T09:00:00Z",
@@ -548,12 +548,22 @@ Ordered steps. Each one completes or refuses, and nothing is half-started:
   - `GIT_CONFIG_COUNT` with the `user.signingkey`, `gpg.format` and
     `gpg.ssh.program` triples;
   - `GIT_SSH_COMMAND`;
-  - `SSH_AUTH_SOCK`, the swarm agent socket.
+  - `SSH_AUTH_SOCK`, the swarm agent socket;
+  - `RELEASE_SIGNING_KEY`, the public key path of the host's separate agent
+    **release** key (on ivmbp `~/.ssh/ivmbp_agents_release.pub`, in the swarm
+    socket).
 
   Values come from the host's agent-git environment, which the launcher
-  sources in a subprocess and filters to exactly these names. The signing
-  key itself never moves: the socket and the public key path are the only
+  sources in a subprocess and filters to exactly these names. Today that
+  helper does not export `RELEASE_SIGNING_KEY`. Until it does, the value
+  comes from the record's `child_env`. The signing keys never move: the socket and the public key paths are the only
   values.
+- **Commit key and release key are separate.** `user.signingkey` is the
+  commit key and signs commits only. A Werkstatt that tags a release signs
+  the tag with `git -c user.signingkey="$RELEASE_SIGNING_KEY" tag -s …`. The
+  commit key MUST NOT sign release tags. A record whose role may tag
+  releases, but whose host has no release key, gets no `RELEASE_SIGNING_KEY`,
+  and its tag attempt fails visibly.
 - Per-Werkstatt build caches (`GOCACHE`, `GOPATH`) under the Werkstatt
   directory. They come from an optional `child_env` member of the record,
   under the same name rules.
@@ -642,6 +652,14 @@ Claude rings through hooks.
   - The launcher checks the result by reading the file back. It looks only
     for the three hook entries and `env.A2A_AGENT`.
   - A failure is `doorbell_setup_failed` (1).
+- **Transitional path.** Hooks in the clone's `.claude/settings.local.json`
+  work today, and v1 uses them. Under CIP-0002 strict mode, project settings
+  are not honoured. There, hooks come from the managed home through Curator's
+  manifest-declared hooks. That Curator spec item is still to be written, and
+  it delivers Ivan's "zero manual steps" requirement. Once Curator ships it,
+  the launcher stops writing `settings.local.json`. The a2a hooks then come
+  from the profile, and `doorbell-claude/1` means home-level hooks are
+  honoured. The `settings.local.json` path is transitional only.
 - `doorbell-claude/1` means the manager's Claude composition keeps the
   workspace's project-local settings (`.claude/settings.local.json`)
   active, and passes `A2A_AGENT` through `child_env`. Hooks ring on
@@ -686,8 +704,12 @@ endpoint can run it, so it belongs to the manager (`doorbell-codex/1`).
 ### 9.1 Source
 
 The setup token reaches the child as `CLAUDE_CODE_OAUTH_TOKEN`. It comes from
-a credential source named in the machine file `credentials.json`, schema
-`curator-run-credentials-v1`, which is system layer only:
+a credential source named in `credentials.json`, schema
+`curator-run-credentials-v1`. The file may live in the system or the user
+layer (§4.1), with the same machine-first rule as the registry (§4.2): if the
+system file exists, it decides, and otherwise the user file decides. A
+single-user host therefore needs no root, and its Keychain item stays in the
+user's login keychain. Both layers get the SPEC §4.7 file checks:
 
 ```json
 { "schema": "curator-run-credentials-v1",
