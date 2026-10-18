@@ -275,6 +275,9 @@ from 1 to 60 and applies to `enforce` only.
 
 - Values match `[A-Za-z0-9._:/@+-]{1,128}`. `weights_id` matches
   `gguf-sha256:[0-9a-f]{64}` or another published weights grammar.
+- A response with a non-null `refusal` MUST have `runtime`, `model`,
+  `effort` and `weights_id` all null. A refusal that also carries a choice
+  is invalid (`selector_unavailable`, `reason=invalid`).
 - `refusal` is `{code}`, a typed abstention such as
   `no_qualified_candidate`. Its code follows `[a-z0-9_]{1,64}` and is
   displayed as an enumerated value of `selector_abstained`.
@@ -308,6 +311,13 @@ from 1 to 60 and applies to `enforce` only.
     by request digest.
 - A selector failure never affects the launch. Composition is
   byte-identical to a launch with the seam off.
+- Observation writes never block the launch.
+  - The launcher takes the append lock only by a non-blocking attempt.
+  - If the lock is contended, or the write fails, the line is dropped. The
+    count of dropped lines is kept in `<state>/selector/dropped`, and that
+    write is best effort as well.
+  - The detached child may wait for the lock, but only up to its own 5 s
+    bound.
 
 **`enforce` mode.** The selector runs synchronously, within
 `timeout_seconds`.
