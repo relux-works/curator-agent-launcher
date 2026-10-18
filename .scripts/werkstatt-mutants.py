@@ -28,6 +28,13 @@ controls = [
  ('W09', 'internal/sessionmanager/client/session_json.go', 'if err != nil || s.Readable {', 'if true {', './cmd/curator-run', 'TestWerkstattBinary/unreadable-status', 'invalid status:'),
  ('W10', 'cmd/curator-run/werkstatt_unix.go', 'if err != nil {\n\t\treturn werkstatt.Prepared{}, err\n\t}\n\tif admitted.Plan.Stdin.Attached', 'if err != nil && false {\n\t\treturn werkstatt.Prepared{}, err\n\t}\n\tif admitted.Plan.Stdin.Attached', './cmd/curator-run', 'TestWerkstattBinary/admission/model', 'up exit=0 want=1'),
  ('W11', 'schemas/session-manager/launch.schema.json', '^[A-Za-z0-9._:/@+=-]{1,128}$', '^[A-Za-z0-9._:/@+-]{1,128}$', './cmd/curator-run', 'TestWerkstattBinary/admission/identity-equals', 'up exit=2 want=0'),
+ ('W12', store, 'if old == nil || old.Generation == 0 {', 'if old == nil {', './internal/sessionmanager/client', 'TestPrestartSettlement/same-binding', 'first settled generation refused false'),
+ ('W13', service, 'if v != nil {\n\t\t\t\t\tnext.StateSource = "manager"\n\t\t\t\t}', '', './cmd/curator-run', 'TestWerkstattAlignmentBinary/unreadable-override', 'unreadable evidence did not replace source/state/heartbeat'),
+ ('W14', service, 'asJSON = asJSON || row.Stale', 'asJSON = asJSON || row.Stale && false', './cmd/curator-run', 'TestWerkstattAlignmentBinary/stale/empty/status/default', 'invalid status: invalid protocol JSON'),
+ ('W15', 'internal/sessionmanager/client/store_edit_unix.go', 'if l.Session == "" {\n\t\t\treturn refusal("werkstatt_not_up", map[string]string{"id": t.id})\n\t\t}', '', './cmd/curator-run', 'TestWerkstattAlignmentBinary/prestart-dispatch/set-task', 'status exit=0 want=1 diagnostic=werkstatt_not_up'),
+ ('W16', 'schemas/session-manager/liveness.schema.json', ',\n          "operation_id": {\n            "type": "string",\n            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"\n          }', '', './schemas/session-manager', 'TestLivenessNullableEvidence/operation_id', 'nullable operation_id valid=false: <nil>'),
+ ('W17', 'schemas/session-manager/liveness.schema.json', '"last_activity_at": {\n      "anyOf": [', '"last_activity_at": {\n      "type": "string",\n      "anyOf": [', './schemas/session-manager', 'TestLivenessNullableEvidence/last_activity_at', 'nullable last_activity_at valid=true:'),
+ ('W18', 'schemas/session-manager/resume.schema.json', '^[A-Za-z0-9._:/@+=-]{1,128}$', '^[A-Za-z0-9._:/@+-]{1,128}$', './schemas/session-manager', 'TestPublishedLabelGrammar/resume/readable/punctuation', 'label punctuation valid=true:'),
 ]
 if a.only:
     wanted = set(a.only.split(','))
