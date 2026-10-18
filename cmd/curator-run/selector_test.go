@@ -49,7 +49,8 @@ func selectorResponse(t *testing.T, binary string, response string) {
 const selectedResponse = `{"decision_id":"decision/@+1","runtime":"codex","model":"gpt-5.6-sol","effort":"high","weights_id":null,"refusal":null}`
 
 // Production calls the fake selector before building a plan, applies per-member
-// flag precedence (including a success taking over one second), and prints its decision id in the existing provenance group.
+// flag precedence (including a success taking over one second), and prints
+// its decision id in the existing provenance group.
 func TestRunSelectorEnforce(t *testing.T) {
 	binary := selectorBinary(t)
 	for _, tc := range []struct {
@@ -101,6 +102,7 @@ func TestRunSelectorEnforce(t *testing.T) {
 func TestRunSelectorRefusals(t *testing.T) {
 	binary := selectorBinary(t)
 	for _, tc := range []struct{ name, behavior, response, diagnostic string }{
+		{"refusal-with-choice", "valid", strings.Replace(selectedResponse, `"refusal":null`, `"refusal":{"code":"no_candidate"}`, 1), "selector_unavailable: selector unavailable reason=invalid"},
 		{"outside", "valid", strings.Replace(selectedResponse, "gpt-5.6-sol", "unadmitted", 1), "selector_unavailable: selector unavailable reason=invalid"},
 		{"unknown", "valid", strings.Replace(selectedResponse, `"refusal":null`, `"refusal":null,"extra":true`, 1), "selector_unavailable: selector unavailable reason=invalid"},
 		{"abstained", "valid", `{"decision_id":null,"runtime":null,"model":null,"effort":null,"weights_id":null,"refusal":{"code":"no_qualified_candidate"}}`, "selector_abstained: selector abstained code=no_qualified_candidate"},

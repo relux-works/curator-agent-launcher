@@ -89,6 +89,14 @@ func ParseResponse(data []byte, candidates []defaults.SelectionCandidate) (Decis
 		return bad()
 	}
 	refusal, _ := v.Get("refusal")
+	if refusal.Kind != fragment.KindNull {
+		for _, name := range []string{"runtime", "model", "effort", "weights_id"} {
+			member, _ := v.Get(name)
+			if member.Kind != fragment.KindNull {
+				return bad()
+			}
+		}
+	}
 	// Validate all members before returning an abstention: a poisoned choice or
 	// weights field cannot be smuggled through a valid refusal code.
 	var d Decision

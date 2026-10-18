@@ -18,6 +18,7 @@ selectors = './internal/selector'
 defaults = './internal/defaults'
 entry = './cmd/curator-run'
 mutants = [
+ ('S29', protocol, 'if member.Kind != fragment.KindNull {', 'if member.Kind != fragment.KindNull && false {', selectors, 'TestResponseRefusalChoice'),
  ('S26', observations, 'return appendRecord(path, record, 0)', 'return appendRecord(path, record, 5*time.Second)', './cmd/curator-run', 'TestRunSelectorObservationContention'),
  ('S27', observations, 'incrementDropped(path)', '_ = path', selectors, 'TestObservationLockBoundAndFileTypes'),
  ('S28', observations, 'return appendRecord(path, record, 5*time.Second)', 'return appendRecord(path, record, 0)', selectors, 'TestObservationLockBoundAndFileTypes'),

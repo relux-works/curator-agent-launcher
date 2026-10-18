@@ -219,7 +219,7 @@ func TestResponse(t *testing.T) {
 	}
 	refusal := response(candidate)
 	refusal["refusal"] = map[string]string{"code": "no_qualified_candidate"}
-	for _, k := range []string{"decision_id", "runtime", "model", "effort"} {
+	for _, k := range []string{"decision_id", "runtime", "model", "effort", "weights_id"} {
 		refusal[k] = nil
 	}
 	_, err := ParseResponse(encode(t, refusal), nil)
@@ -644,5 +644,45 @@ func TestObservationDroppedCounterContention(t *testing.T) {
 	data, err = os.ReadFile(counter)
 	if err != nil || string(data) != "9\n" {
 		t.Fatal("counter did not increment", err, string(data))
+	}
+}
+
+// A refusal requires all four choice members to be null, even if the supplied
+// tuple is admitted. Null-only refusals (with or without an id) still abstain;
+// an ordinary admitted choice remains the paired positive control.
+func TestResponseRefusalChoice(t *testing.T) {
+	candidate := defaults.SelectionCandidate{Runtime: "runtime", Model: "admitted", Effort: stringPointer("high")}
+	candidates := []defaults.SelectionCandidate{candidate}
+	if _, err := ParseResponse(encode(t, response(candidate)), candidates); err != nil {
+		t.Fatal("valid choice", err)
+	}
+	refusal := map[string]any{"decision_id": nil, "runtime": nil, "model": nil, "effort": nil, "weights_id": nil, "refusal": map[string]string{"code": "no_candidate"}}
+	for _, id := range []any{nil, "decision-1"} {
+		refusal["decision_id"] = id
+		_, err := ParseResponse(encode(t, refusal), candidates)
+		failure(t, err, CodeAbstained, "no_candidate")
+	}
+	for _, tc := range []struct {
+		name   string
+		fields map[string]any
+	}{
+		{"runtime", map[string]any{"runtime": candidate.Runtime}},
+		{"model", map[string]any{"model": candidate.Model}},
+		{"effort", map[string]any{"effort": *candidate.Effort}},
+		{"weights", map[string]any{"weights_id": "gguf-sha256:" + strings.Repeat("a", 64)}},
+		{"admitted-tuple", map[string]any{"runtime": candidate.Runtime, "model": candidate.Model, "effort": *candidate.Effort}},
+		{"outside-tuple", map[string]any{"runtime": candidate.Runtime, "model": "outside", "effort": *candidate.Effort}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			v := map[string]any{}
+			for key, value := range refusal {
+				v[key] = value
+			}
+			for key, value := range tc.fields {
+				v[key] = value
+			}
+			_, err := ParseResponse(encode(t, v), candidates)
+			failure(t, err, CodeUnavailable, "invalid")
+		})
 	}
 }

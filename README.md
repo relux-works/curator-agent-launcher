@@ -592,7 +592,8 @@ Enforce waits within the deadline, applies the choice above file defaults and
 below explicit flags, and reports `selector=<decision_id>` in the defaults
 line. Runtime remains bound through the existing mapped system; the selector's
 runtime is retained as provenance. A typed abstention refuses
-`selector_abstained` (exit 1, `code`); transport or validation failure refuses
+`selector_abstained` (exit 1, `code`) only when runtime, model, effort and
+weights are all null; a mixed refusal and choice is invalid. Transport or validation failure refuses
 `selector_unavailable` (exit 1, `reason=timeout/exit/invalid`). Neither falls
 back to defaults.
 
