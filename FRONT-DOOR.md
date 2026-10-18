@@ -365,7 +365,15 @@ line-group.
   - The launcher never searches `PATH` for a manager.
   - It never takes an endpoint, socket or binary from a repository, a
     profile, a fragment or the environment (CIP-0016 §2).
-- **`argv_prefix`:** at most 4 elements, each `[a-z0-9-]{1,32}`.
+- **Required members.** Each entry requires `executable`, `argv_prefix`,
+  `protocol`, `registered_at` and `registered_by`.
+  - `argv_prefix` has 0–4 elements, each `[a-z0-9-]{1,32}`.
+  - `protocol` is exactly `curator-session-manager/1`.
+  - `registered_at` is a UTC RFC 3339 timestamp.
+  - `registered_by` is 1–128 bytes of printable ASCII, with no control
+    characters.
+
+  At top level, `selected` is optional.
 - **`selected`:** names one key of `managers`, or is absent.
 - **Effective registry:** if the system file exists, it alone decides, and
   the user file is not opened. Otherwise the user file decides. This is the
@@ -424,8 +432,13 @@ Rules, closed, applied in order:
    and fsync of the directory.
 
 After registration, no launch prompts about managers. `select <id>` and
-`unregister <id>` are explicit commands, and an unknown id is
-`session_manager_not_registered` (2). Unregistering the selected manager
+`unregister <id>` are explicit commands. An unknown id is
+`session_manager_not_registered` (2).
+
+All three mutating commands use rule 1 to choose their target layer. A
+user-layer mutation while a system registry exists refuses
+`session_manager_registry_shadowed`. A new system file starts empty and never
+imports the user registry. Unregistering the selected manager
 leaves `selected` absent, so the state becomes **unselected**, or **empty**
 if it was the last.
 
