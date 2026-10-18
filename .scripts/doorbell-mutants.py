@@ -28,6 +28,7 @@ controls = [
  ('B14', hooks, 'stat.Nlink == 1', 'stat.Nlink >= 1', './cmd/curator-run', 'TestDoorbellBinary/hooks/post-hard-link', 'hook exit=0 want=1'),
  ('B15', hooks, 'info.Mode().Perm()&0022 != 0', '(info.Mode().Perm()&0022 != 0 && false)', './cmd/curator-run', 'TestDoorbellBinary/settings-path/unsafe-directory/planted', 'settings plant admitted'),
  ('B16', hooks, 'if inside(i.selected, root) || inside(i.executable, root) {', 'if (inside(i.selected, root) || inside(i.executable, root)) && false {', './internal/doorbell', 'TestTrustedResolution/trusted', 'frozen helper entered another workspace'),
+ ('B17', 'internal/cli/cli.go', 'if value == "" || (flag != "--a2a" && strings.HasPrefix(value, "-")) {', 'if value == "" || strings.HasPrefix(value, "-") {', './internal/cli', 'TestA2ALeadingHyphen', 'grammar identity "-" refused'),
 ]
 if a.list:
  for ident, path, _, _, _, test, _ in controls: print(ident, path, test)

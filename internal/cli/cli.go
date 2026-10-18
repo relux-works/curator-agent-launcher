@@ -488,7 +488,7 @@ func Parse(args []string, opts Options) (Invocation, error) {
 			i++
 			value = args[i]
 		}
-		if value == "" || strings.HasPrefix(value, "-") {
+		if value == "" || (flag != "--a2a" && strings.HasPrefix(value, "-")) {
 			return inv, usageErr("flag %s requires a value, got %q", flag, value)
 		}
 		if err := inv.set(flag, value, opts); err != nil {

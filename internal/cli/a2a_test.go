@@ -26,3 +26,26 @@ func TestA2AFlag(t *testing.T) {
 		t.Fatalf("native tail changed: %+v %v", inv, err)
 	}
 }
+
+// Leading hyphens belong to the identity grammar. A standalone -- remains the
+// argument separator; the equivalent identity can be passed with --a2a=--.
+func TestA2ALeadingHyphen(t *testing.T) {
+	for _, identity := range []string{"-", "-sample", "--sample", "--"} {
+		cases := [][]string{{"claude_code", "--hosted", "--a2a=" + identity}}
+		if identity != "--" {
+			cases = append(cases, []string{"claude_code", "--hosted", "--a2a", identity})
+		}
+		for _, args := range cases {
+			inv, err := Parse(args, Options{})
+			if err != nil || inv.A2A != identity {
+				t.Fatalf("grammar identity %q refused: %v", identity, err)
+			}
+		}
+	}
+	if _, err := Parse([]string{"claude_code", "--a2a", "--"}, Options{}); !IsUsage(err) {
+		t.Fatal("separator consumed as identity")
+	}
+	if _, err := Parse([]string{"claude_code", "--model=-sample"}, Options{}); !IsUsage(err) {
+		t.Fatal("unrelated value-flag rule weakened")
+	}
+}

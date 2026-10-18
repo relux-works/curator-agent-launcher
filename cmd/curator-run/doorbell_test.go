@@ -174,13 +174,18 @@ func TestDoorbellBinary(t *testing.T) {
 	})
 	// Plain hosted Claude uses default doorbell values; explicit/default native
 	// routes and missing runtime capabilities have no installation/start effects.
+	// A leading-hyphen identity reaches the manager request unchanged.
 	t.Run("plain", func(t *testing.T) {
-		for _, variant := range []string{"success", "native", "native-default", "missing-capability", "missing-executable"} {
+		for _, variant := range []string{"success", "hyphen-identity", "native", "native-default", "missing-capability", "missing-executable"} {
 			t.Run(variant, func(t *testing.T) {
 				w := newWS(t, bin)
-				args := []string{"--hosted", "--detach", "--a2a", "sample.dev"}
+				identity := "sample.dev"
+				args := []string{"--hosted", "--detach", "--a2a", identity}
 				want, diagnostic, calls, starts := 0, "", []string{"describe", "launch"}, 1
 				switch variant {
+				case "hyphen-identity":
+					identity = "-sample.dev"
+					args[3] = identity
 				case "native":
 					args = []string{"--native", "--a2a", "sample.dev"}
 					want, diagnostic, calls, starts = 2, "usage", nil, 0
@@ -202,7 +207,7 @@ func TestDoorbellBinary(t *testing.T) {
 				}
 				code, _, stderr := w.invoke(false, false, args...)
 				w.require(t, code, want, stderr, diagnostic, calls, starts, false)
-				if variant != "success" {
+				if variant != "success" && variant != "hyphen-identity" {
 					hookAbsent(t, w.frontFixture)
 					return
 				}
@@ -210,7 +215,7 @@ func TestDoorbellBinary(t *testing.T) {
 				doorbellLine(t, stderr, "armed", "")
 				var request map[string]json.RawMessage
 				json.Unmarshal(frontStored(t, w.observe()).Plan, &request)
-				if string(request["doorbell"]) != `{"heartbeat":"1m","identity":"sample.dev","max_wakes_per_hour":6}` {
+				if string(request["doorbell"]) != `{"heartbeat":"1m","identity":"`+identity+`","max_wakes_per_hour":6}` {
 					t.Fatal("default doorbell lost", string(request["doorbell"]))
 				}
 			})
