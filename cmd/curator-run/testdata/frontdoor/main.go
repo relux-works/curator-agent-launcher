@@ -2,6 +2,7 @@
 package main
 
 import (
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -10,6 +11,9 @@ import (
 	"syscall"
 	"time"
 )
+
+//go:embed provider-help.txt
+var providerHelp string
 
 func main() {
 	if filepath.Base(os.Args[0]) == "a2a" {
@@ -57,7 +61,7 @@ func main() {
 		return
 	}
 	if len(os.Args) > 1 && os.Args[1] == "--help" {
-		fmt.Println("Options:\n  --yolo  Bypass approvals and sandbox")
+		fmt.Print(providerHelp)
 		return
 	}
 	capture, _ := json.Marshal(map[string]any{"Argv": os.Args[1:], "Env": os.Environ()})
