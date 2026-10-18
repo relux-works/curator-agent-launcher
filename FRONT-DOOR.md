@@ -649,10 +649,22 @@ is `session_host_provider_unsupported` (6). Both are checked before any
     follows cursors until then, and never treats a partial page as
     absence.
   - Unreadable records are listed with `state: unknown`, never dropped.
-    Their projection is fixed: `readable: false`, the `session` handle and
-    `manager` from the manager's own index, and `state: unknown`. Every
-    other member is `null`, `labels` is `{}`, and `doorbell` is `{state:
-    "off", uncertain: false, generation: null, reason: null}`.
+    Their projection is fixed:
+    - `readable: false`, and `state: unknown`;
+    - the `session` handle, `manager` and `labels`, from the manager's own
+      index. The index stores labels for every entry;
+    - `doorbell`: `{state: "off", uncertain: false, generation: null,
+      reason: null}`;
+    - every other record member `null`.
+
+    The common envelope (`protocol`, `ok`) belongs to the response, not to
+    the row. Rows inside a `list` page carry no envelope, while a `status`
+    response wraps its record in the envelope.
+    - Label filtering uses the index's labels.
+    - If the index cannot establish an entry's labels, a filtered page that
+      might include that entry refuses `session_host_unavailable`
+      (`reason=index_unreadable`). Missing labels are never treated as
+      non-membership.
     - Every session record carries `readable`. When it is `true`, the
       normal §5.4 rules apply.
     - If the index itself cannot produce a handle for an entry, the whole
@@ -661,8 +673,15 @@ is `session_host_provider_unsupported` (6). Both are checked before any
   - `labels` matching is an exact key/value subset.
 - **Stopping and attaching a generation.**
   - `stop` and `attach` carry `expected_generation`. A different current
-    generation refuses `session_generation_mismatch` (1), with no effect,
-    so a delayed stop for generation N never stops N+1.
+    generation refuses with no effect, so a delayed stop for generation N
+    never stops N+1.
+    - On `stop`, which answers in JSON, the code is
+      `session_generation_mismatch` (1).
+    - On `attach`, whose only typed channel is the fd-4 status stream with
+      the SPEC §4.9 registry, the code is the registry's existing
+      `session_generation_stale` (1, no details).
+    - The fd-4 registry is not extended, so the CIP-0016 receiver contract
+      stays intact.
   - **One shared 10 s budget for `stop`.** Doorbell retirement step 2 (§8.2)
     may use at most 2 s waiting for an in-flight a2a attempt. The provider
     graceful wait gets at most 6 s. The rest is overhead.
@@ -821,6 +840,7 @@ Schema `urn:relux:curator-run:session` `1.0.0`:
   "manager": "task-board",
   "runtime": "codex_cli",
   "native_id": "019a…",
+  "readable": true,
   "state": "starting|idle|busy|draining|down|unknown",
   "labels": {"werkstatt": "curator-run-dev1"},
   "generation": 3,
@@ -1438,9 +1458,18 @@ schema `werkstatt-liveness-v1`, written atomically:
 
 - **`down <id>`:** under the lock, one call:
   `stop {session, expected_generation, mode: graceful, precondition: not-busy}`.
-  `expected_generation` comes from the bound manager's current session
-  record, read by the §6.2 step 4 owner check in this same invocation. It
-  is never taken from a default or inferred.
+  Before that call, `down` runs the **owner read**: the binding validation
+  and the `status` read of §6.2 step 4.1, **without** its up-only
+  `werkstatt_already_up` decision.
+  - A missing or changed binding refuses `werkstatt_operation_unresolved`,
+    as in `up`.
+  - `unknown`, or an unreachable manager, refuses `session_liveness_unknown`.
+  - A `down` session exits 0 with one line, and nothing is called.
+  - A live session yields the target `session` and its current
+    `generation`, which become the `stop` request's `expected_generation`.
+    It is never taken from a default or inferred.
+  - If the generation changes between the read and the stop, the manager
+    refuses `session_generation_mismatch`, with no effect.
   - The manager checks the precondition atomically. A busy session refuses
     `werkstatt_busy` (1), with the detail `state=busy`, and nothing changes:
     no gate, no stop, no record.
@@ -1448,7 +1477,6 @@ schema `werkstatt-liveness-v1`, written atomically:
     retirement of §8.2.
   - `--force` sends `mode: force, precondition: none`, with the same
     `expected_generation`.
-  - An already `down` session exits 0 with one line.
   - The liveness record is written from the answer.
 - **`recycle <id>`:** `down` (graceful, `not-busy`), then `up --new`,
   under one lock. If `down` refuses, nothing else happens.
@@ -1538,10 +1566,14 @@ a2a runtime bind --codex-thread <thread> --endpoint unix://<socket>
 **Retirement.** The order below applies on `stop` and before any rebind. A
 `not-busy` refusal happens before step 1.
 
-1. Run `a2a runtime gate --generation G stopping`.
+1. Run `a2a runtime gate --generation G stopping`. Atomically with the gate
+   change, the doorbell record becomes `state: off`, `generation: G`,
+   `reason: null`. A closing gate delivers no more wakes, so `off` is the
+   valid projection from here on.
 2. Read `a2a runtime status`. Wait for an in-flight attempt up to the stop
-   deadline. An attempt that is still uncertain sets
-   `doorbell.uncertain: true`. The manager persists that flag in its own
+   deadline. An attempt that is still uncertain sets, in one write,
+   `doorbell.uncertain: true` and `reason: previous_generation_uncertain`.
+   The state stays `off`. The manager persists that flag in its own
    session state, and the liveness record mirrors it.
 3. Stop the thread.
 4. The owner exits.
@@ -1750,7 +1782,7 @@ Detail vocabularies are closed (§5.6). Grammar names:
 | `werkstatt_context_leak` | 2 | an instruction file above the clone | `path` |
 | `werkstatt_context_check_failed` | 2 | an ancestor could not be checked | `path` |
 | `werkstatt_identity_missing` | 1 | no a2a credential file | `identity`: from the record |
-| `werkstatt_busy` | 1 | `not-busy` refusal, or the lock is held | `state`: `busy`; `operation`: `in_progress` |
+| `werkstatt_busy` | 1 | `not-busy` refusal, the lock is held, or `recycle` timed out while draining | `state`: `busy`, `draining`; `operation`: `in_progress` |
 | `werkstatt_liveness_write_failed` | 1 | session up, liveness file not written | `session`: `<handle>` |
 | `doorbell_setup_failed` | 1 | hook install or verification failed | `step`: `install`, `verify` |
 | `fragment_version_unsupported` | 2 | Muse with a pre-v4 fragment | `environment`: `muse`; `required`: `launch-env-fragment-v4` |
