@@ -34,6 +34,7 @@ controls = [
  ('B18', settings, 'if err != nil || uint64(current.Dev) != uint64(old.Dev) || current.Ino != old.Ino {', 'if err != nil || (uint64(current.Dev) != uint64(old.Dev) || current.Ino != old.Ino) && false {', './internal/doorbell', 'TestStagedContainment/replace-file', 'replacement target overwritten'),
  ('B19', settings, 'if err != unix.ENOENT {', 'if err != unix.ENOENT && false {', './internal/doorbell', 'TestStagedContainment/create-file', 'replacement target overwritten'),
  ('B20', hooks, 'defer os.RemoveAll(stage)', 'defer func() {}()', './internal/doorbell', 'TestStagedContainment/plain', 'staging directory survived'),
+ ('B21', 'schemas/session-manager/refusal.schema.json', '                "launch-exact-doorbell",', '                "launch-exact-doorbell",\n                "launch-exact-invented",', './internal/sessionmanager/client', 'TestExactCapabilityRefusal/launch-exact-invented', 'wanted session_host_protocol_error, got session_host_capability_missing'),
 ]
 if a.list:
  for ident, path, _, _, _, test, _ in controls: print(ident, path, test)

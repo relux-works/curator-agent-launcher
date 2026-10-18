@@ -151,3 +151,25 @@ func TestLocalPathDiagnostic(t *testing.T) {
 		t.Fatal("path forged diagnostic", e.Diagnostic())
 	}
 }
+
+// Plugin refusals retain both specified exact-route capability details; an
+// invented detail poisons the entire response instead of escaping validation.
+func TestExactCapabilityRefusal(t *testing.T) {
+	for _, detail := range []string{"launch-exact-doorbell", "launch-exact-detached", "launch-exact-invented"} {
+		t.Run(detail, func(t *testing.T) {
+			body := encoded(map[string]any{"protocol": Protocol, "ok": false, "code": "session_host_capability_missing", "details": map[string]string{"capability": detail}})
+			response, err := DecodeResponse("launch", document(t, "launch"), body, 6, "demo")
+			code := "session_host_capability_missing"
+			if detail == "launch-exact-invented" {
+				code = "session_host_protocol_error"
+			}
+			typed := requireCode(t, err, code)
+			if code == "session_host_capability_missing" && typed.Details["capability"] != detail {
+				t.Fatal("capability detail lost")
+			}
+			if response.Session != nil || response.Outcome != nil || response.Page != nil || response.Describe != nil {
+				t.Fatal("partial refusal response")
+			}
+		})
+	}
+}

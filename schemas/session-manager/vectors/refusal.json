@@ -3760,5 +3760,41 @@
         "name": "UNRELATED"
       }
     }
+  },
+  {
+    "name": "capability-launch-exact-doorbell",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_host_capability_missing",
+      "details": {
+        "capability": "launch-exact-doorbell"
+      }
+    }
+  },
+  {
+    "name": "capability-launch-exact-detached",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_host_capability_missing",
+      "details": {
+        "capability": "launch-exact-detached"
+      }
+    }
+  },
+  {
+    "name": "capability-launch-exact-invented",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_host_capability_missing",
+      "details": {
+        "capability": "launch-exact-invented"
+      }
+    }
   }
 ]
