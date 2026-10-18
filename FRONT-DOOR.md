@@ -914,6 +914,26 @@ Validation:
 
 - `code` comes from the SPEC §6 registry plus §11. Any other code is
   `session_host_protocol_error`.
+- **Who may emit a code.**
+  - **A plugin may emit only these codes:**
+    - `werkstatt_already_up`, `werkstatt_busy`;
+    - `session_board_goal_unavailable`;
+    - `session_host_unavailable`, `session_host_capability_missing`,
+      `session_host_provider_unsupported`;
+    - the `session_resume_*` codes, `session_liveness_unknown`;
+    - `session_operation_conflict`, `session_operation_expired`,
+      `session_generation_mismatch`;
+    - `session_curator_identity_stale`;
+    - `policy_refused`, `secret_policy_violation`, `launch_plan_invalid`;
+    - the SPEC §6 plan codes, for example `plan_refused`;
+    - the Curator local-credential codes.
+  - **All other §11 codes are launcher-local.** These are the
+    `werkstatt_*` workspace and record codes, the registry, selector,
+    migrate, credential-guard and fragment codes, and
+    `doorbell_setup_failed`. A plugin response that carries one of them is
+    poisoned (`session_host_protocol_error`).
+  - Launcher-local details such as `path`, `field` and `identity` are
+    therefore always sourced by the launcher.
 - Each code admits only the detail fields that §11 lists for it. Each field
   has a closed vocabulary or a fixed grammar, also listed in §11.
 - **Any** field or value outside its vocabulary, an unexpected field, or a
