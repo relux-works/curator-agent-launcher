@@ -19,8 +19,10 @@ vet:
 test:
 	$(GO) test ./... -count=1
 
+# Conformance includes deliberate deadline controls; leave race-runner margin.
+# This per-package bound remains below the hosted race job's 15-minute limit.
 race:
-	$(GO) test ./... -count=1 -race
+	$(GO) test ./... -count=1 -race -timeout=12m
 
 check: build fmt-check vet test race
 

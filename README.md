@@ -782,7 +782,7 @@ make build      # go build ./...
 make fmt-check  # gofmt -l over cmd, internal and schemas; fails on unformatted files
 make vet        # go vet ./...
 make test       # go test ./... -count=1 (includes the CLI goldens)
-make race       # go test ./... -count=1 -race
+make race       # go test ./... -count=1 -race -timeout=12m (per package)
 make check      # all of the above
 ```
 
@@ -793,6 +793,11 @@ opt-in is enabled; the workflow defines that setting. Enable it after
 registering a matching runner. Goldens run as part of `make test` and `make race`. There are no
 release or tag jobs. Windows is not in this launcher's hosted matrix;
 platform execution evidence must come from the corresponding runner.
+The race target allows 12 minutes per package for the conformance suite's
+intentional deadline controls and slower race runners; the hosted race job
+retains its separate 15-minute overall limit. Repeated standalone conformance
+runs need their own explicit timeout budget, for example
+`go test ./internal/sessionmanager/conformance -race -count=2 -timeout=20m`.
 
 ### Tools
 
@@ -804,7 +809,7 @@ platform execution evidence must come from the corresponding runner.
 | `.scripts/session-manager-mutants.py` | bounded registry/registration/atomic-write, transaction-lock and deadline negative controls | `python3 .scripts/session-manager-mutants.py [evidence-dir]` | per-probe logs and `summary.tsv`, default `.temp/session-manager-mutants/`; restores source bytes |
 | `curator-run-fake-manager` | durable reference session-manager plugin and separate fixture adapter | `go build -o .temp/curator-run-fake-manager ./cmd/curator-run-fake-manager`; see [qualification](internal/sessionmanager/conformance/README.md) | explicit `--state` directory; no-op provider, no daemon |
 | `curator-run-fake-manager-fixture` | separate out-of-band qualification controls | `go build -o .temp/curator-run-fake-manager-fixture ./cmd/curator-run-fake-manager-fixture` | explicit `--state` directory shared with the fake plugin; JSON fixture evidence |
-| Session-manager conformance | qualify advertised plugin operations and controlled lifecycle faults; prove known-bad detections | `go test ./internal/sessionmanager/conformance -v`; `go test ./internal/sessionmanager/conformance -race -count=5` | Go test output; child binaries/state in `t.TempDir` |
+| Session-manager conformance | qualify advertised plugin operations and controlled lifecycle faults; prove known-bad detections | `go test ./internal/sessionmanager/conformance -v`; `go test ./internal/sessionmanager/conformance -race -count=5 -timeout=45m` | Go test output; child binaries/state in `t.TempDir` |
 | `.scripts/fake-manager-mutants.py` | bounded source controls for fake-manager/conformance invariants | `python3 .scripts/fake-manager-mutants.py [evidence-dir]` | per-probe logs and `summary.tsv`, default `.temp/fake-manager-mutants/`; restores exact source bytes |
 | `curator-run migrate` | copy legacy configs and remove withdrawn host defaults | `curator-run migrate [--dry-run]` | plan on stdout; new files in `/etc/swarma/launcher/` and `${XDG_CONFIG_HOME:-~/.config}/swarma/launcher/`, rewritten copies keep `.bak` |
 | `go` (build, vet, test, race) | build and behavioral suite | `make check` and the targets above | stdout; nothing written to the tree |
