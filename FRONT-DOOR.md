@@ -430,6 +430,18 @@ Rules, closed, applied in order:
      `--no-select`, or runs `select` later.
 7. **Writes are atomic**: a temp file in the same directory, fsync, rename,
    and fsync of the directory.
+8. **Mutations are serialised.** `register`, `select` and `unregister` each
+   take one exclusive lock, `session-managers.json.lock` in the target
+   layer's directory. They hold it across the whole read–decide–write
+   transaction. That includes the TTY question: an interactive prompt holds
+   the lock, with a 120 s answer deadline that refuses `usage` and leaves
+   the file unchanged.
+   - A concurrent mutation waits up to 10 s, then refuses
+     `session_manager_registry_busy` (1).
+   - A mutation that fails after taking the lock leaves the previous file
+     byte-identical.
+   - Two acknowledged registrations can therefore never overwrite each
+     other.
 
 After registration, no launch prompts about managers. `select <id>` and
 `unregister <id>` are explicit commands. An unknown id is
@@ -1479,6 +1491,7 @@ Detail vocabularies are closed (§5.6). Grammar names:
 | `session_manager_registry_invalid` | 2 | registry unreadable or failing the checks (§4.2) | `path`; `reason`: `unreadable`, `parse`, `schema`, `symlink`, `owner`, `mode` |
 | `session_manager_registry_shadowed` | 2 | user registration while a system registry exists | `path` |
 | `session_manager_not_registered` | 2 | `select`/`unregister` of an unknown id | `id`: `<id>` |
+| `session_manager_registry_busy` | 1 | another registry mutation holds the lock (§4.3 rule 8) | none |
 | `session_board_goal_unavailable` | 1 | manager capable, no workspace board | none |
 | `werkstatt_not_found` | 1 | no record | `id` |
 | `werkstatt_record_invalid` | 2 | the record fails the schema | `id`, `field` |
