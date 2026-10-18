@@ -16,6 +16,8 @@ import (
 	"syscall"
 	"time"
 
+	"golang.org/x/sys/unix"
+
 	"github.com/relux-works/curator-agent-launcher/internal/fragment"
 	"github.com/relux-works/curator-agent-launcher/internal/sessionmanager/client"
 )
@@ -115,10 +117,22 @@ func (i *Installer) Ensure(ctx context.Context, workspace, identity string) erro
 	if err != nil {
 		return err
 	}
-	if !safeSettings(workspace) {
+	target, err := pinSettings(workspace)
+	if err != nil {
 		return failure("install")
 	}
-	settings := filepath.Join(workspace, ".claude", "settings.local.json")
+	defer target.close()
+	stage, err := i.stageDirectory()
+	if err != nil {
+		return failure("install")
+	}
+	defer os.RemoveAll(stage)
+	settings := filepath.Join(stage, "settings.local.json")
+	if target.original != nil {
+		if err := os.WriteFile(settings, target.data, 0600); err != nil {
+			return failure("install")
+		}
+	}
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, executable, "hook", "install", "--agent", identity, "--runtime", "claude", "--settings", settings)
@@ -133,52 +147,25 @@ func (i *Installer) Ensure(ctx context.Context, workspace, identity string) erro
 	if err = cmd.Wait(); err != nil {
 		return failure("install")
 	}
-	if !safeSettings(workspace) {
-		return failure("verify")
-	}
-	fd, err := syscall.Open(settings, syscall.O_RDONLY|syscall.O_NONBLOCK|syscall.O_NOFOLLOW|syscall.O_CLOEXEC, 0)
+	staged, err := pinSettingsDirectory(stage)
 	if err != nil {
 		return failure("verify")
 	}
-	file := os.NewFile(uintptr(fd), settings)
-	defer file.Close()
-	info, err := file.Stat()
-	if err != nil || !ownedRegular(info) {
+	data, info, err := readSettings(staged)
+	_ = unix.Close(staged)
+	if err != nil || info == nil || !verify(data, identity, executable) {
 		return failure("verify")
 	}
-	const bound = 1 << 20
-	data, err := io.ReadAll(io.LimitReader(file, bound+1))
-	if err != nil || len(data) > bound {
-		return failure("verify")
+	if err := target.commit(data); err != nil {
+		return failure("install")
 	}
-	if !verify(data, identity, executable) {
+	data, info, err = readSettings(target.directory)
+	if err != nil || info == nil || !verify(data, identity, executable) || !target.confirm(workspace) {
 		return failure("verify")
 	}
 	return nil
 }
 
-// Existing hook targets must be directory entries owned by this user.
-// Missing entries are created by the installer; neither symlinks nor hard links
-// are accepted before installation or during readback.
-func safeSettings(workspace string) bool {
-	directory := filepath.Join(workspace, ".claude")
-	info, err := os.Lstat(directory)
-	if os.IsNotExist(err) {
-		return true
-	}
-	if err != nil || !info.IsDir() || info.Mode().Perm()&0022 != 0 {
-		return false
-	}
-	stat, ok := info.Sys().(*syscall.Stat_t)
-	if !ok || stat.Uid != uint32(os.Geteuid()) {
-		return false
-	}
-	info, err = os.Lstat(filepath.Join(directory, "settings.local.json"))
-	if os.IsNotExist(err) {
-		return true
-	}
-	return err == nil && ownedRegular(info)
-}
 func ownedRegular(info os.FileInfo) bool {
 	stat, ok := info.Sys().(*syscall.Stat_t)
 	return ok && info.Mode().IsRegular() && stat.Uid == uint32(os.Geteuid()) && stat.Nlink == 1

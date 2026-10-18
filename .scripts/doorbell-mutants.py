@@ -11,8 +11,9 @@ p.add_argument('evidence', nargs='?', default='.temp/doorbell-mutants')
 p.add_argument('--list', action='store_true')
 a = p.parse_args()
 hooks = 'internal/doorbell/hooks_unix.go'
+settings = 'internal/doorbell/settings_unix.go'
 controls = [
- ('B01', hooks, 'if !verify(data, identity, executable) {', 'if false && !verify(data, identity, executable) {', './cmd/curator-run', 'TestDoorbellBinary/hooks/missing-stop', 'hook exit=0 want=1'),
+ ('B01', hooks, '"UserPromptSubmit": "prompt", "Stop": "stop"', '"UserPromptSubmit": "prompt"', './cmd/curator-run', 'TestDoorbellBinary/hooks/missing-stop', 'hook exit=0 want=1'),
  ('B02', hooks, 'if forbidden {', 'if forbidden && false {', './internal/doorbell', 'TestTrustedResolution/git-dir', 'trust verdict=true want=false'),
  ('B03', hooks, 'if !filepath.IsAbs(dir) {', 'if !filepath.IsAbs(dir) && false {', './internal/doorbell', 'TestTrustedResolution/relative', 'trust verdict=true want=false'),
  ('B04', hooks, '|| agent != identity', '|| false', './cmd/curator-run', 'TestDoorbellBinary/hooks/wrong-agent', 'hook exit=0 want=1'),
@@ -24,11 +25,15 @@ controls = [
  ('B10', 'internal/sessionmanager/client/doorbell.go', 'if d.Reason != nil {', 'if d.Reason != nil && false {', './cmd/curator-run', 'TestDoorbellBinary/surface/unsupported_version', 'doorbell line mismatch:'),
  ('B11', 'cmd/curator-run/delegated.go', '"heartbeat": "1m", "max_wakes_per_hour": 6', '"heartbeat": "2m", "max_wakes_per_hour": 6', './cmd/curator-run', 'TestDoorbellBinary/plain/success', 'default doorbell lost'),
  ('B12', 'cmd/curator-run/werkstatt_unix.go', 'r.Runtime == fragment.EnvClaudeCode && r.Doorbell != nil', 'r.Runtime == fragment.EnvClaudeCode && r.Doorbell != nil && false', './cmd/curator-run', 'TestDoorbellBinary/hooks/fail', 'hook exit=0 want=1'),
- ('B13', hooks, 'if !safeSettings(workspace) {\n\t\treturn failure("install")', 'if false && !safeSettings(workspace) {\n\t\treturn failure("install")', './cmd/curator-run', 'TestDoorbellBinary/settings-path/outside-symlink/planted', 'settings plant admitted'),
+ ('B13', settings, 'unix.O_RDONLY | unix.O_DIRECTORY | unix.O_NOFOLLOW | unix.O_CLOEXEC', 'unix.O_RDONLY | unix.O_DIRECTORY | unix.O_CLOEXEC', './cmd/curator-run', 'TestDoorbellBinary/settings-path/outside-symlink/planted', 'settings plant admitted'),
  ('B14', hooks, 'stat.Nlink == 1', 'stat.Nlink >= 1', './cmd/curator-run', 'TestDoorbellBinary/hooks/post-hard-link', 'hook exit=0 want=1'),
- ('B15', hooks, 'info.Mode().Perm()&0022 != 0', '(info.Mode().Perm()&0022 != 0 && false)', './cmd/curator-run', 'TestDoorbellBinary/settings-path/unsafe-directory/planted', 'settings plant admitted'),
+ ('B15', settings, 'stat.Mode&0022 != 0', '(stat.Mode&0022 != 0 && false)', './cmd/curator-run', 'TestDoorbellBinary/settings-path/unsafe-directory/planted', 'settings plant admitted'),
  ('B16', hooks, 'if inside(i.selected, root) || inside(i.executable, root) {', 'if (inside(i.selected, root) || inside(i.executable, root)) && false {', './internal/doorbell', 'TestTrustedResolution/trusted', 'frozen helper entered another workspace'),
  ('B17', 'internal/cli/cli.go', 'if value == "" || (flag != "--a2a" && strings.HasPrefix(value, "-")) {', 'if value == "" || strings.HasPrefix(value, "-") {', './internal/cli', 'TestA2ALeadingHyphen', 'grammar identity "-" refused'),
+
+ ('B18', settings, 'if err != nil || uint64(current.Dev) != uint64(old.Dev) || current.Ino != old.Ino {', 'if err != nil || (uint64(current.Dev) != uint64(old.Dev) || current.Ino != old.Ino) && false {', './internal/doorbell', 'TestStagedContainment/replace-file', 'replacement target overwritten'),
+ ('B19', settings, 'if err != unix.ENOENT {', 'if err != unix.ENOENT && false {', './internal/doorbell', 'TestStagedContainment/create-file', 'replacement target overwritten'),
+ ('B20', hooks, 'defer os.RemoveAll(stage)', 'defer func() {}()', './internal/doorbell', 'TestStagedContainment/plain', 'staging directory survived'),
 ]
 if a.list:
  for ident, path, _, _, _, test, _ in controls: print(ident, path, test)

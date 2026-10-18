@@ -98,20 +98,33 @@ still applies. Exact-only managers refuse `launch-exact-doorbell`; missing
 runtime doorbell capabilities refuse before hook installation or start.
 
 For Claude, the launcher runs the resolved absolute `a2a` executable with
-`hook install --agent <identity> --runtime claude --settings
-<cwd>/.claude/settings.local.json`. Its invocation PATH choice is frozen and
-printed in diagnostics; relative PATH entries and candidates inside lexical
-or physical workspace, `GIT_WORK_TREE` or `GIT_DIR` paths are excluded. The
-installer is bounded to ten seconds. Existing `.claude` directories must be
-owned by the invoking user, have no group/world write permission and be real
-directories. Existing settings files must be regular, owned by that user and
-have exactly one hard link; symlinks are refused, including contained ones.
-The same checks apply after installation. Readback is bounded to 1 MiB and checks
-`env.A2A_AGENT` and matching command hooks for `SessionStart`,
-`UserPromptSubmit` and `Stop`. Unrelated settings/hooks may coexist. Failure
-refuses `doorbell_setup_failed step=install|verify` before any start. Codex
-binding and long-lived owners belong to the manager; the launcher installs
-no Claude hooks for Codex.
+`hook install --agent <identity> --runtime claude --settings <staged file>`.
+Its invocation PATH choice is frozen and printed in diagnostics; relative
+PATH entries and candidates inside lexical or physical workspace,
+`GIT_WORK_TREE` or `GIT_DIR` paths are excluded. The installer is bounded to
+ten seconds. The private staging directory under the launcher state directory
+is removed after success or refusal.
+
+The launcher opens the workspace and `.claude` without following symlinks,
+then pins the `.claude` descriptor. That directory must be owned by the
+invoking user and have no group/world write permission. Settings reads are
+bounded to 1 MiB; existing files must be regular, owned by that user and have
+one hard link. The helper receives a copy of those bytes, or an absent staged
+file when the target is absent. The launcher verifies `env.A2A_AGENT` and
+matching command hooks for `SessionStart`, `UserPromptSubmit` and `Stop` before
+committing through the pinned descriptor using an exclusive temporary file,
+sync and same-directory rename. Existing permission bits are preserved;
+new files get `0600`. A changed target device/inode, or an unexpected new
+file, refuses `step=install`. This check detects a visible conflict; it is
+not atomic with rename under the single-writer contract.
+
+Readback and a fresh no-follow workspace/directory identity check follow the
+commit. A moved pinned directory can receive the commit, but a substituted
+symlink never receives a write and causes `step=verify`. Unrelated settings
+and hooks may coexist. Any failure refuses
+`doorbell_setup_failed step=install|verify` before start. Codex binding and
+long-lived owners belong to the manager; the launcher installs no Claude
+hooks for Codex.
 
 A successful start reports one doorbell line on stderr. Text status reports
 one line per returned manager session, including reason and uncertainty;

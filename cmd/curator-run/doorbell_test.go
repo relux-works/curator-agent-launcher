@@ -27,6 +27,13 @@ func hookEvidence(t *testing.T, f *frontFixture) map[string]json.RawMessage {
 	if json.Unmarshal(data, &evidence) != nil {
 		t.Fatal("invalid hook evidence")
 	}
+	var argv []string
+	if json.Unmarshal(evidence["argv"], &argv) != nil || len(argv) != 8 {
+		t.Fatal("missing hook argv")
+	}
+	if _, err := os.Lstat(filepath.Dir(argv[7])); !errors.Is(err, os.ErrNotExist) {
+		t.Fatal("staging directory survived", err)
+	}
 	var pid, group int
 	json.Unmarshal(evidence["pid"], &pid)
 	json.Unmarshal(evidence["group"], &group)
