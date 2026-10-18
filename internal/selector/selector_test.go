@@ -204,8 +204,7 @@ func TestResponse(t *testing.T) {
 		name, key string
 		value     any
 	}{
-		{"outside", "model", "other"}, {"runtime-outside", "runtime", "other"}, {"effort-outside", "effort", "other"}, {"unknown", "unknown", 1}, {"bad-id", "decision_id", "bad\nforged"}, {"long-id", "decision_id", strings.Repeat("a", 129)}, {"empty", "effort", ""}, {"null", "model", nil}, {"bad-weight", "weights_id", "gguf-sha256:ABC"}, {"unknown-refusal", "refusal", map[string]any{"code": "no_candidate", "extra": true}}, {"bad-code", "refusal", map[string]any{"code": "UPPER"}},
-		{"empty-code", "refusal", map[string]any{"code": ""}},
+		{"outside", "model", "other"}, {"runtime-outside", "runtime", "other"}, {"effort-outside", "effort", "other"}, {"unknown", "unknown", 1}, {"bad-id", "decision_id", "bad\nforged"}, {"long-id", "decision_id", strings.Repeat("a", 129)}, {"empty", "effort", ""}, {"null", "model", nil}, {"bad-weight", "weights_id", "gguf-sha256:ABC"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			v := map[string]any{}
@@ -224,6 +223,26 @@ func TestResponse(t *testing.T) {
 	}
 	_, err := ParseResponse(encode(t, refusal), nil)
 	failure(t, err, CodeAbstained, "no_qualified_candidate")
+	// Null choice members isolate refusal grammar from the mixed-envelope gate.
+	for _, tc := range []struct {
+		name    string
+		refusal any
+	}{
+		{"unknown-refusal", map[string]any{"code": "no_candidate", "extra": true}},
+		{"bad-code", map[string]any{"code": "UPPER"}},
+		{"empty-code", map[string]any{"code": ""}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			v := map[string]any{}
+			for key, value := range refusal {
+				v[key] = value
+			}
+			v["refusal"] = tc.refusal
+			_, err := ParseResponse(encode(t, v), nil)
+			failure(t, err, CodeUnavailable, "invalid")
+		})
+	}
+
 	for _, data := range [][]byte{[]byte(`{}`), append(encode(t, good), []byte(`{}`)...), []byte(`{"decision_id":"a","decision_id":"b"}`), bytes.Repeat([]byte(" "), Limit+1)} {
 		_, err := ParseResponse(data, []defaults.SelectionCandidate{candidate})
 		failure(t, err, CodeUnavailable, "invalid")
