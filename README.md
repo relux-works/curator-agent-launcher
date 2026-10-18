@@ -27,7 +27,9 @@ The launcher-side protocol library is available in
 request-derived capability decisions, and durable operation reconciliation.
 Its [schemas and vectors](schemas/session-manager/README.md) are executable
 through Go tests. This library is not yet wired into host selection or the
-Werkstatt commands; it includes no session-manager implementation.
+Werkstatt commands. A [reference fake manager and qualification suite](internal/sessionmanager/conformance/README.md)
+exercise the plugin contract with a durable no-op provider; launcher command
+wiring remains a separate step.
 
 ## Target one-shot exec mode
 
@@ -795,6 +797,10 @@ platform execution evidence must come from the corresponding runner.
 | `.scripts/selector-mutants.py` | bounded selector config, response, transport, precedence and shadow controls | `python3 .scripts/selector-mutants.py [evidence-dir]` | per-probe logs and `summary.tsv`, default `.temp/selector-mutants/`; restores source bytes |
 | `.scripts/plugin-client-mutants.py` | bounded plugin transport, schema, capability, reconciliation and CAS controls | `python3 .scripts/plugin-client-mutants.py [evidence-dir]`; inventory: `python3 .scripts/plugin-client-mutants.py --list` | per-control logs and `summary.tsv`, default `.temp/plugin-client-mutants/`; restores candidate bytes; run before other checks |
 | `.scripts/session-manager-mutants.py` | bounded registry/registration/atomic-write, transaction-lock and deadline negative controls | `python3 .scripts/session-manager-mutants.py [evidence-dir]` | per-probe logs and `summary.tsv`, default `.temp/session-manager-mutants/`; restores source bytes |
+| `curator-run-fake-manager` | durable reference session-manager plugin and separate fixture adapter | `go build -o .temp/curator-run-fake-manager ./cmd/curator-run-fake-manager`; see [qualification](internal/sessionmanager/conformance/README.md) | explicit `--state` directory; no-op provider, no daemon |
+| `curator-run-fake-manager-fixture` | separate out-of-band qualification controls | `go build -o .temp/curator-run-fake-manager-fixture ./cmd/curator-run-fake-manager-fixture` | explicit `--state` directory shared with the fake plugin; JSON fixture evidence |
+| Session-manager conformance | qualify plugin wire/lifecycle and controlled faults; prove known-bad detections | `go test ./internal/sessionmanager/conformance -v`; `go test ./internal/sessionmanager/conformance -race -count=5` | Go test output; child binaries/state in `t.TempDir` |
+| `.scripts/fake-manager-mutants.py` | bounded source controls for fake-manager/conformance invariants | `python3 .scripts/fake-manager-mutants.py [evidence-dir]` | per-probe logs and `summary.tsv`, default `.temp/fake-manager-mutants/`; restores exact source bytes |
 | `curator-run migrate` | copy legacy configs and remove withdrawn host defaults | `curator-run migrate [--dry-run]` | plan on stdout; new files in `/etc/swarma/launcher/` and `${XDG_CONFIG_HOME:-~/.config}/swarma/launcher/`, rewritten copies keep `.bak` |
 | `go` (build, vet, test, race) | build and behavioral suite | `make check` and the targets above | stdout; nothing written to the tree |
 | `python3` defaults mutant harness | weaken defaults gates individually and run the behavioral suite; restore exact candidate bytes | `python3 .scripts/defaults-mutants.py [evidence-dir]` | per-mutant logs and `summary.tsv` (default `.temp/defaults-mutants/`) |
