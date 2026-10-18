@@ -7,8 +7,8 @@ import (
 	"testing"
 )
 
-// Every published vector is checked against its named schema, including all
-// nullable combinations and paired valid/invalid cross-field and bound cases.
+// Every published vector has the required verdict through filename and URN,
+// including nullable combinations and valid/invalid cross-field and bound cases.
 func TestPublishedVectors(t *testing.T) {
 	files, err := Documents.ReadDir("vectors")
 	if err != nil {
@@ -29,11 +29,23 @@ func TestPublishedVectors(t *testing.T) {
 			if err := json.Unmarshal(data, &vectors); err != nil {
 				t.Fatal(err)
 			}
+			schema := name[:len(name)-5] + ".schema.json"
+			identities := []string{schema}
+			for id, file := range catalog {
+				if file == schema {
+					identities = append(identities, id)
+				}
+			}
+			if len(identities) != 2 {
+				t.Fatal("vector schema requires one published identity")
+			}
 			for _, v := range vectors {
 				t.Run(v.Name, func(t *testing.T) {
-					err := Validate(name[:len(name)-5]+".schema.json", v.Document)
-					if (err == nil) != v.Valid {
-						t.Fatalf("valid=%v, error=%v", v.Valid, err)
+					for _, identity := range identities {
+						err := Validate(identity, v.Document)
+						if (err == nil) != v.Valid {
+							t.Fatalf("valid=%v, error=%v (identity=%s)", v.Valid, err, identity)
+						}
 					}
 				})
 			}
@@ -122,5 +134,49 @@ func TestSchemaCatalog(t *testing.T) {
 	}
 	if err := Validate("urn:relux:curator-run:unpublished", []byte(`{}`)); err == nil {
 		t.Fatal("unknown URN accepted")
+	}
+}
+
+// Filename and published URN apply the same byte-bound and selector-free-tail
+// rules: 4096 UTF-8 bytes and value-position "resume" pass; 4098 bytes and
+// actual resume selectors refuse. Verdicts come from the contract, not parity.
+func TestValidationIdentity(t *testing.T) {
+	data, err := Documents.ReadFile("vectors/launch.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var vectors []struct{ Document json.RawMessage }
+	if err := json.Unmarshal(data, &vectors); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		name  string
+		env   string
+		tail  []string
+		valid bool
+	}{
+		{"byte-bound", strings.Repeat("é", 2048), []string{}, true},
+		{"byte-overflow", strings.Repeat("é", 2049), []string{}, false},
+		{"native-value", "ok", []string{"--model", "resume"}, true},
+		{"native-selector", "ok", []string{"--resume", "latest"}, false},
+	} {
+		var request map[string]any
+		if err := json.Unmarshal(vectors[0].Document, &request); err != nil {
+			t.Fatal(err)
+		}
+		request["child_env"] = map[string]string{"LANGUAGE": tc.env}
+		request["native_tail"] = tc.tail
+		body, err := json.Marshal(request)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, identity := range []string{"launch.schema.json", "urn:relux:curator-run:delegated-launch"} {
+			t.Run(tc.name+"/"+identity, func(t *testing.T) {
+				err := Validate(identity, body)
+				if (err == nil) != tc.valid {
+					t.Fatalf("semantic verdict valid=%t, error=%v", tc.valid, err)
+				}
+			})
+		}
 	}
 }

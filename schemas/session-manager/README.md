@@ -10,8 +10,8 @@ including the scalar, reserved-name, doorbell and digest-spelling clarifications
 `profile.fragment_digest` is `sha256:` plus 64 lowercase hex characters,
 matching the production fragment resolver without conversion.
 
-`Validate(name, bytes)` loads the embedded schema and applies the repository's
-strict JSON reader: duplicate members, invalid UTF-8, unsafe integers,
+`Validate(name, bytes)` accepts the filename or published URN through the same
+structural and semantic validator, and applies the repository's strict JSON reader: duplicate members, invalid UTF-8, unsafe integers,
 trailing documents and documents over 64 KiB are rejected. Only the JSON
 Schema subset used by these files is implemented; unsupported schema keywords
 are errors. This is a validator for this published schema set, not a general
@@ -43,7 +43,8 @@ use outcome `unknown`.
 
 Every file in `vectors/` is an array of `{name, valid, document}` fixtures.
 They enumerate nullable/optional combinations, code-specific detail presence,
-doorbell relations, bounds and rejection cases, with valid controls.
+doorbell relations, bounds and rejection cases, with valid controls. Every vector
+runs through both the schema filename and its published URN.
 
 ```sh
 go test ./schemas/session-manager -count=1

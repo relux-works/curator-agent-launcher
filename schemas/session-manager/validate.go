@@ -66,6 +66,10 @@ func buildCatalog() (map[string]string, error) {
 // also obeys the repository's strict reader (duplicates, UTF-8, safe integers).
 // Errors identify schema locations only; request or plugin values never escape.
 func Validate(name string, data []byte) error {
+	// Resolve a published identity before both structural and semantic checks.
+	if file, ok := catalog[name]; ok {
+		name = file
+	}
 	if len(data) > Limit {
 		return errors.New("protocol document exceeds byte bound")
 	}
