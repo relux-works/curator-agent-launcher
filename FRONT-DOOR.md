@@ -2,7 +2,7 @@
 
 **Amends:** [SPEC](SPEC.md) `0.5.1-draft` → `0.6.0-draft` (target; nothing
 here is implemented yet).
-**Status:** revision 4, draft. `ivmbp_curator_orch` accepted revision 1
+**Status:** revision 5, draft. `ivmbp_curator_orch` accepted revision 1
 (0ed45c5) as the basis on 2026-10-18 with four must-change points. Revision 2
 folds those in, together with the independent reviews `review-1` and
 `review-2` and `review-3` (all rework, converging). Revision 3 also adopts the accepted
@@ -742,6 +742,17 @@ lock:
     `--abandon-operation` is a manual decision: it clears `op.json` and
     records the abandoned id in the liveness record.
 - **No overlap.** No new operation is generated while one is pending.
+- **Schema.** `op.json` is `werkstatt-operation-v1`, closed, with exactly
+  the members shown.
+  - `--abandon-operation` removes it.
+  - It appends `{operation_id, abandoned_at}` to the liveness record's
+    `abandoned_operations`, a list that keeps the newest 16 entries.
+  - A later `status` answer for an abandoned id is never applied to the
+    liveness record.
+- **Exit status.** The manager's `status` operation succeeds with
+  `ok: true` (exit 0) even when it reports a `failed` historical outcome.
+  The launcher's own exit for that reconciliation is the reported code's
+  registry exit.
 
 **Local serialisation.** Every mutation of a Werkstatt's `op.json` or
 liveness file, including those made by `status`, happens under an
@@ -752,8 +763,10 @@ exclusive lock on `<state>/werkstatt/<id>.lock`.
 - A second invocation waits up to 5 s:
   - `up`, `down` and `recycle` then refuse `werkstatt_busy` (1),
     `operation=in_progress`;
-  - `status` then prints the last liveness record read-only, marked
-    `stale: true`, and writes nothing.
+  - `status` then prints the last liveness record read-only, and writes
+    nothing. In `--json`, the output object (`werkstatt-status-v1`) carries
+    `stale: true` beside the record. `stale` is an output field only and is
+    never stored.
 - Every liveness write is also a compare-and-swap on `(operation_id,
   generation)`: a write carrying an older generation than the file holds
   is dropped.
@@ -770,8 +783,11 @@ If it stays unresolved, the launcher prints the `operation_id` and refuses
 trial. The owner sets it only after `ivmbp_curator_orch` or Ivan explicitly
 authorises that trial. Nothing in this document implies the authorisation.
 
-The matrix below applies to a selected manager that offers
-`launch-delegated/1` but not `launch-exact/2` for the runtime:
+The matrix below applies whenever the launcher **would use the
+`launch-delegated/1` route**, whatever else the manager offers. That
+includes a manager that also offers `launch-exact/2`, in every case where
+§5.2 selects delegated. For example, `werkstatt up` and every detached
+launch use delegated, because exact cannot detach:
 
 | Invocation | Before Q1 sign-off, `delegated_trial` absent or false | Before sign-off, `delegated_trial: true` | After sign-off |
 | --- | --- | --- | --- |
@@ -779,13 +795,13 @@ The matrix below applies to a selected manager that offers
 | `werkstatt up` | Refuse `session_host_delegated_unauthorized` (16) | Hosted | Hosted |
 | No flag, `host_mode: auto` | Native with `notice-unselected` | Native with `notice-unselected` | Hosted |
 | No flag, `host_mode: hosted` | Refuse `session_host_missing`, `reason=no manager selected` | Refuse, the same | Hosted |
-| `--native`, or `host_mode: native` | Native | Native | Native |
+| `--native`; or `host_mode: native` with neither `--hosted` nor `werkstatt up` (`werkstatt up` is always hosted, and its row above applies) | Native | Native | Native |
 
 - The trial flag never changes the two implicit rows.
 - Fake-manager tests set `delegated_trial` in their fixture configuration.
 - At sign-off, the next revision lifts the implicit-row restriction, and the
   flag is withdrawn.
-- A manager with `launch-exact/2` for the runtime is outside this matrix.
+- Launches that use the `launch-exact/2` route are outside this matrix.
 
 The paired test vectors are the 15 cells of the matrix, each with its
 expected outcome.
@@ -856,10 +872,19 @@ local write.
      `werkstatt_session_manager_required` (1).
    - `up` is always hosted, whatever the machine mode is.
 4. **Existing sessions.** `list {labels: {werkstatt: id}}` on the selected
-   manager. If the liveness record names a different manager that is still
-   in the registry and not `down`, also run `status` there:
-   - a session there that is not `down` is `werkstatt_already_up` (1);
-   - an unreachable manager is `session_liveness_unknown` (1).
+   manager. If the liveness record names a different manager and a state
+   other than `down`:
+   - if that manager is still registered with the same executable, `status`
+     runs there:
+     - a session there that is not `down` is `werkstatt_already_up` (1);
+     - an unreachable manager is `session_liveness_unknown` (1);
+   - if it is missing from the registry or its executable changed, `up`
+     **fails closed** with `werkstatt_operation_unresolved` (1),
+     `reason=manager_missing|manager_changed`. Unregistering a manager never
+     clears a Werkstatt's live generation.
+   - Recovery: re-register the manager, or run `werkstatt status <id>
+     --abandon-operation`. The second is a manual decision that marks the
+     old generation `down` in the liveness record.
 
    The launcher does not start a second generation on another manager while
    the first may live.
@@ -976,7 +1001,7 @@ schema `werkstatt-liveness-v1`, written atomically:
   "manager": "task-board", "session": "SES-…", "generation": 3,
   "started_at": "…Z", "last_heartbeat_at": "…Z", "last_activity_at": "…Z",
   "doorbell": "armed|unavailable|off", "doorbell_uncertain": false,
-  "current_task": null, "queue_depth": 0 }
+  "current_task": null, "queue_depth": 0, "abandoned_operations": [] }
 ```
 
 - **Who writes:** curator-run writes the file on `up`, `down`, `recycle` and
@@ -1280,7 +1305,7 @@ Detail vocabularies are closed (§5.6). Grammar names:
 | `fragment_version_unsupported` | 2 | Muse with a pre-v4 fragment | `environment`: `muse`; `required`: `launch-env-fragment-v4` |
 | `credential_reserved_name` | 2 | a reserved credential name in `child_env` | `name`: one of the reserved names |
 | `migrate_destination_exists` | 2 | `migrate` would overwrite a different file | `path` |
-| `werkstatt_operation_unresolved` | 1 | a pending operation's manager is missing or changed (§5.7) | `reason`: `manager_missing`, `manager_changed`; `operation`: UUID |
+| `werkstatt_operation_unresolved` | 1 | the manager owning a pending operation or a live generation is missing or changed (§§5.7, 6.2) | `reason`: `manager_missing`, `manager_changed`; `operation`: UUID |
 | `session_host_delegated_unauthorized` | 16 | a delegated-only manager before Q1 sign-off without a trial authorisation (§5.8) | none |
 
 **Reused with their meaning.** These codes keep their meaning. Plugin-borne
