@@ -2,7 +2,7 @@
 
 **Amends:** [SPEC](SPEC.md) `0.5.1-draft` → `0.6.0-draft` (target; nothing
 here is implemented yet).
-**Status:** revision 6.3, draft. The independent review accepted revision 6 (f8c2756); 6.1 adds only its three non-blocking clarifications. 6.2 adds the model-selection seam (§3.4) at the router lane's request. 6.3 adds infra-exit's conditions: admission composes with digest admission, and `busy` is defined per runtime. `ivmbp_curator_orch` accepted revision 1
+**Status:** revision 6.4, draft. The independent review accepted revision 6 (f8c2756); 6.1 adds only its three non-blocking clarifications. 6.2 adds the model-selection seam (§3.4) at the router lane's request. 6.4 revises §3.4 after the router lane's review. 6.3 adds infra-exit's conditions: admission composes with digest admission, and `busy` is defined per runtime. `ivmbp_curator_orch` accepted revision 1
 (0ed45c5) as the basis on 2026-10-18 with four must-change points. Revision 2
 folds those in, together with the independent reviews `review-1` and
 `review-2` and `review-3` (all rework, converging). Revision 3 also adopts the accepted
@@ -86,7 +86,7 @@ not authority. The session manager remains the truth about processes.
 curator-run <env-id> [--hosted | --native] [--board-goal]
             [--a2a <identity>] [existing SPEC §3 flags] [--] <native args...>
 
-curator-run werkstatt up <id> [--attach] [--new]
+curator-run werkstatt up <id> [--attach] [--new] [--task-class C [--difficulty D]]
 curator-run werkstatt down <id> [--force]
 curator-run werkstatt recycle <id>
 curator-run werkstatt status [<id>] [--json]
@@ -239,47 +239,83 @@ closed, system layer only:
 
 ```json
 { "schema": "curator-run-selector-v1", "mode": "shadow|enforce",
-  "executable": "/abs/path/cmr", "argv_prefix": ["recommend", "--format", "json"] }
+  "executable": "/abs/path/cmr", "argv_prefix": ["select"],
+  "timeout_seconds": 5 }
 ```
 
-When the file is absent, the seam is off.
+When the file is absent, the seam is off. `timeout_seconds` is an integer
+from 1 to 60 and applies to `enforce` only.
 
-**Call.** The seam runs once per launch:
+**Request.** One JSON object on stdin, at most 64 KiB:
 
-- after the profile resolves and before SPEC §4.3 default resolution;
-- for Werkstätten, after the record loads.
+```json
+{ "env_id": "codex_cli", "profile": "…", "cwd": "/abs",
+  "role": null, "project": null, "werkstatt": null,
+  "task": { "id": null, "class": "code.implement", "difficulty": "high",
+            "sensitivity": null, "language": "go", "platform": null },
+  "flags": { "model": null, "effort": null },
+  "candidates": [ { "runtime": "codex_cli", "model": "…", "effort": "…" } ],
+  "admission_source": "agents-management vX.Y.Z lineup" }
+```
 
-The request goes on stdin, bounded to 64 KiB, with a 5 s deadline:
-`{env_id, profile, cwd, role?, project?, werkstatt?, task?, flags: {model?, effort?}}`.
+- `task` is `null` for a plain launch. For a Werkstatt it comes from the
+  task the orchestrator dispatches, as `werkstatt up --task-class C
+  [--difficulty D]`.
+- `candidates` is the admitted set, computed by the launcher from the
+  spawn plane's admission. That is the same lineup and runtime
+  compatibility registry that SPEC §4.3 uses. The selector ranks only
+  inside this set and never queries a board.
 
-The response is
-`{runtime?, model?, effort?, weights_id?, decision_id}`, bounded and
-validated like a §5.6 response. Its values must match the
-`[A-Za-z0-9._:-]{1,128}` grammar.
+**Response.** Bounded and validated like a §5.6 response:
+
+```json
+{ "decision_id": "…", "runtime": "…", "model": "…", "effort": "…",
+  "weights_id": null, "refusal": null }
+```
+
+- Values match `[A-Za-z0-9._:/@+-]{1,128}`. `weights_id` matches
+  `gguf-sha256:[0-9a-f]{64}` or another published weights grammar.
+- `refusal` is `{code}`, a typed abstention such as
+  `no_qualified_candidate`. Its code follows `[a-z0-9_]{1,64}` and is
+  displayed as an enumerated value of `selector_abstained`.
+- A chosen model outside `candidates` is an invalid response.
 
 **Precedence.**
 
 - Explicit flags always win.
-- The record's pinned model wins for a Werkstatt. The selector may set only
-  `effort`, because dispatch returns (station, effort).
+- For a Werkstatt, the record's pinned model wins, and the selector may set
+  only `effort`, as dispatch returns (station, effort).
 - Below those, a selector value enters as a new level, directly above
-  `defaults.json`. It is still subject to admission by the spawn plane.
-- A selector `runtime` that differs from `<env-id>` is never applied in
-  v1. It is recorded only.
+  `defaults.json`.
+- A selector `runtime` that differs from `<env-id>` is recorded only, and
+  never applied in v1.
 
-**Modes.**
+**`shadow` mode.** The launch never waits for the selector.
 
-- `shadow`: the launch ignores the response. The launcher logs the
-  `decision_id`, together with what it actually chose, to
-  `<state>/selector/observations.ndjson`. Any selector failure is silent:
-  the launch proceeds unchanged, with byte-identical composition.
-- `enforce`: a valid response applies under the precedence above. A
-  failure, timeout or invalid response refuses `selector_unavailable` (1).
-  It never falls back to defaults, because a configured enforcing selector
-  is policy.
+- The launcher starts the selector detached, with the same request, after
+  composition is complete.
+- It appends one line to `<state>/selector/observations.ndjson` with:
+  - the request digest;
+  - the applied runtime, model, effort and `weights_id`;
+  - the launch outcome: `launched`, `refused:<code>` or `hosted:<handle>`;
+  - the selector's `decision_id` when it answers. A late answer is joined
+    by request digest.
+- A selector failure never affects the launch. Composition is
+  byte-identical to a launch with the seam off.
+
+**`enforce` mode.** The selector runs synchronously, within
+`timeout_seconds`.
+
+- A valid choice applies, under the precedence above.
+- A typed abstention refuses `selector_abstained` (1), with the detail
+  `code=<selector code>`.
+- A transport failure, timeout or invalid response refuses
+  `selector_unavailable` (1).
+- Neither case falls back to defaults: a configured enforcing selector is
+  policy.
 
 **Provenance.** The `decision_id` is passed on as the label
-`selector=<decision_id>` in hosted requests and shown in the §4.3
+`selector=<decision_id>` in hosted requests, and shown in the §4.3
 line-group.
 
 ## 4. Session-manager registry
@@ -1447,6 +1483,7 @@ Detail vocabularies are closed (§5.6). Grammar names:
 | `credential_reserved_name` | 2 | a reserved credential name in `child_env` | `name`: one of the reserved names |
 | `migrate_destination_exists` | 2 | `migrate` would overwrite a different file | `path` |
 | `selector_unavailable` | 1 | enforcing selector failed, timed out or answered invalidly (§3.4) | `reason`: `timeout`, `exit`, `invalid` |
+| `selector_abstained` | 1 | enforcing selector returned a typed abstention (§3.4) | `code`: `[a-z0-9_]{1,64}` |
 | `werkstatt_operation_unresolved` | 1 | the manager owning a pending operation or a live generation is missing or changed (§§5.7, 6.2) | `reason`: `manager_missing`, `manager_changed`; `operation`: UUID |
 | `session_host_delegated_unauthorized` | 16 | the selected route is delegated, before Q1 sign-off and without a trial authorisation (§5.8) | none |
 
