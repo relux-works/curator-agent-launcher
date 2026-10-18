@@ -44,12 +44,12 @@ trap restore EXIT
 # from/to are literal text; the first occurrence is replaced.
 mutants=(
   'M-H22@@transport@@TestHostedUnavailableThroughRun/flag/native@@return "", errors.New("hosted launch is unavailable until the swarma dispatcher path ships")@@if path, err := exec.LookPath("task-board"); err == nil { return path, nil }; return "", errors.New("hosted launch is unavailable until the swarma dispatcher path ships")'
-  'M-H1@@defaults@@TestResolveHostPrecedence/locked-ignores-operator@@lockedHost := f.machine.locked && named@@lockedHost := f.machine.locked && named && false'
+  'M-H1@@defaults@@TestHostMemberWithdrawn/machine/native@@if member.Key == "host" && schema == SchemaV3 {@@if member.Key == "host" && schema == SchemaV3 && member.Value.Str != HostNative {'
   'M-H2@@main@@TestHostedRefusalsBeforeContact/receiver-missing@@return hosted.Transport{Lookup: deps.receiverLookup, Terminal: deps.receiverTerminal, PreopenedTerminal: preopenedTTY}.Run(wire, stdout, stderr)@@code := hosted.Transport{Lookup: deps.receiverLookup, Terminal: deps.receiverTerminal, PreopenedTerminal: preopenedTTY}.Run(wire, stdout, stderr); if code != diagnostics.ExitOperational { return code }; return runNative(inv, frag, target, value, decision, inspection, stdout, stderr, deps, boundary, at)'
   'M-H3@@main@@TestNativePerformsZeroReceiverLookup@@var nativePolicy *execution.EffectiveNativePolicy@@var nativePolicy *execution.EffectiveNativePolicy; if deps.receiverLookup != nil { _, _ = deps.receiverLookup() }'
-  'M-H4@@main@@TestHostedRefusalsBeforeContact/machine-hosted-default-not-ready@@if isHosted && host.Origin == defaults.OriginHostMachine {@@if isHosted && host.Origin == defaults.OriginHostOperator {'
+  'M-H4@@defaults@@TestHostedRefusalsBeforeContact/machine-hosted-default-not-ready@@&Error{CodeHostWithdrawn,@@&Error{CodeInvalid,'
   'M-H5@@main@@TestHostedRefusalsBeforeContact/network-direct@@if isHosted && inv.NetworkSet {@@if isHosted && inv.NetworkSet && inv.Network != "direct" {'
-  'M-H6@@defaults@@TestResolveHostPrecedence/locked-equal-hosted-flag-still-refuses@@if flag.Present && machine.Host.Present {@@if flag.Present && machine.Host.Present && hostFlag != "--hosted" {'
+  'M-H6@@defaults@@TestHostMemberWithdrawn/operator/hosted@@if member.Key == "host" && schema == SchemaV3 {@@if member.Key == "host" && schema == SchemaV3 && member.Value.Str != HostHosted {'
   'M-H7@@cli@@TestParseRejected/ax_profile_with_untracked_flag@@if inv.AxProfile != AxProfileNone && ExplicitNative(inv.HostFlag) {@@if inv.AxProfile != AxProfileNone && inv.HostFlag == "--native" {'
   'M-H8@@main@@TestHostedRefusalsBeforeContact/provider-pi@@if isHosted && frag.Environment != fragment.EnvClaudeCode {@@if isHosted && frag.Environment != fragment.EnvClaudeCode && frag.Environment != fragment.EnvPi {'
   'M-H9@@perm@@TestQd3UnconfiguredDefaultIsYolo@@case tracked:@@case tracked || req.Hosted:'

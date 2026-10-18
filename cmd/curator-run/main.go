@@ -18,12 +18,15 @@ import (
 	"github.com/relux-works/curator-agent-launcher/internal/axconfig"
 	"github.com/relux-works/curator-agent-launcher/internal/cli"
 	"github.com/relux-works/curator-agent-launcher/internal/composition"
+	"github.com/relux-works/curator-agent-launcher/internal/configfile"
 	"github.com/relux-works/curator-agent-launcher/internal/defaults"
 	"github.com/relux-works/curator-agent-launcher/internal/diagnostics"
 	"github.com/relux-works/curator-agent-launcher/internal/execution"
 	"github.com/relux-works/curator-agent-launcher/internal/fragment"
 	"github.com/relux-works/curator-agent-launcher/internal/hosted"
+	"github.com/relux-works/curator-agent-launcher/internal/launcherconfig"
 	"github.com/relux-works/curator-agent-launcher/internal/mapping"
+	"github.com/relux-works/curator-agent-launcher/internal/migrate"
 	"github.com/relux-works/curator-agent-launcher/internal/network"
 	"github.com/relux-works/curator-agent-launcher/internal/plan"
 	"github.com/relux-works/curator-agent-launcher/internal/systemprompt"
@@ -48,13 +51,12 @@ func main() {
 		os.Exit(diagnostics.ExitForCode(diagnostics.CodePlanRefused))
 	}
 	deps := launchDeps{
-		resolver:     fragment.New(),
-		configPaths:  processDefaultsPaths,
-		axPaths:      processDefaultsPaths,
-		workdir:      os.Getwd,
-		environ:      os.Environ,
-		availability: processAvailability,
-		registry:     registry,
+		resolver:        fragment.New(),
+		configLocations: processConfigLocations,
+		workdir:         os.Getwd,
+		environ:         os.Environ,
+		availability:    processAvailability,
+		registry:        registry,
 	}
 	os.Exit(run(context.Background(), os.Args[1:], os.Stdout, os.Stderr, deps))
 }
@@ -70,16 +72,20 @@ type fragmentResolver interface {
 // state.
 // Configuration directories are discovered before parsing for ax policy;
 // defaults file contents are read only after a supported fragment is mapped.
-func processDefaultsPaths() (defaults.Paths, error) {
+func processConfigLocations() (configfile.Locations, error) {
 	home, err := os.UserHomeDir()
 	if err != nil && os.Getenv("XDG_CONFIG_HOME") == "" {
-		return defaults.Paths{}, err
+		return configfile.Locations{}, err
 	}
-	return defaults.ConfigPaths(os.Getenv("XDG_CONFIG_HOME"), home), nil
+	return configfile.ConfigLocations(os.Getenv("XDG_CONFIG_HOME"), home), nil
 }
 
 // Process boundaries are injectable; production uses the tagged builder and real execution.
 type launchDeps struct {
+	configLocations func() (configfile.Locations, error)
+	// launcherConfig is validated policy; later slices consume it.
+	launcherConfig launcherconfig.Config
+
 	axPaths      func() (defaults.Paths, error)
 	workdir      func() (string, error)
 	environ      func() []string
@@ -136,14 +142,46 @@ type launchDeps struct {
 // every admitted launch flows through composition and all late execution checks.
 func run(ctx context.Context, args []string, stdout, stderr io.Writer, deps launchDeps) int {
 	paths := deps.defaults
-	if deps.axPaths != nil {
+	if deps.configLocations == nil && deps.axPaths != nil {
 		var err error
 		paths, err = deps.axPaths()
 		if err != nil {
 			return emitFailure(stderr, diagnostics.CodeDefaultsInvalid, err)
 		}
 	}
-	configured, err := axconfig.Load(filepath.Dir(paths.Machine), filepath.Dir(paths.Operator))
+	var configResolver configfile.Resolver
+	if deps.configLocations != nil {
+		loc, err := deps.configLocations()
+		if err != nil {
+			return emitFailure(stderr, diagnostics.CodeDefaultsInvalid, err)
+		}
+		configResolver = configfile.Resolver{Locations: loc, Stderr: stderr}
+	} else {
+		configResolver = configfile.Resolver{Locations: configfile.Locations{System: filepath.Dir(paths.Machine), User: filepath.Dir(paths.Operator)}, Stderr: stderr}
+	}
+	// Migration must remain available when the legacy host member prevents a
+	// normal launch. Parse its closed grammar before loading the configs.
+	if len(args) > 0 && args[0] == "migrate" {
+		inv, err := cli.Parse(args, cli.Options{})
+		if err != nil {
+			return emitFailure(stderr, diagnostics.CodeUsage, err)
+		}
+		if err := migrate.Run(configResolver.Locations, inv.DryRun, stdout, migrate.Options{}); err != nil {
+			code := diagnostics.CodeDefaultsInvalid
+			var migrationError *migrate.Error
+			if errors.As(err, &migrationError) {
+				code = migrationError.Code
+			}
+			return emitFailure(stderr, code, err)
+		}
+		return 0
+	}
+	policy, err := launcherconfig.Load(configResolver)
+	if err != nil {
+		return emitFailure(stderr, diagnostics.CodeDefaultsInvalid, err)
+	}
+	deps.launcherConfig = policy
+	configured, err := axconfig.LoadResolved(configResolver)
 	if err != nil {
 		return emitFailure(stderr, diagnostics.CodeDefaultsInvalid, err)
 	}
@@ -207,7 +245,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, deps laun
 	// every one terminal with nothing launched. The provider path and
 	// the resolved pair with its per-member origins print on stderr as
 	// one line-group before the plan request.
-	if deps.configPaths != nil {
+	if deps.configLocations == nil && deps.configPaths != nil {
 		paths, err := deps.configPaths()
 		if err != nil {
 			_ = diagnostics.Emit(stderr, defaults.CodeInvalid, fmt.Sprintf("cannot locate defaults configuration: %v", err))
@@ -215,7 +253,12 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, deps laun
 		}
 		deps.defaults = paths
 	}
-	files, err := defaults.Load(deps.defaults)
+	var files defaults.Files
+	if deps.configLocations != nil {
+		files, err = defaults.LoadResolved(configResolver)
+	} else {
+		files, err = defaults.Load(deps.defaults)
+	}
 	if err == nil {
 		var flags defaults.Pair
 		if inv.ModelSet {

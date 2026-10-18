@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"sort"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -164,7 +165,7 @@ func TestHostedRefusalsBeforeContact(t *testing.T) {
 				writeDefaults(t, h.fix.deps.defaults.Machine, `{"schema":"curator-run-defaults-v3","defaults":{"claude_code":{"host":"hosted"}}}`)
 			},
 			args:     []string{"claude_code"},
-			wantCode: 16, wantLine: "curator-run: session_host_default_not_ready: the machine hosted default for claude_code is not ready until upgrade-without-hangup; use explicit --hosted or an operator default",
+			wantCode: 2, wantLine: "withdrawn-machine",
 		},
 		{
 			name: "locked-machine-hosted-default-not-ready", env: "claude_code",
@@ -173,7 +174,7 @@ func TestHostedRefusalsBeforeContact(t *testing.T) {
 				writeDefaults(t, h.fix.deps.defaults.Operator, `{"schema":"curator-run-defaults-v3","defaults":{"claude_code":{"host":"native"}}}`)
 			},
 			args:     []string{"claude_code"},
-			wantCode: 16, wantLine: "curator-run: session_host_default_not_ready: the machine hosted default for claude_code is not ready until upgrade-without-hangup; use explicit --hosted or an operator default",
+			wantCode: 2, wantLine: "withdrawn-machine",
 		},
 		{
 			name: "network-hosted", env: "claude_code",
@@ -194,7 +195,7 @@ func TestHostedRefusalsBeforeContact(t *testing.T) {
 				writeDefaults(t, h.fix.deps.defaults.Operator, `{"schema":"curator-run-defaults-v3","defaults":{"claude_code":{"host":"hosted"}}}`)
 			},
 			args:     []string{"claude_code", "--network", "office"},
-			wantCode: 16, wantLine: "curator-run: network_scope_unsupported: managed network selections are not supported by hosted execution",
+			wantCode: 2, wantLine: "withdrawn-operator",
 		},
 		{
 			name: "resume-positional-native", env: "claude_code",
@@ -330,6 +331,14 @@ func TestHostedRefusalsBeforeContact(t *testing.T) {
 			if tc.setup != nil {
 				tc.setup(t, h)
 			}
+			if tc.wantLine == "withdrawn-machine" {
+				h.fix.resolver.stderr = ""
+				tc.wantLine = "curator-run: host_member_withdrawn: defaults.json host member is withdrawn; use launcher.json: path=" + strconv.Quote(h.fix.deps.defaults.Machine) + " reason=present"
+			}
+			if tc.wantLine == "withdrawn-operator" {
+				h.fix.resolver.stderr = ""
+				tc.wantLine = "curator-run: host_member_withdrawn: defaults.json host member is withdrawn; use launcher.json: path=" + strconv.Quote(h.fix.deps.defaults.Operator) + " reason=present"
+			}
 			code, _, stderr := h.run(t, tc.args)
 			if code != tc.wantCode {
 				t.Fatalf("exit = %d, want %d (stderr %q)", code, tc.wantCode, stderr)
@@ -368,24 +377,20 @@ func TestHostedRefusalsBeforeContact(t *testing.T) {
 	}
 }
 
-// TestOperatorHostedDefaultAdmitted proves operator decision Q-D1a
-// (2026-10-05) = yes: an operator-scope hosted default with no flag
-// completes the hosted handoff — the payload reaches the receiver and
-// the launch exits 0 — while a machine hosted default still refuses
-// (TestHostedRefusalsBeforeContact/machine-hosted-default-not-ready).
+// A withdrawn operator host default refuses before any hosted build/contact;
+// the same valid v3 defaults without host preserve explicit hosted handoff.
 func TestOperatorHostedDefaultResolvesWithInjectedReceiver(t *testing.T) {
 	h := newHostedHarness(t, "claude_code", false)
 	writeDefaults(t, h.fix.deps.defaults.Operator, `{"schema":"curator-run-defaults-v3","defaults":{"claude_code":{"host":"hosted"}}}`)
-	code, _, stderr := h.run(t, []string{"claude_code", "--model", "claude-opus-5", "--effort", "medium", "--permissions", "native"})
-	if code != 0 {
-		t.Fatalf("exit = %d, want 0 (stderr %q)", code, stderr)
+	args := []string{"claude_code", "--hosted", "--model", "claude-opus-5", "--effort", "medium", "--permissions", "native"}
+	code, _, stderr := h.run(t, args)
+	if code != 2 || !strings.Contains(stderr, "host_member_withdrawn") || !strings.Contains(stderr, "launcher.json") || h.lookupCalls != 0 || h.terminalCalls != 0 || h.fix.builds != 0 {
+		t.Fatalf("exit=%d stderr=%s", code, stderr)
 	}
-	payload := h.payload(t)
-	if payload["schema"] != "urn:relux:task-board:session-launch-plan" || payload["schema_version"] != "1.0.0" {
-		t.Fatalf("payload identity = %v/%v", payload["schema"], payload["schema_version"])
-	}
-	if h.lookupCalls != 1 || h.terminalCalls != 1 {
-		t.Fatalf("lookup calls = %d, terminal calls = %d; want one contact each", h.lookupCalls, h.terminalCalls)
+	writeDefaults(t, h.fix.deps.defaults.Operator, `{"schema":"curator-run-defaults-v3","defaults":{"claude_code":{"permissions":"native"}}}`)
+	code, _, stderr = h.run(t, args)
+	if code != 0 || h.lookupCalls != 1 || h.terminalCalls != 1 {
+		t.Fatalf("positive exit=%d stderr=%s", code, stderr)
 	}
 }
 
@@ -417,7 +422,7 @@ func TestHostedRefusalOrder(t *testing.T) {
 				writeDefaults(t, h.fix.deps.defaults.Machine, `{"schema":"curator-run-defaults-v3","defaults":{"claude_code":{"host":"hosted"}}}`)
 			},
 			args:     []string{"claude_code", "--network", "office"},
-			wantCode: 16, wantCodeName: "session_host_default_not_ready",
+			wantCode: 2, wantCodeName: "host_member_withdrawn",
 		},
 		{
 			name: "network-beats-permission", env: "claude_code",
@@ -460,6 +465,9 @@ func TestHostedRefusalOrder(t *testing.T) {
 			h := newHostedHarness(t, tc.env, tc.tracked)
 			if tc.setup != nil {
 				tc.setup(t, h)
+			}
+			if tc.wantCodeName == "host_member_withdrawn" {
+				h.fix.resolver.stderr = ""
 			}
 			code, _, stderr := h.run(t, tc.args)
 			if code != tc.wantCode {
@@ -739,25 +747,25 @@ func TestNativePerformsZeroReceiverLookup(t *testing.T) {
 		{"explicit-untracked", false, nil, []string{"claude_code", "--untracked", "--model", "claude-opus-5", "--effort", "medium", "--permissions", "native"}},
 		{"native-tail", false, nil, []string{"claude_code", "--model", "claude-opus-5", "--effort", "medium", "--permissions", "native", "--", "--resume", "01234567-89ab-cdef-0123-456789abcdef"}},
 		{
-			name: "operator-native-default", tracked: false,
+			name: "operator-permission-default", tracked: false,
 			setup: func(t *testing.T, h *hostedHarness) {
-				writeDefaults(t, h.fix.deps.defaults.Operator, `{"schema":"curator-run-defaults-v3","defaults":{"claude_code":{"host":"native"}}}`)
+				writeDefaults(t, h.fix.deps.defaults.Operator, `{"schema":"curator-run-defaults-v3","defaults":{"claude_code":{"permissions":"native"}}}`)
 			},
 			args: []string{"claude_code", "--model", "claude-opus-5", "--effort", "medium", "--permissions", "native"},
 		},
 		{
-			name: "locked-ignores-operator-hosted", tracked: false,
+			name: "locked-ignores-operator-permissions", tracked: false,
 			setup: func(t *testing.T, h *hostedHarness) {
 				writeDefaults(t, h.fix.deps.defaults.Machine, `{"schema":"curator-run-defaults-v3","locked":true,"defaults":{"claude_code":{"model":"claude-opus-5","effort":"medium"}}}`)
-				writeDefaults(t, h.fix.deps.defaults.Operator, `{"schema":"curator-run-defaults-v3","defaults":{"claude_code":{"host":"hosted"}}}`)
+				writeDefaults(t, h.fix.deps.defaults.Operator, `{"schema":"curator-run-defaults-v3","defaults":{"claude_code":{"permissions":"native"}}}`)
 			},
 			args: []string{"claude_code", "--permissions", "native"},
 		},
 		{"tracked-implicit-native", true, nil, []string{"claude_code", "--model", "claude-opus-5", "--effort", "medium", "--permissions", "native"}},
 		{
-			name: "tracked-configured-native", tracked: true,
+			name: "tracked-configured-permissions", tracked: true,
 			setup: func(t *testing.T, h *hostedHarness) {
-				writeDefaults(t, h.fix.deps.defaults.Operator, `{"schema":"curator-run-defaults-v3","defaults":{"claude_code":{"host":"native"}}}`)
+				writeDefaults(t, h.fix.deps.defaults.Operator, `{"schema":"curator-run-defaults-v3","defaults":{"claude_code":{"permissions":"native"}}}`)
 			},
 			args: []string{"claude_code", "--model", "claude-opus-5", "--effort", "medium", "--permissions", "native"},
 		},
@@ -804,9 +812,9 @@ func TestExplicitNativeBypass(t *testing.T) {
 			args: []string{"claude_code", "--model", "claude-opus-5", "--effort", "medium", "--permissions", "native"}, wantCode: 1,
 		},
 		{
-			name: "configured-native-keeps-ax",
+			name: "configured-permissions-keeps-ax",
 			setup: func(t *testing.T, h *hostedHarness) {
-				writeDefaults(t, h.fix.deps.defaults.Operator, `{"schema":"curator-run-defaults-v3","defaults":{"claude_code":{"host":"native"}}}`)
+				writeDefaults(t, h.fix.deps.defaults.Operator, `{"schema":"curator-run-defaults-v3","defaults":{"claude_code":{"permissions":"native"}}}`)
 			},
 			args: []string{"claude_code", "--model", "claude-opus-5", "--effort", "medium", "--permissions", "native"}, wantCode: 1,
 		},
@@ -1507,8 +1515,8 @@ func TestHostedConflictingNativeSessionNamesRefuse(t *testing.T) {
 
 // Production call sites: run -> launch -> runHosted -> Transport.Run ->
 // LookupReceiver. A task-board executable on PATH is not a swarma dispatcher.
-// All three ways to select hosted must refuse without a receiver or provider
-// start. Existing injected-receiver tests cover the dormant payload contract.
+// Explicit hosted refuses at the production receiver; withdrawn configured
+// defaults refuse earlier. Neither path starts a receiver or provider.
 func TestHostedUnavailableThroughRun(t *testing.T) {
 	for _, selection := range []string{"flag", "operator", "machine", "locked-machine"} {
 		for _, mode := range []string{"native", "yolo"} {
@@ -1530,13 +1538,14 @@ func TestHostedUnavailableThroughRun(t *testing.T) {
 				case "flag":
 					args = append(args, "--hosted")
 				case "operator":
+					wantCode, wantDiagnostic = 2, "host_member_withdrawn"
 					writeDefaults(t, h.fix.deps.defaults.Operator, `{"schema":"curator-run-defaults-v3","defaults":{"claude_code":{"host":"hosted"}}}`)
 				case "machine":
 					writeDefaults(t, h.fix.deps.defaults.Machine, `{"schema":"curator-run-defaults-v3","defaults":{"claude_code":{"host":"hosted"}}}`)
-					wantCode, wantDiagnostic = 16, "session_host_default_not_ready"
+					wantCode, wantDiagnostic = 2, "host_member_withdrawn"
 				case "locked-machine":
 					writeDefaults(t, h.fix.deps.defaults.Machine, `{"schema":"curator-run-defaults-v3","locked":true,"defaults":{"claude_code":{"host":"hosted"}}}`)
-					wantCode, wantDiagnostic = 16, "session_host_default_not_ready"
+					wantCode, wantDiagnostic = 2, "host_member_withdrawn"
 				}
 				code, out, stderr := h.run(t, args)
 				if code != wantCode || out != "" || !strings.Contains(stderr, "curator-run: "+wantDiagnostic+":") {

@@ -10,46 +10,26 @@ import (
 
 func foreignOwnedConfigFile(t *testing.T, contents string) (string, bool) {
 	t.Helper()
-	const parent = "/tmp"
-	parentInfo, err := os.Stat(parent)
-	if err != nil {
-		return "", false
-	}
-	parentStat, ok := parentInfo.Sys().(*syscall.Stat_t)
-	if !ok {
-		return "", false
-	}
-	f, err := os.CreateTemp(parent, "curator-run-foreign-owner-")
-	if err != nil {
-		return "", false
-	}
-	path := f.Name()
-	if _, err := f.WriteString(contents); err != nil {
-		_ = f.Close()
-		_ = os.Remove(path)
-		return "", false
-	}
-	if err := f.Close(); err != nil {
-		_ = os.Remove(path)
-		return "", false
-	}
-	if os.Geteuid() == 0 && parentStat.Uid == 0 {
-		if err := os.Chown(path, 65534, -1); err != nil {
-			_ = os.Remove(path)
+	parent := t.TempDir()
+	path := parent + "/foreign-owned"
+	if os.Geteuid() == 0 {
+		if err := os.WriteFile(path, []byte(contents), 0600); err != nil {
 			return "", false
 		}
+		if err := os.Chown(path, 65534, -1); err != nil {
+			return "", false
+		}
+	} else if err := os.Link("/etc/hosts", path); err != nil {
+		return "", false
 	}
 	fileInfo, err := os.Stat(path)
 	if err != nil {
-		_ = os.Remove(path)
 		return "", false
 	}
 	fileStat, ok := fileInfo.Sys().(*syscall.Stat_t)
-	if !ok || fileStat.Uid == parentStat.Uid {
-		_ = os.Remove(path)
+	if !ok || fileStat.Uid == uint32(os.Geteuid()) {
 		return "", false
 	}
-	t.Cleanup(func() { _ = os.Remove(path) })
 	return path, true
 }
 

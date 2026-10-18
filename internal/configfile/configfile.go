@@ -107,3 +107,17 @@ func inspectDirectory(path string) (os.FileInfo, bool, error) {
 	}
 	return info, true, nil
 }
+
+// ReadDirectory distinguishes a genuinely missing configuration directory from
+// dangling symlink ancestors and non-directory paths before enumerating files.
+func ReadDirectory(path string) ([]os.DirEntry, error) {
+	_, present, err := inspectDirectory(path)
+	if err != nil || !present {
+		return nil, err
+	}
+	entries, err := os.ReadDir(path)
+	if err != nil {
+		return nil, fmt.Errorf("cannot read configuration directory %q: %w", path, err)
+	}
+	return entries, nil
+}

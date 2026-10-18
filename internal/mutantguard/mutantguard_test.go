@@ -30,7 +30,7 @@ const scriptTimeout = 8 * time.Minute
 var required = []struct {
 	id, pkgs, run string
 }{
-	{"M-H1", "./internal/defaults", "^TestResolveHostPrecedence$"},
+	{"M-H1", "./internal/defaults", "^TestHostMemberWithdrawn$"},
 	{"M-H2", "./cmd/curator-run", "^TestHostedRefusalsBeforeContact$"},
 	{"M-H3", "./cmd/curator-run", "^TestNativePerformsZeroReceiverLookup$"},
 	{"M-H22", "./cmd/curator-run", "^TestHostedUnavailableThroughRun$"},

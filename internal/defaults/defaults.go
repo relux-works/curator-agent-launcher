@@ -4,6 +4,7 @@
 package defaults
 
 import (
+	"errors"
 	"fmt"
 	"path/filepath"
 
@@ -14,11 +15,19 @@ import (
 const Schema = "curator-run-defaults-v1"
 const SchemaV2 = "curator-run-defaults-v2"
 
-// SchemaV3 adds the per-environment host member; v1 and v2 stay accepted
-// unchanged and reject it as an unknown member.
+// SchemaV3 accepts model, effort and permissions. The former host member
+// is withdrawn; v1 and v2 retain their closed-schema rejection.
 const SchemaV3 = "curator-run-defaults-v3"
 const CodeInvalid = "defaults_config_invalid"
 const CodeUsage = "usage"
+const CodeHostWithdrawn = "host_member_withdrawn"
+const MessageHostWithdrawn = "defaults.json host member is withdrawn; use launcher.json"
+
+type HostWithdrawnError struct{ Path, Reason string }
+
+func (e *HostWithdrawnError) Error() string {
+	return fmt.Sprintf("%s: path=%q reason=%s", MessageHostWithdrawn, e.Path, e.Reason)
+}
 
 // Host values of the v3 host member.
 const (
@@ -58,10 +67,8 @@ type Paths struct{ Machine, Operator string }
 // Pass os.Getenv("XDG_CONFIG_HOME") and the process user's home directory.
 // Empty XDG_CONFIG_HOME follows the XDG default. It does not create directories.
 func ConfigPaths(xdgConfigHome, userHome string) Paths {
-	if xdgConfigHome == "" {
-		xdgConfigHome = filepath.Join(userHome, ".config")
-	}
-	return Paths{Machine: "/etc/curator-run/defaults.json", Operator: filepath.Join(xdgConfigHome, "curator-run", "defaults.json")}
+	locations := configfile.ConfigLocations(xdgConfigHome, userHome)
+	return Paths{Machine: filepath.Join(locations.System, "defaults.json"), Operator: filepath.Join(locations.User, "defaults.json")}
 }
 
 // Load reads and validates both files, including ignored operator entries.
@@ -79,6 +86,25 @@ func Load(paths Paths) (Files, error) {
 	return Files{machine, operator}, nil
 }
 
+// LoadResolved reads both layers through the common configuration resolver.
+func LoadResolved(r configfile.Resolver) (Files, error) {
+	var files [2]file
+	for i, layer := range []configfile.Layer{configfile.System, configfile.User} {
+		data, present, path, err := r.Read(layer, "defaults.json")
+		if err != nil {
+			return Files{}, invalid(fmt.Errorf("%s: %w", path, err))
+		}
+		if !present {
+			continue
+		}
+		files[i], err = parseFile(data, path)
+		if err != nil {
+			return Files{}, err
+		}
+	}
+	return Files{files[0], files[1]}, nil
+}
+
 func loadFile(path string) (file, error) {
 	data, present, err := configfile.Read(path)
 	if err != nil {
@@ -87,12 +113,23 @@ func loadFile(path string) (file, error) {
 	if !present {
 		return file{}, nil
 	}
+	return parseFile(data, path)
+}
+
+func parseFile(data []byte, path string) (file, error) {
 	f, err := parse(data)
 	if err != nil {
+		var withdrawn *HostWithdrawnError
+		if errors.As(err, &withdrawn) {
+			return file{}, &Error{CodeHostWithdrawn, &HostWithdrawnError{Path: path, Reason: "present"}}
+		}
 		return file{}, invalid(fmt.Errorf("%s: %w", path, err))
 	}
 	return f, nil
 }
+
+// Validate checks the closed defaults schema without reading a file.
+func Validate(data []byte) error { _, err := parse(data); return err }
 
 func parse(data []byte) (file, error) {
 	root, err := fragment.ParseJSON(data)
@@ -127,14 +164,17 @@ func parse(data []byte) (file, error) {
 				return file{}, fmt.Errorf("defaults must be an object")
 			}
 			for _, env := range m.Value.Obj {
+				// Withdrawal is a presence rule, independent of sibling value types.
+				for _, member := range env.Value.Obj {
+					if member.Key == "host" && schema == SchemaV3 {
+						return file{}, &HostWithdrawnError{Reason: "present"}
+					}
+				}
 				if fragment.HomeVariable(env.Key) == "" {
 					return file{}, fmt.Errorf("unknown environment %q", env.Key)
 				}
 				if env.Value.Kind != fragment.KindObject || len(env.Value.Obj) == 0 {
 					want := "model, effort, or permissions"
-					if schema == SchemaV3 {
-						want = "model, effort, permissions, or host"
-					}
 					return file{}, fmt.Errorf("%s must contain %s", env.Key, want)
 				}
 				var pair Pair

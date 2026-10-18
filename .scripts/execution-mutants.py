@@ -12,6 +12,7 @@ config = root / 'internal/axconfig/config.go'
 launch = root / 'internal/execution/execution.go'
 reader = root / 'internal/fragment/json.go'
 process = root / 'internal/execution/process.go'
+shared = root / 'internal/configfile/configfile.go'
 mutants = [
  ('F1', process, 'cmd.SysProcAttr.Foreground = true', 'cmd.SysProcAttr.Foreground = !(len(cmd.Args) > 1 && cmd.Args[1] == "start")', 'TestRealPTYOwnershipBothModes/tracked=true', 'withhold foreground ownership only for tracked ax; direct ownership remains'),
  ('F2', process, '_ = syscall.Kill(-int(group), s.(syscall.Signal))', 'if s != os.Interrupt { _ = syscall.Kill(-int(group), s.(syscall.Signal)) }', 'TestRealPTYOwnershipBothModes/tracked=false', 'omit parent-only INT relay while retaining TERM/HUP/QUIT and terminal delivery'),
@@ -20,10 +21,10 @@ mutants = [
  ('C3', config, 'enabled.Kind != fragment.KindBool', 'enabled.Kind != fragment.KindBool && !(enabled.Kind == fragment.KindNull && v.Obj[1].Key == "enabled")', 'TestLoadClosedSchema/null', 'admit null enabled while refusing string/number'),
  ('C4', reader, 'if seen[key] {', 'if seen[key] && key != "enabled" {', 'TestLoadClosedSchema/duplicate', 'admit duplicate enabled only with last-wins object storage'),
  ('C5', config, 'return enabled, nil', 'if !enabled { continue }; return enabled, nil', 'TestLoadPrecedenceBeforeParse', 'ignore only explicit false machine policy'),
- ('C6', config, 'if !info.Mode().IsRegular() {', 'if !info.Mode().IsRegular() && info.Mode()&os.ModeNamedPipe == 0 {', 'TestLoadFilesystemFailures/fifo', 'admit FIFO only; bound test timeout prevents hanging read'),
- ('C7', config, 'info, err = os.Stat(path)', 'info, err = os.Stat(path); if os.IsNotExist(err) { return false, nil }', 'TestLoadFilesystemFailures/dangling_file', 'treat dangling symlinks only as absence'),
- ('C8', config, 'data, err := os.ReadFile(path)', 'data, err := os.ReadFile(path); if os.IsPermission(err) { continue }', 'TestLoadFilesystemFailures/unreadable_file', 'turn permission-denied read only into fallback'),
- ('C9', config, 'return false, fmt.Errorf("ancestor %s is not a directory", path)', 'return false, nil', 'TestLoadFilesystemFailures/file_ancestor', 'non-directory ancestor only becomes absence; other ancestor failures remain'),
+ ('C6', shared, 'if !info.Mode().IsRegular() {\n\t\treturn nil, true, fmt.Errorf("configuration file is not a regular file")\n\t}\n\n\tf, err := openFile(path)', 'if info.Mode()&os.ModeNamedPipe!=0{return nil,false,nil};if !info.Mode().IsRegular() {\n\t\treturn nil, true, fmt.Errorf("configuration file is not a regular file")\n\t}\n\n\tf, err := openFile(path)', 'TestLoadFilesystemFailures/fifo', 'treat FIFO only as optional absence'),
+ ('C7', shared, 'if info.Mode()&os.ModeSymlink != 0 {\n\t\treturn nil, true, errSymlink', 'if info.Mode()&os.ModeSymlink != 0 {\n if _,err:=os.Stat(path);os.IsNotExist(err){return nil,false,nil};return nil,true,errSymlink', 'TestLoadFilesystemFailures/dangling_file', 'treat dangling final symlinks only as absence'),
+ ('C8', shared, 'f, err := openFile(path)\n\tif err != nil {', 'f,err:=openFile(path);if os.IsPermission(err){return nil,false,nil};if err!=nil{', 'TestLoadFilesystemFailures/unreadable_file', 'turn permission-denied open only into fallback'),
+ ('C9', shared, 'return nil, false, fmt.Errorf("configuration ancestor %q is not a directory", path)', 'return nil,false,nil', 'TestLoadFilesystemFailures/file_ancestor', 'non-directory ancestor only becomes absence'),
  ('E1', launch, 'if opts.Boundary == nil {', 'if opts.Boundary == nil && !l.tracked { opts.Boundary = func() error { return nil } }; if opts.Boundary == nil {', 'TestLateChecksBothModes/tracked=false/nil_boundary', 'admit absent third boundary in direct mode only'),
  ('E2', launch, 'if err := opts.Boundary(); err != nil {', 'if err := opts.Boundary(); err != nil && !(l.tracked && strings.HasPrefix(err.Error(), "prompt_file_detected:")) {', 'TestLateChecksBothModes/tracked=true/boundary_refusal', 'admit prompt-file refusal in tracked mode only'),
  ('E3', launch, 'if err != nil {\n\t\treturn fail(fmt.Errorf("exec_provider_missing:', 'if err != nil && !(l.tracked && os.IsNotExist(err) && strings.HasSuffix(l.value.Binary, "/provider")) {\n\t\treturn fail(fmt.Errorf("exec_provider_missing:', 'TestLateChecksBothModes/tracked=true/provider_removed', 'admit only absent binary named provider in tracked mode; nonexecutable still refuses'),
@@ -41,7 +42,7 @@ for ident, path, old, new, test, bound in mutants:
  original = path.read_bytes()
  try:
   source = original.decode()
-  expected = 2 if ident == 'C7' else 1
+  expected = 1
   if source.count(old) != expected:
    raise RuntimeError(f'{ident}: expected {expected} anchors, got {source.count(old)}')
   mutated = source.replace(old, new)
@@ -54,19 +55,17 @@ for ident, path, old, new, test, bound in mutants:
     raise RuntimeError('C4: object-storage anchor drift')
    mutated = mutated.replace(anchor, replacement)
   path.write_text(mutated)
-  # FIFO admission is narrowed to one class and reaches the real blocking read.
-  # All other mutants run the complete scoped behavioral suite.
+  # Each probe runs the bounded scoped behavioral suite and must fail its
+  # named assertion, including FIFO-as-absence without a hanging read.
   command = ['go', 'test', './internal/axconfig', './internal/execution', '-count=1', '-v', '-timeout=30s']
   if ident in ('F1', 'F2'):
    command = ['go', 'test', './internal/execution', '-count=1', '-v', '-run=TestRealPTYOwnershipBothModes', '-timeout=30s']
-  if ident == 'C6':
-   command = ['go', 'test', './internal/axconfig', '-count=1', '-v', '-run=TestLoadFilesystemFailures/fifo', '-timeout=2s']
   with (out / f'{ident}.log').open('w') as log:
    log.write('COMMAND: ' + ' '.join(command) + '\n'); log.flush()
    result = subprocess.run(command, cwd=root, stdout=log, stderr=subprocess.STDOUT, timeout=90)
    log.write(f'\nEXIT: {result.returncode}\n')
   evidence = (out / f'{ident}.log').read_text()
-  killed = result.returncode == 1 and (f'--- FAIL: {test} ' in evidence or (ident == 'C6' and f'{test} (2s)' in evidence and 'panic: test timed out' in evidence))
+  killed = result.returncode == 1 and (f'--- FAIL: {test} ' in evidence)
   rows.append(f'{ident}\t{bound}\t{test if killed else "none"}\t{result.returncode}\t' + ('killed\tnone' if killed else 'SURVIVOR\t' + bound + ' is not proven on this host'))
   failed |= not killed
  finally:

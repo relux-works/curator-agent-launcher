@@ -18,6 +18,7 @@ import (
 	"github.com/relux-works/curator-agent-launcher/internal/diagnostics"
 	"github.com/relux-works/curator-agent-launcher/internal/fragment"
 	"github.com/relux-works/curator-agent-launcher/internal/hosted"
+	"github.com/relux-works/curator-agent-launcher/internal/migrate"
 	sp "github.com/relux-works/curator-agent-launcher/internal/systemprompt"
 	"github.com/relux-works/curator-network-profiles/pkg/refusal"
 )
@@ -132,6 +133,8 @@ func TestOwnedCodesMatchOwners(t *testing.T) {
 		{diagnostics.CodeResolveFragmentInvalid, fragment.CodeFragmentInvalid},
 		{diagnostics.CodeDefaultsInvalid, axconfig.CodeInvalid},
 		{diagnostics.CodeDefaultsUnresolvable, defaults.CodeUnresolvable},
+		{diagnostics.CodeHostWithdrawn, defaults.CodeHostWithdrawn},
+		{diagnostics.CodeMigrateDestinationExists, migrate.CodeDestinationExists},
 		{diagnostics.CodeEnvUnsupported, "env_unsupported"},
 		{diagnostics.CodeMCPLayerMissing, composition.CodeMCPLayerMissing},
 		{diagnostics.CodeMCPLayerUnreadable, composition.CodeMCPLayerUnreadable},
@@ -180,7 +183,7 @@ func TestExitForCode(t *testing.T) {
 		want := diagnostics.ExitOperational
 		switch c {
 		case diagnostics.CodeUsage, diagnostics.CodeHostConflict,
-			diagnostics.CodeSessionResumeInvalid, diagnostics.CodeLaunchPlanInvalid:
+			diagnostics.CodeSessionResumeInvalid, diagnostics.CodeLaunchPlanInvalid, diagnostics.CodeHostWithdrawn, diagnostics.CodeMigrateDestinationExists:
 			want = diagnostics.ExitUsage
 		case diagnostics.CodeSessionHostProtocolUnsupported, diagnostics.CodeSessionHostProviderUnsupported,
 			diagnostics.CodeSessionHostScopeUnsupported, diagnostics.CodeSessionHostExecutionProfileUnsupported,

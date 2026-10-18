@@ -314,12 +314,11 @@ The launch pipeline follows these steps:
    `mapped=module-attested` only after the builder admits its help evidence.
    Pi uses the ordered convention `pi-anthropic`, `pi-openai`, `pi-google`; vendor
    scores are never compared. Explicit models bind their own runtime.
-4. Resolve the host from the `--hosted`/`--native`/`--untracked` flag and
-   the v3 `host` default: machine lock, then flag, then operator default,
-   then native. A hosted flag or default with `ax` enabled refuses
-   `host_configuration_conflict`; a machine hosted default refuses
-   `session_host_default_not_ready` until upgrade-without-hangup, while an
-   operator hosted default resolves the request but cannot start a host; any
+4. Resolve the host from the `--hosted`/`--native`/`--untracked` flag,
+   with native as the implicit result in this slice. Per-environment v3 `host`
+   defaults are withdrawn and refuse with `host_member_withdrawn` (exit 2).
+   Machine `host_mode` is validated and exposed to the caller, pending selection wiring.
+   A hosted flag with `ax` enabled refuses `host_configuration_conflict`; any
    `--hosted --network` selection refuses `network_scope_unsupported` (exit
    16; native `--network` is the direct path below). No flag and no
    default stays native with no session-host probe. Hosted launches resolve
@@ -540,19 +539,44 @@ qualified merely because a file has a native executable header. See SPEC
 
 ### Configuration family
 
-The launcher owns `defaults.json` and `ax.json` in the operator directory
-`$XDG_CONFIG_HOME/curator-run` (default `~/.config/curator-run`) and machine
-directory `/etc/curator-run`. These are separate from Curator's configuration.
-Both use closed schemas: unknown members, malformed data and unreadable files
+The launcher owns `defaults.json`, `ax.json` and `launcher.json` in the operator directory
+`${XDG_CONFIG_HOME:-~/.config}/swarma/launcher` (default `~/.config/swarma/launcher`) and machine
+directory `/etc/swarma/launcher`. These are separate from Curator's configuration.
+All use closed schemas: unknown members, malformed data and unreadable files
 refuse the invocation; absence alone permits fallback.
+
+`launcher.json` uses the closed schema `curator-run-launcher-v1` and optional
+`host_mode` (`auto`, `native`, `hosted`) in the system layer only. Absence
+means `auto`; an explicit value has source `machine`, absence source `default`.
+The optional system-only `delegated_trial` boolean is also validated and
+exposed, without enabling delegated execution in this slice.
+A user-layer `host_mode` or `delegated_trial` refuses and names the system path. The resolved mode
+is validated and exposed to the caller; host selection will use it in a later
+slice. The v3 defaults `host` member is withdrawn: it refuses
+`host_member_withdrawn` (exit 2), naming `launcher.json`; see
+[FRONT-DOOR §3.1](FRONT-DOOR.md#31-the-machine-mode).
+
+For one release, missing new files fall back individually to
+`/etc/curator-run/<name>` or `${XDG_CONFIG_HOME:-~/.config}/curator-run/<name>`.
+Each read prints `curator-run: deprecated config path <old>; move it to <new> (curator-run migrate)`.
+A present new file wins without opening the old one; all selected files keep
+the same file-security checks.
+
+Run `curator-run migrate --dry-run` to print the complete migration plan,
+then `curator-run migrate` to apply it. Sources remain untouched; destinations
+are copied atomically, with `.bak` bytes for rewritten copies, and rollback
+on failure. Destination equality compares the final transformed bytes; a
+different file refuses `migrate_destination_exists` before writing anything.
+An exact raw legacy copy can be transformed in place with its original bytes
+in `.bak`; final transformed bytes count as already migrated.
+Uniform old machine `host` values become `launcher.json` `host_mode`; mixed
+values refuse. User `host` values are listed and dropped. Unwritable system
+files are listed once for a privileged installer. A repeated run is a no-op.
 
 Model and effort resolve independently: flags, then operator defaults over
 machine defaults per member, then the admitted lineup. Permission mode has its
 own precedence: `--permissions` or `--yolo`, Curator's per-profile setting in the
-fragment, the launcher-global file value, then the built-in default. The host
-resolves separately: machine lock, then host flag, then operator default, then
-native. A v3 file can set an effort for one environment, a permission default
-for another, and a host default for a third:
+fragment, the launcher-global file value, then the built-in default. A v3 file can set model, effort and permission defaults independently:
 
 ```json
 {
@@ -560,14 +584,13 @@ for another, and a host default for a third:
   "locked": false,
   "defaults": {
     "codex_cli": { "effort": "high" },
-    "claude_code": { "permissions": "yolo", "host": "native" }
+    "claude_code": { "permissions": "yolo" }
   }
 }
 ```
 
-Each environment entry may contain `model`, `effort`, `permissions`, and/or
-`host`; permission values are exactly `native` or `yolo`, host values exactly
-`native` or `hosted`. A v3 reader accepts v1 and v2 files unchanged; older
+Each environment entry may contain `model`, `effort`, and/or `permissions`;
+permission values are exactly `native` or `yolo`. A v3 reader accepts v1 and v2 files unchanged; older
 readers reject the members they do not know. The permission
 fragment member uses the F-S2 names `permissions.mode`, `permissions.locked`,
 and `permissions.source`; `source=default` means the profile level is silent.
@@ -616,7 +639,7 @@ Enable tracking with this `ax.json` document:
 { "schema": "curator-run-ax-v1", "enabled": true }
 ```
 
-Here **machine wins**: an existing `/etc/curator-run/ax.json` decides;
+Here **machine wins**: an existing `/etc/swarma/launcher/ax.json` decides;
 the operator file is read only when the machine file is absent. Absence of
 both files or `enabled: false` selects direct execution. This read precedes
 argument validation, including help/version. Invalid configuration is
@@ -628,11 +651,11 @@ Tracked launches call `ax start <name> --provider <id> --launch-plan -
 alias launch names the session `claude_code-…` or `codex_cli-…`. An explicit
 `--native` or `--untracked` flag bypasses `ax` on any machine (with
 `--ax-profile` a usage error, since the profile would be discarded); a
-configured native default keeps the existing `ax` behavior. A hosted flag or
-default with `ax` enabled refuses `host_configuration_conflict`. Hosted launch
+silent native selection keeps the existing `ax` behavior. A hosted flag
+with `ax` enabled refuses `host_configuration_conflict`. Hosted launch
 is unavailable until the swarma dispatcher path ships: production receiver
-lookup refuses `session_host_missing` before any handoff, and machine/operator
-hosted defaults cannot start a host.
+lookup refuses `session_host_missing` before any handoff. Withdrawn
+per-environment host defaults refuse before host selection.
 A failed handoff never starts a direct child. Repository tests use **fake ax
 only**; they do not demonstrate an installed ax integration.
 
@@ -645,7 +668,7 @@ on stderr. Foreign Curator/provider/ax output is forwarded unchanged.
 |---|---|
 | Help/version, successful direct execution, or ax handoff | 0 |
 | `usage` (invalid arguments, locked-member override, host-request repeat, native resume selectors, or visible `yolo` under Curator's force-native lock) | 2 |
-| `host_configuration_conflict`, `session_resume_invalid`, `launch_plan_invalid` | 2 |
+| `host_configuration_conflict`, `session_resume_invalid`, `launch_plan_invalid`, `host_member_withdrawn`, `migrate_destination_exists` | 2 |
 | `resolve_invocation_failed`, `resolve_environment_unknown`, `resolve_profile_unknown`, `resolve_repair_failed`, `resolve_lock_unavailable`, `resolve_fragment_invalid` | 1 |
 | `defaults_config_invalid`, `defaults_unresolvable` | 1 |
 | `permission_policy_unsupported`, `permission_mode_tracked_unsupported`, `permission_mode_unsupported` | 1 |
@@ -687,20 +710,21 @@ platform execution evidence must come from the corresponding runner.
 
 | Tool | Purpose | Entry point | Output |
 |---|---|---|---|
+| `curator-run migrate` | copy legacy configs and remove withdrawn host defaults | `curator-run migrate [--dry-run]` | plan on stdout; new files in `/etc/swarma/launcher/` and `${XDG_CONFIG_HOME:-~/.config}/swarma/launcher/`, rewritten copies keep `.bak` |
 | `go` (build, vet, test, race) | build and behavioral suite | `make check` and the targets above | stdout; nothing written to the tree |
 | `python3` defaults mutant harness | weaken defaults gates individually and run the behavioral suite; restore exact candidate bytes | `python3 .scripts/defaults-mutants.py [evidence-dir]` | per-mutant logs and `summary.tsv` (default `.temp/defaults-mutants/`) |
 | `.scripts/context-mutants.py` | narrow carrier engagement, reserved-member exclusion, permissions, deprecated-alias refusal, native suffix and release configuration in an isolated candidate copy | `python3 .scripts/context-mutants.py [evidence-dir]` | isolated copy, per-mutant logs and `summary.tsv`, default `.temp/context-mutants/` |
 | production pipeline mutants | narrow the three late checks and ax mode selection at `run(...)`; restore exact candidate bytes | `python3 .scripts/pipeline-mutants.py [evidence-dir]` | per-mutant logs and `summary.tsv`; 9 named narrowing probes |
 | CLI goldens | frozen accepted/rejected §3 shapes | `go test ./internal/cli -run TestGolden -update` to regenerate, then review the diff | `internal/cli/testdata/cases.golden` |
-| `.scripts/hosted-mutants.sh` | narrowing-mutant harness for the §4.8/§4.9 hosted gates (precedence, fallback, probe-on-native, defaults gate, network gate, status contract, payload limits, session projection); fails closed: a mutant whose anchor matches no source is reported `NOT_APPLIED` by name and exits non-zero | `.scripts/hosted-mutants.sh [evidence-dir]` (optional `MUTANTS_ONLY=M-H1,M-H2`, `MUTANT_PKGS`, `MUTANT_RUN` for bounded batches) | per-mutant logs and `summary.tsv` (default `.temp/hosted-mutants/`); the source tree is restored on exit |
+| `.scripts/hosted-mutants.sh` | narrowing-mutant harness for the §4.8/§4.9 hosted gates (withdrawn host, fallback, probe-on-native, defaults diagnostics, network gate, status contract, payload limits, session projection); fails closed: a mutant whose anchor matches no source is reported `NOT_APPLIED` by name and exits non-zero | `.scripts/hosted-mutants.sh [evidence-dir]` (optional `MUTANTS_ONLY=M-H1,M-H2`, `MUTANT_PKGS`, `MUTANT_RUN` for bounded batches) | per-mutant logs and `summary.tsv` (default `.temp/hosted-mutants/`); the source tree is restored on exit |
 | `internal/mutantguard` | committed check that runs the required hosted mutants M-H1, M-H2, M-H3 and M-H22 through the harness in a scratch copy of the tree and requires each to be applied and killed | `go test ./internal/mutantguard` | scratch copy under the test temp dir; the working tree is never mutated |
-| `.scripts/cli-mutants.sh` | narrowing-mutant harness for the §3 gates: each mutant weakens one gate to admit one rejected shape and the named test must fail | `.scripts/cli-mutants.sh [evidence-dir]` | per-mutant logs and `summary.tsv` under the evidence dir (default `.temp/cli-mutants/`); the source tree is restored on exit |
+| `.scripts/cli-mutants.sh` | narrowing-mutant harness for the §3 gates: each mutant weakens one gate to admit one rejected shape and the named test must fail | `.scripts/cli-mutants.sh [evidence-dir]` (optional `MUTANT_PKGS`, `MUTANT_RUN` for bounded batches) | per-mutant logs and `summary.tsv` under the evidence dir (default `.temp/cli-mutants/`); the source tree is restored on exit |
 | `.scripts/fragment-mutants.sh` | narrowing-mutant harness for the §4.1 gates (argv, exit mapping, stderr transport, reader rules, schema closure, CCJ-1 emission, entry-point wiring); the behavioral suite runs against every mutant | `.scripts/fragment-mutants.sh [evidence-dir]` (optional `FRAGMENT_MUTANT_IDS="M27 M28" FRAGMENT_TEST_PATTERN="TestExecutableUnicodePathBoundary|TestConformanceCorpus"` for focused rework) | `mutants.log` under the evidence dir (default `.temp/fragment-mutants/`); sources are restored from byte copies on exit |
 | `.scripts/mapping-mutants.py` | §4.2 narrowing probes with named production-entry failures; restores candidate bytes after each mutation | `python3 .scripts/mapping-mutants.py [evidence-dir]` | per-mutant logs and `summary.tsv` (default `.temp/mapping-mutants/`) |
 | `.scripts/composition-mutants.py` | §4.5 behavioral narrowing probes for environment ownership, collisions, stdin and launch-boundary file refusal; restores candidate bytes after every mutant | `python3 .scripts/composition-mutants.py [evidence-dir]` | per-mutant logs and `summary.tsv` (default `.temp/composition-mutants/`); permission probe requires a non-root host |
 | `.scripts/systemprompt-mutants.py` | SPEC §5 narrowing probes through exported production APIs; exact source bytes restored after every mutation | `python3 .scripts/systemprompt-mutants.py [evidence-dir]` | per-mutant logs and `summary.tsv` (default `.temp/systemprompt-mutants/`) |
-| `.scripts/execution-mutants.py` | narrowing probes at tracking-policy Load and execution Launch.Run, using actual fake subprocesses; restores candidate bytes | `python3 .scripts/execution-mutants.py [evidence-dir]` | per-mutant logs and `summary.tsv`, default `.temp/execution-mutants/`; permission tests require non-root |
-| `.scripts/diagnostics-mutants.sh` | narrowing mutants for the §6 gates (exit mapping, closed membership, no-invention classification, anchored code-line parsing, entry exits, owner/form registry, exact-Detail framing exemption); restores candidate bytes after every mutant | `.scripts/diagnostics-mutants.sh [evidence-dir]` | per-mutant logs and `summary.tsv` (default `.temp/diagnostics-mutants/`) |
+| `.scripts/execution-mutants.py` | narrowing probes at the shared config reader, tracking-policy Load and execution Launch.Run, using actual fake subprocesses; restores candidate bytes | `python3 .scripts/execution-mutants.py [evidence-dir]` | per-mutant logs and `summary.tsv`, default `.temp/execution-mutants/`; permission tests require non-root |
+| `.scripts/diagnostics-mutants.sh` | narrowing mutants for the §6 gates (exit mapping, closed membership, no-invention classification, anchored code-line parsing, entry exits, owner/form registry, exact-Detail framing exemption); restores candidate bytes after every mutant | `.scripts/diagnostics-mutants.sh [evidence-dir]` (optional `MUTANT_RUN` for bounded batches) | per-mutant logs and `summary.tsv` (default `.temp/diagnostics-mutants/`) |
 | `.scripts/plan-mutants.py` | SPEC §4.4 behavioral narrowing probes at `plan.Build`, restoring exact candidate bytes | `python3 .scripts/plan-mutants.py [evidence-dir]`; narrow validation: `go test ./internal/plan -count=1 -race`, `go vet ./internal/plan`, `go build ./internal/plan` | per-mutant logs and `summary.tsv`, default `.temp/plan-mutants/` |
 | execution process helpers | exact document/argv/env/stdin/exit and late-check tests; compiles disposable fake provider/ax and API signal driver; Python 3 supplies isolated POSIX PTY regression | `go test ./internal/axconfig ./internal/execution -count=1` | test stdout; helper binaries use temporary directories and are removed |
 | fragment test corpus | `internal/fragment/testdata/schema-cases` is the `launch-env-fragment-v1` slice of curator-spec `conformance/v1/schema-cases` (index rows copied with their verdicts, source commit recorded in `index.json`); `testdata/a0` holds the three fragments and digests the installed Curator printed during A0 verification | `go test ./internal/fragment` | none; 49 indexed names/verdicts and fixture bytes are pinned by an independently upstream-derived manifest hash in `TestConformanceCorpus`; refresh requires reviewing the upstream rows and updating that pin as well as `index.json` |

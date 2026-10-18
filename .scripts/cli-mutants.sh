@@ -9,6 +9,7 @@
 # survives, fails the harness.
 #
 # usage: .scripts/cli-mutants.sh [evidence-dir]
+# MUTANT_PKGS and MUTANT_RUN optionally bound the packages and test names.
 # MUTANTS_ONLY (comma-separated ids) restricts the run to a subset for
 # bounded sequential batches; unset runs every mutant.
 set -u
@@ -69,7 +70,7 @@ if f in src:
   fi
   log="$out/$id.log"
   { echo "== $id (expected to fail: $test)"; diff -u "$out/$(basename "$file").orig" "$file"; echo; } >"$log"
-  go test ./... -count=1 -v >>"$log" 2>&1; code=$?
+  go test ${MUTANT_PKGS:-./...} ${MUTANT_RUN:+-run "$MUTANT_RUN"} -count=1 -v >>"$log" 2>&1; code=$?
   failed=no
   grep -Eq "^[[:space:]]*--- FAIL: ${test}( |$)" "$log" && failed=yes
   verdict=KILLED

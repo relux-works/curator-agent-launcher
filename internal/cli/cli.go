@@ -37,6 +37,7 @@ const Usage = `usage: curator-run <env-id> [--hosted | --native | --untracked]
                    [--network <profile>] [--network-policy <policy>]
                    [--network-known-bad <path>]
                    [--] <native args...>
+       curator-run migrate [--dry-run]
        curator-run --help | -h
        curator-run --version
 
@@ -72,8 +73,8 @@ Install curator-run on trusted PATH (e.g. /usr/local/bin), not Curator's
 ~/.local/bin shim directory or another managed directory.
 
 Defaults: flags > operator > machine > admitted lineup, per model/effort.
-Files: $XDG_CONFIG_HOME/curator-run/defaults.json (default
-~/.config/curator-run/defaults.json) and /etc/curator-run/defaults.json.
+Files: $XDG_CONFIG_HOME/swarma/launcher/defaults.json (default
+~/.config/swarma/launcher/defaults.json) and /etc/swarma/launcher/defaults.json.
 Machine locked:true ignores operator entries for its named environments and
 rejects flags overriding members it sets. Pi fallback preference is
 pi-anthropic, pi-openai, pi-google; explicit models bind their own runtime.
@@ -90,13 +91,15 @@ configuration refuses even --help/--version. No direct fallback on ax failure.
 Repeated/unknown flags, missing values and extra operands before -- refuse.
 
 Host: --hosted, --native and --untracked share one host request: a repeat
-or a combination refuses. No flag and no configured default means native
+or a combination refuses. No flag means native in this slice. The v3 defaults
+host member is withdrawn; use migrate. Machine launcher.json policy is parsed
+and exposed to main, pending selection wiring. Native execution proceeds
 with no session-host probe. An explicit --native or --untracked on an
-ax-configured machine bypasses ax; a configured native default does not.
+ax-configured machine bypasses ax; silent native selection does not.
 Hosted launch is unavailable until the swarma dispatcher path ships.
 Production receiver lookup fails closed with session_host_missing (exit 1),
 before any handoff, even if task-board is on PATH. Earlier validation and
-machine-default refusals still apply; operator defaults cannot start a host.
+configuration refusals still apply. No configuration silently starts a host.
 resume selectors and --resume are hosted-only; in native mode they refuse.
 --hosted with --network refuses network_scope_unsupported (exit 16).
 
@@ -198,6 +201,9 @@ func ExplicitNative(hostFlag string) bool {
 // typed, except EnvID which carries the normalized canonical id (SPEC §3);
 // nothing is resolved, defaulted, or validated beyond §3.
 type Invocation struct {
+	// Migrate selects the reserved configuration migration operand.
+	Migrate, DryRun bool
+
 	// Info is non-zero for --help / -h / --version; every other member is
 	// then zero and the caller prints and exits 0.
 	Info Info
@@ -327,6 +333,16 @@ var valueFlags = map[string]bool{
 //     explicit native request bypasses ax and would discard the profile.
 //   - <env-id> is required on a launch invocation.
 func Parse(args []string, opts Options) (Invocation, error) {
+	if len(args) > 0 && args[0] == "migrate" {
+		if len(args) == 1 {
+			return Invocation{Migrate: true}, nil
+		}
+		if len(args) == 2 && args[1] == "--dry-run" {
+			return Invocation{Migrate: true, DryRun: true}, nil
+		}
+		return Invocation{}, usageErr("expected migrate [--dry-run]")
+	}
+
 	inv := Invocation{Tracked: opts.AxConfigured}
 	seen := map[string]bool{}
 	envSet := false
@@ -347,6 +363,10 @@ func Parse(args []string, opts Options) (Invocation, error) {
 		}
 		if !strings.HasPrefix(tok, "-") {
 			if !envSet {
+				if tok == "migrate" {
+					return inv, usageErr("expected migrate [--dry-run] without launch flags")
+				}
+
 				if tok == "" {
 					return inv, usageErr("empty operand before --: <env-id> must not be empty")
 				}

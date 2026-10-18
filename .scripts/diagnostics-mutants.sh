@@ -30,6 +30,7 @@
 # survive, fails the harness.
 #
 # usage: .scripts/diagnostics-mutants.sh [evidence-dir]
+# MUTANT_RUN optionally bounds test names; each named failure stays required.
 set -u
 cd "$(dirname "$0")/.."
 out="${1:-.temp/diagnostics-mutants}"
@@ -48,7 +49,7 @@ trap restore EXIT
 # and are handled in the special cases below; their table from/to are
 # placeholders.
 mutants=(
-  'D01@@diag@@TestExitForCode@@if code == CodeUsage {@@if code == CodeUsage || code == CodeExecMissing {'
+  'D01@@diag@@TestExitForCode@@case CodeUsage, CodeHostConflict,@@case CodeUsage, CodeExecMissing, CodeHostConflict,'
   'D02@@diag@@TestExitForCode@@	return ExitOperational@@	return 0'
   'D03@@diag@@TestDiagnosticLineDistinguishesTransport@@func Valid(code string) bool { return valid[code] }@@func Valid(code string) bool { return valid[code] || code == "environment_home_stale" }'
   'D04@@diag@@TestCodeOfUnknownFailsClosed@@D04_PLACEHOLDER_FROM@@D04_PLACEHOLDER_TO'
@@ -211,7 +212,7 @@ if f in src:
   esac
   log="$out/$id.log"
   { echo "== $id (expected to fail: $test)"; diff -u "$out/$(basename "$file").orig" "$file"; echo; } >"$log"
-  go test ./internal/diagnostics/ ./cmd/curator-run/ -count=1 -v >>"$log" 2>&1; code=$?
+  go test ./internal/diagnostics/ ./cmd/curator-run/ ${MUTANT_RUN:+-run "$MUTANT_RUN"} -count=1 -v >>"$log" 2>&1; code=$?
   failed=no
   grep -Eq "^[[:space:]]*--- FAIL: ${test}( |$)" "$log" && failed=yes
   asserted="-"

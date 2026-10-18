@@ -352,11 +352,11 @@ func TestLoadFilesystem(t *testing.T) {
 func TestConfigPaths(t *testing.T) {
 	for _, xdg := range []string{"", "/explicit/config"} {
 		got := defaults.ConfigPaths(xdg, "/explicit/home")
-		operator := "/explicit/config/curator-run/defaults.json"
+		operator := "/explicit/config/swarma/launcher/defaults.json"
 		if xdg == "" {
-			operator = "/explicit/home/.config/curator-run/defaults.json"
+			operator = "/explicit/home/.config/swarma/launcher/defaults.json"
 		}
-		if got.Machine != "/etc/curator-run/defaults.json" || got.Operator != operator {
+		if got.Machine != "/etc/swarma/launcher/defaults.json" || got.Operator != operator {
 			t.Fatalf("%+v", got)
 		}
 	}
@@ -386,132 +386,77 @@ func docV3(entries string, locked bool) string {
 	return fmt.Sprintf(`{"schema":"curator-run-defaults-v3","locked":%t,"defaults":%s}`, locked, entries)
 }
 
-func TestHostDefaultsV3MergeAndClosedSchema(t *testing.T) {
-	t.Run("v1-rejects-host-member", func(t *testing.T) {
-		p := paths(t)
-		write(t, p.Operator, `{"schema":"curator-run-defaults-v1","defaults":{"pi":{"host":"hosted"}}}`)
-		_, err := defaults.Load(p)
-		code(t, err, defaults.CodeInvalid)
-	})
-	t.Run("v2-rejects-host-member", func(t *testing.T) {
-		p := paths(t)
-		write(t, p.Operator, `{"schema":"curator-run-defaults-v2","defaults":{"pi":{"permissions":"native","host":"hosted"}}}`)
-		_, err := defaults.Load(p)
-		code(t, err, defaults.CodeInvalid)
-	})
-	t.Run("v3-rejects-unknown-host", func(t *testing.T) {
-		p := paths(t)
-		write(t, p.Operator, `{"schema":"curator-run-defaults-v3","defaults":{"pi":{"host":"cloud"}}}`)
-		_, err := defaults.Load(p)
-		code(t, err, defaults.CodeInvalid)
-	})
-	t.Run("v3-rejects-non-string-host", func(t *testing.T) {
-		p := paths(t)
-		write(t, p.Operator, `{"schema":"curator-run-defaults-v3","defaults":{"pi":{"host":true}}}`)
-		_, err := defaults.Load(p)
-		code(t, err, defaults.CodeInvalid)
-	})
-	t.Run("v3-rejects-unknown-sibling-member", func(t *testing.T) {
-		p := paths(t)
-		write(t, p.Operator, `{"schema":"curator-run-defaults-v3","defaults":{"pi":{"host":"native","model":"m","extra":"x"}}}`)
-		_, err := defaults.Load(p)
-		code(t, err, defaults.CodeInvalid)
-	})
-	t.Run("v3-keeps-permissions-and-empty-entry-rule", func(t *testing.T) {
-		p := paths(t)
-		write(t, p.Operator, `{"schema":"curator-run-defaults-v3","defaults":{"pi":{"permissions":"yolo","host":"native"},"codex_cli":{"model":"m"}}}`)
-		f, err := defaults.Load(p)
-		if err != nil {
-			t.Fatal(err)
+// V3 host is withdrawn on both layers, including ignored locked entries and
+// malformed host values; removing host restores the other v3 member behavior.
+func TestHostMemberWithdrawn(t *testing.T) {
+	for _, layer := range []string{"machine", "operator"} {
+		for _, value := range []string{`"hosted"`, `"native"`, `"cloud"`, `null`, `false`} {
+			t.Run(layer+"/"+strings.Trim(value, `"`), func(t *testing.T) {
+				p := paths(t)
+				path := p.Machine
+				if layer == "operator" {
+					path = p.Operator
+					write(t, p.Machine, docV3(`{"pi":{"model":"m"}}`, true))
+				}
+				write(t, path, docV3(`{"pi":{"host":`+value+`}}`, false))
+				_, err := defaults.Load(p)
+				code(t, err, defaults.CodeHostWithdrawn)
+				if !strings.Contains(err.Error(), "launcher.json") || !strings.Contains(err.Error(), path) || !strings.Contains(err.Error(), "reason=present") {
+					t.Fatal(err)
+				}
+				write(t, path, docV3(`{"pi":{"permissions":"yolo","model":"m"}}`, false))
+				if _, err := defaults.Load(p); err != nil {
+					t.Fatal(err)
+				}
+			})
 		}
-		got, err := f.Resolve("pi", defaults.Pair{})
-		if err != nil || got.Permissions != resolved("yolo", defaults.OriginOperator) {
-			t.Fatalf("v3 permissions = %+v, %v", got, err)
-		}
-		write(t, p.Operator, `{"schema":"curator-run-defaults-v3","defaults":{"pi":{}}}`)
-		_, err = defaults.Load(p)
-		code(t, err, defaults.CodeInvalid)
-		if err == nil || !strings.Contains(err.Error(), "host") {
-			t.Fatalf("v3 empty entry error %v does not name host", err)
-		}
-	})
-	t.Run("host-only-entry-loads", func(t *testing.T) {
-		p := paths(t)
-		write(t, p.Operator, docV3(`{"claude_code":{"host":"hosted"}}`, false))
-		f, err := defaults.Load(p)
-		if err != nil {
-			t.Fatal(err)
-		}
-		got, err := f.ResolveHost("claude_code", "")
-		if err != nil || got.Host != defaults.HostHosted || got.Origin != defaults.OriginHostOperator {
-			t.Fatalf("host = %+v, %v; want hosted/operator", got, err)
-		}
-	})
+	}
 }
 
-// TestResolveHostPrecedence drives every row of the SPEC §4.8 host table:
-// flag wins unlocked; operator beats machine; machine beats the implicit
-// native default; a locked machine naming the environment ignores the whole
-// operator entry and refuses a flag over its own host, even when equal.
-func TestResolveHostPrecedence(t *testing.T) {
-	v3 := func(host string) string {
-		if host == "" {
-			return `{"model":"m"}`
-		}
-		return fmt.Sprintf(`{"host":%q}`, host)
+// V1/v2 keep their prior closed schemas; v3 retains permission validation and
+// rejects unknown siblings and empty entries after host withdrawal.
+func TestHostDefaultsV3MergeAndClosedSchema(t *testing.T) {
+	for _, schema := range []string{defaults.Schema, defaults.SchemaV2} {
+		p := paths(t)
+		write(t, p.Operator, fmt.Sprintf(`{"schema":%q,"defaults":{"pi":{"host":"native"}}}`, schema))
+		_, err := defaults.Load(p)
+		code(t, err, defaults.CodeInvalid)
 	}
+	for _, entry := range []string{`{}`, `{"permissions":"cloud"}`, `{"model":"m","extra":"x"}`} {
+		p := paths(t)
+		write(t, p.Operator, docV3(`{"pi":`+entry+`}`, false))
+		_, err := defaults.Load(p)
+		code(t, err, defaults.CodeInvalid)
+	}
+	p := paths(t)
+	write(t, p.Operator, docV3(`{"pi":{"permissions":"yolo"},"codex_cli":{"model":"m"}}`, false))
+	f, err := defaults.Load(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := f.Resolve("pi", defaults.Pair{})
+	if err != nil || got.Permissions != resolved("yolo", defaults.OriginOperator) {
+		t.Fatal(got, err)
+	}
+}
+
+// Until machine-mode selection is wired, flags and implicit native preserve
+// their behavior; valid defaults without host cannot influence host selection.
+func TestResolveHostPrecedence(t *testing.T) {
 	for _, tc := range []struct {
-		name              string
-		machine, operator string
-		locked            bool
-		flag              string
-		wantHost          string
-		wantOrigin        defaults.Origin
-		wantCode          string
-	}{
-		{"no-flag-no-default-is-native", "", "", false, "", "native", defaults.OriginHostDefault, ""},
-		{"flag-hosted-wins", "native", "native", false, "--hosted", "hosted", defaults.OriginHostFlag, ""},
-		{"flag-native-wins", "hosted", "hosted", false, "--native", "native", defaults.OriginHostFlag, ""},
-		{"untracked-equals-native", "hosted", "hosted", false, "--untracked", "native", defaults.OriginHostFlag, ""},
-		{"operator-beats-machine", "native", "hosted", false, "", "hosted", defaults.OriginHostOperator, ""},
-		{"machine-beats-default", "hosted", "", false, "", "hosted", defaults.OriginHostMachine, ""},
-		{"machine-native-is-configured", "native", "", false, "", "native", defaults.OriginHostMachine, ""},
-		{"operator-native-is-configured", "", "native", false, "", "native", defaults.OriginHostOperator, ""},
-		{"locked-ignores-operator", "", "hosted", true, "", "native", defaults.OriginHostDefault, ""},
-		{"locked-keeps-machine-host", "hosted", "native", true, "", "hosted", defaults.OriginHostMachine, ""},
-		{"locked-flag-without-machine-host-wins", "", "hosted", true, "--hosted", "hosted", defaults.OriginHostFlag, ""},
-		{"locked-flag-over-machine-host-refuses", "hosted", "native", true, "--native", "", "", defaults.CodeUsage},
-		{"locked-equal-flag-still-refuses", "native", "hosted", true, "--native", "", "", defaults.CodeUsage},
-		{"locked-equal-hosted-flag-still-refuses", "hosted", "native", true, "--hosted", "", "", defaults.CodeUsage},
-		{"lock-names-other-env-only", "hosted", "native", true, "", "native", defaults.OriginHostOperator, ""},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			p := paths(t)
-			env := "pi"
-			if tc.name == "lock-names-other-env-only" {
-				write(t, p.Machine, docV3(`{"codex_cli":`+v3(tc.machine)+`}`, tc.locked))
-			} else if tc.machine != "" || tc.locked {
-				write(t, p.Machine, docV3(`{"pi":`+v3(tc.machine)+`}`, tc.locked))
-			}
-			if tc.operator != "" {
-				write(t, p.Operator, docV3(`{"pi":`+v3(tc.operator)+`}`, false))
-			}
-			f, err := defaults.Load(p)
-			if err != nil {
-				t.Fatal(err)
-			}
-			got, err := f.ResolveHost(env, tc.flag)
-			if tc.wantCode != "" {
-				code(t, err, tc.wantCode)
-				if !strings.Contains(err.Error(), tc.flag) || got != (defaults.ResolvedHost{}) {
-					t.Fatalf("lock refusal: %+v %v", got, err)
-				}
-				return
-			}
-			if err != nil || got.Host != tc.wantHost || got.Origin != tc.wantOrigin {
-				t.Fatalf("host = %+v, %v; want %s/%s", got, err, tc.wantHost, tc.wantOrigin)
-			}
-		})
+		flag, host string
+		origin     defaults.Origin
+	}{{"", "native", defaults.OriginHostDefault}, {"--hosted", "hosted", defaults.OriginHostFlag}, {"--native", "native", defaults.OriginHostFlag}, {"--untracked", "native", defaults.OriginHostFlag}} {
+		p := paths(t)
+		write(t, p.Machine, docV3(`{"pi":{"model":"m"}}`, true))
+		f, err := defaults.Load(p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got, err := f.ResolveHost("pi", tc.flag)
+		if err != nil || got.Host != tc.host || got.Origin != tc.origin {
+			t.Fatal(got, err)
+		}
 	}
 }
 
@@ -530,4 +475,16 @@ func TestResolveHostRejectsUnknown(t *testing.T) {
 	} else {
 		code(t, err, defaults.CodeInvalid)
 	}
+}
+
+// V3 host withdrawal is a presence rule even when a malformed sibling appears
+// first; the same malformed document without host remains config-invalid.
+func TestHostWithdrawalBeforeSiblingValidation(t *testing.T) {
+	p := paths(t)
+	write(t, p.Operator, docV3(`{"pi":{"model":null,"host":"native"}}`, false))
+	_, err := defaults.Load(p)
+	code(t, err, defaults.CodeHostWithdrawn)
+	write(t, p.Operator, docV3(`{"pi":{"model":null}}`, false))
+	_, err = defaults.Load(p)
+	code(t, err, defaults.CodeInvalid)
 }

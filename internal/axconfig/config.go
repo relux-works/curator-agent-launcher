@@ -3,7 +3,6 @@ package axconfig
 
 import (
 	"fmt"
-	"path/filepath"
 
 	"github.com/relux-works/curator-agent-launcher/internal/configfile"
 	"github.com/relux-works/curator-agent-launcher/internal/fragment"
@@ -24,9 +23,14 @@ func (e *Error) Unwrap() error { return e.Err }
 // false: the ignored operator path is never inspected. Missing directories are
 // absence; dangling symlinks, non-directory ancestors and failed reads are not.
 func Load(machineDir, operatorDir string) (bool, error) {
-	for _, dir := range []string{machineDir, operatorDir} {
-		path := filepath.Join(dir, "ax.json")
-		data, present, err := configfile.Read(path)
+	return LoadResolved(configfile.Resolver{Locations: configfile.Locations{System: machineDir, User: operatorDir}})
+}
+
+// LoadResolved uses the shared per-file fallback while preserving machine-first
+// authority. A present machine policy never inspects either user path.
+func LoadResolved(r configfile.Resolver) (bool, error) {
+	for _, layer := range []configfile.Layer{configfile.System, configfile.User} {
+		data, present, path, err := r.Read(layer, "ax.json")
 		if err != nil {
 			return false, &Error{path, err}
 		}

@@ -119,8 +119,10 @@ const (
 	CodeResolveLockUnavailable    = "resolve_lock_unavailable"
 	CodeResolveFragmentInvalid    = "resolve_fragment_invalid"
 
-	CodeDefaultsInvalid      = "defaults_config_invalid"
-	CodeDefaultsUnresolvable = "defaults_unresolvable"
+	CodeDefaultsInvalid          = "defaults_config_invalid"
+	CodeDefaultsUnresolvable     = "defaults_unresolvable"
+	CodeHostWithdrawn            = "host_member_withdrawn"
+	CodeMigrateDestinationExists = "migrate_destination_exists"
 
 	CodePlanRefused         = "plan_refused"
 	CodePlanProviderLimited = "plan_provider_limited"
@@ -181,6 +183,8 @@ func Codes() []string {
 		CodeResolveFragmentInvalid,
 		CodeDefaultsInvalid,
 		CodeDefaultsUnresolvable,
+		CodeHostWithdrawn,
+		CodeMigrateDestinationExists,
 		CodePlanRefused,
 		CodePlanProviderLimited,
 		CodeEnvUnsupported,
@@ -239,7 +243,7 @@ func Valid(code string) bool { return valid[code] }
 // visible, never silent success and never a usage report.
 func ExitForCode(code string) int {
 	switch code {
-	case CodeUsage, CodeHostConflict, CodeSessionResumeInvalid, CodeLaunchPlanInvalid:
+	case CodeUsage, CodeHostConflict, CodeSessionResumeInvalid, CodeLaunchPlanInvalid, CodeHostWithdrawn, CodeMigrateDestinationExists:
 		return ExitUsage
 	case CodeSessionHostProtocolUnsupported, CodeSessionHostProviderUnsupported,
 		CodeSessionHostScopeUnsupported, CodeSessionHostExecutionProfileUnsupported,

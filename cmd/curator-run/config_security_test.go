@@ -217,7 +217,7 @@ func TestRunConfigSecurityRefusalRows(t *testing.T) {
 func TestRunConfigSecurityRejectsDifferentDirectoryOwner(t *testing.T) {
 	path, ok := foreignOwnedConfigFile(t, securityDefaultsJSON)
 	if !ok {
-		t.Skip("host cannot create a file owned by a different identity than /tmp")
+		t.Skip("host cannot create an isolated foreign-owned file")
 	}
 	for _, target := range []string{"machine", "operator"} {
 		t.Run(target, func(t *testing.T) {

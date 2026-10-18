@@ -513,8 +513,8 @@ with no configured effort takes the lineup's effort for that model.
 1. **Flags.** `--model` and `--effort` as typed.
 2. **Machine configuration.** A closed launcher-owned mapping env-id →
    `{model, effort}`. The file is `defaults.json` in the launcher's
-   configuration directory: `$XDG_CONFIG_HOME/curator-run/` (default
-   `~/.config/curator-run/`) for the operator, and `/etc/curator-run/`
+   configuration directory: `${XDG_CONFIG_HOME:-~/.config}/swarma/launcher/` (default
+   `~/.config/swarma/launcher/`) for the operator, and `/etc/swarma/launcher/`
    for the machine. Schema, closed — readers MUST reject an unknown
    member:
 
@@ -523,19 +523,20 @@ with no configured effort takes the lineup's effort for that model.
      "schema": "curator-run-defaults-v3",
      "locked": false,
      "defaults": {
-       "claude_code": { "model": "claude-opus-5", "effort": "high", "host": "native" },
+       "claude_code": { "model": "claude-opus-5", "effort": "high" },
        "codex_cli":   { "model": "gpt-5.3-codex", "permissions": "yolo" }
      }
    }
    ```
 
    `defaults` keys are env-ids of the §4.2 table (an unknown key is
-   `defaults_config_invalid`); each value is an object of at most four
-   members: `model`, `effort`, `permissions`, and `host`. The first two
+   `defaults_config_invalid`); each value is an object of at most three
+   members: `model`, `effort`, and `permissions`. The first two
    are strings passed through unvalidated to admission; `permissions`,
    when present, is exactly `native` or `yolo` and supplies the
-   launcher-global mode level; `host`, when present, is exactly `native`
-   or `hosted` and supplies the §4.8 default. At least one member must be
+   launcher-global mode level. The v3 `host` member is withdrawn: its presence
+   refuses `host_member_withdrawn` (exit 2), naming `launcher.json`; see
+   [FRONT-DOOR §3.1](FRONT-DOOR.md#31-the-machine-mode) and `curator-run migrate`. At least one member must be
    present. A v3 reader accepts v1 and v2 files unchanged; a v1 file
    carrying `permissions`, or a v1 or v2 file carrying `host`, refuses
    under its closed schema.
@@ -545,12 +546,10 @@ with no configured effort takes the lineup's effort for that model.
    the locked member, even if the requested value matches. Otherwise the
    operator file overrides the machine file per member: an operator entry
    that sets only `model` leaves a machine `effort` for the same env-id in
-   force, and permission mode follows the same per-member merge. The host
-   member resolves separately under §4.8 and never joins the model/effort
-   pair. A missing file is a
+   force, and permission mode follows the same per-member merge. A missing file is a
    legitimate absence; a read or parse failure is `defaults_config_invalid`
-   and the next level MUST NOT be used. The file and its sibling `ax.json`
-   (§4.6) are the **launcher's configuration file family**, delimited
+   and the next level MUST NOT be used. The file and its siblings `ax.json`
+   (§4.6) and `launcher.json` (FRONT-DOOR §3.1) are the **launcher's configuration file family**, delimited
    against Curator's machine configuration in §4.7.
 
 3. **Lineup fallback.** The highest-ranked model of `vendorplugin.Lineup`
@@ -1176,17 +1175,26 @@ provenance only and creates no persistent record.
 
 Figure: [configuration and artifact ownership](diagrams/artifact-layout.puml).
 
-The launcher owns exactly two configuration files, both in the §4.3
-level-2 directories (`$XDG_CONFIG_HOME/curator-run/`, default
-`~/.config/curator-run/`, for the operator; `/etc/curator-run/` for the
+The launcher owns three configuration files, all in the §4.3
+level-2 directories (`${XDG_CONFIG_HOME:-~/.config}/swarma/launcher/`, default
+`~/.config/swarma/launcher/`, for the operator; `/etc/swarma/launcher/` for the
 machine), each with its own closed schema:
 
 | File | Owns | Precedence |
 |---|---|---|
-| `defaults.json` (`curator-run-defaults-v3`, §4.3) | model and effort defaults, the launcher-global permission default, and the host default per env-id; the `locked` rule | operator over machine per member, unless the machine file is locked |
+| `defaults.json` (`curator-run-defaults-v3`, §4.3) | model and effort defaults, the launcher-global permission default, per env-id; the `locked` rule (`host` withdrawn by FRONT-DOOR §3.1) | operator over machine per member, unless the machine file is locked |
 | `ax.json` (`curator-run-ax-v1`, §4.6) | whether the `ax` integration is configured | machine over operator; `enabled: false` is not configured |
+| `launcher.json` (`curator-run-launcher-v1`, FRONT-DOOR §3.1) | machine `host_mode`: `hosted`, `native`, or `auto`; absent member/file means `auto`; optional boolean `delegated_trial` (FRONT-DOOR §5.8) | machine only; either policy member in the user layer refuses and names the system path |
 
-Before either file is parsed or used, the reader MUST open it without
+For one release, each filename independently falls back to the corresponding
+`/etc/curator-run/` or `${XDG_CONFIG_HOME:-~/.config}/curator-run/` file only
+when the new path is genuinely absent. Each fallback read prints one stderr
+line: `curator-run: deprecated config path <old>; move it to <new> (curator-run migrate)`.
+When both paths exist, the new one wins and the old one is not opened.
+`curator-run migrate [--dry-run]` copies the old files transactionally; see
+[FRONT-DOOR §13](FRONT-DOOR.md#13-compatibility-and-migration).
+
+Before any selected file (old or new) is parsed or used, the reader MUST open it without
 following a final-component symlink and validate the opened file. It MUST be
 a regular file owned by the same identity as its containing configuration
 directory. On POSIX systems, any group-write or other-write mode bit is a
@@ -1226,6 +1234,12 @@ launcher section, both files move there by specification revision and
 their schemas stay.
 
 ### 4.8 Host selection
+
+The configured per-environment `host` level below is withdrawn by
+[FRONT-DOOR §3.1](FRONT-DOOR.md#31-the-machine-mode). V3 files carrying it
+refuse before host selection; S1 validates and exposes machine `host_mode`
+without wiring its replacement resolution ladder yet. Explicit host flags
+and implicit native selection retain their existing behavior.
 
 Hosted launch is unavailable in v0.3.0 until the swarma dispatcher path ships.
 Production receiver lookup MUST fail closed with the existing
@@ -1586,7 +1600,8 @@ receiving registry, which recognizes codes the launcher never emits.
 |---|---|---|
 | usage | `usage` | unknown flag, missing `<env-id>`, stray operand before `--`, repeated flag, invalid permission value, repeated or combined permission forms, rejected `-d`/`--danger`, invalid `--system-prompt` or `--ax-profile` value, `--name` outside the `ax` §2.1 grammar or over 64 characters, `--ax-profile` on an untracked machine, `--ax-profile` with an explicit native host flag, a repeated or combined host request, resume selectors in a native launch, a flag overriding a member set by a locked machine `defaults.json`, or visible `yolo` under an established force-native lock — exit 2, nothing resolved, nothing launched |
 | resolve | `resolve_invocation_failed`, `resolve_environment_unknown`, `resolve_profile_unknown`, `resolve_repair_failed`, `resolve_lock_unavailable`, `resolve_fragment_invalid` | §4.1: the context plane could not produce a usable fragment — `curator` not startable, or a non-zero exit with an unmapped diagnostic, Curator's own code and message passed through verbatim; unregistered environment; uninstalled profile; the store cannot restore the stale home; the repair could not take Curator's mutation lock within its bounded wait; or the output is not a valid closed fragment |
-| defaults | `defaults_config_invalid`, `defaults_unresolvable` | §4.3, §4.6, and §4.7: a launcher-owned configuration file — `defaults.json` or `ax.json` — is symlinked, non-regular, owned by a different identity than its configuration directory, group/world-writable on POSIX, grants a non-owner/non-owner-alias/non-system/non-administrators Windows DACL identity write/delete/security-control access, or cannot be read or parsed, or names an unknown env-id or member; this includes a v1 file carrying `permissions`, or a v1 or v2 file carrying `host` — a read failure is never absence; the lineup admits no model for the mapped system after earlier model levels are silent |
+| defaults | `defaults_config_invalid`, `defaults_unresolvable` | §4.3, §4.6, and §4.7: a launcher-owned configuration file — `defaults.json`, `ax.json`, or `launcher.json` — is symlinked, non-regular, owned by a different identity than its configuration directory, group/world-writable on POSIX, grants a non-owner/non-owner-alias/non-system/non-administrators Windows DACL identity write/delete/security-control access, or cannot be read or parsed, or names an unknown env-id or member; this includes a v1 file carrying `permissions`, or a v1 or v2 file carrying `host` — a read failure is never absence; the lineup admits no model for the mapped system after earlier model levels are silent |
+| migration | `host_member_withdrawn`, `migrate_destination_exists` | FRONT-DOOR §§3.1/11/13: withdrawn defaults host member (`path`, `reason=present`), mixed system migration values (`path`, `reason=mixed_values`), or different destination bytes (`path`); exit 2, no migration writes on planning refusal |
 | plan | `plan_refused`, `plan_provider_limited` | §4.4: the spawn plane refused the request (unknown system/runtime or model, model not driven by the system, mode not declared by the system, invalid or missing required effort, unresolved vendor, an unverified release-specific permission mapping, or failure to produce a provider-limits verdict), or the explicit provider-limits verdict was not serviceable (`AvailabilityHealthy`) — the verdict's structure and evidence are surfaced verbatim |
 | environment | `env_unsupported` | §4.2: the environment has no spawn-plane or `ax` provider mapping in this revision |
 | permission | `permission_policy_unsupported`, `permission_mode_tracked_unsupported`, `permission_mode_unsupported` | §4.1/§4.6: the fragment cannot establish v2 permission and lock transport for a would-be `yolo`; or a tracked native launch resolves `yolo` from any level (hosted launches are exempt, Q-D3); or the environment has no declared `yolo` mapping — exit 1, terminal refusal with no fallback to untracked execution |
