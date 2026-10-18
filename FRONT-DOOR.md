@@ -879,8 +879,12 @@ Validation (§5.6 applies to the whole record):
     `owner_unavailable`, `bind_failed` or `previous_generation_uncertain`;
     `generation` may be null;
   - `off`: `reason` is null, `not_requested` or
-    `previous_generation_uncertain`; `generation` is the last retired
-    generation, or null if there never was one.
+    `previous_generation_uncertain`. `generation` is the most recent
+    generation that was armed: the one being retired once its gate closes
+    (§8.2 step 1) and while it is abandoned, otherwise the last retired one,
+    or null if there never was one. `off` means that no wakes are delivered.
+    It does **not** mean that retirement is complete; the manager's
+    persisted step index records that.
   - When `uncertain` is true and the state is not `armed`, `reason` is
     `previous_generation_uncertain`.
 
@@ -1021,6 +1025,15 @@ this payload in the common envelope:
 
 - A historical failed start is a successful `status` answer that carries
   the failure's `code`. It is not a refusal of `status` itself.
+- `outcome.session` appears only with `started`.
+  - It is an envelope-free record; the envelope belongs to the `status` or
+    `cancel` response that carries it.
+  - It must have `readable: true`. A manager that cannot read the record of
+    a started operation answers `unknown` instead.
+  - A `started` outcome whose record has `readable: false` is poisoned
+    (`session_host_protocol_error`).
+  - Unreadable projections are valid only in `list` rows and in direct
+    `status {session}` responses.
 - The status operation itself always exits 0 with `ok: true`. The
   launcher's own exit for a reconciled `failed` outcome is the registry
   exit of its `code`.
