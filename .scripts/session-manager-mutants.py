@@ -9,6 +9,8 @@ out = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else root / '.temp/session-m
 out.mkdir(parents=True, exist_ok=True)
 registry = root / 'internal/sessionmanager/registry.go'
 service = root / 'internal/sessionmanager/service.go'
+transaction = root / 'internal/sessionmanager/transaction.go'
+transaction_unix = root / 'internal/sessionmanager/transaction_unix.go'
 atomic = root / 'internal/sessionmanager/atomic.go'
 mutants = [
  ('R01', registry, 'schema != Schema', 'schema != Schema && schema != "other"', 'TestRegistryClosedSchema/schema'),
@@ -23,12 +25,18 @@ mutants = [
  ('R10', service, 'case exists:', 'case exists: registry.Selected = id', 'TestExecutableChangeAndManifestStdin/keep'),
  ('R11', service, 'strings.EqualFold(strings.TrimSpace(answer), "yes")', 'strings.EqualFold(strings.TrimSpace(answer), "yes") || strings.TrimSpace(answer) == ""', 'TestRegistrationRules/peer-tty-default'),
  ('R12', service, 'notice += fmt.Sprintf("registered %s;', 'registry.Selected = id; notice += fmt.Sprintf("registered %s;', 'TestRegistrationRules/peer-non-tty'),
- ('R13', service, 'if present {\n\t\t\treturn Registry{}, "", 0, &Error{Code: CodeShadowed, Path: path}', 'if present && false {\n\t\t\treturn Registry{}, "", 0, &Error{Code: CodeShadowed, Path: path}', 'TestMutationLayers/register'),
+ ('R13', service, 'if present {\n\t\treturn &Error{Code: CodeShadowed, Path: path}', 'if present && false {\n\t\treturn &Error{Code: CodeShadowed, Path: path}', 'TestMutationLayers/register'),
  ('R14', service, 'if c.Select && c.NoSelect {', 'if c.Select && c.NoSelect && false {', 'TestManifestRefusalsPreserveRegistry/flags'),
  ('R15', service, 'if registry.Selected == c.ID {', 'if registry.Selected == c.ID && len(registry.Managers) == 0 {', 'TestSelectAndUnregister'),
  ('R16', atomic, 'if hooks.beforeRename != nil {', 'if hooks.beforeRename != nil && false {', 'TestAtomicFailurePreservesOldFile/before-rename'),
  ('R17', atomic, 'if err := sync(dir); err != nil {', 'if err := sync(dir); err != nil && false {', 'TestAtomicFailurePreservesOldFile/directory-sync'),
  ('R18', atomic, 'restoreErr = os.Rename(rollback, path)', 'restoreErr = nil', 'TestAtomicFailurePreservesOldFile/directory-sync'),
+ ('R19', service, 'lock, err := acquireRegistryLock(path, mode)', 'lock, err := os.Open(os.DevNull)', 'TestOverlappingRegistryMutations/register-register/overlap'),
+ ('R20', service, 'defer lock.Close()', 'lock.Close(); defer lock.Close()', 'TestOverlappingRegistryMutations/rollback-register/overlap'),
+ ('R21', service, 'if errors.Is(err, os.ErrDeadlineExceeded) {\n\t\t\t\treturn &Error{Code: "usage", Err: err}', 'if errors.Is(err, os.ErrDeadlineExceeded) {\n\t\t\t\treturn &Error{Code: CodeInvalid, Err: err}', 'TestRegistryPromptDeadline/silent'),
+ ('R22', transaction, 'return nil, &Error{Code: CodeBusy}', 'return nil, &Error{Code: CodeInvalid}', 'TestRegistryLockBusyAndRecovery'),
+ ('R23', transaction_unix, 'deadline := time.Now().Add(timeout)', 'deadline := time.Now().Add(timeout + 2*time.Second)', 'TestRegistryPromptDeadline/silent'),
+ ('R24', transaction_unix, 'raw, err := f.SyscallConn()', '_ = f.Fd(); raw, err := f.SyscallConn()', 'TestRegistryPromptDeadline/yes'),
 ]
 rows = ['mutant\ttest\texit\tverdict']
 failed = False

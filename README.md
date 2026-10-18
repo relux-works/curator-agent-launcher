@@ -603,7 +603,13 @@ otherwise an existing id keeps it, the first manager is selected, and adding
 a peer asks once on a terminal (default: keep). Without a terminal the peer
 is registered without selecting and the command prints the explicit `select`
 command. Unregister never selects a replacement. Writes use a same-directory
-temp file, file fsync, rename, and directory fsync.
+temp file, file fsync, rename, and directory fsync. Each mutation holds an
+OS advisory `session-managers.json.lock` in its target directory across reading,
+selection, writing and rollback, including the terminal question. A contender
+waits up to 10 seconds before `session_manager_registry_busy` (exit 1, no details).
+A terminal answer expires after 120 seconds with `usage` (exit 2). Failed
+commands leave the previous registry bytes unchanged. The lock file persists;
+the OS releases its lock when the holder exits or crashes.
 
 Model and effort resolve independently: flags, then operator defaults over
 machine defaults per member, then the admitted lineup. Permission mode has its
@@ -700,6 +706,7 @@ on stderr. Foreign Curator/provider/ax output is forwarded unchanged.
 |---|---|
 | Help/version, successful direct execution, or ax handoff | 0 |
 | `usage` (invalid arguments, locked-member override, host-request repeat, native resume selectors, or visible `yolo` under Curator's force-native lock) | 2 |
+| `session_manager_registry_busy` (lock contention after 10 seconds) | 1 |
 | `host_configuration_conflict`, `session_resume_invalid`, `launch_plan_invalid`, `host_member_withdrawn`, `migrate_destination_exists`, `session_manager_registry_invalid`, `session_manager_registry_shadowed`, `session_manager_not_registered` | 2 |
 | `resolve_invocation_failed`, `resolve_environment_unknown`, `resolve_profile_unknown`, `resolve_repair_failed`, `resolve_lock_unavailable`, `resolve_fragment_invalid` | 1 |
 | `defaults_config_invalid`, `defaults_unresolvable` | 1 |
@@ -743,7 +750,7 @@ platform execution evidence must come from the corresponding runner.
 | Tool | Purpose | Entry point | Output |
 |---|---|---|---|
 | `curator-run session-manager` | inspect and atomically update the manager registry | `curator-run session-manager list/show/register/select/unregister` (forms above) | stdout or JSON; `session-managers.json` in the effective target config home |
-| `.scripts/session-manager-mutants.py` | bounded registry/registration/atomic-write negative controls | `python3 .scripts/session-manager-mutants.py [evidence-dir]` | per-probe logs and `summary.tsv`, default `.temp/session-manager-mutants/`; restores source bytes |
+| `.scripts/session-manager-mutants.py` | bounded registry/registration/atomic-write, transaction-lock and deadline negative controls | `python3 .scripts/session-manager-mutants.py [evidence-dir]` | per-probe logs and `summary.tsv`, default `.temp/session-manager-mutants/`; restores source bytes |
 | `curator-run migrate` | copy legacy configs and remove withdrawn host defaults | `curator-run migrate [--dry-run]` | plan on stdout; new files in `/etc/swarma/launcher/` and `${XDG_CONFIG_HOME:-~/.config}/swarma/launcher/`, rewritten copies keep `.bak` |
 | `go` (build, vet, test, race) | build and behavioral suite | `make check` and the targets above | stdout; nothing written to the tree |
 | `python3` defaults mutant harness | weaken defaults gates individually and run the behavioral suite; restore exact candidate bytes | `python3 .scripts/defaults-mutants.py [evidence-dir]` | per-mutant logs and `summary.tsv` (default `.temp/defaults-mutants/`) |

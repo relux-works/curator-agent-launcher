@@ -19,6 +19,7 @@ const (
 	Filename          = "session-managers.json"
 	Schema            = "curator-run-session-managers-v1"
 	Protocol          = "curator-session-manager/1"
+	CodeBusy          = "session_manager_registry_busy"
 	CodeInvalid       = "session_manager_registry_invalid"
 	CodeShadowed      = "session_manager_registry_shadowed"
 	CodeNotRegistered = "session_manager_not_registered"
@@ -38,7 +39,7 @@ type Error struct {
 }
 
 func (e *Error) Error() string {
-	message := map[string]string{CodeInvalid: "invalid session-manager registry", CodeShadowed: "session-manager registry is shadowed", CodeNotRegistered: "session manager is not registered", CodeHostMissing: "session host missing"}[e.Code]
+	message := map[string]string{CodeBusy: "session-manager registry is busy", CodeInvalid: "invalid session-manager registry", CodeShadowed: "session-manager registry is shadowed", CodeNotRegistered: "session manager is not registered", CodeHostMissing: "session host missing"}[e.Code]
 	if message == "" {
 		message = "session-manager command failed"
 	}

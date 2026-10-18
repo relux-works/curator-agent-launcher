@@ -139,6 +139,7 @@ func TestOwnedCodesMatchOwners(t *testing.T) {
 		{diagnostics.CodeSessionManagerRegistryInvalid, sessionmanager.CodeInvalid},
 		{diagnostics.CodeSessionManagerRegistryShadowed, sessionmanager.CodeShadowed},
 		{diagnostics.CodeSessionManagerNotRegistered, sessionmanager.CodeNotRegistered},
+		{diagnostics.CodeSessionManagerRegistryBusy, sessionmanager.CodeBusy},
 		{diagnostics.CodeEnvUnsupported, "env_unsupported"},
 		{diagnostics.CodeMCPLayerMissing, composition.CodeMCPLayerMissing},
 		{diagnostics.CodeMCPLayerUnreadable, composition.CodeMCPLayerUnreadable},

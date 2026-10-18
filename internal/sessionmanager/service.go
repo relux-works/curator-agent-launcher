@@ -1,8 +1,8 @@
 package sessionmanager
 
 import (
-	"bufio"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -29,6 +29,7 @@ type Service struct {
 	Now            func() time.Time
 	CanWriteSystem func(string) bool
 	WriteFile      func(string, []byte, os.FileMode) error
+	promptTimeout  time.Duration // zero uses the production answer deadline
 }
 
 func (s Service) Run(c Command) error {
@@ -62,7 +63,20 @@ func (s Service) Run(c Command) error {
 	if c.Operation == "list" || c.Operation == "show" {
 		return s.display(c)
 	}
-	registry, path, mode, err := s.target()
+	layer, path, mode := s.destination()
+	// Machine authority precedes touching the user home; check again under
+	// the lock in case a system registry appeared while this mutation waited.
+	if layer == configfile.User {
+		if err := s.checkMachineAuthority(); err != nil {
+			return err
+		}
+	}
+	lock, err := acquireRegistryLock(path, mode)
+	if err != nil {
+		return err
+	}
+	defer lock.Close()
+	registry, err := s.readTarget(layer)
 	if err != nil {
 		return err
 	}
@@ -105,7 +119,14 @@ func (s Service) Run(c Command) error {
 			if _, err := fmt.Fprintf(s.Stderr, "Select session manager %s instead of %s? [y/N] ", id, current); err != nil {
 				return err
 			}
-			answer, err := bufio.NewReader(s.Stdin).ReadString('\n')
+			timeout := s.promptTimeout
+			if timeout == 0 {
+				timeout = promptAnswerTimeout
+			}
+			answer, err := readPrompt(s.Stdin, timeout)
+			if errors.Is(err, os.ErrDeadlineExceeded) {
+				return &Error{Code: "usage", Err: err}
+			}
 			if err != nil && err != io.EOF {
 				return invalid(path, "unreadable", err)
 			}
@@ -120,11 +141,15 @@ func (s Service) Run(c Command) error {
 			notice += fmt.Sprintf("registered %s; selection unchanged (%s); run: curator run session-manager select %s\n", id, current, id)
 		}
 		registry.Managers[id] = entry
+		// Report output errors before commit, so every failed command preserves
+		// the previous registry. Successful return acknowledges the later commit.
+		if _, err := io.WriteString(s.Stdout, notice); err != nil {
+			return err
+		}
 		if err := s.WriteFile(path, mustEncode(registry), mode); err != nil {
 			return invalid(path, "unreadable", err)
 		}
-		_, err = io.WriteString(s.Stdout, notice)
-		return err
+		return nil
 	case "select", "unregister":
 		if _, ok := registry.Managers[c.ID]; !ok {
 			return &Error{Code: CodeNotRegistered, ID: c.ID}
@@ -160,26 +185,23 @@ func readManifest(path string, in io.Reader) ([]byte, error) {
 	}
 	return os.ReadFile(path)
 }
-func (s Service) target() (Registry, string, os.FileMode, error) {
-	layer := configfile.User
-	mode := os.FileMode(0600)
+func (s Service) destination() (configfile.Layer, string, os.FileMode) {
+	layer, mode := configfile.User, os.FileMode(0600)
 	if s.CanWriteSystem(s.Resolver.Locations.System) {
-		layer = configfile.System
-		mode = 0644
-	} else {
-		_, present, path, err := s.Resolver.Read(configfile.System, Filename)
-		if present {
-			return Registry{}, "", 0, &Error{Code: CodeShadowed, Path: path}
-		}
-		if err != nil {
-			return Registry{}, "", 0, invalid(path, fileReason(err), err)
-		}
+		layer, mode = configfile.System, 0644
 	}
 	dir, _ := s.Resolver.Locations.Directories(layer)
-	path := filepath.Join(dir, Filename)
+	return layer, filepath.Join(dir, Filename), mode
+}
+func (s Service) readTarget(layer configfile.Layer) (Registry, error) {
+	if layer == configfile.User {
+		if err := s.checkMachineAuthority(); err != nil {
+			return Registry{}, err
+		}
+	}
 	data, present, readPath, err := s.Resolver.Read(layer, Filename)
 	if err != nil {
-		return Registry{}, "", 0, invalid(readPath, fileReason(err), err)
+		return Registry{}, invalid(readPath, fileReason(err), err)
 	}
 	r := Empty()
 	if present {
@@ -188,7 +210,17 @@ func (s Service) target() (Registry, string, os.FileMode, error) {
 			e.Path = readPath
 		}
 	}
-	return r, path, mode, err
+	return r, err
+}
+func (s Service) checkMachineAuthority() error {
+	_, present, path, err := s.Resolver.Read(configfile.System, Filename)
+	if present {
+		return &Error{Code: CodeShadowed, Path: path}
+	}
+	if err != nil {
+		return invalid(path, fileReason(err), err)
+	}
+	return nil
 }
 func (s Service) display(c Command) error {
 	r, _, err := Load(s.Resolver)

@@ -79,3 +79,17 @@ func TestRunSessionManagerDoesNotWireLaunch(t *testing.T) {
 		t.Fatalf("%d %s", code, &stderr)
 	}
 }
+
+// Busy is an operational refusal with a closed, detail-free diagnostic; usage
+// remains exit 2, so contention cannot silently inherit configuration status.
+func TestSessionManagerBusyDiagnostic(t *testing.T) {
+	var stderr strings.Builder
+	err := &sessionmanager.Error{Code: sessionmanager.CodeBusy}
+	if exit := emitFailure(&stderr, err.Code, err); exit != 1 || stderr.String() != "curator-run: session_manager_registry_busy: session-manager registry is busy\n" {
+		t.Fatalf("exit=%d stderr=%q", exit, stderr.String())
+	}
+	stderr.Reset()
+	if exit := emitFailure(&stderr, "usage", &sessionmanager.Error{Code: "usage"}); exit != 2 || !strings.HasPrefix(stderr.String(), "curator-run: usage: ") {
+		t.Fatalf("exit=%d stderr=%q", exit, stderr.String())
+	}
+}

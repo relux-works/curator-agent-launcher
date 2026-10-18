@@ -173,6 +173,45 @@ func TestMutationLayers(t *testing.T) {
 			}
 		})
 	}
+	t.Run("shadowed-with-unusable-user-home", func(t *testing.T) {
+		// Machine authority refuses before touching an unusable user home. Repairing
+		// that home and removing the system file permits the identical selection.
+		s, _, _ := service(t)
+		r := Empty()
+		r.Managers["old"] = entry(t)
+		putRegistry(t, s.Resolver.Locations.System, r)
+		user := s.Resolver.Locations.User
+		if err := os.Remove(user); err != nil {
+			t.Fatal(err)
+		}
+		blocker := []byte("not a directory")
+		if err := os.WriteFile(user, blocker, 0600); err != nil {
+			t.Fatal(err)
+		}
+		command := Command{Operation: "select", ID: "old"}
+		requireCode(t, s.Run(command), CodeShadowed, "")
+		got, err := os.ReadFile(user)
+		if err != nil || !bytes.Equal(blocker, got) {
+			t.Fatal("shadowed mutation touched user home", err)
+		}
+		if err = os.Remove(user); err != nil {
+			t.Fatal(err)
+		}
+		if err = os.Mkdir(user, 0700); err != nil {
+			t.Fatal(err)
+		}
+		if err = os.Remove(filepath.Join(s.Resolver.Locations.System, Filename)); err != nil {
+			t.Fatal(err)
+		}
+		putRegistry(t, user, r)
+		if err = s.Run(command); err != nil {
+			t.Fatal(err)
+		}
+		if readTarget(t, s).Selected != "old" {
+			t.Fatal("repaired user control did not select")
+		}
+	})
+
 	s, _, _ := service(t)
 	r := Empty()
 	r.Managers["old"] = entry(t)
@@ -398,7 +437,7 @@ func TestAtomicFailurePreservesOldFile(t *testing.T) {
 			}
 			files, _ := os.ReadDir(filepath.Dir(path))
 			for _, file := range files {
-				if file.Name() != Filename {
+				if file.Name() != Filename && file.Name() != Filename+".lock" {
 					t.Fatal("scratch leaked", file.Name())
 				}
 			}
@@ -461,3 +500,40 @@ func TestMutationLegacyAndNewSystem(t *testing.T) {
 		t.Fatal("unknown mutation created registry", err)
 	}
 }
+
+// Output refusal occurs before commit, preserving bytes; retry with a working
+// output writer registers the same peer and preserves selection.
+func TestRegistrationOutputFailurePreservesRegistry(t *testing.T) {
+	s, _, _ := service(t)
+	r := Empty()
+	e := entry(t)
+	r.Managers["old"] = e
+	r.Selected = "old"
+	putRegistry(t, s.Resolver.Locations.User, r)
+	path := filepath.Join(s.Resolver.Locations.User, Filename)
+	before, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.Stdout = failedWriter{}
+	command := Command{Operation: "register", Manifest: manifest(t, "new", e), NoSelect: true}
+	if err = s.Run(command); !errors.Is(err, io.ErrClosedPipe) {
+		t.Fatal(err)
+	}
+	after, err := os.ReadFile(path)
+	if err != nil || !bytes.Equal(before, after) {
+		t.Fatal("output failure changed registry", err)
+	}
+	s.Stdout = io.Discard
+	if err = s.Run(command); err != nil {
+		t.Fatal(err)
+	}
+	got := readTarget(t, s)
+	if len(got.Managers) != 2 || got.Selected != "old" {
+		t.Fatal(got)
+	}
+}
+
+type failedWriter struct{}
+
+func (failedWriter) Write([]byte) (int, error) { return 0, io.ErrClosedPipe }

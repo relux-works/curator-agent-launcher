@@ -123,6 +123,7 @@ const (
 	CodeDefaultsUnresolvable           = "defaults_unresolvable"
 	CodeHostWithdrawn                  = "host_member_withdrawn"
 	CodeMigrateDestinationExists       = "migrate_destination_exists"
+	CodeSessionManagerRegistryBusy     = "session_manager_registry_busy"
 	CodeSessionManagerRegistryInvalid  = "session_manager_registry_invalid"
 	CodeSessionManagerRegistryShadowed = "session_manager_registry_shadowed"
 	CodeSessionManagerNotRegistered    = "session_manager_not_registered"
@@ -189,6 +190,7 @@ func Codes() []string {
 		CodeSessionManagerRegistryInvalid,
 		CodeSessionManagerRegistryShadowed,
 		CodeSessionManagerNotRegistered,
+		CodeSessionManagerRegistryBusy,
 		CodeHostWithdrawn,
 		CodeMigrateDestinationExists,
 		CodePlanRefused,
