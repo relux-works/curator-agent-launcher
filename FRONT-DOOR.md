@@ -1551,8 +1551,15 @@ schema `werkstatt-liveness-v1`, written atomically:
   - `up` admission keeps refusing while the old generation lives, so a
     `draining` answer is never treated as "may start".
 - **`status [<id>]` and `list`:** the record, the manager status, the a2a
-  `who` line and the doorbell state. `--json` gives `werkstatt-status-v1`, an
-  array of `{record, liveness, a2a}`.
+  `who` line and the doorbell state. `--json` gives `werkstatt-status-v1`: a
+  bare JSON array, with no wrapper, of rows of exactly
+  `{record, liveness, manager_session, a2a, stale}`:
+  - `record`: the Werkstatt record;
+  - `liveness`: the liveness record, or `null` when none exists;
+  - `manager_session`: the bound manager's session record as returned,
+    including `readable`, or `null` when no call was made or possible;
+  - `a2a`: the a2a `who` result for the identity, or `null`;
+  - `stale`: a boolean, true when the lock could not be taken (§5.7).
 
 ## 7. Muse
 
