@@ -5,7 +5,10 @@ requests, responses and local correlation records. References are absolute
 URNs resolved from the embedded `$id` catalog; external validators should
 register these documents by `$id`. The launch/resume URNs
 have version 1.0.0. The wire members follow FRONT-DOOR §§5.1–5.7 and §11,
-including the scalar, reserved-name and doorbell clarifications.
+including the scalar, reserved-name, doorbell and digest-spelling clarifications.
+`profile.lock_sha256` is bare lowercase hex (64 characters);
+`profile.fragment_digest` is `sha256:` plus 64 lowercase hex characters,
+matching the production fragment resolver without conversion.
 
 `Validate(name, bytes)` loads the embedded schema and applies the repository's
 strict JSON reader: duplicate members, invalid UTF-8, unsafe integers,
