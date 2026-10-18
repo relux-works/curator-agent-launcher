@@ -524,8 +524,13 @@ credential helpers. Each operation is one subprocess:
   registry classification, poison and truncation rules.
 - A typed refusal exists only as an fd-4 record. Without one, the exit
   status is the session's own and is never reclassified.
-- For `launch-exact`, the argv, fd 3, fd 4 and stdin plan are the CIP-0016
-  receiver transport byte for byte, so that shape is unchanged (§0.1).
+- For `launch-exact`, the argv is
+  `<executable> <argv_prefix…> launch-exact --plan - --terminal-fd 3 --status-fd 4`.
+  The tail after the operation word, fd 3, fd 4 and the stdin plan are the
+  CIP-0016 receiver transport byte for byte, so that shape is unchanged
+  (§0.1). The plan payload keeps its own SPEC §4.9 bounds: a 1 MiB object
+  and depth 16. The 64 KiB bound applies only to the JSON request/response
+  operations.
   - Because it is a lifetime terminal operation, it cannot serve a detached
     launch (`werkstatt up`) or return a session record.
   - Detached exact-plan launches stay unavailable until the CIP-0016
@@ -819,6 +824,18 @@ Validation (§5.6 applies to the whole record):
   `previous_generation_uncertain`.
 - `doorbell.uncertain` is the durable a2a uncertainty flag of §8.2. It is
   independent of `state`.
+- `doorbell` is always present, with exactly the four members `state`,
+  `uncertain`, `generation` and `reason`. `generation` is `null` or
+  matches `[A-Za-z0-9._:-]{1,128}`. Rules by state:
+  - `armed`: `generation` non-null, `reason` null, `uncertain` false;
+  - `unavailable`: `reason` required, one of `unsupported_version`,
+    `owner_unavailable`, `bind_failed` or `previous_generation_uncertain`;
+    `generation` may be null;
+  - `off`: `reason` is null, `not_requested` or
+    `previous_generation_uncertain`; `generation` is the last retired
+    generation, or null if there never was one.
+  - When `uncertain` is true and the state is not `armed`, `reason` is
+    `previous_generation_uncertain`.
 
 ### 5.5 Conformance
 
