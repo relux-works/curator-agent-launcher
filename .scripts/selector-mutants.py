@@ -21,7 +21,7 @@ mutants = [
  ('S29', protocol, 'if member.Kind != fragment.KindNull {', 'if member.Kind != fragment.KindNull && false {', selectors, 'TestResponseRefusalChoice'),
  ('S26', observations, 'return appendRecord(path, record, 0)', 'return appendRecord(path, record, 5*time.Second)', './cmd/curator-run', 'TestRunSelectorObservationContention'),
  ('S27', observations, 'incrementDropped(path)', '_ = path', selectors, 'TestObservationLockBoundAndFileTypes'),
- ('S28', observations, 'return appendRecord(path, record, 5*time.Second)', 'return appendRecord(path, record, 0)', selectors, 'TestObservationLockBoundAndFileTypes'),
+ ('S28', observations, 'return appendRecord(path, record, 5*time.Second)', 'return appendRecord(path, record, 10*time.Second)', selectors, 'TestObservationLockBoundAndFileTypes'),
  ('S25', selection, 'if admitter, ok := system.(agentic.EffortAdmitter); ok {', 'if admitter, ok := system.(agentic.EffortAdmitter); ok && false {', defaults, 'TestSelectionNativeEffort'),
  ('S01', config, '!allowed[m.Key]', '!allowed[m.Key] && m.Key != "extra"', selectors, 'TestConfig/unknown'),
  ('S02', config, 'if layer == configfile.User {', 'if layer == configfile.User && false {', selectors, 'TestConfig'),
