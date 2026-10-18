@@ -2,7 +2,7 @@
 
 **Amends:** [SPEC](SPEC.md) `0.5.1-draft` → `0.6.0-draft` (target; nothing
 here is implemented yet).
-**Status:** revision 6.2, draft. The independent review accepted revision 6 (f8c2756); 6.1 adds only its three non-blocking clarifications. 6.2 adds the model-selection seam (§3.4) at the router lane's request. `ivmbp_curator_orch` accepted revision 1
+**Status:** revision 6.3, draft. The independent review accepted revision 6 (f8c2756); 6.1 adds only its three non-blocking clarifications. 6.2 adds the model-selection seam (§3.4) at the router lane's request. 6.3 adds infra-exit's conditions: admission composes with digest admission, and `busy` is defined per runtime. `ivmbp_curator_orch` accepted revision 1
 (0ed45c5) as the basis on 2026-10-18 with four must-change points. Revision 2
 folds those in, together with the independent reviews `review-1` and
 `review-2` and `review-3` (all rework, converging). Revision 3 also adopts the accepted
@@ -494,7 +494,20 @@ The v1 capability tokens are closed. An unknown token confers nothing.
   published successor payload. The launcher prefers it **per runtime**: when
   `describe` lists `launch-exact` for that env-id and the launch is attached.
   Exact support for one runtime never retires delegated support for another.
-- **`resume/1`, `attach/1`, `status/1`, `list/1`, `stop/1`.**
+- **`resume/1`, `attach/1`, `status/1`, `list/1`, `stop/1`.** A manager
+  that advertises `stop/1` defines `busy` per runtime, as an observable
+  state. The `not-busy` precondition and `state: busy` use the same
+  definition:
+  - Codex: a turn is in flight on the session's thread, by the app-server's
+    own thread status;
+  - Claude Code: the provider is processing a turn, not idle at its input
+    prompt. Each manager documents how it observes this from its PTY or
+    hook state;
+  - Muse: a turn is in flight, by its PTY or session API.
+
+  A manager that cannot observe `busy` for a runtime reports `unknown`, not
+  `idle`. `not-busy` on `unknown` refuses `werkstatt_busy`, with
+  `state=busy`.
 - **`admission/1`.** The manager enforces, atomically, one active generation
   per `admission_key` across launch and resume, `operation_id` idempotency,
   operation outcomes, and `cancel` fencing (§5.7).
@@ -706,6 +719,13 @@ What the launcher prints:
 Exit status follows the registry.
 
 ### 5.7 Admission, idempotency and reconciliation
+
+**Composition with existing admission.** `admission/1` adds to a manager's
+own admission checks and never replaces them. task-board's Curator digest
+admission on attach, resume and recovery (`session_curator_identity_stale`
+on a fragment or lock digest change, TASK-261014-28uxsf) keeps running, and
+its refusal passes through unchanged. In the §5.7 outcomes it appears as
+`failed` with that code; the code is added to the reused set in §11.
 
 **Admission.** Under `admission/1`, launch and resume share one atomic
 transition per `admission_key`, from "no active generation" to "generation
@@ -1443,6 +1463,8 @@ detail values are allowed only from the vocabularies shown:
 - the `session_resume_*` codes, `session_liveness_unknown` (`operation`:
   UUID), `policy_refused`, `secret_policy_violation`, `launch_plan_invalid`
   and `host_configuration_conflict`;
+- task-board's `session_curator_identity_stale`, passed through from manager
+  admission (§5.7);
 - the Curator local-credential refusals (protocol §9), passed through with
   no details: `credential_injection_unavailable`,
   `credential_source_conflict`, `credential_node_missing`,
@@ -1456,7 +1478,7 @@ detail values are allowed only from the vocabularies shown:
 
 | Owner | Item |
 | --- | --- |
-| task-board (infra-exit, `#skill-project-management`) | 1. `task-board session-manager register --for curator-run` (§4.3), called by its installer. 2. A plugin entry `task-board session-manager plugin <op>` implementing §5: `launch-delegated/1`, `resume/1`, `attach/1`, `status/1` with operation outcomes, `cancel`, `list/1`, `stop/1` with `not-busy`, `admission/1` covering launch and resume, `labels/1`, `board-goal/1`, `doorbell-codex/1` with a per-session owner and the rebind gate (§8.2), `doorbell-claude/1`, and later `credential-node/1` (Appendix B). It must pass the §5.5 suite. 3. **A board-less session daemon mode:** keyed by the user state root, not a board directory; sessions keyed by cwd and labels; no primary goal unless `board_goal: workspace`. 4. `--profile` for hosted sessions (TASK-261018-cliw6c, in flight). 5. The v4 Muse consumer (TASK-261018-yzorfb). 6. `task-board claude\|codex` become aliases of `curator run <env> --hosted --board-goal` (Decision 0021 §5). This is not a blocker. |
+| task-board (infra-exit, `#skill-project-management`) | Conditions from infra-exit: the board-bound mode stays byte-identical, and the board-less state root is keyed so that it never collides with a board's manager lock. 1. `task-board session-manager register --for curator-run` (§4.3), called by its installer. 2. A plugin entry `task-board session-manager plugin <op>` implementing §5: `launch-delegated/1`, `resume/1`, `attach/1`, `status/1` with operation outcomes, `cancel`, `list/1`, `stop/1` with `not-busy`, `admission/1` covering launch and resume, `labels/1`, `board-goal/1`, `doorbell-codex/1` with a per-session owner and the rebind gate (§8.2), `doorbell-claude/1`, and later `credential-node/1` (Appendix B). It must pass the §5.5 suite. 3. **A board-less session daemon mode:** keyed by the user state root, not a board directory; sessions keyed by cwd and labels; no primary goal unless `board_goal: workspace`. 4. `--profile` for hosted sessions (TASK-261018-cliw6c, in flight). 5. The v4 Muse consumer (TASK-261018-yzorfb). 6. `task-board claude\|codex` become aliases of `curator run <env> --hosted --board-goal` (Decision 0021 §5). This is not a blocker. |
 | Router lane (`#model-routing`) | Provide `cmr recommend --format json` answering the §3.4 request and response. Freeze the `station` fields with task-board against §6.1. Read `werkstatt-liveness-v1` as the snapshot liveness source, with `unknown` treated as not dispatchable. |
 | `ivmbp_curator_orch` (Curator) | 1. The release-workflow change (§10, C8). 2. The CIP-0016 amendment (Appendix A), after Ivan's sign-off. 3. Implement `local-setup-token-source` T1–T3a and publish the `pkg/localcredential` pin, plus fragment v6. 4. Qualify the interactive mode, and file Appendix B (C10). 5. Manifest-declared home-level hooks under strict mode (§8.1). 6. The Curator config-home CIP. |
 | Session-host extraction (`swarma-session-host`) | The first conforming manager after task-board. The extraction research (`#curator` › curator-run, 2026-10-18) recommends four things that map onto this protocol: operation ids with generation fencing (§5.7), per-session runners that survive a host restart (`survives-upgrade`), a stop tombstone, and resume that never becomes a new conversation (§5.3). |
