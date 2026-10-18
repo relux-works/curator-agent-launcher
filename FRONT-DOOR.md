@@ -649,15 +649,30 @@ is `session_host_provider_unsupported` (6). Both are checked before any
     follows cursors until then, and never treats a partial page as
     absence.
   - Unreadable records are listed with `state: unknown`, never dropped.
+    Their projection is fixed: `readable: false`, the `session` handle and
+    `manager` from the manager's own index, and `state: unknown`. Every
+    other member is `null`, `labels` is `{}`, and `doorbell` is `{state:
+    "off", uncertain: false, generation: null, reason: null}`.
+    - Every session record carries `readable`. When it is `true`, the
+      normal §5.4 rules apply.
+    - If the index itself cannot produce a handle for an entry, the whole
+      page refuses `session_host_unavailable`, with
+      `reason=index_unreadable`. A page never silently omits a row.
   - `labels` matching is an exact key/value subset.
 - **Stopping and attaching a generation.**
   - `stop` and `attach` carry `expected_generation`. A different current
     generation refuses `session_generation_mismatch` (1), with no effect,
     so a delayed stop for generation N never stops N+1.
-  - `graceful` asks the provider to exit and waits up to 8 s inside the
-    10 s deadline. It does not escalate. A provider still alive at that
-    point leaves the session in `draining`, and the record says so. A
-    timeout is never evidence of `down`.
+  - **One shared 10 s budget for `stop`.** Doorbell retirement step 2 (§8.2)
+    may use at most 2 s waiting for an in-flight a2a attempt. The provider
+    graceful wait gets at most 6 s. The rest is overhead.
+  - `graceful` asks the provider to exit and does not escalate. A provider
+    still alive when its share runs out leaves the session in `draining`,
+    and the record says so. A timeout is never evidence of `down`.
+  - **After `draining`, retirement continues inside the manager.** The
+    persisted step index of §8.2 carries it: owner exit, abandon, then
+    `off`. The session becomes `down` only when the provider is gone and
+    retirement has finished.
   - `force` kills the provider's process group.
   - `not-busy` fences new turns (manager submissions, app-server writes,
     doorbell turns) atomically with the busy check. A refusal changes
@@ -704,9 +719,9 @@ is `session_host_provider_unsupported` (6). Both are checked before any
 - `weights_id` matches `gguf-sha256:[0-9a-f]{64}`.
 - The `describe` `version` matches `[A-Za-z0-9._+-]{1,64}`.
 - Profile names follow Curator's fragment profile-name grammar.
-- Timestamps are RFC 3339 UTC with the `Z` suffix only, at second or
-  fractional precision. `+00:00` is refused, so there is one canonical
-  form.
+- Timestamps use exactly the form `YYYY-MM-DDTHH:MM:SSZ`: UTC, whole
+  seconds, no fraction, and the `Z` suffix. Any other spelling is refused,
+  so equal instants have equal bytes and equal request digests.
 
 **Secret check for `child_env`.** This check is a closed rule set,
 versioned with this document.
@@ -1422,17 +1437,27 @@ schema `werkstatt-liveness-v1`, written atomically:
 ### 6.6 `down`, `recycle`, `status`, `list`
 
 - **`down <id>`:** under the lock, one call:
-  `stop {session, mode: graceful, precondition: not-busy}`.
+  `stop {session, expected_generation, mode: graceful, precondition: not-busy}`.
+  `expected_generation` comes from the bound manager's current session
+  record, read by the §6.2 step 4 owner check in this same invocation. It
+  is never taken from a default or inferred.
   - The manager checks the precondition atomically. A busy session refuses
     `werkstatt_busy` (1), with the detail `state=busy`, and nothing changes:
     no gate, no stop, no record.
   - Only after the manager accepts the stop does it run the doorbell
     retirement of §8.2.
-  - `--force` sends `mode: force, precondition: none`.
+  - `--force` sends `mode: force, precondition: none`, with the same
+    `expected_generation`.
   - An already `down` session exits 0 with one line.
   - The liveness record is written from the answer.
 - **`recycle <id>`:** `down` (graceful, `not-busy`), then `up --new`,
   under one lock. If `down` refuses, nothing else happens.
+  - If `down` answers `draining`, `recycle` polls `status` every 1 s for up
+    to 20 s, until `down`.
+  - If the session is still not `down` after that, `recycle` refuses
+    `werkstatt_busy` with `state=draining`, and nothing else happens.
+  - `up` admission keeps refusing while the old generation lives, so a
+    `draining` answer is never treated as "may start".
 - **`status [<id>]` and `list`:** the record, the manager status, the a2a
   `who` line and the doorbell state. `--json` gives `werkstatt-status-v1`, an
   array of `{record, liveness, a2a}`.
@@ -1530,7 +1555,9 @@ a2a runtime bind --codex-thread <thread> --endpoint unix://<socket>
 retirement sequence. After a crash it resumes from that step.
 
 - If `a2a runtime status` cannot be read, the gate stays closed, and the
-  doorbell is `unavailable`, reason `owner_unavailable`.
+  doorbell is `unavailable`. The reason is `previous_generation_uncertain`
+  when `uncertain` is already true; otherwise it is `owner_unavailable`.
+  This is the §5.4 rule: persisted uncertainty always wins the reason.
 - If owner evidence cannot be read, the result is the same.
 - Neither failure is ever read as "no uncertain attempt".
 
@@ -1740,7 +1767,8 @@ detail values are allowed only from the vocabularies shown:
 - `session_host_missing`, with `reason`: `no manager registered`,
   `no manager selected` or `registered executable missing`;
 - `session_host_unavailable`, with `reason`: `timeout`, `transport`,
-  `not_found`, `prepared`, `cancelled` or `unreachable`;
+  `not_found`, `prepared`, `cancelled`, `unreachable` or
+  `index_unreadable`;
 - `session_host_protocol_error`, `session_host_protocol_unsupported`;
 - `session_host_capability_missing`, with `capability`: `<cap>`;
 - `session_host_provider_unsupported`, with `environment`: `<env>`;
