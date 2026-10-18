@@ -278,7 +278,13 @@ from 1 to 60 and applies to `enforce` only.
 - `refusal` is `{code}`, a typed abstention such as
   `no_qualified_candidate`. Its code follows `[a-z0-9_]{1,64}` and is
   displayed as an enumerated value of `selector_abstained`.
-- A chosen model outside `candidates` is an invalid response.
+- A chosen model outside `candidates` is an invalid response. The
+  response's `(runtime, model, effort)` must equal one candidate tuple
+  exactly.
+- A model without an effort axis carries `effort: null`, in `candidates`
+  and in the response. It is never an empty string.
+- A null effort selects only an effort-less candidate, and a non-null effort
+  is never valid for one.
 
 **Precedence.**
 
