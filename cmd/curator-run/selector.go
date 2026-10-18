@@ -65,11 +65,13 @@ func observeSelection(deps launchDeps, resolved defaults.Resolved, outcome strin
 }
 
 // Observe only launcher diagnostic frames while forwarding every byte unchanged.
-// A child exit without a launcher refusal is a launched outcome, even if nonzero.
+// Without a launcher refusal, a validated hosted handle takes precedence over
+// the native launched outcome, even when the attached child exits nonzero.
 type selectorOutcomeWriter struct {
 	io.Writer
 	pending []byte
 	code    string
+	hosted  string
 }
 
 func (w *selectorOutcomeWriter) Write(p []byte) (int, error) {
@@ -95,6 +97,9 @@ func (w *selectorOutcomeWriter) Write(p []byte) (int, error) {
 func (w *selectorOutcomeWriter) outcome() string {
 	if w.code != "" {
 		return "refused:" + w.code
+	}
+	if w.hosted != "" {
+		return "hosted:" + w.hosted
 	}
 	return "launched"
 }

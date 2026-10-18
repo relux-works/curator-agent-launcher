@@ -18,9 +18,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/relux-works/curator-agent-launcher/internal/configfile"
 	"github.com/relux-works/curator-agent-launcher/internal/fragment"
+	"github.com/relux-works/curator-agent-launcher/internal/plan"
+	"github.com/relux-works/curator-agent-launcher/internal/selector"
 	"github.com/relux-works/curator-agent-launcher/internal/sessionmanager"
 	"github.com/relux-works/curator-agent-launcher/internal/sessionmanager/fakemanager"
+	"github.com/relux-works/skill-agents-management/pkg/providerlimits"
 )
 
 type frontBinaries struct{ launcher, manager, adapter, provider, selector, system string }
@@ -405,6 +409,7 @@ func TestFrontDoorBinary(t *testing.T) {
 		}
 	})
 	t.Run("delegated-details", func(t *testing.T) { testDelegatedDetails(t, bin) })
+	t.Run("shadow-outcome", func(t *testing.T) { testHostedShadowOutcome(t, bin) })
 }
 
 func frontStored(t *testing.T, o *fakemanager.Observation) *fakemanager.Stored {
@@ -646,4 +651,70 @@ func testDelegatedDetails(t *testing.T, bin frontBinaries) {
 		code, _, stderr := f.invoke(true, false, "--hosted")
 		f.require(t, code, 1, stderr, "resolve_fragment_invalid", nil, 0, false)
 	})
+}
+
+// Actual shadow observations correlate ordinary and reconciled hosted starts
+// with the admitted handle. A refused start never produces a hosted outcome.
+// The shadow worker is stubbed here; its detached lifetime is tested separately.
+func testHostedShadowOutcome(t *testing.T, bin frontBinaries) {
+	for _, fault := range []string{"none", "after-admission", "before-admission"} {
+		t.Run(fault, func(t *testing.T) {
+			f := newFront(t, bin)
+			f.policy("auto", true)
+			if fault != "none" {
+				f.control(fakemanager.FixtureRequest{Operation: "inject_fault", Name: fault})
+			}
+			raw, err := os.ReadFile(filepath.Join(f.root, "fragment.json"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			deps := testDeps(t, fragment.NewWithRunner("curator", &scriptedRunner{stdout: string(raw)}))
+			deps.configLocations = func() (configfile.Locations, error) {
+				return configfile.Locations{System: bin.system, User: f.config}, nil
+			}
+			deps.workdir = func() (string, error) { return f.root, nil }
+			deps.environ = func() []string { return f.env }
+			store, err := providerlimits.NewStore(providerlimits.Options{Layout: providerlimits.LayoutAt(f.root)})
+			if err != nil {
+				t.Fatal(err)
+			}
+			deps.availability = func() (plan.AvailabilityFunc, error) { return store.AvailabilityFor, nil }
+			path := filepath.Join(f.root, "observations.ndjson")
+			deps.observationPath = func() string { return path }
+			deps.shadowStart = func(selector.ShadowJob) (*selector.Child, error) { return nil, nil }
+			writeFixture(t, filepath.Join(bin.system, "selector.json"), frontJSON(map[string]any{
+				"schema": selector.Schema, "mode": "shadow", "executable": bin.selector,
+				"argv_prefix": []string{}, "timeout_seconds": 1,
+			}), 0600)
+			var stdout, stderr bytes.Buffer
+			ctx, cancel := context.WithTimeout(context.Background(), 12*time.Second)
+			defer cancel()
+			code := run(ctx, []string{"claude_code", "--hosted", "--detach", "--model", "claude-opus-5", "--effort", "medium", "--permissions", "native"}, &stdout, &stderr, deps)
+			calls := []string{"describe", "launch"}
+			want, starts, diagnostic := 0, 1, ""
+			if fault != "none" {
+				calls = append(calls, "status")
+			}
+			if fault == "before-admission" {
+				calls = append(calls, "cancel")
+				want, starts, diagnostic = 1, 0, "reason=cancelled"
+			}
+			f.require(t, code, want, stderr.String(), diagnostic, calls, starts, false)
+			data, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var record selector.Observation
+			if err = json.Unmarshal(bytes.TrimSpace(data), &record); err != nil {
+				t.Fatal(err)
+			}
+			expected := "refused:session_host_unavailable"
+			if starts == 1 {
+				expected = "hosted:" + frontStored(t, f.observe()).Handle
+			}
+			if record.Kind != "observation" || record.Outcome != expected {
+				t.Fatalf("shadow outcome=%q want=%q", record.Outcome, expected)
+			}
+		})
+	}
 }

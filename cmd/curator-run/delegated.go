@@ -112,6 +112,9 @@ func runDelegated(ctx context.Context, inv cli.Invocation, frag *fragment.Fragme
 	if err != nil {
 		return emitHostFailure(stderr, err)
 	}
+	if deps.hostedSession != nil {
+		deps.hostedSession(session.Session)
+	}
 	if inv.Detach {
 		return 0
 	}

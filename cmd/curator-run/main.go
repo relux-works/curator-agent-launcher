@@ -103,6 +103,7 @@ type launchDeps struct {
 	launcherConfig  launcherconfig.Config
 	configResolver  configfile.Resolver
 	hostedSelection *hostSelection
+	hostedSession   func(string) // validated start result, including reconciliation
 	managerService  *sessionmanager.Service
 	selectorConfig  selector.Config
 	selectorRequest *selector.Request
@@ -389,6 +390,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, deps laun
 			_ = defaults.EmitGroupWithProvider(stderr, resolved, provider)
 			if deps.selectorConfig.Mode == "shadow" {
 				capture := &selectorOutcomeWriter{Writer: stderr}
+				deps.hostedSession = func(handle string) { capture.hosted = handle }
 				code := launch(ctx, inv, frag, target, resolved, files, stdout, capture, deps)
 				observeSelection(deps, resolved, capture.outcome())
 				return code
