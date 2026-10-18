@@ -189,7 +189,9 @@ func check(s map[string]any, value any, field string, depth int) error {
 	}
 	if ref, ok := s["$ref"].(string); ok {
 		if err := validateFile(ref, value, depth+1); err != nil {
-			return err
+			// Preserve the caller location across shared-schema references so
+			// protocol refusals retain their established field classification.
+			return fmt.Errorf("schema violation at %s: %w", field, err)
 		}
 	}
 	if typ, ok := s["type"].(string); ok {
