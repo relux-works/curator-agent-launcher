@@ -17,6 +17,11 @@ No implementation, qualification or activation is claimed.
 | Hosted or `ax` launch | Same caller-side interactive launcher | Hosted receiver or `ax` | Existing §§4.6/4.8–4.9 contracts; refusal never falls back to direct launch. |
 | Agent one-shot exec | Caller composes; dispatcher admits/provisions/tracks | `curator-run` under `worker-<label>` verifies and executes; dispatcher/helper own stop and cleanup | **Target amendment (version pending), not implemented**; [SPEC §10](SPEC.md#10-agent-account-one-shot-exec-contract-target-amendment). |
 
+Target front-door amendment (draft, under review, not implemented):
+[FRONT-DOOR.md](FRONT-DOOR.md) makes `curator run` hosted by default through
+a registered session-manager plugin, adds `curator run werkstatt up|down`,
+Muse v4, setup-token injection, a2a doorbells and the signed distribution.
+
 ## Target one-shot exec mode
 
 D-EXECUTOR (owner decision, 2026-10-11) selects a narrow agent-account
