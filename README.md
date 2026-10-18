@@ -27,9 +27,56 @@ The launcher-side protocol library is available in
 request-derived capability decisions, and durable operation reconciliation.
 Its [schemas and vectors](schemas/session-manager/README.md) are executable
 through Go tests. The library is wired into host selection and plain hosted
-launch/resume/attach. Werkstatt commands remain a future slice. A [reference fake manager and qualification suite](internal/sessionmanager/conformance/README.md)
+launch/resume/attach and the Werkstatt lifecycle described below. A [reference fake manager and qualification suite](internal/sessionmanager/conformance/README.md)
 exercise the plugin contract with a durable no-op provider. Real-binary tests
 cover host-mode resolution, launch projection and refusal ordering.
+
+## Werkstatt lifecycle
+
+`werkstatt-record-v1` is a closed JSON file at
+`${XDG_CONFIG_HOME:-~/.config}/swarma/launcher/werkstatt/<id>.json`.
+The [record schema](schemas/session-manager/werkstatt-record.schema.json)
+and [vectors](schemas/session-manager/vectors/werkstatt-record.json) show its
+required fields and optional settings. The future board station source has
+an interface only.
+
+```sh
+curator-run werkstatt up example
+curator-run werkstatt up example --attach --task-class code.implement --difficulty high
+curator-run werkstatt down example
+curator-run werkstatt down example --force
+curator-run werkstatt recycle example
+curator-run werkstatt status example --set-task TASK-example --queue-depth 1 --json
+curator-run werkstatt status example --clear-task
+curator-run werkstatt list --json
+```
+
+`up` always uses the selected session manager and requires the delegated trial
+flag until runtime sign-off. It checks existing ownership before repairing the
+profile, verifies both lexical and physical strict ancestors for context leaks,
+and checks only the presence of the identity file. Continue resumes the bound
+conversation; `--new`, fresh mode, recycle or a manager switch starts a new one.
+The child environment comes only from the record plus launcher-owned identity
+and separate-git values. Credentials remain null. Doorbell configuration is
+passed through; hook installation and runtime binds are a later slice.
+
+State, operation journal and lock files live under
+`${XDG_STATE_HOME:-~/.local/state}/swarma/launcher/werkstatt/`. The journal stays
+until a terminal outcome and a successful liveness write. Owner binding and
+expected tuple CAS prevent stale writes. `status --rebind-manager` explicitly
+accepts a re-registered owner after a matching session read;
+`status --abandon-operation` records an operator override and a tombstone,
+without stopping or cancelling anything remote. Dispatch edits require an
+existing liveness record (`werkstatt_not_up` otherwise).
+
+Status JSON is a bare array of closed rows
+`{record,liveness,manager_session,a2a,stale}`. Manager and a2a evidence stay
+separate. The bounded `a2a who` read uses `--stale-after` at three times
+the configured doorbell heartbeat, or 3m without one; failures produce null
+a2a evidence. This threshold is display-only. An unreadable manager record changes only local state to unknown
+and the heartbeat time. A lock timeout returns a read-only stale snapshot,
+including null liveness before the first start. Recycle polls draining every
+second for at most 20 seconds; a timeout never starts another generation.
 
 ## Target one-shot exec mode
 
@@ -804,6 +851,8 @@ runs need their own explicit timeout budget, for example
 | Tool | Purpose | Entry point | Output |
 |---|---|---|---|
 | `curator-run session-manager` | inspect and atomically update the manager registry | `curator-run session-manager list/show/register/select/unregister` (forms above) | stdout or JSON; `session-managers.json` in the effective target config home |
+| `curator-run werkstatt` | hosted station lifecycle and separate manager/a2a status | commands above; `go test ./cmd/curator-run -run TestWerkstattBinary -count=1 -v` | liveness and journal in the XDG state home; bounded test children in `t.TempDir` |
+| `.scripts/werkstatt-mutants.py` | owner, workspace, admission, stop generation and CAS negative controls | `python3 .scripts/werkstatt-mutants.py [evidence-dir]` | logs and `summary.tsv`, default `.temp/werkstatt-mutants/`; restores exact source bytes; run alone |
 | `.scripts/selector-mutants.py` | bounded selector config, response, transport, precedence and shadow controls | `python3 .scripts/selector-mutants.py [evidence-dir]` | per-probe logs and `summary.tsv`, default `.temp/selector-mutants/`; restores source bytes |
 | `.scripts/plugin-client-mutants.py` | bounded plugin transport, schema, capability, reconciliation and CAS controls | `python3 .scripts/plugin-client-mutants.py [evidence-dir]`; inventory: `python3 .scripts/plugin-client-mutants.py --list` | per-control logs and `summary.tsv`, default `.temp/plugin-client-mutants/`; restores candidate bytes; run before other checks |
 | `.scripts/session-manager-mutants.py` | bounded registry/registration/atomic-write, transaction-lock and deadline negative controls | `python3 .scripts/session-manager-mutants.py [evidence-dir]` | per-probe logs and `summary.tsv`, default `.temp/session-manager-mutants/`; restores source bytes |

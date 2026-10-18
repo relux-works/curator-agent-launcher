@@ -37,8 +37,8 @@ func TestLivenessCAS(t *testing.T) {
 		expected Expected
 		next     Liveness
 	}{
-		{"stale-generation", Expected{first.OperationID, 2}, liveFor(operationID, 1)},
-		{"stale-operation", Expected{func() *string { s := secondID; return &s }(), 1}, liveFor(operationID, 1)},
+		{"stale-generation", Expected{OperationID: first.OperationID, Generation: 2, Manager: &first.Manager}, liveFor(operationID, 1)},
+		{"stale-operation", Expected{OperationID: func() *string { s := secondID; return &s }(), Generation: 1, Manager: &first.Manager}, liveFor(operationID, 1)},
 		{"same-op-next-generation", first.Expected(), liveFor(operationID, 2)},
 		{"new-op-same-generation", first.Expected(), liveFor(secondID, 1)},
 		{"new-op-skipped-generation", first.Expected(), liveFor(secondID, 3)},
@@ -66,12 +66,12 @@ func TestLivenessCAS(t *testing.T) {
 		t.Fatal("same-op refresh rejected", ok, err)
 	}
 	next := liveFor(secondID, 2)
-	next.Manager.Executable = "/new-owner"
+	next.Manager.Executable = first.Manager.Executable
 	if ok, err := tx.CompareAndSwap(first.Expected(), next); err != nil || !ok {
 		t.Fatal("new generation rejected", ok, err)
 	}
 	got, err := tx.Liveness()
-	if err != nil || got.Manager.Executable != "/new-owner" || got.QueueDepth != 2 || got.CurrentTask == nil || *got.CurrentTask != "TASK-example" || !reflect.DeepEqual(got.AbandonedOperations, first.AbandonedOperations) {
+	if err != nil || got.Manager.Executable != first.Manager.Executable || got.QueueDepth != 2 || got.CurrentTask == nil || *got.CurrentTask != "TASK-example" || !reflect.DeepEqual(got.AbandonedOperations, first.AbandonedOperations) {
 		t.Fatal("metadata lost", got, err)
 	}
 	// A late answer for the old generation cannot regress the now-settled pair.

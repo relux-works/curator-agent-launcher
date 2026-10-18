@@ -142,3 +142,12 @@ func TestExistingStatusCompatibility(t *testing.T) {
 		}
 	}
 }
+
+// A local workspace path may contain newlines; it must remain one diagnostic
+// value and cannot create another launcher diagnostic line.
+func TestLocalPathDiagnostic(t *testing.T) {
+	e := &Error{Code: "werkstatt_context_leak", Details: map[string]string{"path": "/workspace/clone\ncurator-run: injected"}}
+	if strings.Contains(e.Diagnostic(), "\n") || !strings.Contains(e.Diagnostic(), `path="/workspace/clone\ncurator-run: injected"`) {
+		t.Fatal("path forged diagnostic", e.Diagnostic())
+	}
+}

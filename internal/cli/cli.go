@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	"github.com/relux-works/curator-agent-launcher/internal/sessionmanager"
+	"github.com/relux-works/curator-agent-launcher/internal/werkstattcommand"
 )
 
 // Name is the executable name the launcher reports in every message.
@@ -44,6 +45,12 @@ const Usage = `usage: curator-run <env-id> [--hosted | --native | --untracked]
        curator-run session-manager register --manifest <path|-> [--select | --no-select]
        curator-run session-manager select <id>
        curator-run session-manager unregister <id>
+       curator-run werkstatt up <id> [--attach] [--new] [--task-class C [--difficulty D]]
+       curator-run werkstatt down <id> [--force]
+       curator-run werkstatt recycle <id>
+       curator-run werkstatt status [<id>] [--json] [--set-task T | --clear-task] [--queue-depth N]
+                                    [--rebind-manager | --abandon-operation]
+       curator-run werkstatt list [--json]
        curator-run migrate [--dry-run]
        curator-run --help | -h
        curator-run --version
@@ -212,6 +219,7 @@ type Invocation struct {
 	// Migrate selects the reserved configuration migration operand.
 	Migrate, DryRun bool
 	SessionManager  *sessionmanager.Command
+	Werkstatt       *werkstattcommand.Command
 
 	// Info is non-zero for --help / -h / --version; every other member is
 	// then zero and the caller prints and exits 0.
@@ -343,6 +351,13 @@ var valueFlags = map[string]bool{
 //     explicit native request bypasses ax and would discard the profile.
 //   - <env-id> is required on a launch invocation.
 func Parse(args []string, opts Options) (Invocation, error) {
+	if len(args) > 0 && args[0] == "werkstatt" {
+		command, err := werkstattcommand.ParseCommand(args[1:])
+		if err != nil {
+			return Invocation{}, usageErr("%s", err.Error())
+		}
+		return Invocation{Werkstatt: &command}, nil
+	}
 	if len(args) > 0 && args[0] == "session-manager" {
 		command, err := parseSessionManager(args[1:])
 		if err != nil {
@@ -382,6 +397,9 @@ func Parse(args []string, opts Options) (Invocation, error) {
 			if !envSet {
 				if tok == "session-manager" {
 					return inv, usageErr("session-manager does not accept launch flags")
+				}
+				if tok == "werkstatt" {
+					return inv, usageErr("werkstatt does not accept launch flags")
 				}
 				if tok == "migrate" {
 					return inv, usageErr("expected migrate [--dry-run] without launch flags")

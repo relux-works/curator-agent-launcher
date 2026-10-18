@@ -180,6 +180,13 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, deps laun
 	} else {
 		configResolver = configfile.Resolver{Locations: configfile.Locations{System: filepath.Dir(paths.Machine), User: filepath.Dir(paths.Operator)}, Stderr: stderr}
 	}
+	if len(args) > 0 && args[0] == "werkstatt" {
+		inv, err := cli.Parse(args, cli.Options{})
+		if err != nil {
+			return emitFailure(stderr, diagnostics.CodeUsage, err)
+		}
+		return runWerkstatt(ctx, *inv.Werkstatt, stdout, stderr, configResolver, deps)
+	}
 	// Registry commands are administrative operations, independent of launch
 	// policy, fragments and manager transport. Normal launches do not load it yet.
 	if len(args) > 0 && args[0] == "session-manager" {

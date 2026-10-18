@@ -727,5 +727,30 @@
         "reason": null
       }
     }
+  },
+  {
+    "name": "raw-identity-equals",
+    "valid": true,
+    "document": {
+      "session": "SES-example",
+      "operation_id": "11111111-1111-4111-8111-111111111111",
+      "manager": "demo",
+      "runtime": "codex_cli",
+      "native_id": null,
+      "readable": true,
+      "state": "unknown",
+      "labels": {
+        "identity": "example=dev"
+      },
+      "generation": 1,
+      "started_at": "2026-01-01T00:00:00Z",
+      "last_activity_at": null,
+      "doorbell": {
+        "state": "off",
+        "uncertain": false,
+        "generation": null,
+        "reason": null
+      }
+    }
   }
 ]

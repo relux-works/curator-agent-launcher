@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/relux-works/curator-agent-launcher/internal/diagnostics"
@@ -17,7 +18,8 @@ const Protocol = "curator-session-manager/1"
 const Limit = 64 << 10
 
 // Error carries only registry text and validated detail tokens. stderr bytes,
-// plugin text, paths and arbitrary start errors are never retained here.
+// plugin text and arbitrary start errors are never retained here. Launcher
+// workspace checks may carry local paths, which Diagnostic quotes.
 type Error struct {
 	Code        string
 	Details     map[string]string
@@ -53,7 +55,11 @@ func (e *Error) Diagnostic() string {
 	}
 	sort.Strings(keys)
 	for _, k := range keys {
-		s += " " + k + "=" + e.Details[k]
+		value := e.Details[k]
+		if k == "path" {
+			value = strconv.Quote(value)
+		}
+		s += " " + k + "=" + value
 	}
 	return s
 }

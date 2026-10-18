@@ -38,6 +38,9 @@ type Profile struct {
 	FragmentDigest string `json:"fragment_digest"`
 }
 type Config struct {
+	// InitialState controls only the fixture no-op provider. The default stays
+	// unknown; this option never claims real provider activity.
+	InitialState string `json:"initial_state,omitempty"`
 	// Models restricts this fixture to declared, nonsecret model values when set.
 	Models           []string            `json:"models,omitempty"`
 	ID               string              `json:"id"`
@@ -653,7 +656,11 @@ func (m *manager) start(op string, r request, data []byte) reply {
 			}
 		}
 	}
-	row := map[string]any{"session": s.Handle, "operation_id": r.OperationID, "manager": m.config.ID, "runtime": r.Runtime, "native_id": s.Handle[4:], "readable": true, "state": "unknown", "labels": s.Labels, "generation": generation, "started_at": m.now.Format(time.RFC3339), "last_activity_at": nil, "doorbell": doorbell}
+	state := "unknown"
+	if m.config.InitialState == "idle" || m.config.InitialState == "busy" {
+		state = m.config.InitialState
+	}
+	row := map[string]any{"session": s.Handle, "operation_id": r.OperationID, "manager": m.config.ID, "runtime": r.Runtime, "native_id": s.Handle[4:], "readable": true, "state": state, "labels": s.Labels, "generation": generation, "started_at": m.now.Format(time.RFC3339), "last_activity_at": nil, "doorbell": doorbell}
 	s.Alive, s.Gate, s.Admission, s.Retirement = true, true, key, 0
 	s.Record = encode(row)
 	l.Handle, l.Record = s.Handle, append(json.RawMessage{}, s.Record...)

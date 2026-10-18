@@ -58,7 +58,7 @@
           },
           "additionalProperties": {
             "type": "string",
-            "pattern": "^[A-Za-z0-9._:/@+-]{1,128}$"
+            "pattern": "^[A-Za-z0-9._:/@+=-]{1,128}$"
           }
         },
         "generation": {
@@ -272,7 +272,7 @@
           },
           "additionalProperties": {
             "type": "string",
-            "pattern": "^[A-Za-z0-9._:/@+-]{1,128}$"
+            "pattern": "^[A-Za-z0-9._:/@+=-]{1,128}$"
           }
         },
         "generation": {

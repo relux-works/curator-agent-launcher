@@ -34,6 +34,7 @@ func RequiredForRequest(d Describe, operation string, request []byte, selection 
 type Needs struct {
 	Runtime, HostMode                                                                        string
 	Native, ExplicitHosted, Werkstatt, Detached, Resume, BoardGoal, CredentialNode, Doorbell bool
+	AttachAfter                                                                              bool
 	DelegatedTrial, SignedOff                                                                bool
 }
 type Route struct {
@@ -72,7 +73,7 @@ func Required(d Describe, n Needs) (Route, error) {
 			neededOps[cap] = op
 		}
 	}
-	if !n.Detached {
+	if !n.Detached || n.AttachAfter {
 		need("attach/1", "attach")
 	}
 	if n.Resume {

@@ -53,13 +53,15 @@ type Liveness struct {
 type Expected struct {
 	OperationID *string
 	Generation  int64
+	Manager     *Binding
 }
 
 func (l *Liveness) Expected() Expected {
 	if l == nil {
 		return Expected{}
 	}
-	return Expected{l.OperationID, l.Generation}
+	binding := l.Manager
+	return Expected{OperationID: l.OperationID, Generation: l.Generation, Manager: &binding}
 }
 func sameOperation(a, b *string) bool {
 	return a == nil && b == nil || a != nil && b != nil && *a == *b
@@ -135,22 +137,25 @@ func (t *Transaction) read(suffix string) ([]byte, bool, error) {
 	if !t.valid() {
 		return nil, false, storeError("")
 	}
-	fd, err := unix.Open(filepath.Join(t.dir, t.id+suffix), unix.O_RDONLY|unix.O_NOFOLLOW|unix.O_NONBLOCK|unix.O_CLOEXEC, 0)
+	return readState(t.dir, t.id, suffix)
+}
+func readState(dir, id, suffix string) ([]byte, bool, error) {
+	fd, err := unix.Open(filepath.Join(dir, id+suffix), unix.O_RDONLY|unix.O_NOFOLLOW|unix.O_NONBLOCK|unix.O_CLOEXEC, 0)
 	if errors.Is(err, unix.ENOENT) {
 		return nil, false, nil
 	}
 	if err != nil {
-		return nil, false, storeError(t.id)
+		return nil, false, storeError(id)
 	}
 	f := os.NewFile(uintptr(fd), "operation state")
 	defer f.Close()
 	var st unix.Stat_t
 	if unix.Fstat(fd, &st) != nil || st.Mode&unix.S_IFMT != unix.S_IFREG || st.Mode&0022 != 0 || st.Uid != uint32(os.Geteuid()) {
-		return nil, true, storeError(t.id)
+		return nil, true, storeError(id)
 	}
 	data, err := io.ReadAll(io.LimitReader(f, Limit+1))
 	if err != nil || len(data) > Limit {
-		return nil, true, storeError(t.id)
+		return nil, true, storeError(id)
 	}
 	return data, true, nil
 }
@@ -240,19 +245,34 @@ func (t *Transaction) Liveness() (*Liveness, error) {
 // CompareAndSwap never orders UUIDs. The exact observed tuple must still hold,
 // and only a same-operation refresh or one-generation advance can be committed.
 func (t *Transaction) CompareAndSwap(expected Expected, next Liveness) (bool, error) {
+	return t.compareAndSwap(expected, next, false)
+}
+
+// RefreshSession applies an ordinary owner status{session} read. Abandonment
+// suppresses operation outcomes, never fresh session evidence through a valid
+// binding. The exact expected tuple and generation transition still apply.
+func (t *Transaction) RefreshSession(expected Expected, next Liveness) (bool, error) {
+	return t.compareAndSwap(expected, next, true)
+}
+func (t *Transaction) compareAndSwap(expected Expected, next Liveness, sessionRead bool) (bool, error) {
 	old, err := t.Liveness()
 	if err != nil {
 		return false, err
 	}
 	actual := old.Expected()
-	if actual.Generation != expected.Generation || !sameOperation(actual.OperationID, expected.OperationID) {
+	if actual.Generation != expected.Generation || !sameOperation(actual.OperationID, expected.OperationID) || !sameBinding(actual.Manager, expected.Manager) {
 		return false, nil
 	}
-	if sameOperation(next.OperationID, actual.OperationID) {
-		if next.Generation != actual.Generation {
+	if old == nil {
+		if next.Generation < 1 {
 			return false, nil
 		}
-		if old != nil && next.Manager != old.Manager {
+	} else if next.Manager != old.Manager {
+		if old.State != "down" || sameOperation(next.OperationID, old.OperationID) || next.Generation < 1 {
+			return false, nil
+		}
+	} else if sameOperation(next.OperationID, actual.OperationID) {
+		if next.Generation != actual.Generation {
 			return false, nil
 		}
 	} else if next.Generation != actual.Generation+1 {
@@ -260,7 +280,7 @@ func (t *Transaction) CompareAndSwap(expected Expected, next Liveness) (bool, er
 	}
 	if old != nil {
 		for _, a := range old.AbandonedOperations {
-			if next.OperationID != nil && a.OperationID == *next.OperationID {
+			if !sessionRead && next.OperationID != nil && a.OperationID == *next.OperationID {
 				return false, nil
 			}
 		}

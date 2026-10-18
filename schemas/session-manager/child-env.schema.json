@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:relux:curator-run:child-env-v1",
+  "type": "object",
+  "maxProperties": 32,
+  "propertyNames": {
+    "allOf": [
+      {
+        "type": "string",
+        "pattern": "^[A-Z][A-Z0-9_]{0,63}$"
+      },
+      {
+        "not": {
+          "type": "string",
+          "pattern": "^(TOKEN|SECRET|PASSWORD|PASSWD|API_KEY|APIKEY)$|(_TOKEN|_SECRET|_PASSWORD|_PASSWD|_API_KEY|_APIKEY|_PRIVATE_KEY|_CREDENTIALS|_COOKIE|_SESSION_KEY)$|^AWS_SECRET"
+        }
+      },
+      {
+        "not": {
+          "type": "string",
+          "pattern": "^(CLAUDE_CODE_OAUTH_TOKEN|ANTHROPIC_API_KEY|ANTHROPIC_AUTH_TOKEN|ANTHROPIC_BASE_URL|ANTHROPIC_CUSTOM_HEADERS|CLAUDE_CODE_USE_BEDROCK|CLAUDE_CODE_USE_VERTEX|OPENAI_API_KEY|CODEX_API_KEY|CLAUDE_CONFIG_DIR|CODEX_HOME|XDG_CONFIG_HOME|XDG_DATA_HOME|XDG_STATE_HOME|XDG_CACHE_HOME|TBH_CREDENTIAL_BACKEND|LD_.*|DYLD_.*|NODE_.*|PYTHON.*)$"
+        }
+      }
+    ]
+  },
+  "additionalProperties": {
+    "allOf": [
+      {
+        "type": "string",
+        "maxLength": 4096
+      },
+      {
+        "not": {
+          "type": "string",
+          "pattern": "-----BEGIN|^(sk-|ghp_|gho_|ghs_|github_pat_|xoxa-|xoxb-|xoxp-|glpat-|AKIA)|^eyJ[A-Za-z0-9_-]*\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+$"
+        }
+      }
+    ]
+  }
+}

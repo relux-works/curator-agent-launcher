@@ -17,7 +17,7 @@ Schema subset used by these files is implemented; unsupported schema keywords
 are errors. This is a validator for this published schema set, not a general
 JSON Schema implementation.
 
-Two launch checks also require semantic validation in Go: `child_env` values
+Launch checks also require semantic validation in Go: `child_env` values
 are bounded in UTF-8 bytes (JSON Schema `maxLength` counts characters), and
 `native_tail` must remain unchanged and selector-free under the runtime
 module's typed-intent elevation. The manager still admits model, effort,
@@ -56,3 +56,14 @@ The Go checks print results on stdout. The mutation driver writes per-control
 logs and `summary.tsv` under the chosen evidence directory and restores the
 candidate source bytes after every control. Run it alone, before acceptance
 checks; it temporarily edits the working tree.
+
+The editable `werkstatt-record-v1` requires its schema discriminator. Its
+`child_env` shares the launch rule. Liveness and operation files have no
+schema member. A pre-start operator override is the sole liveness shape with
+null session/generation/start/heartbeat; it must be down with inactive doorbell
+and an abandonment tombstone. `readable` belongs only to manager projections.
+`werkstatt-status-v1` is a bare array of exactly five-member rows; its nullable
+manager projection retains the original protocol envelope and explicit nulls.
+
+Label values use `[A-Za-z0-9._:/@+=-]{1,128}` so raw a2a identities
+containing `=` fit without encoding. Selector value grammar remains unchanged.

@@ -217,5 +217,14 @@
         "selector": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
       }
     }
+  },
+  {
+    "name": "raw-identity-equals",
+    "valid": true,
+    "document": {
+      "labels": {
+        "identity": "example=dev"
+      }
+    }
   }
 ]

@@ -1,0 +1,258 @@
+[
+  {
+    "name": "manager",
+    "valid": true,
+    "document": {
+      "id": "example",
+      "state": "idle",
+      "manager": {
+        "id": "demo",
+        "executable": "/bin/demo",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "operation_id": "11111111-1111-4111-8111-111111111111",
+      "state_source": "manager",
+      "session": "SES-example",
+      "generation": 3,
+      "started_at": "2026-01-01T00:00:00Z",
+      "last_heartbeat_at": "2026-01-01T00:00:00Z",
+      "last_activity_at": null,
+      "doorbell": "off",
+      "doorbell_uncertain": false,
+      "current_task": null,
+      "queue_depth": 0,
+      "abandoned_operations": []
+    }
+  },
+  {
+    "name": "prestart-override",
+    "valid": true,
+    "document": {
+      "id": "example",
+      "state": "down",
+      "manager": {
+        "id": "demo",
+        "executable": "/bin/demo",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "operation_id": null,
+      "state_source": "operator_override",
+      "session": null,
+      "generation": null,
+      "started_at": null,
+      "last_heartbeat_at": null,
+      "last_activity_at": null,
+      "doorbell": "off",
+      "doorbell_uncertain": false,
+      "current_task": null,
+      "queue_depth": 0,
+      "abandoned_operations": [
+        {
+          "operation_id": "11111111-1111-4111-8111-111111111111",
+          "abandoned_at": "2026-01-01T00:00:00Z"
+        }
+      ]
+    }
+  },
+  {
+    "name": "invented-generation",
+    "valid": false,
+    "document": {
+      "id": "example",
+      "state": "down",
+      "manager": {
+        "id": "demo",
+        "executable": "/bin/demo",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "operation_id": null,
+      "state_source": "operator_override",
+      "session": null,
+      "generation": 1,
+      "started_at": null,
+      "last_heartbeat_at": null,
+      "last_activity_at": null,
+      "doorbell": "off",
+      "doorbell_uncertain": false,
+      "current_task": null,
+      "queue_depth": 0,
+      "abandoned_operations": [
+        {
+          "operation_id": "11111111-1111-4111-8111-111111111111",
+          "abandoned_at": "2026-01-01T00:00:00Z"
+        }
+      ]
+    }
+  },
+  {
+    "name": "invented-time",
+    "valid": false,
+    "document": {
+      "id": "example",
+      "state": "down",
+      "manager": {
+        "id": "demo",
+        "executable": "/bin/demo",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "operation_id": null,
+      "state_source": "operator_override",
+      "session": null,
+      "generation": null,
+      "started_at": "2026-01-01T00:00:00Z",
+      "last_heartbeat_at": null,
+      "last_activity_at": null,
+      "doorbell": "off",
+      "doorbell_uncertain": false,
+      "current_task": null,
+      "queue_depth": 0,
+      "abandoned_operations": [
+        {
+          "operation_id": "11111111-1111-4111-8111-111111111111",
+          "abandoned_at": "2026-01-01T00:00:00Z"
+        }
+      ]
+    }
+  },
+  {
+    "name": "not-override",
+    "valid": false,
+    "document": {
+      "id": "example",
+      "state": "down",
+      "manager": {
+        "id": "demo",
+        "executable": "/bin/demo",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "operation_id": null,
+      "state_source": "manager",
+      "session": null,
+      "generation": null,
+      "started_at": null,
+      "last_heartbeat_at": null,
+      "last_activity_at": null,
+      "doorbell": "off",
+      "doorbell_uncertain": false,
+      "current_task": null,
+      "queue_depth": 0,
+      "abandoned_operations": [
+        {
+          "operation_id": "11111111-1111-4111-8111-111111111111",
+          "abandoned_at": "2026-01-01T00:00:00Z"
+        }
+      ]
+    }
+  },
+  {
+    "name": "active",
+    "valid": false,
+    "document": {
+      "id": "example",
+      "state": "idle",
+      "manager": {
+        "id": "demo",
+        "executable": "/bin/demo",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "operation_id": null,
+      "state_source": "operator_override",
+      "session": null,
+      "generation": null,
+      "started_at": null,
+      "last_heartbeat_at": null,
+      "last_activity_at": null,
+      "doorbell": "off",
+      "doorbell_uncertain": false,
+      "current_task": null,
+      "queue_depth": 0,
+      "abandoned_operations": [
+        {
+          "operation_id": "11111111-1111-4111-8111-111111111111",
+          "abandoned_at": "2026-01-01T00:00:00Z"
+        }
+      ]
+    }
+  },
+  {
+    "name": "armed",
+    "valid": false,
+    "document": {
+      "id": "example",
+      "state": "down",
+      "manager": {
+        "id": "demo",
+        "executable": "/bin/demo",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "operation_id": null,
+      "state_source": "operator_override",
+      "session": null,
+      "generation": null,
+      "started_at": null,
+      "last_heartbeat_at": null,
+      "last_activity_at": null,
+      "doorbell": "armed",
+      "doorbell_uncertain": false,
+      "current_task": null,
+      "queue_depth": 0,
+      "abandoned_operations": [
+        {
+          "operation_id": "11111111-1111-4111-8111-111111111111",
+          "abandoned_at": "2026-01-01T00:00:00Z"
+        }
+      ]
+    }
+  },
+  {
+    "name": "no-abandonment",
+    "valid": false,
+    "document": {
+      "id": "example",
+      "state": "down",
+      "manager": {
+        "id": "demo",
+        "executable": "/bin/demo",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "operation_id": null,
+      "state_source": "operator_override",
+      "session": null,
+      "generation": null,
+      "started_at": null,
+      "last_heartbeat_at": null,
+      "last_activity_at": null,
+      "doorbell": "off",
+      "doorbell_uncertain": false,
+      "current_task": null,
+      "queue_depth": 0,
+      "abandoned_operations": []
+    }
+  },
+  {
+    "name": "readable-not-persisted",
+    "valid": false,
+    "document": {
+      "id": "example",
+      "state": "idle",
+      "manager": {
+        "id": "demo",
+        "executable": "/bin/demo",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "operation_id": "11111111-1111-4111-8111-111111111111",
+      "state_source": "manager",
+      "session": "SES-example",
+      "generation": 3,
+      "started_at": "2026-01-01T00:00:00Z",
+      "last_heartbeat_at": "2026-01-01T00:00:00Z",
+      "last_activity_at": null,
+      "doorbell": "off",
+      "doorbell_uncertain": false,
+      "current_task": null,
+      "queue_depth": 0,
+      "abandoned_operations": [],
+      "readable": true
+    }
+  }
+]

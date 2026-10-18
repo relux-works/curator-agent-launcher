@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:relux:curator-run:werkstatt-status-v1",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "properties": {
+      "record": {
+        "$ref": "urn:relux:curator-run:werkstatt-record-v1"
+      },
+      "liveness": {
+        "anyOf": [
+          {
+            "type": "null"
+          },
+          {
+            "$ref": "urn:relux:curator-run:werkstatt-liveness-v1"
+          }
+        ]
+      },
+      "manager_session": {
+        "anyOf": [
+          {
+            "type": "null"
+          },
+          {
+            "$ref": "urn:relux:curator-run:session"
+          }
+        ]
+      },
+      "a2a": {
+        "anyOf": [
+          {
+            "type": "null"
+          },
+          {
+            "type": "object"
+          }
+        ]
+      },
+      "stale": {
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "record",
+      "liveness",
+      "manager_session",
+      "a2a",
+      "stale"
+    ],
+    "additionalProperties": false
+  }
+}

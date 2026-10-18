@@ -84,6 +84,34 @@ func Validate(name string, data []byte) error {
 	if err := validateFile(name, value, 0); err != nil {
 		return err
 	}
+	// Schema maxLength counts Unicode characters. These shared child values
+	// additionally obey the transport's UTF-8 byte bound.
+	checkEnv := func(value any) error {
+		if env, ok := value.(map[string]any); ok {
+			for _, v := range env {
+				if text, ok := v.(string); ok && len(text) > 4096 {
+					return errors.New("schema violation at $.child_env")
+				}
+			}
+		}
+		return nil
+	}
+	switch name {
+	case "child-env.schema.json":
+		if err := checkEnv(value); err != nil {
+			return err
+		}
+	case "werkstatt-record.schema.json":
+		if err := checkEnv(value.(map[string]any)["child_env"]); err != nil {
+			return err
+		}
+	case "werkstatt-status.schema.json":
+		for _, row := range value.([]any) {
+			if err := checkEnv(row.(map[string]any)["record"].(map[string]any)["child_env"]); err != nil {
+				return err
+			}
+		}
+	}
 	if name == "launch.schema.json" {
 		object := value.(map[string]any)
 		for _, v := range object["child_env"].(map[string]any) {

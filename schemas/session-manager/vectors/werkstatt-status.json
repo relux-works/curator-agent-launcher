@@ -1,0 +1,221 @@
+[
+  {
+    "name": "empty",
+    "valid": true,
+    "document": []
+  },
+  {
+    "name": "stale-without-liveness",
+    "valid": true,
+    "document": [
+      {
+        "record": {
+          "schema": "werkstatt-record-v1",
+          "id": "example",
+          "project": "sample",
+          "role": "developer",
+          "runtime": "claude_code",
+          "model": "claude-opus-5",
+          "effort": "medium",
+          "profile": "sample",
+          "clone": "/workspace/clone",
+          "identity": "example.dev",
+          "room": "#sample",
+          "orchestrator": "example.orch",
+          "sandbox": "none",
+          "trust_class": "standard",
+          "doorbell": null
+        },
+        "liveness": null,
+        "manager_session": null,
+        "a2a": null,
+        "stale": true
+      }
+    ]
+  },
+  {
+    "name": "no-wrapper",
+    "valid": false,
+    "document": {
+      "rows": [
+        {
+          "record": {
+            "schema": "werkstatt-record-v1",
+            "id": "example",
+            "project": "sample",
+            "role": "developer",
+            "runtime": "claude_code",
+            "model": "claude-opus-5",
+            "effort": "medium",
+            "profile": "sample",
+            "clone": "/workspace/clone",
+            "identity": "example.dev",
+            "room": "#sample",
+            "orchestrator": "example.orch",
+            "sandbox": "none",
+            "trust_class": "standard",
+            "doorbell": null
+          },
+          "liveness": null,
+          "manager_session": null,
+          "a2a": null,
+          "stale": true
+        }
+      ]
+    }
+  },
+  {
+    "name": "missing-record",
+    "valid": false,
+    "document": [
+      {
+        "liveness": null,
+        "manager_session": null,
+        "a2a": null,
+        "stale": true
+      }
+    ]
+  },
+  {
+    "name": "missing-liveness",
+    "valid": false,
+    "document": [
+      {
+        "record": {
+          "schema": "werkstatt-record-v1",
+          "id": "example",
+          "project": "sample",
+          "role": "developer",
+          "runtime": "claude_code",
+          "model": "claude-opus-5",
+          "effort": "medium",
+          "profile": "sample",
+          "clone": "/workspace/clone",
+          "identity": "example.dev",
+          "room": "#sample",
+          "orchestrator": "example.orch",
+          "sandbox": "none",
+          "trust_class": "standard",
+          "doorbell": null
+        },
+        "manager_session": null,
+        "a2a": null,
+        "stale": true
+      }
+    ]
+  },
+  {
+    "name": "missing-manager_session",
+    "valid": false,
+    "document": [
+      {
+        "record": {
+          "schema": "werkstatt-record-v1",
+          "id": "example",
+          "project": "sample",
+          "role": "developer",
+          "runtime": "claude_code",
+          "model": "claude-opus-5",
+          "effort": "medium",
+          "profile": "sample",
+          "clone": "/workspace/clone",
+          "identity": "example.dev",
+          "room": "#sample",
+          "orchestrator": "example.orch",
+          "sandbox": "none",
+          "trust_class": "standard",
+          "doorbell": null
+        },
+        "liveness": null,
+        "a2a": null,
+        "stale": true
+      }
+    ]
+  },
+  {
+    "name": "missing-a2a",
+    "valid": false,
+    "document": [
+      {
+        "record": {
+          "schema": "werkstatt-record-v1",
+          "id": "example",
+          "project": "sample",
+          "role": "developer",
+          "runtime": "claude_code",
+          "model": "claude-opus-5",
+          "effort": "medium",
+          "profile": "sample",
+          "clone": "/workspace/clone",
+          "identity": "example.dev",
+          "room": "#sample",
+          "orchestrator": "example.orch",
+          "sandbox": "none",
+          "trust_class": "standard",
+          "doorbell": null
+        },
+        "liveness": null,
+        "manager_session": null,
+        "stale": true
+      }
+    ]
+  },
+  {
+    "name": "missing-stale",
+    "valid": false,
+    "document": [
+      {
+        "record": {
+          "schema": "werkstatt-record-v1",
+          "id": "example",
+          "project": "sample",
+          "role": "developer",
+          "runtime": "claude_code",
+          "model": "claude-opus-5",
+          "effort": "medium",
+          "profile": "sample",
+          "clone": "/workspace/clone",
+          "identity": "example.dev",
+          "room": "#sample",
+          "orchestrator": "example.orch",
+          "sandbox": "none",
+          "trust_class": "standard",
+          "doorbell": null
+        },
+        "liveness": null,
+        "manager_session": null,
+        "a2a": null
+      }
+    ]
+  },
+  {
+    "name": "closed-row",
+    "valid": false,
+    "document": [
+      {
+        "record": {
+          "schema": "werkstatt-record-v1",
+          "id": "example",
+          "project": "sample",
+          "role": "developer",
+          "runtime": "claude_code",
+          "model": "claude-opus-5",
+          "effort": "medium",
+          "profile": "sample",
+          "clone": "/workspace/clone",
+          "identity": "example.dev",
+          "room": "#sample",
+          "orchestrator": "example.orch",
+          "sandbox": "none",
+          "trust_class": "standard",
+          "doorbell": null
+        },
+        "liveness": null,
+        "manager_session": null,
+        "a2a": null,
+        "stale": true,
+        "extra": 1
+      }
+    ]
+  }
+]

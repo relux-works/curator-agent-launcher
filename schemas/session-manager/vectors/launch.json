@@ -17790,5 +17790,45 @@
       "native_tail": [],
       "detach": false
     }
+  },
+  {
+    "name": "raw-identity-equals",
+    "valid": true,
+    "document": {
+      "operation_id": "11111111-1111-4111-8111-111111111111",
+      "submitted_at": "2026-01-01T00:00:00Z",
+      "admission_key": null,
+      "runtime": "codex_cli",
+      "profile": {
+        "name": "sample",
+        "lock_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+        "fragment_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+      },
+      "cwd": "/workspace",
+      "model": null,
+      "effort": null,
+      "service_tier": null,
+      "weights_id": null,
+      "permissions": {
+        "mode": "native",
+        "source": "flag"
+      },
+      "system_prompt": null,
+      "sandbox": {
+        "mode": "none",
+        "writable_roots": []
+      },
+      "harness_memory": false,
+      "session_name": "example",
+      "labels": {
+        "identity": "example=dev"
+      },
+      "child_env": {},
+      "board_goal": "none",
+      "doorbell": null,
+      "credential_source": null,
+      "native_tail": [],
+      "detach": false
+    }
   }
 ]

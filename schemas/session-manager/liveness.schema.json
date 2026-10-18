@@ -59,23 +59,51 @@
       ]
     },
     "session": {
-      "type": "string",
-      "pattern": "^SES-[A-Za-z0-9]{1,48}$"
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "pattern": "^SES-[A-Za-z0-9]{1,48}$"
+        }
+      ]
     },
     "generation": {
-      "type": "integer",
-      "minimum": 1,
-      "maximum": 9007199254740991
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        }
+      ]
     },
     "started_at": {
-      "type": "string",
-      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
-      "format": "date-time"
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+          "format": "date-time"
+        }
+      ]
     },
     "last_heartbeat_at": {
-      "type": "string",
-      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
-      "format": "date-time"
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+          "format": "date-time"
+        }
+      ]
     },
     "last_activity_at": {
       "anyOf": [
@@ -155,5 +183,73 @@
     "queue_depth",
     "abandoned_operations"
   ],
-  "additionalProperties": false
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "session": {
+            "type": "null"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "generation": {
+            "type": "null"
+          },
+          "operation_id": {
+            "type": "null"
+          },
+          "started_at": {
+            "type": "null"
+          },
+          "last_heartbeat_at": {
+            "type": "null"
+          },
+          "last_activity_at": {
+            "type": "null"
+          },
+          "state": {
+            "const": "down"
+          },
+          "state_source": {
+            "const": "operator_override"
+          },
+          "doorbell": {
+            "const": "off"
+          },
+          "doorbell_uncertain": {
+            "const": false
+          },
+          "abandoned_operations": {
+            "minItems": 1
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "session": {
+            "type": "string",
+            "pattern": "^SES-[A-Za-z0-9]{1,48}$"
+          },
+          "generation": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "started_at": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+            "format": "date-time"
+          },
+          "last_heartbeat_at": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+            "format": "date-time"
+          }
+        }
+      }
+    }
+  ]
 }

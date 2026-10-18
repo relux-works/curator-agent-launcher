@@ -44,6 +44,7 @@ var pluginDiagnostics = map[string]PluginDiagnostic{
 	"werkstatt_git_layout_invalid":             {2, "Werkstatt git layout invalid."},
 	"werkstatt_identity_missing":               {1, "Werkstatt identity missing."},
 	"werkstatt_liveness_write_failed":          {1, "Werkstatt liveness write failed."},
+	"werkstatt_not_up":                         {1, "Werkstatt has no liveness record."},
 	"werkstatt_not_found":                      {1, "Werkstatt not found."},
 	"werkstatt_operation_unresolved":           {1, "Werkstatt operation unresolved."},
 	"werkstatt_record_invalid":                 {2, "Werkstatt record invalid."},
