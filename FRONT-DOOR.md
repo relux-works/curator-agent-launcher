@@ -2,7 +2,7 @@
 
 **Amends:** [SPEC](SPEC.md) `0.5.1-draft` → `0.6.0-draft` (target; nothing
 here is implemented yet).
-**Status:** revision 6.4, draft. The independent review accepted revision 6 (f8c2756); 6.1 adds only its three non-blocking clarifications. 6.2 adds the model-selection seam (§3.4) at the router lane's request. 6.4 revises §3.4 after the router lane's review. 6.3 adds infra-exit's conditions: admission composes with digest admission, and `busy` is defined per runtime. `ivmbp_curator_orch` accepted revision 1
+**Status:** revision 7, draft. The independent review accepted revision 6 (f8c2756); 6.1 adds only its three non-blocking clarifications. 6.2 adds the model-selection seam (§3.4) at the router lane's request. 7 folds in the task-board host review TASK-261018-m9kukq, findings F1–F14 (§§3.3, 5, 8, 11, 12). 6.4 revises §3.4 after the router lane's review. 6.3 adds infra-exit's conditions: admission composes with digest admission, and `busy` is defined per runtime. `ivmbp_curator_orch` accepted revision 1
 (0ed45c5) as the basis on 2026-10-18 with four must-change points. Revision 2
 folds those in, together with the independent reviews `review-1` and
 `review-2` and `review-3` (all rework, converging). Revision 3 also adopts the accepted
@@ -219,6 +219,14 @@ Rules that carry over:
     `session_host_capability_missing` (6), before any launch.
   - A manager with it that finds no board for the workspace refuses
     `session_board_goal_unavailable` (1).
+  - `workspace` resolves the workspace board and reserves that board's
+    existing `parent/primary` goal slot through **that board's own
+    manager**. The manager routes the launch there and keeps a private
+    routing index for `session` and `operation_id`. Another live holder of
+    the slot refuses, and nothing takes the slot over.
+  - Goal-less sessions live in the board-less user-state manager. Its key
+    and namespace are separate from every board's key, so the two never
+    collide.
   - It never binds a goal silently.
   - The `task-board claude|codex` aliases pass `--board-goal` for
     compatibility.
@@ -527,9 +535,16 @@ credential helpers. Each operation is one subprocess:
 
 **Plugin environment and descriptors**
 
-- The launcher composes the plugin's environment: `PATH` and `HOME` from the
-  caller, `CURATOR_RUN_PROTOCOL=curator-session-manager/1`, and nothing
-  else.
+- The launcher composes the plugin's environment from these, and nothing
+  else:
+  - `PATH` and `HOME` from the caller;
+  - `XDG_STATE_HOME` and `XDG_CONFIG_HOME`, only when present and absolute,
+    after canonicalisation;
+  - for `attach` only, `TERM`;
+  - `CURATOR_RUN_PROTOCOL=curator-session-manager/1`.
+
+  The manager persists the state root it resolved from these values, so
+  every later call for a session reaches the same daemon.
 - The plugin owns its transport to its daemon (for task-board, the private
   control socket of `tb-sessiond`).
 - The launcher marks its own copies of fd 3 and fd 4 close-on-exec, and
@@ -555,11 +570,11 @@ overrun is followed by reconciliation (§5.7); otherwise it is
 | `launch` | launch request (§5.3) | session record (§5.4) | `launch-delegated/1` |
 | `launch-exact` | CIP-0016 successor payload | terminal session | `launch-exact/2` |
 | `resume` | resume request (§5.3) | session record | `resume/1` |
-| `attach` | `{session}` on fd 3 | session exit status | `attach/1` |
-| `status` | `{session}` or `{operation_id}` | session record, or an operation outcome (§5.7) | `status/1` |
+| `attach` | `{session, expected_generation}` on fd 3 | session exit status | `attach/1` |
+| `status` | exactly one of `{session}` or `{operation_id}` | session record, or an operation outcome (§5.7) | `status/1` |
 | `cancel` | `{operation_id}` | an operation outcome | `admission/1` |
-| `list` | `{labels?}` | `{sessions: [record…]}` | `list/1` |
-| `stop` | `{session, mode: "graceful"\|"force", precondition: "none"\|"not-busy"}` | session record | `stop/1` |
+| `list` | `{labels?, cursor?, limit?}` | `{sessions: [record…], next_cursor: null\|string}` | `list/1` |
+| `stop` | `{session, expected_generation, mode: "graceful"\|"force", precondition: "none"\|"not-busy"}` | session record | `stop/1` |
 
 The v1 capability tokens are closed. An unknown token confers nothing.
 
@@ -615,6 +630,39 @@ A missing token is `session_host_capability_missing` (6). A missing env-id
 is `session_host_provider_unsupported` (6). Both are checked before any
 `launch` or `resume`.
 
+**Rules on operations (from the task-board host review, TASK-261018-m9kukq).**
+
+- **Advertise only what works.** `describe` advertises only operations
+  that are implemented and qualified, per runtime. A scaffold or a closed
+  gate is never advertised. `survives-upgrade` and `drains-on-upgrade` are
+  never inferred from daemon re-exec support.
+- **`list` pagination.**
+  - A paginated listing is a stable snapshot with an opaque cursor,
+    matching `[A-Za-z0-9._-]{1,256}`.
+  - `limit` is 1–100, and the default is 50.
+  - A listing is complete only when `next_cursor` is `null`. The launcher
+    follows cursors until then, and never treats a partial page as
+    absence.
+  - Unreadable records are listed with `state: unknown`, never dropped.
+  - `labels` matching is an exact key/value subset.
+- **Stopping and attaching a generation.**
+  - `stop` and `attach` carry `expected_generation`. A different current
+    generation refuses `session_generation_mismatch` (1), with no effect,
+    so a delayed stop for generation N never stops N+1.
+  - `graceful` asks the provider to exit and waits up to 8 s inside the
+    10 s deadline. It does not escalate. A provider still alive at that
+    point leaves the session in `draining`, and the record says so. A
+    timeout is never evidence of `down`.
+  - `force` kills the provider's process group.
+  - `not-busy` fences new turns (manager submissions, app-server writes,
+    doorbell turns) atomically with the busy check. A refusal changes
+    nothing.
+- **`attach`** names exactly one persisted native session or thread. A
+  manager never uses `--last` or a native picker for it.
+- **Doorbells versus board notices.** `doorbell-*` means the a2a mechanisms
+  of §8 only, never task-board's board-notice delivery. Board notices keep
+  their own contract unchanged.
+
 ### 5.3 Launch and resume requests
 
 **Launch** — `urn:relux:curator-run:delegated-launch` `1.0.0`, closed:
@@ -622,11 +670,13 @@ is `session_host_provider_unsupported` (6). Both are checked before any
 | Member | Content |
 | --- | --- |
 | `operation_id` | UUIDv4 (§5.7). |
+| `submitted_at` | UTC RFC 3339 time at which the launcher created the operation. |
 | `admission_key` | `null`, or `werkstatt:<id>`. |
 | `runtime` | Canonical env-id: `claude_code`, `codex_cli` or `muse`. |
 | `profile` | `{name, lock_sha256, fragment_digest}` from the launcher's resolve. The plugin MUST resolve the same profile, and refuse `policy_refused` (16) when its fragment digest differs. |
 | `cwd` | Absolute workspace. |
-| `model`, `effort` | Resolved by SPEC §4.3. They are values, never flags. |
+| `model`, `effort` | Resolved by SPEC §4.3. They are values, never flags. Either may be `null`, meaning the runtime's native default where the module admits one (agents-management v0.5.68 or later for managed Codex). |
+| `service_tier` | `null`, or a value the module admits. A plugin that cannot apply it refuses rather than ignoring it. |
 | `weights_id` | `null`, or an exact local-weights id. The plugin passes it to the module as the weights pin. A module without weights pinning refuses `session_host_capability_missing` with the detail `capability=weights-pin`. |
 | `permissions` | `{mode: native\|yolo, source}` from SPEC §4.3. |
 | `system_prompt` | `null`, or `{semantics: "append"\|"replace"}` (the SPEC §5 opt-in). |
@@ -640,6 +690,14 @@ is `session_host_provider_unsupported` (6). Both are checked before any
 | `credential_source` | `null` (per-home), or the fragment's `source-projection-v1` `{source, source_generation, policy_generation}` (§9). The manager re-resolves the source itself, and a different projection refuses `credential_source_stale`. |
 | `native_tail` | The selector-free tail after the module's typed-intent elevation (SPEC §4.8). |
 | `detach` | Boolean. |
+
+**Schemas.** S3 publishes these in the repository as JSON Schemas under
+`schemas/session-manager/`: the launch request, the resume request, the
+session record, the operation outcome, the list page and the refusal. Each
+comes with positive and negative vectors that cover every nullable and
+optional combination, the cross-field rules (sandbox roots against `none`;
+selector-free tail), and the bounds. The plugin and the launcher both
+validate against them.
 
 **Resume** — `urn:relux:curator-run:delegated-resume` `1.0.0`, closed. It
 carries the launch members `operation_id`, `admission_key`, `runtime`,
@@ -659,11 +717,29 @@ Resume rules:
   - `session_resume_location_mismatch`;
   - `session_resume_identity_mismatch`;
   - `session_liveness_unknown`.
-- `latest` with two or more candidate sessions whose `started_at` ties, or
-  where one candidate's record is unreadable, is
-  `session_resume_ambiguous`.
-- A different profile name is `session_resume_identity_mismatch`. The same
-  name with a different digest is `policy_refused` (16).
+- `scope.labels` is an exact key/value subset match, combined with the
+  canonical cwd and the runtime.
+- `latest` orders candidates by their current generation's `started_at`. A
+  resumed generation's `started_at` is the time of its resume.
+- `latest` with a tie, or with a potentially matching candidate whose
+  record is unreadable, is `session_resume_ambiguous`. An explicitly
+  selected unreadable handle is `session_resume_unreadable`.
+- `provider_id` looks up an existing manager record in scope. It never
+  adopts an arbitrary native conversation.
+- A resumed session keeps everything from its stored, admitted record:
+  `board_goal`, policy, labels, model, effort, sandbox and child
+  environment. Resume cannot change them. The request's profile,
+  credential projection and doorbell are re-validated against the stored
+  binding; they do not replace it.
+- **Refusal precedence.**
+  1. A stored session's admitted Curator identity that drifted from the
+     current resolve keeps the manager's own
+     `session_curator_identity_stale`. This includes retry and recovery,
+     and it is checked first.
+  2. Then, a selected existing session with another profile name is
+     `session_resume_identity_mismatch`.
+  3. A fresh launch whose request differs from the manager's own resolve
+     is `policy_refused`.
 - Native resume flags in `native_tail` never select.
 
 What the plugin may add:
@@ -703,7 +779,15 @@ Schema `urn:relux:curator-run:session` `1.0.0`:
 Validation (§5.6 applies to the whole record):
 
 - `session` matches `SES-[A-Za-z0-9]{1,48}`.
-- `native_id` matches `[A-Za-z0-9-]{1,64}`.
+- `native_id` matches `[A-Za-z0-9-]{1,64}`. It is `null` before the native
+  identity exists, and for unreadable records.
+- `last_activity_at` is `null` until provider activity has been observed.
+  It is set only from defined provider activity events, never from
+  record-update times.
+- `generation` is an integer from 1 to 2^53−1.
+- `state` comes from three separate observations: the lifecycle, proven
+  liveness, and provider activity (`idle`, `busy` or `unknown`). Missing
+  evidence gives `unknown`, and `unknown` never maps to `idle` or `down`.
 - `manager` equals the registry id.
 - `state` is one of the six values. `unknown` MUST NOT be read as `down`.
 - Timestamps are RFC 3339 UTC.
@@ -825,16 +909,34 @@ this payload in the common envelope:
 
 - A historical failed start is a successful `status` answer that carries
   the failure's `code`. It is not a refusal of `status` itself.
+- The status operation itself always exits 0 with `ok: true`. The
+  launcher's own exit for a reconciled `failed` outcome is the registry
+  exit of its `code`.
 - `code` is drawn from the union of:
   - the SPEC §6 registry, for example `plan_refused` and
     `launch_plan_invalid`;
   - §11 of this document;
   - the Curator local-credential codes (§11).
-- Its exit status is the registry's.
 - A code outside that union poisons the response
   (`session_host_protocol_error`).
-- **Idempotency.** A repeated `operation_id` returns the recorded outcome
-  and never starts a second process.
+- **Idempotency.**
+  - A repeated `operation_id` with the same canonical request digest
+    (CCJ-1 over the request) returns the recorded outcome and never starts
+    a second process.
+  - The same `operation_id` with a different digest refuses
+    `session_operation_conflict` (1).
+  - Idempotency applies with `admission_key: null` too. It does not
+    serialise plain sessions onto one key.
+- **Durability.** Operations, outcomes and tombstones belong to the
+  daemon's durable ledger, not to a plugin process.
+  - Admission and the ledger reservation precede the provider start.
+  - A crash between start and result keeps `unknown`, and holds the
+    generation until runner evidence establishes the outcome.
+  - Retention is at least 7 days.
+  - An operation whose `submitted_at` is older than the retention window
+    refuses `session_operation_expired` (1), and never starts.
+  - Failed outcomes are kept even after failed host state has been cleaned
+    up.
 - **Fencing.** `cancel` on a `not_found` or `prepared` operation records a
   tombstone and answers `cancelled`. A late delivery of that operation never
   starts. `cancel` on any other state changes nothing and answers the
@@ -1292,7 +1394,8 @@ launcher ensures the hooks before the start call:
   `step=install|verify`.
 
 `doorbell-claude/1` means the manager's Claude composition keeps
-project-local settings active.
+project-local settings active. It never means task-board's board-notice
+delivery, which types into the terminal; that path keeps its own contract.
 
 **Target path.** Under CIP-0002 strict mode, project settings are not
 honoured, and hooks come from the managed home through Curator's
@@ -1344,6 +1447,14 @@ a2a runtime bind --codex-thread <thread> --endpoint unix://<socket>
 6. `doorbell.state` becomes `off`. **`uncertain` is not cleared.**
    Abandoning a generation does not reconcile its attempts, as the a2a
    contract states.
+
+**Retirement failures.** The manager persists the step index of the
+retirement sequence. After a crash it resumes from that step.
+
+- If `a2a runtime status` cannot be read, the gate stays closed, and the
+  doorbell is `unavailable`, reason `owner_unavailable`.
+- If owner evidence cannot be read, the result is the same.
+- Neither failure is ever read as "no uncertain attempt".
 
 **Rebind gate.** Before binding a new generation for the identity, the
 manager reads a2a's durable ledger (`a2a runtime status`) for the previous
@@ -1508,6 +1619,9 @@ Detail vocabularies are closed (§5.6). Grammar names:
 | `session_manager_registry_shadowed` | 2 | user registration while a system registry exists | `path` |
 | `session_manager_not_registered` | 2 | `select`/`unregister` of an unknown id | `id`: `<id>` |
 | `session_manager_registry_busy` | 1 | another registry mutation holds the lock (§4.3 rule 8) | none |
+| `session_operation_conflict` | 1 | a reused `operation_id` with a different request digest (§5.7) | none |
+| `session_operation_expired` | 1 | `submitted_at` is older than the retention window (§5.7) | none |
+| `session_generation_mismatch` | 1 | `expected_generation` differs from the current one (§5.2) | none |
 | `session_board_goal_unavailable` | 1 | manager capable, no workspace board | none |
 | `werkstatt_not_found` | 1 | no record | `id` |
 | `werkstatt_record_invalid` | 2 | the record fails the schema | `id`, `field` |
@@ -1557,7 +1671,7 @@ detail values are allowed only from the vocabularies shown:
 
 | Owner | Item |
 | --- | --- |
-| task-board (infra-exit, `#skill-project-management`) | Conditions from infra-exit: the board-bound mode stays byte-identical, and the board-less state root is keyed so that it never collides with a board's manager lock. 1. `task-board session-manager register --for curator-run` (§4.3), called by its installer. 2. A plugin entry `task-board session-manager plugin <op>` implementing §5: `launch-delegated/1`, `resume/1`, `attach/1`, `status/1` with operation outcomes, `cancel`, `list/1`, `stop/1` with `not-busy`, `admission/1` covering launch and resume, `labels/1`, `board-goal/1`, `doorbell-codex/1` with a per-session owner and the rebind gate (§8.2), `doorbell-claude/1`, and later `credential-node/1` (Appendix B). It must pass the §5.5 suite. 3. **A board-less session daemon mode:** keyed by the user state root, not a board directory; sessions keyed by cwd and labels; no primary goal unless `board_goal: workspace`. 4. `--profile` for hosted sessions (TASK-261018-cliw6c, in flight). 5. The v4 Muse consumer (TASK-261018-yzorfb). 6. `task-board claude\|codex` become aliases of `curator run <env> --hosted --board-goal` (Decision 0021 §5). This is not a blocker. |
+| task-board (infra-exit, `#skill-project-management`) | Host review TASK-261018-m9kukq estimates 18–30 engineer-days for the usable Claude/Codex surface. Registration goes through curator-run's registry: task-board emits its manifest and never writes the registry itself. If curator-run is missing at install, that is reported as a deferred registration, never claimed as done. Conditions from infra-exit: the board-bound mode stays byte-identical, and the board-less state root is keyed so that it never collides with a board's manager lock. 1. `task-board session-manager register --for curator-run` (§4.3), called by its installer. 2. A plugin entry `task-board session-manager plugin <op>` implementing §5: `launch-delegated/1`, `resume/1`, `attach/1`, `status/1` with operation outcomes, `cancel`, `list/1`, `stop/1` with `not-busy`, `admission/1` covering launch and resume, `labels/1`, `board-goal/1`, `doorbell-codex/1` with a per-session owner and the rebind gate (§8.2), `doorbell-claude/1`, and later `credential-node/1` (Appendix B). It must pass the §5.5 suite. 3. **A board-less session daemon mode:** keyed by the user state root, not a board directory; sessions keyed by cwd and labels; no primary goal unless `board_goal: workspace`. 4. `--profile` for hosted sessions (TASK-261018-cliw6c, in flight). 5. The v4 Muse consumer (TASK-261018-yzorfb). 6. `task-board claude\|codex` become aliases of `curator run <env> --hosted --board-goal` (Decision 0021 §5). This is not a blocker. |
 | Router lane (`#model-routing`) | Provide `cmr recommend --format json` answering the §3.4 request and response. Freeze the `station` fields with task-board against §6.1. Read `werkstatt-liveness-v1` as the snapshot liveness source, with `unknown` treated as not dispatchable. |
 | `ivmbp_curator_orch` (Curator) | 1. The release-workflow change (§10, C8). 2. The CIP-0016 amendment (Appendix A), after Ivan's sign-off. 3. Implement `local-setup-token-source` T1–T3a and publish the `pkg/localcredential` pin, plus fragment v6. 4. Qualify the interactive mode, and file Appendix B (C10). 5. Manifest-declared home-level hooks under strict mode (§8.1). 6. The Curator config-home CIP. |
 | Session-host extraction (`swarma-session-host`) | The first conforming manager after task-board. The extraction research (`#curator` › curator-run, 2026-10-18) recommends four things that map onto this protocol: operation ids with generation fencing (§5.7), per-session runners that survive a host restart (`survives-upgrade`), a stop tombstone, and resume that never becomes a new conversation (§5.3). |
