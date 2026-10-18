@@ -1,0 +1,198 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:relux:curator-run:outcome",
+  "title": "outcome 1.0.0",
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "const": "curator-session-manager/1"
+        },
+        "ok": {
+          "const": true
+        },
+        "outcome": {
+          "const": "not_found"
+        }
+      },
+      "required": [
+        "protocol",
+        "ok",
+        "outcome"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "const": "curator-session-manager/1"
+        },
+        "ok": {
+          "const": true
+        },
+        "outcome": {
+          "const": "prepared"
+        }
+      },
+      "required": [
+        "protocol",
+        "ok",
+        "outcome"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "const": "curator-session-manager/1"
+        },
+        "ok": {
+          "const": true
+        },
+        "outcome": {
+          "const": "admitted"
+        }
+      },
+      "required": [
+        "protocol",
+        "ok",
+        "outcome"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "const": "curator-session-manager/1"
+        },
+        "ok": {
+          "const": true
+        },
+        "outcome": {
+          "const": "started"
+        },
+        "session": {
+          "allOf": [
+            {
+              "$ref": "urn:relux:curator-run:session-record"
+            },
+            {
+              "properties": {
+                "readable": {
+                  "const": true
+                }
+              }
+            }
+          ]
+        }
+      },
+      "required": [
+        "protocol",
+        "ok",
+        "outcome",
+        "session"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "const": "curator-session-manager/1"
+        },
+        "ok": {
+          "const": true
+        },
+        "outcome": {
+          "const": "failed"
+        },
+        "code": {
+          "enum": [
+            "credential_binding_mismatch",
+            "credential_injection_unavailable",
+            "credential_node_missing",
+            "credential_source_conflict",
+            "credential_source_expired",
+            "credential_source_revoked",
+            "credential_source_stale",
+            "credential_store_unreadable",
+            "environment_credential_store_unsupported",
+            "launch_plan_invalid",
+            "plan_provider_limited",
+            "plan_refused",
+            "policy_refused",
+            "secret_policy_violation",
+            "session_board_goal_unavailable",
+            "session_curator_identity_stale",
+            "session_generation_mismatch",
+            "session_host_capability_missing",
+            "session_host_provider_unsupported",
+            "session_host_unavailable",
+            "session_liveness_unknown",
+            "session_operation_conflict",
+            "session_operation_expired",
+            "session_resume_ambiguous",
+            "session_resume_identity_mismatch",
+            "session_resume_invalid",
+            "session_resume_location_mismatch",
+            "session_resume_not_found",
+            "session_resume_unreadable",
+            "werkstatt_already_up",
+            "werkstatt_busy"
+          ]
+        }
+      },
+      "required": [
+        "protocol",
+        "ok",
+        "outcome",
+        "code"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "const": "curator-session-manager/1"
+        },
+        "ok": {
+          "const": true
+        },
+        "outcome": {
+          "const": "cancelled"
+        }
+      },
+      "required": [
+        "protocol",
+        "ok",
+        "outcome"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "const": "curator-session-manager/1"
+        },
+        "ok": {
+          "const": true
+        },
+        "outcome": {
+          "const": "unknown"
+        }
+      },
+      "required": [
+        "protocol",
+        "ok",
+        "outcome"
+      ],
+      "additionalProperties": false
+    }
+  ]
+}

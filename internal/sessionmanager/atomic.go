@@ -15,6 +15,10 @@ type atomicHooks struct {
 	syncDirectory func(string) error
 }
 
+// WriteAtomic shares the secure, rollback-on-durability-failure writer with
+// operation/liveness storage. Callers hold their own transaction lock.
+func WriteAtomic(path string, data []byte) error { return atomicWrite(path, data, 0600) }
+
 func atomicWrite(path string, data []byte, mode os.FileMode) error {
 	return atomicWriteWithHooks(path, data, mode, atomicHooks{})
 }

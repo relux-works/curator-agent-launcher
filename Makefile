@@ -8,7 +8,7 @@ build:
 
 # Fails when any Go file is not gofmt-clean; prints the offenders.
 fmt-check:
-	@unformatted="$$($(GOFMT) -l cmd internal)"; \
+	@unformatted="$$($(GOFMT) -l cmd internal schemas)"; \
 	if [ -n "$$unformatted" ]; then \
 		echo "gofmt: files need formatting:"; echo "$$unformatted"; exit 1; \
 	fi

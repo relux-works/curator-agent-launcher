@@ -1,0 +1,631 @@
+[
+  {
+    "name": "readable",
+    "valid": true,
+    "document": {
+      "session": "SES-example",
+      "operation_id": "11111111-1111-4111-8111-111111111111",
+      "manager": "demo",
+      "runtime": "codex_cli",
+      "native_id": null,
+      "readable": true,
+      "state": "unknown",
+      "labels": {},
+      "generation": 1,
+      "started_at": "2026-01-01T00:00:00Z",
+      "last_activity_at": null,
+      "doorbell": {
+        "state": "off",
+        "uncertain": false,
+        "generation": null,
+        "reason": null
+      }
+    }
+  },
+  {
+    "name": "unreadable",
+    "valid": true,
+    "document": {
+      "session": "SES-example",
+      "operation_id": null,
+      "manager": "demo",
+      "runtime": null,
+      "native_id": null,
+      "readable": false,
+      "state": "unknown",
+      "labels": {},
+      "generation": null,
+      "started_at": null,
+      "last_activity_at": null,
+      "doorbell": {
+        "state": "off",
+        "uncertain": false,
+        "generation": null,
+        "reason": null
+      }
+    }
+  },
+  {
+    "name": "row-envelope-forbidden",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "session": "SES-example",
+      "operation_id": "11111111-1111-4111-8111-111111111111",
+      "manager": "demo",
+      "runtime": "codex_cli",
+      "native_id": null,
+      "readable": true,
+      "state": "unknown",
+      "labels": {},
+      "generation": 1,
+      "started_at": "2026-01-01T00:00:00Z",
+      "last_activity_at": null,
+      "doorbell": {
+        "state": "off",
+        "uncertain": false,
+        "generation": null,
+        "reason": null
+      }
+    }
+  },
+  {
+    "name": "missing-session",
+    "valid": false,
+    "document": {
+      "operation_id": null,
+      "manager": "demo",
+      "runtime": null,
+      "native_id": null,
+      "readable": false,
+      "state": "unknown",
+      "labels": {},
+      "generation": null,
+      "started_at": null,
+      "last_activity_at": null,
+      "doorbell": {
+        "state": "off",
+        "uncertain": false,
+        "generation": null,
+        "reason": null
+      }
+    }
+  },
+  {
+    "name": "missing-operation_id",
+    "valid": false,
+    "document": {
+      "session": "SES-example",
+      "manager": "demo",
+      "runtime": null,
+      "native_id": null,
+      "readable": false,
+      "state": "unknown",
+      "labels": {},
+      "generation": null,
+      "started_at": null,
+      "last_activity_at": null,
+      "doorbell": {
+        "state": "off",
+        "uncertain": false,
+        "generation": null,
+        "reason": null
+      }
+    }
+  },
+  {
+    "name": "missing-manager",
+    "valid": false,
+    "document": {
+      "session": "SES-example",
+      "operation_id": null,
+      "runtime": null,
+      "native_id": null,
+      "readable": false,
+      "state": "unknown",
+      "labels": {},
+      "generation": null,
+      "started_at": null,
+      "last_activity_at": null,
+      "doorbell": {
+        "state": "off",
+        "uncertain": false,
+        "generation": null,
+        "reason": null
+      }
+    }
+  },
+  {
+    "name": "missing-runtime",
+    "valid": false,
+    "document": {
+      "session": "SES-example",
+      "operation_id": null,
+      "manager": "demo",
+      "native_id": null,
+      "readable": false,
+      "state": "unknown",
+      "labels": {},
+      "generation": null,
+      "started_at": null,
+      "last_activity_at": null,
+      "doorbell": {
+        "state": "off",
+        "uncertain": false,
+        "generation": null,
+        "reason": null
+      }
+    }
+  },
+  {
+    "name": "missing-native_id",
+    "valid": false,
+    "document": {
+      "session": "SES-example",
+      "operation_id": null,
+      "manager": "demo",
+      "runtime": null,
+      "readable": false,
+      "state": "unknown",
+      "labels": {},
+      "generation": null,
+      "started_at": null,
+      "last_activity_at": null,
+      "doorbell": {
+        "state": "off",
+        "uncertain": false,
+        "generation": null,
+        "reason": null
+      }
+    }
+  },
+  {
+    "name": "missing-readable",
+    "valid": false,
+    "document": {
+      "session": "SES-example",
+      "operation_id": null,
+      "manager": "demo",
+      "runtime": null,
+      "native_id": null,
+      "state": "unknown",
+      "labels": {},
+      "generation": null,
+      "started_at": null,
+      "last_activity_at": null,
+      "doorbell": {
+        "state": "off",
+        "uncertain": false,
+        "generation": null,
+        "reason": null
+      }
+    }
+  },
+  {
+    "name": "missing-state",
+    "valid": false,
+    "document": {
+      "session": "SES-example",
+      "operation_id": null,
+      "manager": "demo",
+      "runtime": null,
+      "native_id": null,
+      "readable": false,
+      "labels": {},
+      "generation": null,
+      "started_at": null,
+      "last_activity_at": null,
+      "doorbell": {
+        "state": "off",
+        "uncertain": false,
+        "generation": null,
+        "reason": null
+      }
+    }
+  },
+  {
+    "name": "missing-labels",
+    "valid": false,
+    "document": {
+      "session": "SES-example",
+      "operation_id": null,
+      "manager": "demo",
+      "runtime": null,
+      "native_id": null,
+      "readable": false,
+      "state": "unknown",
+      "generation": null,
+      "started_at": null,
+      "last_activity_at": null,
+      "doorbell": {
+        "state": "off",
+        "uncertain": false,
+        "generation": null,
+        "reason": null
+      }
+    }
+  },
+  {
+    "name": "missing-generation",
+    "valid": false,
+    "document": {
+      "session": "SES-example",
+      "operation_id": null,
+      "manager": "demo",
+      "runtime": null,
+      "native_id": null,
+      "readable": false,
+      "state": "unknown",
+      "labels": {},
+      "started_at": null,
+      "last_activity_at": null,
+      "doorbell": {
+        "state": "off",
+        "uncertain": false,
+        "generation": null,
+        "reason": null
+      }
+    }
+  },
+  {
+    "name": "missing-started_at",
+    "valid": false,
+    "document": {
+      "session": "SES-example",
+      "operation_id": null,
+      "manager": "demo",
+      "runtime": null,
+      "native_id": null,
+      "readable": false,
+      "state": "unknown",
+      "labels": {},
+      "generation": null,
+      "last_activity_at": null,
+      "doorbell": {
+        "state": "off",
+        "uncertain": false,
+        "generation": null,
+        "reason": null
+      }
+    }
+  },
+  {
+    "name": "missing-last_activity_at",
+    "valid": false,
+    "document": {
+      "session": "SES-example",
+      "operation_id": null,
+      "manager": "demo",
+      "runtime": null,
+      "native_id": null,
+      "readable": false,
+      "state": "unknown",
+      "labels": {},
+      "generation": null,
+      "started_at": null,
+      "doorbell": {
+        "state": "off",
+        "uncertain": false,
+        "generation": null,
+        "reason": null
+      }
+    }
+  },
+  {
+    "name": "missing-doorbell",
+    "valid": false,
+    "document": {
+      "session": "SES-example",
+      "operation_id": null,
+      "manager": "demo",
+      "runtime": null,
+      "native_id": null,
+      "readable": false,
+      "state": "unknown",
+      "labels": {},
+      "generation": null,
+      "started_at": null,
+      "last_activity_at": null
+    }
+  },
+  {
+    "name": "unreadable-forbidden-state",
+    "valid": false,
+    "document": {
+      "session": "SES-example",
+      "operation_id": null,
+      "manager": "demo",
+      "runtime": null,
+      "native_id": null,
+      "readable": false,
+      "state": "down",
+      "labels": {},
+      "generation": null,
+      "started_at": null,
+      "last_activity_at": null,
+      "doorbell": {
+        "state": "off",
+        "uncertain": false,
+        "generation": null,
+        "reason": null
+      }
+    }
+  },
+  {
+    "name": "unreadable-forbidden-operation_id",
+    "valid": false,
+    "document": {
+      "session": "SES-example",
+      "operation_id": "11111111-1111-4111-8111-111111111111",
+      "manager": "demo",
+      "runtime": null,
+      "native_id": null,
+      "readable": false,
+      "state": "unknown",
+      "labels": {},
+      "generation": null,
+      "started_at": null,
+      "last_activity_at": null,
+      "doorbell": {
+        "state": "off",
+        "uncertain": false,
+        "generation": null,
+        "reason": null
+      }
+    }
+  },
+  {
+    "name": "unreadable-forbidden-runtime",
+    "valid": false,
+    "document": {
+      "session": "SES-example",
+      "operation_id": null,
+      "manager": "demo",
+      "runtime": "codex_cli",
+      "native_id": null,
+      "readable": false,
+      "state": "unknown",
+      "labels": {},
+      "generation": null,
+      "started_at": null,
+      "last_activity_at": null,
+      "doorbell": {
+        "state": "off",
+        "uncertain": false,
+        "generation": null,
+        "reason": null
+      }
+    }
+  },
+  {
+    "name": "unreadable-forbidden-native_id",
+    "valid": false,
+    "document": {
+      "session": "SES-example",
+      "operation_id": null,
+      "manager": "demo",
+      "runtime": null,
+      "native_id": "native-1",
+      "readable": false,
+      "state": "unknown",
+      "labels": {},
+      "generation": null,
+      "started_at": null,
+      "last_activity_at": null,
+      "doorbell": {
+        "state": "off",
+        "uncertain": false,
+        "generation": null,
+        "reason": null
+      }
+    }
+  },
+  {
+    "name": "unreadable-forbidden-generation",
+    "valid": false,
+    "document": {
+      "session": "SES-example",
+      "operation_id": null,
+      "manager": "demo",
+      "runtime": null,
+      "native_id": null,
+      "readable": false,
+      "state": "unknown",
+      "labels": {},
+      "generation": 1,
+      "started_at": null,
+      "last_activity_at": null,
+      "doorbell": {
+        "state": "off",
+        "uncertain": false,
+        "generation": null,
+        "reason": null
+      }
+    }
+  },
+  {
+    "name": "unreadable-forbidden-started_at",
+    "valid": false,
+    "document": {
+      "session": "SES-example",
+      "operation_id": null,
+      "manager": "demo",
+      "runtime": null,
+      "native_id": null,
+      "readable": false,
+      "state": "unknown",
+      "labels": {},
+      "generation": null,
+      "started_at": "2026-01-01T00:00:00Z",
+      "last_activity_at": null,
+      "doorbell": {
+        "state": "off",
+        "uncertain": false,
+        "generation": null,
+        "reason": null
+      }
+    }
+  },
+  {
+    "name": "unreadable-forbidden-last_activity_at",
+    "valid": false,
+    "document": {
+      "session": "SES-example",
+      "operation_id": null,
+      "manager": "demo",
+      "runtime": null,
+      "native_id": null,
+      "readable": false,
+      "state": "unknown",
+      "labels": {},
+      "generation": null,
+      "started_at": null,
+      "last_activity_at": "2026-01-01T00:00:00Z",
+      "doorbell": {
+        "state": "off",
+        "uncertain": false,
+        "generation": null,
+        "reason": null
+      }
+    }
+  },
+  {
+    "name": "unreadable-forbidden-doorbell",
+    "valid": false,
+    "document": {
+      "session": "SES-example",
+      "operation_id": null,
+      "manager": "demo",
+      "runtime": null,
+      "native_id": null,
+      "readable": false,
+      "state": "unknown",
+      "labels": {},
+      "generation": null,
+      "started_at": null,
+      "last_activity_at": null,
+      "doorbell": {
+        "state": "off",
+        "uncertain": true,
+        "generation": null,
+        "reason": "previous_generation_uncertain"
+      }
+    }
+  },
+  {
+    "name": "unreadable-forbidden-readable",
+    "valid": false,
+    "document": {
+      "session": "SES-example",
+      "operation_id": null,
+      "manager": "demo",
+      "runtime": null,
+      "native_id": null,
+      "readable": null,
+      "state": "unknown",
+      "labels": {},
+      "generation": null,
+      "started_at": null,
+      "last_activity_at": null,
+      "doorbell": {
+        "state": "off",
+        "uncertain": false,
+        "generation": null,
+        "reason": null
+      }
+    }
+  },
+  {
+    "name": "readable-null-operation_id",
+    "valid": false,
+    "document": {
+      "session": "SES-example",
+      "operation_id": null,
+      "manager": "demo",
+      "runtime": "codex_cli",
+      "native_id": null,
+      "readable": true,
+      "state": "unknown",
+      "labels": {},
+      "generation": 1,
+      "started_at": "2026-01-01T00:00:00Z",
+      "last_activity_at": null,
+      "doorbell": {
+        "state": "off",
+        "uncertain": false,
+        "generation": null,
+        "reason": null
+      }
+    }
+  },
+  {
+    "name": "readable-null-runtime",
+    "valid": false,
+    "document": {
+      "session": "SES-example",
+      "operation_id": "11111111-1111-4111-8111-111111111111",
+      "manager": "demo",
+      "runtime": null,
+      "native_id": null,
+      "readable": true,
+      "state": "unknown",
+      "labels": {},
+      "generation": 1,
+      "started_at": "2026-01-01T00:00:00Z",
+      "last_activity_at": null,
+      "doorbell": {
+        "state": "off",
+        "uncertain": false,
+        "generation": null,
+        "reason": null
+      }
+    }
+  },
+  {
+    "name": "readable-null-generation",
+    "valid": false,
+    "document": {
+      "session": "SES-example",
+      "operation_id": "11111111-1111-4111-8111-111111111111",
+      "manager": "demo",
+      "runtime": "codex_cli",
+      "native_id": null,
+      "readable": true,
+      "state": "unknown",
+      "labels": {},
+      "generation": null,
+      "started_at": "2026-01-01T00:00:00Z",
+      "last_activity_at": null,
+      "doorbell": {
+        "state": "off",
+        "uncertain": false,
+        "generation": null,
+        "reason": null
+      }
+    }
+  },
+  {
+    "name": "readable-null-started_at",
+    "valid": false,
+    "document": {
+      "session": "SES-example",
+      "operation_id": "11111111-1111-4111-8111-111111111111",
+      "manager": "demo",
+      "runtime": "codex_cli",
+      "native_id": null,
+      "readable": true,
+      "state": "unknown",
+      "labels": {},
+      "generation": 1,
+      "started_at": null,
+      "last_activity_at": null,
+      "doorbell": {
+        "state": "off",
+        "uncertain": false,
+        "generation": null,
+        "reason": null
+      }
+    }
+  }
+]

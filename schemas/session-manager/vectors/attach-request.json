@@ -1,0 +1,65 @@
+[
+  {
+    "name": "positive-control",
+    "valid": true,
+    "document": {
+      "session": "SES-example",
+      "expected_generation": 1
+    }
+  },
+  {
+    "name": "missing-session",
+    "valid": false,
+    "document": {
+      "expected_generation": 1
+    }
+  },
+  {
+    "name": "missing-expected_generation",
+    "valid": false,
+    "document": {
+      "session": "SES-example"
+    }
+  },
+  {
+    "name": "unknown-member",
+    "valid": false,
+    "document": {
+      "session": "SES-example",
+      "expected_generation": 1,
+      "extra": "sentinel"
+    }
+  },
+  {
+    "name": "generation-bound-1",
+    "valid": true,
+    "document": {
+      "session": "SES-example",
+      "expected_generation": 1
+    }
+  },
+  {
+    "name": "generation-bound-9007199254740991",
+    "valid": true,
+    "document": {
+      "session": "SES-example",
+      "expected_generation": 9007199254740991
+    }
+  },
+  {
+    "name": "generation-bound-0",
+    "valid": false,
+    "document": {
+      "session": "SES-example",
+      "expected_generation": 0
+    }
+  },
+  {
+    "name": "generation-bound-9007199254740992",
+    "valid": false,
+    "document": {
+      "session": "SES-example",
+      "expected_generation": 9007199254740992
+    }
+  }
+]

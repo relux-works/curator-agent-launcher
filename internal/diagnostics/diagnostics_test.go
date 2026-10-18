@@ -201,6 +201,14 @@ func TestExitForCode(t *testing.T) {
 			diagnostics.CodeSessionHostDefaultNotReady:
 			want = diagnostics.ExitPolicy
 		}
+		switch c {
+		case "session_host_protocol_error", "session_host_capability_missing":
+			want = 6
+		case "session_host_delegated_unauthorized":
+			want = 16
+		case "credential_reserved_name", "credential_injection_unavailable", "credential_source_conflict", "credential_node_missing", "credential_store_unreadable", "credential_binding_mismatch", "credential_source_stale", "credential_source_revoked", "credential_source_expired", "environment_credential_store_unsupported", "werkstatt_record_invalid", "werkstatt_git_layout_invalid", "werkstatt_context_leak", "werkstatt_context_check_failed", "fragment_version_unsupported":
+			want = 2
+		}
 		if got := diagnostics.ExitForCode(c); got != want {
 			t.Errorf("ExitForCode(%q) = %d, want %d", c, got, want)
 		}

@@ -229,41 +229,56 @@ func (r StatusRefusal) Detail() string {
 // unavailable.
 func readStatusRecords(r io.Reader) ([]StatusRefusal, error) {
 	var out []StatusRefusal
+	err := DrainStatusRecords(r, NormalizeStatusRecord, func(refusal StatusRefusal) { out = append(out, refusal) })
+	if err != nil {
+		return nil, err
+	}
+	return out, err
+}
+
+// DrainStatusRecords shares the SPEC framing and permanent-poison classifier
+// with plugin terminal transports. It retains no records itself; accept may
+// keep only the last refusal even for a lifetime stream. A caller must discard
+// accepted records when the final channel result is an error.
+func DrainStatusRecords(r io.Reader, normalize func([]byte) (StatusRefusal, error), accept func(StatusRefusal)) error {
 	poisoned := false
 	for {
 		var hdr [4]byte
 		_, err := io.ReadFull(r, hdr[:])
 		if err == io.EOF {
 			if poisoned {
-				return nil, errStatusProtocol
+				return errStatusProtocol
 			}
-			return out, nil
+			return nil
 		}
 		if err != nil {
 			if poisoned {
-				return nil, errStatusProtocol
+				return errStatusProtocol
 			}
-			return nil, errStatusTransport
+			return errStatusTransport
 		}
 		size := binary.BigEndian.Uint32(hdr[:])
 		if size == 0 || size > statusRecordMax {
-			return nil, errStatusProtocol
+			return errStatusProtocol
 		}
 		body := make([]byte, size)
 		if _, err := io.ReadFull(r, body); err != nil {
 			if poisoned {
-				return nil, errStatusProtocol
+				return errStatusProtocol
 			}
-			return nil, errStatusTransport
+			return errStatusTransport
 		}
-		refusal, err := NormalizeStatusRecord(body)
+		refusal, err := normalize(body)
 		if err != nil {
 			poisoned = true
 			continue
 		}
-		out = append(out, refusal)
+		accept(refusal)
 	}
 }
+
+// StatusProtocolFailure distinguishes poison from a truncated transport.
+func StatusProtocolFailure(err error) bool { return errors.Is(err, errStatusProtocol) }
 
 var errStatusProtocol = errors.New("receiver status protocol violation")
 var errStatusTransport = errors.New("receiver status transport loss")

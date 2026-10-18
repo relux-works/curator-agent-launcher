@@ -22,6 +22,13 @@ Target front-door amendment (draft, under review, not implemented):
 a registered session-manager plugin, adds `curator run werkstatt up|down`,
 Muse v4, setup-token injection, a2a doorbells and the signed distribution.
 
+The launcher-side protocol library is available in
+`internal/sessionmanager/client`: validated RPCs, terminal fd4 transport,
+request-derived capability decisions, and durable operation reconciliation.
+Its [schemas and vectors](schemas/session-manager/README.md) are executable
+through Go tests. This library is not yet wired into host selection or the
+Werkstatt commands; it includes no session-manager implementation.
+
 ## Target one-shot exec mode
 
 D-EXECUTOR (owner decision, 2026-10-11) selects a narrow agent-account
@@ -765,7 +772,7 @@ No refusal retries with a different model or weaker launch.
 
 ```bash
 make build      # go build ./...
-make fmt-check  # gofmt -l over cmd and internal; fails on unformatted files
+make fmt-check  # gofmt -l over cmd, internal and schemas; fails on unformatted files
 make vet        # go vet ./...
 make test       # go test ./... -count=1 (includes the CLI goldens)
 make race       # go test ./... -count=1 -race
@@ -786,6 +793,7 @@ platform execution evidence must come from the corresponding runner.
 |---|---|---|---|
 | `curator-run session-manager` | inspect and atomically update the manager registry | `curator-run session-manager list/show/register/select/unregister` (forms above) | stdout or JSON; `session-managers.json` in the effective target config home |
 | `.scripts/selector-mutants.py` | bounded selector config, response, transport, precedence and shadow controls | `python3 .scripts/selector-mutants.py [evidence-dir]` | per-probe logs and `summary.tsv`, default `.temp/selector-mutants/`; restores source bytes |
+| `.scripts/plugin-client-mutants.py` | bounded plugin transport, schema, capability, reconciliation and CAS controls | `python3 .scripts/plugin-client-mutants.py [evidence-dir]`; inventory: `python3 .scripts/plugin-client-mutants.py --list` | per-control logs and `summary.tsv`, default `.temp/plugin-client-mutants/`; restores candidate bytes; run before other checks |
 | `.scripts/session-manager-mutants.py` | bounded registry/registration/atomic-write, transaction-lock and deadline negative controls | `python3 .scripts/session-manager-mutants.py [evidence-dir]` | per-probe logs and `summary.tsv`, default `.temp/session-manager-mutants/`; restores source bytes |
 | `curator-run migrate` | copy legacy configs and remove withdrawn host defaults | `curator-run migrate [--dry-run]` | plan on stdout; new files in `/etc/swarma/launcher/` and `${XDG_CONFIG_HOME:-~/.config}/swarma/launcher/`, rewritten copies keep `.bak` |
 | `go` (build, vet, test, race) | build and behavioral suite | `make check` and the targets above | stdout; nothing written to the tree |

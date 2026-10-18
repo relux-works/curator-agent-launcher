@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:relux:curator-run:stop-request",
+  "title": "stop-request 1.0.0",
+  "type": "object",
+  "properties": {
+    "session": {
+      "type": "string",
+      "pattern": "^SES-[A-Za-z0-9]{1,48}$"
+    },
+    "expected_generation": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "mode": {
+      "enum": [
+        "graceful",
+        "force"
+      ]
+    },
+    "precondition": {
+      "enum": [
+        "none",
+        "not-busy"
+      ]
+    }
+  },
+  "required": [
+    "session",
+    "expected_generation",
+    "mode",
+    "precondition"
+  ],
+  "additionalProperties": false
+}

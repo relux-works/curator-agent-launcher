@@ -1,0 +1,241 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:relux:curator-run:delegated-resume",
+  "title": "delegated-resume 1.0.0",
+  "type": "object",
+  "properties": {
+    "operation_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "submitted_at": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+      "format": "date-time"
+    },
+    "admission_key": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "pattern": "^werkstatt:[a-z0-9][a-z0-9-]{0,47}$"
+        }
+      ]
+    },
+    "runtime": {
+      "enum": [
+        "claude_code",
+        "codex_cli",
+        "muse"
+      ]
+    },
+    "profile": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "allOf": [
+            {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9]([A-Za-z0-9._-]*[A-Za-z0-9_-])?$",
+              "maxLength": 128
+            },
+            {
+              "not": {
+                "type": "string",
+                "pattern": "^([cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9])([.]|$)"
+              }
+            }
+          ]
+        },
+        "lock_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "fragment_digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      },
+      "required": [
+        "name",
+        "lock_sha256",
+        "fragment_digest"
+      ],
+      "additionalProperties": false
+    },
+    "credential_source": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "source": {
+              "type": "object",
+              "properties": {
+                "mode": {
+                  "const": "node"
+                },
+                "source_ref": {
+                  "type": "string",
+                  "pattern": "^local:[0-9a-f]{32}$"
+                },
+                "harness_channel": {
+                  "const": "CLAUDE_CODE_OAUTH_TOKEN"
+                }
+              },
+              "required": [
+                "mode",
+                "source_ref",
+                "harness_channel"
+              ],
+              "additionalProperties": false
+            },
+            "source_generation": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "policy_generation": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "source",
+            "source_generation",
+            "policy_generation"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "doorbell": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "identity": {
+              "type": "string",
+              "pattern": "^[a-z0-9._=-]{1,64}$"
+            },
+            "heartbeat": {
+              "type": "string",
+              "pattern": "^([3-9][0-9]s|[1-9][0-9]{2}s|[12][0-9]{3}s|3[0-5][0-9]{2}s|3600s|[1-9]m|[1-5][0-9]m|60m)$"
+            },
+            "max_wakes_per_hour": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 60
+            }
+          },
+          "required": [
+            "identity",
+            "heartbeat",
+            "max_wakes_per_hour"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "detach": {
+      "type": "boolean"
+    },
+    "selector": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "latest"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "handle"
+            },
+            "handle": {
+              "type": "string",
+              "pattern": "^SES-[A-Za-z0-9]{1,48}$"
+            }
+          },
+          "required": [
+            "kind",
+            "handle"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "provider_id"
+            },
+            "id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9-]{1,64}$"
+            }
+          },
+          "required": [
+            "kind",
+            "id"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "scope": {
+      "type": "object",
+      "properties": {
+        "cwd": {
+          "type": "string",
+          "pattern": "^/[^\u0000]*$"
+        },
+        "labels": {
+          "type": "object",
+          "maxProperties": 16,
+          "propertyNames": {
+            "type": "string",
+            "pattern": "^[a-z0-9.-]{1,32}$"
+          },
+          "additionalProperties": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9._@:-]{1,128}$"
+          }
+        }
+      },
+      "required": [
+        "cwd",
+        "labels"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "operation_id",
+    "submitted_at",
+    "admission_key",
+    "runtime",
+    "profile",
+    "credential_source",
+    "doorbell",
+    "detach",
+    "selector",
+    "scope"
+  ],
+  "additionalProperties": false
+}

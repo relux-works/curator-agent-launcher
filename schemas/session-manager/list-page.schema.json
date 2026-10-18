@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:relux:curator-run:list-page",
+  "title": "list-page 1.0.0",
+  "type": "object",
+  "properties": {
+    "protocol": {
+      "const": "curator-session-manager/1"
+    },
+    "ok": {
+      "const": true
+    },
+    "sessions": {
+      "type": "array",
+      "items": {
+        "$ref": "urn:relux:curator-run:session-record"
+      }
+    },
+    "next_cursor": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._-]{1,256}$"
+        }
+      ]
+    }
+  },
+  "required": [
+    "protocol",
+    "ok",
+    "sessions",
+    "next_cursor"
+  ],
+  "additionalProperties": false
+}

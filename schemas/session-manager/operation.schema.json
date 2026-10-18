@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:relux:curator-run:werkstatt-operation-v1",
+  "title": "werkstatt-operation-v1 1.0.0",
+  "type": "object",
+  "properties": {
+    "operation_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "kind": {
+      "enum": [
+        "launch",
+        "resume"
+      ]
+    },
+    "submitted_at": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+      "format": "date-time"
+    },
+    "admission_key": {
+      "type": "string",
+      "pattern": "^werkstatt:[a-z0-9][a-z0-9-]{0,47}$"
+    },
+    "manager": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]{0,31}$"
+        },
+        "executable": {
+          "type": "string",
+          "pattern": "^/[^\u0000]*$"
+        },
+        "registered_at": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "executable",
+        "registered_at"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "operation_id",
+    "kind",
+    "submitted_at",
+    "admission_key",
+    "manager"
+  ],
+  "additionalProperties": false
+}

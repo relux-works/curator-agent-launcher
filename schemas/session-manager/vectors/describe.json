@@ -1,0 +1,110 @@
+[
+  {
+    "name": "positive-control",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "id": "demo",
+      "version": "1.0.0",
+      "capabilities": [
+        "status/1"
+      ],
+      "runtimes": {
+        "codex_cli": [
+          "status"
+        ]
+      }
+    }
+  },
+  {
+    "name": "uninterpreted-capabilities-1",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "id": "demo",
+      "version": "1.0.0",
+      "capabilities": [
+        "unknown token with spaces"
+      ],
+      "runtimes": {
+        "codex_cli": [
+          "status"
+        ]
+      }
+    }
+  },
+  {
+    "name": "version-bound-2",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "id": "demo",
+      "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "capabilities": [
+        "status/1"
+      ],
+      "runtimes": {
+        "codex_cli": [
+          "status"
+        ]
+      }
+    }
+  },
+  {
+    "name": "version-bound-3",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "id": "demo",
+      "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "capabilities": [
+        "status/1"
+      ],
+      "runtimes": {
+        "codex_cli": [
+          "status"
+        ]
+      }
+    }
+  },
+  {
+    "name": "version-bound-4",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "id": "demo",
+      "version": "",
+      "capabilities": [
+        "status/1"
+      ],
+      "runtimes": {
+        "codex_cli": [
+          "status"
+        ]
+      }
+    }
+  },
+  {
+    "name": "version-bound-5",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "id": "demo",
+      "version": "release value",
+      "capabilities": [
+        "status/1"
+      ],
+      "runtimes": {
+        "codex_cli": [
+          "status"
+        ]
+      }
+    }
+  }
+]

@@ -1,0 +1,911 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:relux:curator-run:refusal",
+  "title": "refusal 1.0.0",
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "const": "curator-session-manager/1"
+        },
+        "ok": {
+          "const": false
+        },
+        "code": {
+          "const": "credential_binding_mismatch"
+        },
+        "details": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "protocol",
+        "ok",
+        "code",
+        "details"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "const": "curator-session-manager/1"
+        },
+        "ok": {
+          "const": false
+        },
+        "code": {
+          "const": "credential_injection_unavailable"
+        },
+        "details": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "protocol",
+        "ok",
+        "code",
+        "details"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "const": "curator-session-manager/1"
+        },
+        "ok": {
+          "const": false
+        },
+        "code": {
+          "const": "credential_node_missing"
+        },
+        "details": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "protocol",
+        "ok",
+        "code",
+        "details"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "const": "curator-session-manager/1"
+        },
+        "ok": {
+          "const": false
+        },
+        "code": {
+          "const": "credential_source_conflict"
+        },
+        "details": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "protocol",
+        "ok",
+        "code",
+        "details"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "const": "curator-session-manager/1"
+        },
+        "ok": {
+          "const": false
+        },
+        "code": {
+          "const": "credential_source_expired"
+        },
+        "details": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "protocol",
+        "ok",
+        "code",
+        "details"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "const": "curator-session-manager/1"
+        },
+        "ok": {
+          "const": false
+        },
+        "code": {
+          "const": "credential_source_revoked"
+        },
+        "details": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "protocol",
+        "ok",
+        "code",
+        "details"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "const": "curator-session-manager/1"
+        },
+        "ok": {
+          "const": false
+        },
+        "code": {
+          "const": "credential_source_stale"
+        },
+        "details": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "protocol",
+        "ok",
+        "code",
+        "details"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "const": "curator-session-manager/1"
+        },
+        "ok": {
+          "const": false
+        },
+        "code": {
+          "const": "credential_store_unreadable"
+        },
+        "details": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "protocol",
+        "ok",
+        "code",
+        "details"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "const": "curator-session-manager/1"
+        },
+        "ok": {
+          "const": false
+        },
+        "code": {
+          "const": "environment_credential_store_unsupported"
+        },
+        "details": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "protocol",
+        "ok",
+        "code",
+        "details"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "const": "curator-session-manager/1"
+        },
+        "ok": {
+          "const": false
+        },
+        "code": {
+          "const": "launch_plan_invalid"
+        },
+        "details": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "protocol",
+        "ok",
+        "code",
+        "details"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "const": "curator-session-manager/1"
+        },
+        "ok": {
+          "const": false
+        },
+        "code": {
+          "const": "plan_provider_limited"
+        },
+        "details": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "protocol",
+        "ok",
+        "code",
+        "details"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "const": "curator-session-manager/1"
+        },
+        "ok": {
+          "const": false
+        },
+        "code": {
+          "const": "plan_refused"
+        },
+        "details": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "protocol",
+        "ok",
+        "code",
+        "details"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "const": "curator-session-manager/1"
+        },
+        "ok": {
+          "const": false
+        },
+        "code": {
+          "const": "policy_refused"
+        },
+        "details": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "protocol",
+        "ok",
+        "code",
+        "details"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "const": "curator-session-manager/1"
+        },
+        "ok": {
+          "const": false
+        },
+        "code": {
+          "const": "secret_policy_violation"
+        },
+        "details": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "protocol",
+        "ok",
+        "code",
+        "details"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "const": "curator-session-manager/1"
+        },
+        "ok": {
+          "const": false
+        },
+        "code": {
+          "const": "session_board_goal_unavailable"
+        },
+        "details": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "protocol",
+        "ok",
+        "code",
+        "details"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "const": "curator-session-manager/1"
+        },
+        "ok": {
+          "const": false
+        },
+        "code": {
+          "const": "session_curator_identity_stale"
+        },
+        "details": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "protocol",
+        "ok",
+        "code",
+        "details"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "const": "curator-session-manager/1"
+        },
+        "ok": {
+          "const": false
+        },
+        "code": {
+          "const": "session_generation_mismatch"
+        },
+        "details": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "protocol",
+        "ok",
+        "code",
+        "details"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "const": "curator-session-manager/1"
+        },
+        "ok": {
+          "const": false
+        },
+        "code": {
+          "const": "session_host_capability_missing"
+        },
+        "details": {
+          "type": "object",
+          "properties": {
+            "capability": {
+              "enum": [
+                "launch-delegated/1",
+                "launch-exact/2",
+                "resume/1",
+                "attach/1",
+                "status/1",
+                "list/1",
+                "stop/1",
+                "admission/1",
+                "board-goal/1",
+                "doorbell-claude/1",
+                "doorbell-codex/1",
+                "credential-node/1",
+                "labels/1",
+                "survives-upgrade",
+                "drains-on-upgrade",
+                "launch-exact-detached",
+                "weights-pin"
+              ]
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "protocol",
+        "ok",
+        "code",
+        "details"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "const": "curator-session-manager/1"
+        },
+        "ok": {
+          "const": false
+        },
+        "code": {
+          "const": "session_host_provider_unsupported"
+        },
+        "details": {
+          "type": "object",
+          "properties": {
+            "environment": {
+              "enum": [
+                "claude_code",
+                "codex_cli",
+                "muse",
+                "pi",
+                "opencode",
+                "gemini"
+              ]
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "protocol",
+        "ok",
+        "code",
+        "details"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "const": "curator-session-manager/1"
+        },
+        "ok": {
+          "const": false
+        },
+        "code": {
+          "const": "session_host_unavailable"
+        },
+        "details": {
+          "type": "object",
+          "properties": {
+            "reason": {
+              "enum": [
+                "timeout",
+                "transport",
+                "not_found",
+                "prepared",
+                "cancelled",
+                "unreachable",
+                "index_unreadable"
+              ]
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "protocol",
+        "ok",
+        "code",
+        "details"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "const": "curator-session-manager/1"
+        },
+        "ok": {
+          "const": false
+        },
+        "code": {
+          "const": "session_liveness_unknown"
+        },
+        "details": {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "protocol",
+        "ok",
+        "code",
+        "details"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "const": "curator-session-manager/1"
+        },
+        "ok": {
+          "const": false
+        },
+        "code": {
+          "const": "session_operation_conflict"
+        },
+        "details": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "protocol",
+        "ok",
+        "code",
+        "details"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "const": "curator-session-manager/1"
+        },
+        "ok": {
+          "const": false
+        },
+        "code": {
+          "const": "session_operation_expired"
+        },
+        "details": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "protocol",
+        "ok",
+        "code",
+        "details"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "const": "curator-session-manager/1"
+        },
+        "ok": {
+          "const": false
+        },
+        "code": {
+          "const": "session_resume_ambiguous"
+        },
+        "details": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "protocol",
+        "ok",
+        "code",
+        "details"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "const": "curator-session-manager/1"
+        },
+        "ok": {
+          "const": false
+        },
+        "code": {
+          "const": "session_resume_identity_mismatch"
+        },
+        "details": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "protocol",
+        "ok",
+        "code",
+        "details"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "const": "curator-session-manager/1"
+        },
+        "ok": {
+          "const": false
+        },
+        "code": {
+          "const": "session_resume_invalid"
+        },
+        "details": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "protocol",
+        "ok",
+        "code",
+        "details"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "const": "curator-session-manager/1"
+        },
+        "ok": {
+          "const": false
+        },
+        "code": {
+          "const": "session_resume_location_mismatch"
+        },
+        "details": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "protocol",
+        "ok",
+        "code",
+        "details"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "const": "curator-session-manager/1"
+        },
+        "ok": {
+          "const": false
+        },
+        "code": {
+          "const": "session_resume_not_found"
+        },
+        "details": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "protocol",
+        "ok",
+        "code",
+        "details"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "const": "curator-session-manager/1"
+        },
+        "ok": {
+          "const": false
+        },
+        "code": {
+          "const": "session_resume_unreadable"
+        },
+        "details": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "protocol",
+        "ok",
+        "code",
+        "details"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "const": "curator-session-manager/1"
+        },
+        "ok": {
+          "const": false
+        },
+        "code": {
+          "const": "werkstatt_already_up"
+        },
+        "details": {
+          "type": "object",
+          "properties": {
+            "session": {
+              "type": "string",
+              "pattern": "^SES-[A-Za-z0-9]{1,48}$"
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "protocol",
+        "ok",
+        "code",
+        "details"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "const": "curator-session-manager/1"
+        },
+        "ok": {
+          "const": false
+        },
+        "code": {
+          "const": "werkstatt_busy"
+        },
+        "details": {
+          "type": "object",
+          "properties": {
+            "state": {
+              "enum": [
+                "busy",
+                "draining"
+              ]
+            },
+            "operation": {
+              "enum": [
+                "in_progress"
+              ]
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "protocol",
+        "ok",
+        "code",
+        "details"
+      ],
+      "additionalProperties": false
+    }
+  ]
+}

@@ -1,0 +1,329 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:relux:curator-run:session",
+  "title": "session 1.0.0",
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "const": "curator-session-manager/1"
+        },
+        "ok": {
+          "const": true
+        },
+        "session": {
+          "type": "string",
+          "pattern": "^SES-[A-Za-z0-9]{1,48}$"
+        },
+        "operation_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "manager": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]{0,31}$"
+        },
+        "runtime": {
+          "enum": [
+            "claude_code",
+            "codex_cli",
+            "muse"
+          ]
+        },
+        "native_id": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9-]{1,64}$"
+            }
+          ]
+        },
+        "readable": {
+          "const": true
+        },
+        "state": {
+          "enum": [
+            "starting",
+            "idle",
+            "busy",
+            "draining",
+            "down",
+            "unknown"
+          ]
+        },
+        "labels": {
+          "type": "object",
+          "maxProperties": 16,
+          "propertyNames": {
+            "type": "string",
+            "pattern": "^[a-z0-9.-]{1,32}$"
+          },
+          "additionalProperties": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9._@:-]{1,128}$"
+          }
+        },
+        "generation": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "started_at": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+          "format": "date-time"
+        },
+        "last_activity_at": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+              "format": "date-time"
+            }
+          ]
+        },
+        "doorbell": {
+          "type": "object",
+          "properties": {
+            "state": {
+              "enum": [
+                "armed",
+                "unavailable",
+                "off"
+              ]
+            },
+            "uncertain": {
+              "type": "boolean"
+            },
+            "generation": {
+              "anyOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9._:-]{1,128}$"
+                }
+              ]
+            },
+            "reason": {
+              "anyOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "enum": [
+                    "unsupported_version",
+                    "not_requested",
+                    "owner_unavailable",
+                    "bind_failed",
+                    "previous_generation_uncertain"
+                  ]
+                }
+              ]
+            }
+          },
+          "required": [
+            "state",
+            "uncertain",
+            "generation",
+            "reason"
+          ],
+          "additionalProperties": false,
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "state": {
+                    "const": "armed"
+                  }
+                }
+              },
+              "then": {
+                "properties": {
+                  "generation": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9._:-]{1,128}$"
+                  },
+                  "reason": {
+                    "type": "null"
+                  },
+                  "uncertain": {
+                    "const": false
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "state": {
+                    "const": "unavailable"
+                  }
+                }
+              },
+              "then": {
+                "properties": {
+                  "reason": {
+                    "enum": [
+                      "unsupported_version",
+                      "owner_unavailable",
+                      "bind_failed",
+                      "previous_generation_uncertain"
+                    ]
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "state": {
+                    "const": "off"
+                  }
+                }
+              },
+              "then": {
+                "properties": {
+                  "reason": {
+                    "anyOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "enum": [
+                          "not_requested",
+                          "previous_generation_uncertain"
+                        ]
+                      }
+                    ]
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "uncertain": {
+                    "const": true
+                  }
+                }
+              },
+              "then": {
+                "properties": {
+                  "reason": {
+                    "const": "previous_generation_uncertain"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "required": [
+        "protocol",
+        "ok",
+        "session",
+        "operation_id",
+        "manager",
+        "runtime",
+        "native_id",
+        "readable",
+        "state",
+        "labels",
+        "generation",
+        "started_at",
+        "last_activity_at",
+        "doorbell"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "const": "curator-session-manager/1"
+        },
+        "ok": {
+          "const": true
+        },
+        "session": {
+          "type": "string",
+          "pattern": "^SES-[A-Za-z0-9]{1,48}$"
+        },
+        "operation_id": {
+          "type": "null"
+        },
+        "manager": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]{0,31}$"
+        },
+        "runtime": {
+          "type": "null"
+        },
+        "native_id": {
+          "type": "null"
+        },
+        "readable": {
+          "const": false
+        },
+        "state": {
+          "const": "unknown"
+        },
+        "labels": {
+          "type": "object",
+          "maxProperties": 16,
+          "propertyNames": {
+            "type": "string",
+            "pattern": "^[a-z0-9.-]{1,32}$"
+          },
+          "additionalProperties": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9._@:-]{1,128}$"
+          }
+        },
+        "generation": {
+          "type": "null"
+        },
+        "started_at": {
+          "type": "null"
+        },
+        "last_activity_at": {
+          "type": "null"
+        },
+        "doorbell": {
+          "const": {
+            "state": "off",
+            "uncertain": false,
+            "generation": null,
+            "reason": null
+          }
+        }
+      },
+      "required": [
+        "protocol",
+        "ok",
+        "session",
+        "operation_id",
+        "manager",
+        "runtime",
+        "native_id",
+        "readable",
+        "state",
+        "labels",
+        "generation",
+        "started_at",
+        "last_activity_at",
+        "doorbell"
+      ],
+      "additionalProperties": false
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:relux:curator-run:attach-request",
+  "title": "attach-request 1.0.0",
+  "type": "object",
+  "properties": {
+    "session": {
+      "type": "string",
+      "pattern": "^SES-[A-Za-z0-9]{1,48}$"
+    },
+    "expected_generation": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    }
+  },
+  "required": [
+    "session",
+    "expected_generation"
+  ],
+  "additionalProperties": false
+}

@@ -179,7 +179,7 @@ const (
 
 // Codes returns the closed code set in SPEC §6 table order.
 func Codes() []string {
-	return []string{
+	codes := []string{
 		CodeUsage,
 		CodeResolveInvocationFailed,
 		CodeResolveEnvironmentUnknown,
@@ -232,6 +232,7 @@ func Codes() []string {
 		CodeSecretPolicyViolation,
 		CodePolicyRefused,
 	}
+	return append(codes, pluginCodes()...)
 }
 
 var valid = func() map[string]bool {
@@ -254,6 +255,9 @@ func Valid(code string) bool { return valid[code] }
 // unknown code still exits 1: a bug in code selection stays terminal and
 // visible, never silent success and never a usage report.
 func ExitForCode(code string) int {
+	if row, ok := PluginDiagnosticFor(code); ok {
+		return row.Exit
+	}
 	switch code {
 	case CodeUsage, CodeHostConflict, CodeSessionResumeInvalid, CodeLaunchPlanInvalid, CodeHostWithdrawn, CodeMigrateDestinationExists, CodeSessionManagerRegistryInvalid, CodeSessionManagerRegistryShadowed, CodeSessionManagerNotRegistered:
 		return ExitUsage

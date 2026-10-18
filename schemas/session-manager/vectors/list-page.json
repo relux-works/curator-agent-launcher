@@ -1,0 +1,697 @@
+[
+  {
+    "name": "positive-control",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "sessions": [
+        {
+          "session": "SES-example",
+          "operation_id": "11111111-1111-4111-8111-111111111111",
+          "manager": "demo",
+          "runtime": "codex_cli",
+          "native_id": null,
+          "readable": true,
+          "state": "unknown",
+          "labels": {},
+          "generation": 1,
+          "started_at": "2026-01-01T00:00:00Z",
+          "last_activity_at": null,
+          "doorbell": {
+            "state": "off",
+            "uncertain": false,
+            "generation": null,
+            "reason": null
+          }
+        }
+      ],
+      "next_cursor": null
+    }
+  },
+  {
+    "name": "next-page",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "sessions": [
+        {
+          "session": "SES-example",
+          "operation_id": "11111111-1111-4111-8111-111111111111",
+          "manager": "demo",
+          "runtime": "codex_cli",
+          "native_id": null,
+          "readable": true,
+          "state": "unknown",
+          "labels": {},
+          "generation": 1,
+          "started_at": "2026-01-01T00:00:00Z",
+          "last_activity_at": null,
+          "doorbell": {
+            "state": "off",
+            "uncertain": false,
+            "generation": null,
+            "reason": null
+          }
+        }
+      ],
+      "next_cursor": "page-2"
+    }
+  },
+  {
+    "name": "cursor-bound-2",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "sessions": [
+        {
+          "session": "SES-example",
+          "operation_id": "11111111-1111-4111-8111-111111111111",
+          "manager": "demo",
+          "runtime": "codex_cli",
+          "native_id": null,
+          "readable": true,
+          "state": "unknown",
+          "labels": {},
+          "generation": 1,
+          "started_at": "2026-01-01T00:00:00Z",
+          "last_activity_at": null,
+          "doorbell": {
+            "state": "off",
+            "uncertain": false,
+            "generation": null,
+            "reason": null
+          }
+        }
+      ],
+      "next_cursor": ""
+    }
+  },
+  {
+    "name": "cursor-bound-3",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "sessions": [
+        {
+          "session": "SES-example",
+          "operation_id": "11111111-1111-4111-8111-111111111111",
+          "manager": "demo",
+          "runtime": "codex_cli",
+          "native_id": null,
+          "readable": true,
+          "state": "unknown",
+          "labels": {},
+          "generation": 1,
+          "started_at": "2026-01-01T00:00:00Z",
+          "last_activity_at": null,
+          "doorbell": {
+            "state": "off",
+            "uncertain": false,
+            "generation": null,
+            "reason": null
+          }
+        }
+      ],
+      "next_cursor": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    }
+  },
+  {
+    "name": "cursor-bound-4",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "sessions": [
+        {
+          "session": "SES-example",
+          "operation_id": "11111111-1111-4111-8111-111111111111",
+          "manager": "demo",
+          "runtime": "codex_cli",
+          "native_id": null,
+          "readable": true,
+          "state": "unknown",
+          "labels": {},
+          "generation": 1,
+          "started_at": "2026-01-01T00:00:00Z",
+          "last_activity_at": null,
+          "doorbell": {
+            "state": "off",
+            "uncertain": false,
+            "generation": null,
+            "reason": null
+          }
+        }
+      ],
+      "next_cursor": "bad/cursor"
+    }
+  },
+  {
+    "name": "cursor-bound-5",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "sessions": [
+        {
+          "session": "SES-example",
+          "operation_id": "11111111-1111-4111-8111-111111111111",
+          "manager": "demo",
+          "runtime": "codex_cli",
+          "native_id": null,
+          "readable": true,
+          "state": "unknown",
+          "labels": {},
+          "generation": 1,
+          "started_at": "2026-01-01T00:00:00Z",
+          "last_activity_at": null,
+          "doorbell": {
+            "state": "off",
+            "uncertain": false,
+            "generation": null,
+            "reason": null
+          }
+        }
+      ],
+      "next_cursor": 123
+    }
+  },
+  {
+    "name": "poisoned-session-page",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "sessions": [
+        {
+          "session": "SES-example",
+          "operation_id": "11111111-1111-4111-8111-111111111111",
+          "manager": "demo",
+          "runtime": "codex_cli",
+          "native_id": null,
+          "readable": true,
+          "state": "unknown",
+          "labels": {},
+          "generation": 0,
+          "started_at": "2026-01-01T00:00:00Z",
+          "last_activity_at": null,
+          "doorbell": {
+            "state": "off",
+            "uncertain": false,
+            "generation": null,
+            "reason": null
+          }
+        }
+      ],
+      "next_cursor": null
+    }
+  },
+  {
+    "name": "missing-protocol",
+    "valid": false,
+    "document": {
+      "ok": true,
+      "sessions": [
+        {
+          "session": "SES-example",
+          "operation_id": "11111111-1111-4111-8111-111111111111",
+          "manager": "demo",
+          "runtime": "codex_cli",
+          "native_id": null,
+          "readable": true,
+          "state": "unknown",
+          "labels": {},
+          "generation": 1,
+          "started_at": "2026-01-01T00:00:00Z",
+          "last_activity_at": null,
+          "doorbell": {
+            "state": "off",
+            "uncertain": false,
+            "generation": null,
+            "reason": null
+          }
+        }
+      ],
+      "next_cursor": null
+    }
+  },
+  {
+    "name": "missing-ok",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "sessions": [
+        {
+          "session": "SES-example",
+          "operation_id": "11111111-1111-4111-8111-111111111111",
+          "manager": "demo",
+          "runtime": "codex_cli",
+          "native_id": null,
+          "readable": true,
+          "state": "unknown",
+          "labels": {},
+          "generation": 1,
+          "started_at": "2026-01-01T00:00:00Z",
+          "last_activity_at": null,
+          "doorbell": {
+            "state": "off",
+            "uncertain": false,
+            "generation": null,
+            "reason": null
+          }
+        }
+      ],
+      "next_cursor": null
+    }
+  },
+  {
+    "name": "missing-sessions",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "next_cursor": null
+    }
+  },
+  {
+    "name": "missing-next_cursor",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "sessions": [
+        {
+          "session": "SES-example",
+          "operation_id": "11111111-1111-4111-8111-111111111111",
+          "manager": "demo",
+          "runtime": "codex_cli",
+          "native_id": null,
+          "readable": true,
+          "state": "unknown",
+          "labels": {},
+          "generation": 1,
+          "started_at": "2026-01-01T00:00:00Z",
+          "last_activity_at": null,
+          "doorbell": {
+            "state": "off",
+            "uncertain": false,
+            "generation": null,
+            "reason": null
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "unknown-member",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "sessions": [
+        {
+          "session": "SES-example",
+          "operation_id": "11111111-1111-4111-8111-111111111111",
+          "manager": "demo",
+          "runtime": "codex_cli",
+          "native_id": null,
+          "readable": true,
+          "state": "unknown",
+          "labels": {},
+          "generation": 1,
+          "started_at": "2026-01-01T00:00:00Z",
+          "last_activity_at": null,
+          "doorbell": {
+            "state": "off",
+            "uncertain": false,
+            "generation": null,
+            "reason": null
+          }
+        }
+      ],
+      "next_cursor": null,
+      "extra": "sentinel"
+    }
+  },
+  {
+    "name": "boundary-next_cursor-valid",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "sessions": [
+        {
+          "session": "SES-example",
+          "operation_id": "11111111-1111-4111-8111-111111111111",
+          "manager": "demo",
+          "runtime": "codex_cli",
+          "native_id": null,
+          "readable": true,
+          "state": "unknown",
+          "labels": {},
+          "generation": 1,
+          "started_at": "2026-01-01T00:00:00Z",
+          "last_activity_at": null,
+          "doorbell": {
+            "state": "off",
+            "uncertain": false,
+            "generation": null,
+            "reason": null
+          }
+        }
+      ],
+      "next_cursor": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  },
+  {
+    "name": "boundary-next_cursor-invalid",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "sessions": [
+        {
+          "session": "SES-example",
+          "operation_id": "11111111-1111-4111-8111-111111111111",
+          "manager": "demo",
+          "runtime": "codex_cli",
+          "native_id": null,
+          "readable": true,
+          "state": "unknown",
+          "labels": {},
+          "generation": 1,
+          "started_at": "2026-01-01T00:00:00Z",
+          "last_activity_at": null,
+          "doorbell": {
+            "state": "off",
+            "uncertain": false,
+            "generation": null,
+            "reason": null
+          }
+        }
+      ],
+      "next_cursor": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  },
+  {
+    "name": "wrong-protocol",
+    "valid": false,
+    "document": {
+      "protocol": "other",
+      "ok": true,
+      "sessions": [
+        {
+          "session": "SES-example",
+          "operation_id": "11111111-1111-4111-8111-111111111111",
+          "manager": "demo",
+          "runtime": "codex_cli",
+          "native_id": null,
+          "readable": true,
+          "state": "unknown",
+          "labels": {},
+          "generation": 1,
+          "started_at": "2026-01-01T00:00:00Z",
+          "last_activity_at": null,
+          "doorbell": {
+            "state": "off",
+            "uncertain": false,
+            "generation": null,
+            "reason": null
+          }
+        }
+      ],
+      "next_cursor": null
+    }
+  },
+  {
+    "name": "required-type-protocol",
+    "valid": false,
+    "document": {
+      "protocol": null,
+      "ok": true,
+      "sessions": [
+        {
+          "session": "SES-example",
+          "operation_id": "11111111-1111-4111-8111-111111111111",
+          "manager": "demo",
+          "runtime": "codex_cli",
+          "native_id": null,
+          "readable": true,
+          "state": "unknown",
+          "labels": {},
+          "generation": 1,
+          "started_at": "2026-01-01T00:00:00Z",
+          "last_activity_at": null,
+          "doorbell": {
+            "state": "off",
+            "uncertain": false,
+            "generation": null,
+            "reason": null
+          }
+        }
+      ],
+      "next_cursor": null
+    }
+  },
+  {
+    "name": "required-type-ok",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": null,
+      "sessions": [
+        {
+          "session": "SES-example",
+          "operation_id": "11111111-1111-4111-8111-111111111111",
+          "manager": "demo",
+          "runtime": "codex_cli",
+          "native_id": null,
+          "readable": true,
+          "state": "unknown",
+          "labels": {},
+          "generation": 1,
+          "started_at": "2026-01-01T00:00:00Z",
+          "last_activity_at": null,
+          "doorbell": {
+            "state": "off",
+            "uncertain": false,
+            "generation": null,
+            "reason": null
+          }
+        }
+      ],
+      "next_cursor": null
+    }
+  },
+  {
+    "name": "required-type-sessions",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "sessions": null,
+      "next_cursor": null
+    }
+  },
+  {
+    "name": "unreadable",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "sessions": [
+        {
+          "session": "SES-example",
+          "operation_id": "11111111-1111-4111-8111-111111111111",
+          "manager": "demo",
+          "runtime": "codex_cli",
+          "native_id": null,
+          "readable": true,
+          "state": "unknown",
+          "labels": {},
+          "generation": 1,
+          "started_at": "2026-01-01T00:00:00Z",
+          "last_activity_at": null,
+          "doorbell": {
+            "state": "off",
+            "uncertain": false,
+            "generation": null,
+            "reason": null
+          }
+        },
+        {
+          "session": "SES-example",
+          "operation_id": null,
+          "manager": "demo",
+          "runtime": null,
+          "native_id": null,
+          "readable": false,
+          "state": "unknown",
+          "labels": {},
+          "generation": null,
+          "started_at": null,
+          "last_activity_at": null,
+          "doorbell": {
+            "state": "off",
+            "uncertain": false,
+            "generation": null,
+            "reason": null
+          }
+        }
+      ],
+      "next_cursor": null
+    }
+  },
+  {
+    "name": "mixed-readable",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "sessions": [
+        {
+          "session": "SES-example",
+          "operation_id": "11111111-1111-4111-8111-111111111111",
+          "manager": "demo",
+          "runtime": "codex_cli",
+          "native_id": null,
+          "readable": true,
+          "state": "unknown",
+          "labels": {},
+          "generation": 1,
+          "started_at": "2026-01-01T00:00:00Z",
+          "last_activity_at": null,
+          "doorbell": {
+            "state": "off",
+            "uncertain": false,
+            "generation": null,
+            "reason": null
+          }
+        },
+        {
+          "session": "SES-example",
+          "operation_id": "11111111-1111-4111-8111-111111111111",
+          "manager": "demo",
+          "runtime": "codex_cli",
+          "native_id": null,
+          "readable": true,
+          "state": "unknown",
+          "labels": {},
+          "generation": 1,
+          "started_at": "2026-01-01T00:00:00Z",
+          "last_activity_at": null,
+          "doorbell": {
+            "state": "off",
+            "uncertain": false,
+            "generation": null,
+            "reason": null
+          }
+        }
+      ],
+      "next_cursor": null
+    }
+  },
+  {
+    "name": "enveloped",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "sessions": [
+        {
+          "session": "SES-example",
+          "operation_id": "11111111-1111-4111-8111-111111111111",
+          "manager": "demo",
+          "runtime": "codex_cli",
+          "native_id": null,
+          "readable": true,
+          "state": "unknown",
+          "labels": {},
+          "generation": 1,
+          "started_at": "2026-01-01T00:00:00Z",
+          "last_activity_at": null,
+          "doorbell": {
+            "state": "off",
+            "uncertain": false,
+            "generation": null,
+            "reason": null
+          }
+        },
+        {
+          "protocol": "curator-session-manager/1",
+          "ok": true,
+          "session": "SES-example",
+          "operation_id": "11111111-1111-4111-8111-111111111111",
+          "manager": "demo",
+          "runtime": "codex_cli",
+          "native_id": null,
+          "readable": true,
+          "state": "unknown",
+          "labels": {},
+          "generation": 1,
+          "started_at": "2026-01-01T00:00:00Z",
+          "last_activity_at": null,
+          "doorbell": {
+            "state": "off",
+            "uncertain": false,
+            "generation": null,
+            "reason": null
+          }
+        }
+      ],
+      "next_cursor": null
+    }
+  },
+  {
+    "name": "unreadable-down",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "sessions": [
+        {
+          "session": "SES-example",
+          "operation_id": "11111111-1111-4111-8111-111111111111",
+          "manager": "demo",
+          "runtime": "codex_cli",
+          "native_id": null,
+          "readable": true,
+          "state": "unknown",
+          "labels": {},
+          "generation": 1,
+          "started_at": "2026-01-01T00:00:00Z",
+          "last_activity_at": null,
+          "doorbell": {
+            "state": "off",
+            "uncertain": false,
+            "generation": null,
+            "reason": null
+          }
+        },
+        {
+          "session": "SES-example",
+          "operation_id": null,
+          "manager": "demo",
+          "runtime": null,
+          "native_id": null,
+          "readable": false,
+          "state": "down",
+          "labels": {},
+          "generation": null,
+          "started_at": null,
+          "last_activity_at": null,
+          "doorbell": {
+            "state": "off",
+            "uncertain": false,
+            "generation": null,
+            "reason": null
+          }
+        }
+      ],
+      "next_cursor": null
+    }
+  }
+]

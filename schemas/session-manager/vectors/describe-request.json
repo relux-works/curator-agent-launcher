@@ -1,0 +1,14 @@
+[
+  {
+    "name": "positive-control",
+    "valid": true,
+    "document": {}
+  },
+  {
+    "name": "unknown-member",
+    "valid": false,
+    "document": {
+      "extra": "sentinel"
+    }
+  }
+]

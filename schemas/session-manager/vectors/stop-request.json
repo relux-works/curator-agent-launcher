@@ -1,0 +1,99 @@
+[
+  {
+    "name": "positive-control",
+    "valid": true,
+    "document": {
+      "session": "SES-example",
+      "expected_generation": 1,
+      "mode": "graceful",
+      "precondition": "none"
+    }
+  },
+  {
+    "name": "missing-session",
+    "valid": false,
+    "document": {
+      "expected_generation": 1,
+      "mode": "graceful",
+      "precondition": "none"
+    }
+  },
+  {
+    "name": "missing-expected_generation",
+    "valid": false,
+    "document": {
+      "session": "SES-example",
+      "mode": "graceful",
+      "precondition": "none"
+    }
+  },
+  {
+    "name": "missing-mode",
+    "valid": false,
+    "document": {
+      "session": "SES-example",
+      "expected_generation": 1,
+      "precondition": "none"
+    }
+  },
+  {
+    "name": "missing-precondition",
+    "valid": false,
+    "document": {
+      "session": "SES-example",
+      "expected_generation": 1,
+      "mode": "graceful"
+    }
+  },
+  {
+    "name": "unknown-member",
+    "valid": false,
+    "document": {
+      "session": "SES-example",
+      "expected_generation": 1,
+      "mode": "graceful",
+      "precondition": "none",
+      "extra": "sentinel"
+    }
+  },
+  {
+    "name": "generation-bound-1",
+    "valid": true,
+    "document": {
+      "session": "SES-example",
+      "expected_generation": 1,
+      "mode": "graceful",
+      "precondition": "none"
+    }
+  },
+  {
+    "name": "generation-bound-9007199254740991",
+    "valid": true,
+    "document": {
+      "session": "SES-example",
+      "expected_generation": 9007199254740991,
+      "mode": "graceful",
+      "precondition": "none"
+    }
+  },
+  {
+    "name": "generation-bound-0",
+    "valid": false,
+    "document": {
+      "session": "SES-example",
+      "expected_generation": 0,
+      "mode": "graceful",
+      "precondition": "none"
+    }
+  },
+  {
+    "name": "generation-bound-9007199254740992",
+    "valid": false,
+    "document": {
+      "session": "SES-example",
+      "expected_generation": 9007199254740992,
+      "mode": "graceful",
+      "precondition": "none"
+    }
+  }
+]

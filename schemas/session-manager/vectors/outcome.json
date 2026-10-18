@@ -1,0 +1,1298 @@
+[
+  {
+    "name": "positive-control",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "not_found"
+    }
+  },
+  {
+    "name": "outcome-not_found",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "not_found"
+    }
+  },
+  {
+    "name": "outcome-members-not_found",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "not_found",
+      "session": {
+        "protocol": "curator-session-manager/1",
+        "ok": true,
+        "session": "SES-example",
+        "operation_id": "11111111-1111-4111-8111-111111111111",
+        "manager": "demo",
+        "runtime": "codex_cli",
+        "native_id": null,
+        "readable": true,
+        "state": "unknown",
+        "labels": {},
+        "generation": 1,
+        "started_at": "2026-01-01T00:00:00Z",
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        }
+      }
+    }
+  },
+  {
+    "name": "outcome-prepared",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "prepared"
+    }
+  },
+  {
+    "name": "outcome-members-prepared",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "prepared",
+      "session": {
+        "protocol": "curator-session-manager/1",
+        "ok": true,
+        "session": "SES-example",
+        "operation_id": "11111111-1111-4111-8111-111111111111",
+        "manager": "demo",
+        "runtime": "codex_cli",
+        "native_id": null,
+        "readable": true,
+        "state": "unknown",
+        "labels": {},
+        "generation": 1,
+        "started_at": "2026-01-01T00:00:00Z",
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        }
+      }
+    }
+  },
+  {
+    "name": "outcome-admitted",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "admitted"
+    }
+  },
+  {
+    "name": "outcome-members-admitted",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "admitted",
+      "session": {
+        "protocol": "curator-session-manager/1",
+        "ok": true,
+        "session": "SES-example",
+        "operation_id": "11111111-1111-4111-8111-111111111111",
+        "manager": "demo",
+        "runtime": "codex_cli",
+        "native_id": null,
+        "readable": true,
+        "state": "unknown",
+        "labels": {},
+        "generation": 1,
+        "started_at": "2026-01-01T00:00:00Z",
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        }
+      }
+    }
+  },
+  {
+    "name": "outcome-started",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "started",
+      "session": {
+        "session": "SES-example",
+        "operation_id": "11111111-1111-4111-8111-111111111111",
+        "manager": "demo",
+        "runtime": "codex_cli",
+        "native_id": null,
+        "readable": true,
+        "state": "unknown",
+        "labels": {},
+        "generation": 1,
+        "started_at": "2026-01-01T00:00:00Z",
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        }
+      }
+    }
+  },
+  {
+    "name": "outcome-members-started",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "started"
+    }
+  },
+  {
+    "name": "outcome-failed",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "policy_refused"
+    }
+  },
+  {
+    "name": "outcome-members-failed",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed"
+    }
+  },
+  {
+    "name": "outcome-cancelled",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "cancelled"
+    }
+  },
+  {
+    "name": "outcome-members-cancelled",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "cancelled",
+      "session": {
+        "protocol": "curator-session-manager/1",
+        "ok": true,
+        "session": "SES-example",
+        "operation_id": "11111111-1111-4111-8111-111111111111",
+        "manager": "demo",
+        "runtime": "codex_cli",
+        "native_id": null,
+        "readable": true,
+        "state": "unknown",
+        "labels": {},
+        "generation": 1,
+        "started_at": "2026-01-01T00:00:00Z",
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        }
+      }
+    }
+  },
+  {
+    "name": "outcome-unknown",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "unknown"
+    }
+  },
+  {
+    "name": "outcome-members-unknown",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "unknown",
+      "session": {
+        "protocol": "curator-session-manager/1",
+        "ok": true,
+        "session": "SES-example",
+        "operation_id": "11111111-1111-4111-8111-111111111111",
+        "manager": "demo",
+        "runtime": "codex_cli",
+        "native_id": null,
+        "readable": true,
+        "state": "unknown",
+        "labels": {},
+        "generation": 1,
+        "started_at": "2026-01-01T00:00:00Z",
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        }
+      }
+    }
+  },
+  {
+    "name": "missing-protocol",
+    "valid": false,
+    "document": {
+      "ok": true,
+      "outcome": "not_found"
+    }
+  },
+  {
+    "name": "missing-ok",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "outcome": "not_found"
+    }
+  },
+  {
+    "name": "missing-outcome",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true
+    }
+  },
+  {
+    "name": "unknown-member",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "not_found",
+      "extra": "sentinel"
+    }
+  },
+  {
+    "name": "wrong-protocol",
+    "valid": false,
+    "document": {
+      "protocol": "other",
+      "ok": true,
+      "outcome": "not_found"
+    }
+  },
+  {
+    "name": "required-type-protocol",
+    "valid": false,
+    "document": {
+      "protocol": null,
+      "ok": true,
+      "outcome": "not_found"
+    }
+  },
+  {
+    "name": "required-type-ok",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": null,
+      "outcome": "not_found"
+    }
+  },
+  {
+    "name": "required-type-outcome",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": null
+    }
+  },
+  {
+    "name": "historical-code-ax_handoff_failed",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "ax_handoff_failed"
+    }
+  },
+  {
+    "name": "historical-code-credential_binding_mismatch",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "credential_binding_mismatch"
+    }
+  },
+  {
+    "name": "historical-code-credential_injection_unavailable",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "credential_injection_unavailable"
+    }
+  },
+  {
+    "name": "historical-code-credential_node_missing",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "credential_node_missing"
+    }
+  },
+  {
+    "name": "historical-code-credential_reserved_name",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "credential_reserved_name"
+    }
+  },
+  {
+    "name": "historical-code-credential_source_conflict",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "credential_source_conflict"
+    }
+  },
+  {
+    "name": "historical-code-credential_source_expired",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "credential_source_expired"
+    }
+  },
+  {
+    "name": "historical-code-credential_source_revoked",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "credential_source_revoked"
+    }
+  },
+  {
+    "name": "historical-code-credential_source_stale",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "credential_source_stale"
+    }
+  },
+  {
+    "name": "historical-code-credential_store_unreadable",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "credential_store_unreadable"
+    }
+  },
+  {
+    "name": "historical-code-defaults_config_invalid",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "defaults_config_invalid"
+    }
+  },
+  {
+    "name": "historical-code-defaults_unresolvable",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "defaults_unresolvable"
+    }
+  },
+  {
+    "name": "historical-code-doorbell_setup_failed",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "doorbell_setup_failed"
+    }
+  },
+  {
+    "name": "historical-code-env_unsupported",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "env_unsupported"
+    }
+  },
+  {
+    "name": "historical-code-environment_credential_store_unsupported",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "environment_credential_store_unsupported"
+    }
+  },
+  {
+    "name": "historical-code-exec_provider_missing",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "exec_provider_missing"
+    }
+  },
+  {
+    "name": "historical-code-fragment_version_unsupported",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "fragment_version_unsupported"
+    }
+  },
+  {
+    "name": "historical-code-host_configuration_conflict",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "host_configuration_conflict"
+    }
+  },
+  {
+    "name": "historical-code-host_member_withdrawn",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "host_member_withdrawn"
+    }
+  },
+  {
+    "name": "historical-code-launch_plan_invalid",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "launch_plan_invalid"
+    }
+  },
+  {
+    "name": "historical-code-mcp_layer_missing",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "mcp_layer_missing"
+    }
+  },
+  {
+    "name": "historical-code-mcp_layer_unreadable",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "mcp_layer_unreadable"
+    }
+  },
+  {
+    "name": "historical-code-migrate_destination_exists",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "migrate_destination_exists"
+    }
+  },
+  {
+    "name": "historical-code-network_configuration_conflict",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "network_configuration_conflict"
+    }
+  },
+  {
+    "name": "historical-code-network_file_unreadable",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "network_file_unreadable"
+    }
+  },
+  {
+    "name": "historical-code-network_profile_denied",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "network_profile_denied"
+    }
+  },
+  {
+    "name": "historical-code-network_profile_invalid",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "network_profile_invalid"
+    }
+  },
+  {
+    "name": "historical-code-network_profile_unknown",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "network_profile_unknown"
+    }
+  },
+  {
+    "name": "historical-code-network_proxy_auth_failed",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "network_proxy_auth_failed"
+    }
+  },
+  {
+    "name": "historical-code-network_proxy_unreachable",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "network_proxy_unreachable"
+    }
+  },
+  {
+    "name": "historical-code-network_scope_unsupported",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "network_scope_unsupported"
+    }
+  },
+  {
+    "name": "historical-code-permission_mode_tracked_unsupported",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "permission_mode_tracked_unsupported"
+    }
+  },
+  {
+    "name": "historical-code-permission_mode_unsupported",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "permission_mode_unsupported"
+    }
+  },
+  {
+    "name": "historical-code-permission_policy_unsupported",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "permission_policy_unsupported"
+    }
+  },
+  {
+    "name": "historical-code-plan_provider_limited",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "plan_provider_limited"
+    }
+  },
+  {
+    "name": "historical-code-plan_refused",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "plan_refused"
+    }
+  },
+  {
+    "name": "historical-code-policy_refused",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "policy_refused"
+    }
+  },
+  {
+    "name": "historical-code-resolve_environment_unknown",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "resolve_environment_unknown"
+    }
+  },
+  {
+    "name": "historical-code-resolve_fragment_invalid",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "resolve_fragment_invalid"
+    }
+  },
+  {
+    "name": "historical-code-resolve_invocation_failed",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "resolve_invocation_failed"
+    }
+  },
+  {
+    "name": "historical-code-resolve_lock_unavailable",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "resolve_lock_unavailable"
+    }
+  },
+  {
+    "name": "historical-code-resolve_profile_unknown",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "resolve_profile_unknown"
+    }
+  },
+  {
+    "name": "historical-code-resolve_repair_failed",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "resolve_repair_failed"
+    }
+  },
+  {
+    "name": "historical-code-secret_policy_violation",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "secret_policy_violation"
+    }
+  },
+  {
+    "name": "historical-code-selector_abstained",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "selector_abstained"
+    }
+  },
+  {
+    "name": "historical-code-selector_unavailable",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "selector_unavailable"
+    }
+  },
+  {
+    "name": "historical-code-session_board_goal_unavailable",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "session_board_goal_unavailable"
+    }
+  },
+  {
+    "name": "historical-code-session_curator_identity_stale",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "session_curator_identity_stale"
+    }
+  },
+  {
+    "name": "historical-code-session_generation_mismatch",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "session_generation_mismatch"
+    }
+  },
+  {
+    "name": "historical-code-session_host_capability_missing",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "session_host_capability_missing"
+    }
+  },
+  {
+    "name": "historical-code-session_host_delegated_unauthorized",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "session_host_delegated_unauthorized"
+    }
+  },
+  {
+    "name": "historical-code-session_host_execution_profile_unsupported",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "session_host_execution_profile_unsupported"
+    }
+  },
+  {
+    "name": "historical-code-session_host_missing",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "session_host_missing"
+    }
+  },
+  {
+    "name": "historical-code-session_host_protocol_error",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "session_host_protocol_error"
+    }
+  },
+  {
+    "name": "historical-code-session_host_protocol_unsupported",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "session_host_protocol_unsupported"
+    }
+  },
+  {
+    "name": "historical-code-session_host_provider_unsupported",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "session_host_provider_unsupported"
+    }
+  },
+  {
+    "name": "historical-code-session_host_scope_unsupported",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "session_host_scope_unsupported"
+    }
+  },
+  {
+    "name": "historical-code-session_host_stdin_unsupported",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "session_host_stdin_unsupported"
+    }
+  },
+  {
+    "name": "historical-code-session_host_terminal_required",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "session_host_terminal_required"
+    }
+  },
+  {
+    "name": "historical-code-session_host_unavailable",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "session_host_unavailable"
+    }
+  },
+  {
+    "name": "historical-code-session_liveness_unknown",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "session_liveness_unknown"
+    }
+  },
+  {
+    "name": "historical-code-session_manager_not_registered",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "session_manager_not_registered"
+    }
+  },
+  {
+    "name": "historical-code-session_manager_registry_busy",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "session_manager_registry_busy"
+    }
+  },
+  {
+    "name": "historical-code-session_manager_registry_invalid",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "session_manager_registry_invalid"
+    }
+  },
+  {
+    "name": "historical-code-session_manager_registry_shadowed",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "session_manager_registry_shadowed"
+    }
+  },
+  {
+    "name": "historical-code-session_operation_conflict",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "session_operation_conflict"
+    }
+  },
+  {
+    "name": "historical-code-session_operation_expired",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "session_operation_expired"
+    }
+  },
+  {
+    "name": "historical-code-session_resume_ambiguous",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "session_resume_ambiguous"
+    }
+  },
+  {
+    "name": "historical-code-session_resume_identity_mismatch",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "session_resume_identity_mismatch"
+    }
+  },
+  {
+    "name": "historical-code-session_resume_invalid",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "session_resume_invalid"
+    }
+  },
+  {
+    "name": "historical-code-session_resume_location_mismatch",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "session_resume_location_mismatch"
+    }
+  },
+  {
+    "name": "historical-code-session_resume_not_found",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "session_resume_not_found"
+    }
+  },
+  {
+    "name": "historical-code-session_resume_unreadable",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "session_resume_unreadable"
+    }
+  },
+  {
+    "name": "historical-code-sysprompt_channel_unavailable",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "sysprompt_channel_unavailable"
+    }
+  },
+  {
+    "name": "historical-code-sysprompt_file_unreadable",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "sysprompt_file_unreadable"
+    }
+  },
+  {
+    "name": "historical-code-usage",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "usage"
+    }
+  },
+  {
+    "name": "historical-code-werkstatt_already_up",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "werkstatt_already_up"
+    }
+  },
+  {
+    "name": "historical-code-werkstatt_busy",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "werkstatt_busy"
+    }
+  },
+  {
+    "name": "historical-code-werkstatt_clone_missing",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "werkstatt_clone_missing"
+    }
+  },
+  {
+    "name": "historical-code-werkstatt_context_check_failed",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "werkstatt_context_check_failed"
+    }
+  },
+  {
+    "name": "historical-code-werkstatt_context_leak",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "werkstatt_context_leak"
+    }
+  },
+  {
+    "name": "historical-code-werkstatt_git_layout_invalid",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "werkstatt_git_layout_invalid"
+    }
+  },
+  {
+    "name": "historical-code-werkstatt_identity_missing",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "werkstatt_identity_missing"
+    }
+  },
+  {
+    "name": "historical-code-werkstatt_liveness_write_failed",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "werkstatt_liveness_write_failed"
+    }
+  },
+  {
+    "name": "historical-code-werkstatt_not_found",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "werkstatt_not_found"
+    }
+  },
+  {
+    "name": "historical-code-werkstatt_operation_unresolved",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "werkstatt_operation_unresolved"
+    }
+  },
+  {
+    "name": "historical-code-werkstatt_record_invalid",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "werkstatt_record_invalid"
+    }
+  },
+  {
+    "name": "historical-code-werkstatt_session_manager_required",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "werkstatt_session_manager_required"
+    }
+  },
+  {
+    "name": "readable-started",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "started",
+      "session": {
+        "session": "SES-example",
+        "operation_id": "11111111-1111-4111-8111-111111111111",
+        "manager": "demo",
+        "runtime": "codex_cli",
+        "native_id": null,
+        "readable": true,
+        "state": "unknown",
+        "labels": {},
+        "generation": 1,
+        "started_at": "2026-01-01T00:00:00Z",
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        }
+      }
+    }
+  },
+  {
+    "name": "unreadable-started",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "started",
+      "session": {
+        "session": "SES-example",
+        "operation_id": null,
+        "manager": "demo",
+        "runtime": null,
+        "native_id": null,
+        "readable": false,
+        "state": "unknown",
+        "labels": {},
+        "generation": null,
+        "started_at": null,
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        }
+      }
+    }
+  },
+  {
+    "name": "enveloped-started",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "started",
+      "session": {
+        "protocol": "curator-session-manager/1",
+        "ok": true,
+        "session": "SES-example",
+        "operation_id": "11111111-1111-4111-8111-111111111111",
+        "manager": "demo",
+        "runtime": "codex_cli",
+        "native_id": null,
+        "readable": true,
+        "state": "unknown",
+        "labels": {},
+        "generation": 1,
+        "started_at": "2026-01-01T00:00:00Z",
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        }
+      }
+    }
+  }
+]

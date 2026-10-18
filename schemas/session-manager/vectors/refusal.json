@@ -1,0 +1,3764 @@
+[
+  {
+    "name": "positive-control",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_host_unavailable",
+      "details": {}
+    }
+  },
+  {
+    "name": "ax_handoff_failed-details-",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "ax_handoff_failed",
+      "details": {}
+    }
+  },
+  {
+    "name": "ax_handoff_failed-poison-2",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "ax_handoff_failed",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "ax_handoff_failed-poison-3",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "ax_handoff_failed",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "credential_binding_mismatch-details-",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "credential_binding_mismatch",
+      "details": {}
+    }
+  },
+  {
+    "name": "credential_binding_mismatch-poison-5",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "credential_binding_mismatch",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "credential_binding_mismatch-poison-6",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "credential_binding_mismatch",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "credential_injection_unavailable-details-",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "credential_injection_unavailable",
+      "details": {}
+    }
+  },
+  {
+    "name": "credential_injection_unavailable-poison-8",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "credential_injection_unavailable",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "credential_injection_unavailable-poison-9",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "credential_injection_unavailable",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "credential_node_missing-details-",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "credential_node_missing",
+      "details": {}
+    }
+  },
+  {
+    "name": "credential_node_missing-poison-11",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "credential_node_missing",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "credential_node_missing-poison-12",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "credential_node_missing",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "credential_reserved_name-details-0",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "credential_reserved_name",
+      "details": {}
+    }
+  },
+  {
+    "name": "credential_reserved_name-details-1",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "credential_reserved_name",
+      "details": {
+        "name": "CLAUDE_CODE_OAUTH_TOKEN"
+      }
+    }
+  },
+  {
+    "name": "credential_reserved_name-poison-15",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "credential_reserved_name",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "credential_reserved_name-poison-16",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "credential_reserved_name",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "credential_reserved_name-invalid-name",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "credential_reserved_name",
+      "details": {
+        "name": "INVALID/\nVALUE"
+      }
+    }
+  },
+  {
+    "name": "credential_source_conflict-details-",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "credential_source_conflict",
+      "details": {}
+    }
+  },
+  {
+    "name": "credential_source_conflict-poison-19",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "credential_source_conflict",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "credential_source_conflict-poison-20",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "credential_source_conflict",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "credential_source_expired-details-",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "credential_source_expired",
+      "details": {}
+    }
+  },
+  {
+    "name": "credential_source_expired-poison-22",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "credential_source_expired",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "credential_source_expired-poison-23",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "credential_source_expired",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "credential_source_revoked-details-",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "credential_source_revoked",
+      "details": {}
+    }
+  },
+  {
+    "name": "credential_source_revoked-poison-25",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "credential_source_revoked",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "credential_source_revoked-poison-26",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "credential_source_revoked",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "credential_source_stale-details-",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "credential_source_stale",
+      "details": {}
+    }
+  },
+  {
+    "name": "credential_source_stale-poison-28",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "credential_source_stale",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "credential_source_stale-poison-29",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "credential_source_stale",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "credential_store_unreadable-details-",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "credential_store_unreadable",
+      "details": {}
+    }
+  },
+  {
+    "name": "credential_store_unreadable-poison-31",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "credential_store_unreadable",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "credential_store_unreadable-poison-32",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "credential_store_unreadable",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "defaults_config_invalid-details-",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "defaults_config_invalid",
+      "details": {}
+    }
+  },
+  {
+    "name": "defaults_config_invalid-poison-34",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "defaults_config_invalid",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "defaults_config_invalid-poison-35",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "defaults_config_invalid",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "defaults_unresolvable-details-",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "defaults_unresolvable",
+      "details": {}
+    }
+  },
+  {
+    "name": "defaults_unresolvable-poison-37",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "defaults_unresolvable",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "defaults_unresolvable-poison-38",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "defaults_unresolvable",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "doorbell_setup_failed-details-0",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "doorbell_setup_failed",
+      "details": {}
+    }
+  },
+  {
+    "name": "doorbell_setup_failed-details-1",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "doorbell_setup_failed",
+      "details": {
+        "step": "install"
+      }
+    }
+  },
+  {
+    "name": "doorbell_setup_failed-poison-41",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "doorbell_setup_failed",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "doorbell_setup_failed-poison-42",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "doorbell_setup_failed",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "doorbell_setup_failed-invalid-step",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "doorbell_setup_failed",
+      "details": {
+        "step": "INVALID/\nVALUE"
+      }
+    }
+  },
+  {
+    "name": "env_unsupported-details-",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "env_unsupported",
+      "details": {}
+    }
+  },
+  {
+    "name": "env_unsupported-poison-45",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "env_unsupported",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "env_unsupported-poison-46",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "env_unsupported",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "environment_credential_store_unsupported-details-",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "environment_credential_store_unsupported",
+      "details": {}
+    }
+  },
+  {
+    "name": "environment_credential_store_unsupported-poison-48",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "environment_credential_store_unsupported",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "environment_credential_store_unsupported-poison-49",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "environment_credential_store_unsupported",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "exec_provider_missing-details-",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "exec_provider_missing",
+      "details": {}
+    }
+  },
+  {
+    "name": "exec_provider_missing-poison-51",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "exec_provider_missing",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "exec_provider_missing-poison-52",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "exec_provider_missing",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "fragment_version_unsupported-details-00",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "fragment_version_unsupported",
+      "details": {}
+    }
+  },
+  {
+    "name": "fragment_version_unsupported-details-01",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "fragment_version_unsupported",
+      "details": {
+        "required": "launch-env-fragment-v4"
+      }
+    }
+  },
+  {
+    "name": "fragment_version_unsupported-details-10",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "fragment_version_unsupported",
+      "details": {
+        "environment": "muse"
+      }
+    }
+  },
+  {
+    "name": "fragment_version_unsupported-details-11",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "fragment_version_unsupported",
+      "details": {
+        "environment": "muse",
+        "required": "launch-env-fragment-v4"
+      }
+    }
+  },
+  {
+    "name": "fragment_version_unsupported-poison-57",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "fragment_version_unsupported",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "fragment_version_unsupported-poison-58",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "fragment_version_unsupported",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "fragment_version_unsupported-invalid-environment",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "fragment_version_unsupported",
+      "details": {
+        "environment": "INVALID/\nVALUE"
+      }
+    }
+  },
+  {
+    "name": "fragment_version_unsupported-invalid-required",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "fragment_version_unsupported",
+      "details": {
+        "required": "INVALID/\nVALUE"
+      }
+    }
+  },
+  {
+    "name": "host_configuration_conflict-details-",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "host_configuration_conflict",
+      "details": {}
+    }
+  },
+  {
+    "name": "host_configuration_conflict-poison-62",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "host_configuration_conflict",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "host_configuration_conflict-poison-63",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "host_configuration_conflict",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "host_member_withdrawn-details-0",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "host_member_withdrawn",
+      "details": {}
+    }
+  },
+  {
+    "name": "host_member_withdrawn-details-1",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "host_member_withdrawn",
+      "details": {
+        "reason": "present"
+      }
+    }
+  },
+  {
+    "name": "host_member_withdrawn-poison-66",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "host_member_withdrawn",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "host_member_withdrawn-poison-67",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "host_member_withdrawn",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "host_member_withdrawn-invalid-reason",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "host_member_withdrawn",
+      "details": {
+        "reason": "INVALID/\nVALUE"
+      }
+    }
+  },
+  {
+    "name": "launch_plan_invalid-details-",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "launch_plan_invalid",
+      "details": {}
+    }
+  },
+  {
+    "name": "launch_plan_invalid-poison-70",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "launch_plan_invalid",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "launch_plan_invalid-poison-71",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "launch_plan_invalid",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "mcp_layer_missing-details-",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "mcp_layer_missing",
+      "details": {}
+    }
+  },
+  {
+    "name": "mcp_layer_missing-poison-73",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "mcp_layer_missing",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "mcp_layer_missing-poison-74",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "mcp_layer_missing",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "mcp_layer_unreadable-details-",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "mcp_layer_unreadable",
+      "details": {}
+    }
+  },
+  {
+    "name": "mcp_layer_unreadable-poison-76",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "mcp_layer_unreadable",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "mcp_layer_unreadable-poison-77",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "mcp_layer_unreadable",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "migrate_destination_exists-details-",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "migrate_destination_exists",
+      "details": {}
+    }
+  },
+  {
+    "name": "migrate_destination_exists-poison-79",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "migrate_destination_exists",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "migrate_destination_exists-poison-80",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "migrate_destination_exists",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "network_configuration_conflict-details-",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "network_configuration_conflict",
+      "details": {}
+    }
+  },
+  {
+    "name": "network_configuration_conflict-poison-82",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "network_configuration_conflict",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "network_configuration_conflict-poison-83",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "network_configuration_conflict",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "network_file_unreadable-details-",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "network_file_unreadable",
+      "details": {}
+    }
+  },
+  {
+    "name": "network_file_unreadable-poison-85",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "network_file_unreadable",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "network_file_unreadable-poison-86",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "network_file_unreadable",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "network_profile_denied-details-",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "network_profile_denied",
+      "details": {}
+    }
+  },
+  {
+    "name": "network_profile_denied-poison-88",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "network_profile_denied",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "network_profile_denied-poison-89",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "network_profile_denied",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "network_profile_invalid-details-",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "network_profile_invalid",
+      "details": {}
+    }
+  },
+  {
+    "name": "network_profile_invalid-poison-91",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "network_profile_invalid",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "network_profile_invalid-poison-92",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "network_profile_invalid",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "network_profile_unknown-details-",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "network_profile_unknown",
+      "details": {}
+    }
+  },
+  {
+    "name": "network_profile_unknown-poison-94",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "network_profile_unknown",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "network_profile_unknown-poison-95",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "network_profile_unknown",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "network_proxy_auth_failed-details-",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "network_proxy_auth_failed",
+      "details": {}
+    }
+  },
+  {
+    "name": "network_proxy_auth_failed-poison-97",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "network_proxy_auth_failed",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "network_proxy_auth_failed-poison-98",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "network_proxy_auth_failed",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "network_proxy_unreachable-details-",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "network_proxy_unreachable",
+      "details": {}
+    }
+  },
+  {
+    "name": "network_proxy_unreachable-poison-100",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "network_proxy_unreachable",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "network_proxy_unreachable-poison-101",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "network_proxy_unreachable",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "network_scope_unsupported-details-",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "network_scope_unsupported",
+      "details": {}
+    }
+  },
+  {
+    "name": "network_scope_unsupported-poison-103",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "network_scope_unsupported",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "network_scope_unsupported-poison-104",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "network_scope_unsupported",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "permission_mode_tracked_unsupported-details-",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "permission_mode_tracked_unsupported",
+      "details": {}
+    }
+  },
+  {
+    "name": "permission_mode_tracked_unsupported-poison-106",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "permission_mode_tracked_unsupported",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "permission_mode_tracked_unsupported-poison-107",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "permission_mode_tracked_unsupported",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "permission_mode_unsupported-details-",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "permission_mode_unsupported",
+      "details": {}
+    }
+  },
+  {
+    "name": "permission_mode_unsupported-poison-109",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "permission_mode_unsupported",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "permission_mode_unsupported-poison-110",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "permission_mode_unsupported",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "permission_policy_unsupported-details-",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "permission_policy_unsupported",
+      "details": {}
+    }
+  },
+  {
+    "name": "permission_policy_unsupported-poison-112",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "permission_policy_unsupported",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "permission_policy_unsupported-poison-113",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "permission_policy_unsupported",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "plan_provider_limited-details-",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "plan_provider_limited",
+      "details": {}
+    }
+  },
+  {
+    "name": "plan_provider_limited-poison-115",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "plan_provider_limited",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "plan_provider_limited-poison-116",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "plan_provider_limited",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "plan_refused-details-",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "plan_refused",
+      "details": {}
+    }
+  },
+  {
+    "name": "plan_refused-poison-118",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "plan_refused",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "plan_refused-poison-119",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "plan_refused",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "policy_refused-details-",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "policy_refused",
+      "details": {}
+    }
+  },
+  {
+    "name": "policy_refused-poison-121",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "policy_refused",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "policy_refused-poison-122",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "policy_refused",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "resolve_environment_unknown-details-",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "resolve_environment_unknown",
+      "details": {}
+    }
+  },
+  {
+    "name": "resolve_environment_unknown-poison-124",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "resolve_environment_unknown",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "resolve_environment_unknown-poison-125",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "resolve_environment_unknown",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "resolve_fragment_invalid-details-",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "resolve_fragment_invalid",
+      "details": {}
+    }
+  },
+  {
+    "name": "resolve_fragment_invalid-poison-127",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "resolve_fragment_invalid",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "resolve_fragment_invalid-poison-128",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "resolve_fragment_invalid",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "resolve_invocation_failed-details-",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "resolve_invocation_failed",
+      "details": {}
+    }
+  },
+  {
+    "name": "resolve_invocation_failed-poison-130",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "resolve_invocation_failed",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "resolve_invocation_failed-poison-131",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "resolve_invocation_failed",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "resolve_lock_unavailable-details-",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "resolve_lock_unavailable",
+      "details": {}
+    }
+  },
+  {
+    "name": "resolve_lock_unavailable-poison-133",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "resolve_lock_unavailable",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "resolve_lock_unavailable-poison-134",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "resolve_lock_unavailable",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "resolve_profile_unknown-details-",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "resolve_profile_unknown",
+      "details": {}
+    }
+  },
+  {
+    "name": "resolve_profile_unknown-poison-136",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "resolve_profile_unknown",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "resolve_profile_unknown-poison-137",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "resolve_profile_unknown",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "resolve_repair_failed-details-",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "resolve_repair_failed",
+      "details": {}
+    }
+  },
+  {
+    "name": "resolve_repair_failed-poison-139",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "resolve_repair_failed",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "resolve_repair_failed-poison-140",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "resolve_repair_failed",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "secret_policy_violation-details-",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "secret_policy_violation",
+      "details": {}
+    }
+  },
+  {
+    "name": "secret_policy_violation-poison-142",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "secret_policy_violation",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "secret_policy_violation-poison-143",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "secret_policy_violation",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "selector_abstained-details-0",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "selector_abstained",
+      "details": {}
+    }
+  },
+  {
+    "name": "selector_abstained-details-1",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "selector_abstained",
+      "details": {
+        "code": "example"
+      }
+    }
+  },
+  {
+    "name": "selector_abstained-poison-146",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "selector_abstained",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "selector_abstained-poison-147",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "selector_abstained",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "selector_abstained-invalid-code",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "selector_abstained",
+      "details": {
+        "code": "INVALID/\nVALUE"
+      }
+    }
+  },
+  {
+    "name": "selector_unavailable-details-0",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "selector_unavailable",
+      "details": {}
+    }
+  },
+  {
+    "name": "selector_unavailable-details-1",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "selector_unavailable",
+      "details": {
+        "reason": "timeout"
+      }
+    }
+  },
+  {
+    "name": "selector_unavailable-poison-151",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "selector_unavailable",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "selector_unavailable-poison-152",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "selector_unavailable",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "selector_unavailable-invalid-reason",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "selector_unavailable",
+      "details": {
+        "reason": "INVALID/\nVALUE"
+      }
+    }
+  },
+  {
+    "name": "session_board_goal_unavailable-details-",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_board_goal_unavailable",
+      "details": {}
+    }
+  },
+  {
+    "name": "session_board_goal_unavailable-poison-155",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_board_goal_unavailable",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "session_board_goal_unavailable-poison-156",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_board_goal_unavailable",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "session_curator_identity_stale-details-",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_curator_identity_stale",
+      "details": {}
+    }
+  },
+  {
+    "name": "session_curator_identity_stale-poison-158",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_curator_identity_stale",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "session_curator_identity_stale-poison-159",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_curator_identity_stale",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "session_generation_mismatch-details-",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_generation_mismatch",
+      "details": {}
+    }
+  },
+  {
+    "name": "session_generation_mismatch-poison-161",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_generation_mismatch",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "session_generation_mismatch-poison-162",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_generation_mismatch",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "session_host_capability_missing-details-0",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_host_capability_missing",
+      "details": {}
+    }
+  },
+  {
+    "name": "session_host_capability_missing-details-1",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_host_capability_missing",
+      "details": {
+        "capability": "launch-delegated/1"
+      }
+    }
+  },
+  {
+    "name": "session_host_capability_missing-poison-165",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_host_capability_missing",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "session_host_capability_missing-poison-166",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_host_capability_missing",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "session_host_capability_missing-invalid-capability",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_host_capability_missing",
+      "details": {
+        "capability": "INVALID/\nVALUE"
+      }
+    }
+  },
+  {
+    "name": "session_host_delegated_unauthorized-details-",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_host_delegated_unauthorized",
+      "details": {}
+    }
+  },
+  {
+    "name": "session_host_delegated_unauthorized-poison-169",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_host_delegated_unauthorized",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "session_host_delegated_unauthorized-poison-170",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_host_delegated_unauthorized",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "session_host_execution_profile_unsupported-details-",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_host_execution_profile_unsupported",
+      "details": {}
+    }
+  },
+  {
+    "name": "session_host_execution_profile_unsupported-poison-172",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_host_execution_profile_unsupported",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "session_host_execution_profile_unsupported-poison-173",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_host_execution_profile_unsupported",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "session_host_missing-details-0",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_host_missing",
+      "details": {}
+    }
+  },
+  {
+    "name": "session_host_missing-details-1",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_host_missing",
+      "details": {
+        "reason": "no manager registered"
+      }
+    }
+  },
+  {
+    "name": "session_host_missing-poison-176",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_host_missing",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "session_host_missing-poison-177",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_host_missing",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "session_host_missing-invalid-reason",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_host_missing",
+      "details": {
+        "reason": "INVALID/\nVALUE"
+      }
+    }
+  },
+  {
+    "name": "session_host_protocol_error-details-",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_host_protocol_error",
+      "details": {}
+    }
+  },
+  {
+    "name": "session_host_protocol_error-poison-180",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_host_protocol_error",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "session_host_protocol_error-poison-181",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_host_protocol_error",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "session_host_protocol_unsupported-details-",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_host_protocol_unsupported",
+      "details": {}
+    }
+  },
+  {
+    "name": "session_host_protocol_unsupported-poison-183",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_host_protocol_unsupported",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "session_host_protocol_unsupported-poison-184",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_host_protocol_unsupported",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "session_host_provider_unsupported-details-0",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_host_provider_unsupported",
+      "details": {}
+    }
+  },
+  {
+    "name": "session_host_provider_unsupported-details-1",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_host_provider_unsupported",
+      "details": {
+        "environment": "claude_code"
+      }
+    }
+  },
+  {
+    "name": "session_host_provider_unsupported-poison-187",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_host_provider_unsupported",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "session_host_provider_unsupported-poison-188",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_host_provider_unsupported",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "session_host_provider_unsupported-invalid-environment",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_host_provider_unsupported",
+      "details": {
+        "environment": "INVALID/\nVALUE"
+      }
+    }
+  },
+  {
+    "name": "session_host_scope_unsupported-details-",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_host_scope_unsupported",
+      "details": {}
+    }
+  },
+  {
+    "name": "session_host_scope_unsupported-poison-191",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_host_scope_unsupported",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "session_host_scope_unsupported-poison-192",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_host_scope_unsupported",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "session_host_stdin_unsupported-details-",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_host_stdin_unsupported",
+      "details": {}
+    }
+  },
+  {
+    "name": "session_host_stdin_unsupported-poison-194",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_host_stdin_unsupported",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "session_host_stdin_unsupported-poison-195",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_host_stdin_unsupported",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "session_host_terminal_required-details-",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_host_terminal_required",
+      "details": {}
+    }
+  },
+  {
+    "name": "session_host_terminal_required-poison-197",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_host_terminal_required",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "session_host_terminal_required-poison-198",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_host_terminal_required",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "session_host_unavailable-details-0",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_host_unavailable",
+      "details": {}
+    }
+  },
+  {
+    "name": "session_host_unavailable-details-1",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_host_unavailable",
+      "details": {
+        "reason": "timeout"
+      }
+    }
+  },
+  {
+    "name": "session_host_unavailable-poison-201",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_host_unavailable",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "session_host_unavailable-poison-202",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_host_unavailable",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "session_host_unavailable-invalid-reason",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_host_unavailable",
+      "details": {
+        "reason": "INVALID/\nVALUE"
+      }
+    }
+  },
+  {
+    "name": "session_liveness_unknown-details-0",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_liveness_unknown",
+      "details": {}
+    }
+  },
+  {
+    "name": "session_liveness_unknown-details-1",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_liveness_unknown",
+      "details": {
+        "operation": "11111111-1111-4111-8111-111111111111"
+      }
+    }
+  },
+  {
+    "name": "session_liveness_unknown-poison-206",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_liveness_unknown",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "session_liveness_unknown-poison-207",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_liveness_unknown",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "session_liveness_unknown-invalid-operation",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_liveness_unknown",
+      "details": {
+        "operation": "INVALID/\nVALUE"
+      }
+    }
+  },
+  {
+    "name": "session_manager_not_registered-details-0",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_manager_not_registered",
+      "details": {}
+    }
+  },
+  {
+    "name": "session_manager_not_registered-details-1",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_manager_not_registered",
+      "details": {
+        "id": "example"
+      }
+    }
+  },
+  {
+    "name": "session_manager_not_registered-poison-211",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_manager_not_registered",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "session_manager_not_registered-poison-212",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_manager_not_registered",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "session_manager_not_registered-invalid-id",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_manager_not_registered",
+      "details": {
+        "id": "INVALID/\nVALUE"
+      }
+    }
+  },
+  {
+    "name": "session_manager_registry_busy-details-",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_manager_registry_busy",
+      "details": {}
+    }
+  },
+  {
+    "name": "session_manager_registry_busy-poison-215",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_manager_registry_busy",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "session_manager_registry_busy-poison-216",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_manager_registry_busy",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "session_manager_registry_invalid-details-0",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_manager_registry_invalid",
+      "details": {}
+    }
+  },
+  {
+    "name": "session_manager_registry_invalid-details-1",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_manager_registry_invalid",
+      "details": {
+        "reason": "unreadable"
+      }
+    }
+  },
+  {
+    "name": "session_manager_registry_invalid-poison-219",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_manager_registry_invalid",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "session_manager_registry_invalid-poison-220",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_manager_registry_invalid",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "session_manager_registry_invalid-invalid-reason",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_manager_registry_invalid",
+      "details": {
+        "reason": "INVALID/\nVALUE"
+      }
+    }
+  },
+  {
+    "name": "session_manager_registry_shadowed-details-",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_manager_registry_shadowed",
+      "details": {}
+    }
+  },
+  {
+    "name": "session_manager_registry_shadowed-poison-223",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_manager_registry_shadowed",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "session_manager_registry_shadowed-poison-224",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_manager_registry_shadowed",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "session_operation_conflict-details-",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_operation_conflict",
+      "details": {}
+    }
+  },
+  {
+    "name": "session_operation_conflict-poison-226",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_operation_conflict",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "session_operation_conflict-poison-227",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_operation_conflict",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "session_operation_expired-details-",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_operation_expired",
+      "details": {}
+    }
+  },
+  {
+    "name": "session_operation_expired-poison-229",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_operation_expired",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "session_operation_expired-poison-230",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_operation_expired",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "session_resume_ambiguous-details-",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_resume_ambiguous",
+      "details": {}
+    }
+  },
+  {
+    "name": "session_resume_ambiguous-poison-232",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_resume_ambiguous",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "session_resume_ambiguous-poison-233",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_resume_ambiguous",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "session_resume_identity_mismatch-details-",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_resume_identity_mismatch",
+      "details": {}
+    }
+  },
+  {
+    "name": "session_resume_identity_mismatch-poison-235",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_resume_identity_mismatch",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "session_resume_identity_mismatch-poison-236",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_resume_identity_mismatch",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "session_resume_invalid-details-",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_resume_invalid",
+      "details": {}
+    }
+  },
+  {
+    "name": "session_resume_invalid-poison-238",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_resume_invalid",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "session_resume_invalid-poison-239",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_resume_invalid",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "session_resume_location_mismatch-details-",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_resume_location_mismatch",
+      "details": {}
+    }
+  },
+  {
+    "name": "session_resume_location_mismatch-poison-241",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_resume_location_mismatch",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "session_resume_location_mismatch-poison-242",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_resume_location_mismatch",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "session_resume_not_found-details-",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_resume_not_found",
+      "details": {}
+    }
+  },
+  {
+    "name": "session_resume_not_found-poison-244",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_resume_not_found",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "session_resume_not_found-poison-245",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_resume_not_found",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "session_resume_unreadable-details-",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_resume_unreadable",
+      "details": {}
+    }
+  },
+  {
+    "name": "session_resume_unreadable-poison-247",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_resume_unreadable",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "session_resume_unreadable-poison-248",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_resume_unreadable",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "sysprompt_channel_unavailable-details-",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "sysprompt_channel_unavailable",
+      "details": {}
+    }
+  },
+  {
+    "name": "sysprompt_channel_unavailable-poison-250",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "sysprompt_channel_unavailable",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "sysprompt_channel_unavailable-poison-251",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "sysprompt_channel_unavailable",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "sysprompt_file_unreadable-details-",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "sysprompt_file_unreadable",
+      "details": {}
+    }
+  },
+  {
+    "name": "sysprompt_file_unreadable-poison-253",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "sysprompt_file_unreadable",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "sysprompt_file_unreadable-poison-254",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "sysprompt_file_unreadable",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "usage-details-",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "usage",
+      "details": {}
+    }
+  },
+  {
+    "name": "usage-poison-256",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "usage",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "usage-poison-257",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "usage",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "werkstatt_already_up-details-0",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "werkstatt_already_up",
+      "details": {}
+    }
+  },
+  {
+    "name": "werkstatt_already_up-details-1",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "werkstatt_already_up",
+      "details": {
+        "session": "SES-example"
+      }
+    }
+  },
+  {
+    "name": "werkstatt_already_up-poison-260",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "werkstatt_already_up",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "werkstatt_already_up-poison-261",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "werkstatt_already_up",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "werkstatt_already_up-invalid-session",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "werkstatt_already_up",
+      "details": {
+        "session": "INVALID/\nVALUE"
+      }
+    }
+  },
+  {
+    "name": "werkstatt_busy-details-00",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "werkstatt_busy",
+      "details": {}
+    }
+  },
+  {
+    "name": "werkstatt_busy-details-01",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "werkstatt_busy",
+      "details": {
+        "operation": "in_progress"
+      }
+    }
+  },
+  {
+    "name": "werkstatt_busy-details-10",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "werkstatt_busy",
+      "details": {
+        "state": "busy"
+      }
+    }
+  },
+  {
+    "name": "werkstatt_busy-details-11",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "werkstatt_busy",
+      "details": {
+        "state": "busy",
+        "operation": "in_progress"
+      }
+    }
+  },
+  {
+    "name": "werkstatt_busy-poison-267",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "werkstatt_busy",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "werkstatt_busy-poison-268",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "werkstatt_busy",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "werkstatt_busy-invalid-state",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "werkstatt_busy",
+      "details": {
+        "state": "INVALID/\nVALUE"
+      }
+    }
+  },
+  {
+    "name": "werkstatt_busy-invalid-operation",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "werkstatt_busy",
+      "details": {
+        "operation": "INVALID/\nVALUE"
+      }
+    }
+  },
+  {
+    "name": "werkstatt_clone_missing-details-",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "werkstatt_clone_missing",
+      "details": {}
+    }
+  },
+  {
+    "name": "werkstatt_clone_missing-poison-272",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "werkstatt_clone_missing",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "werkstatt_clone_missing-poison-273",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "werkstatt_clone_missing",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "werkstatt_context_check_failed-details-",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "werkstatt_context_check_failed",
+      "details": {}
+    }
+  },
+  {
+    "name": "werkstatt_context_check_failed-poison-275",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "werkstatt_context_check_failed",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "werkstatt_context_check_failed-poison-276",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "werkstatt_context_check_failed",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "werkstatt_context_leak-details-",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "werkstatt_context_leak",
+      "details": {}
+    }
+  },
+  {
+    "name": "werkstatt_context_leak-poison-278",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "werkstatt_context_leak",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "werkstatt_context_leak-poison-279",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "werkstatt_context_leak",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "werkstatt_git_layout_invalid-details-0",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "werkstatt_git_layout_invalid",
+      "details": {}
+    }
+  },
+  {
+    "name": "werkstatt_git_layout_invalid-details-1",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "werkstatt_git_layout_invalid",
+      "details": {
+        "reason": "missing"
+      }
+    }
+  },
+  {
+    "name": "werkstatt_git_layout_invalid-poison-282",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "werkstatt_git_layout_invalid",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "werkstatt_git_layout_invalid-poison-283",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "werkstatt_git_layout_invalid",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "werkstatt_git_layout_invalid-invalid-reason",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "werkstatt_git_layout_invalid",
+      "details": {
+        "reason": "INVALID/\nVALUE"
+      }
+    }
+  },
+  {
+    "name": "werkstatt_identity_missing-details-",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "werkstatt_identity_missing",
+      "details": {}
+    }
+  },
+  {
+    "name": "werkstatt_identity_missing-poison-286",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "werkstatt_identity_missing",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "werkstatt_identity_missing-poison-287",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "werkstatt_identity_missing",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "werkstatt_liveness_write_failed-details-0",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "werkstatt_liveness_write_failed",
+      "details": {}
+    }
+  },
+  {
+    "name": "werkstatt_liveness_write_failed-details-1",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "werkstatt_liveness_write_failed",
+      "details": {
+        "session": "SES-example"
+      }
+    }
+  },
+  {
+    "name": "werkstatt_liveness_write_failed-poison-290",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "werkstatt_liveness_write_failed",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "werkstatt_liveness_write_failed-poison-291",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "werkstatt_liveness_write_failed",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "werkstatt_liveness_write_failed-invalid-session",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "werkstatt_liveness_write_failed",
+      "details": {
+        "session": "INVALID/\nVALUE"
+      }
+    }
+  },
+  {
+    "name": "werkstatt_not_found-details-0",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "werkstatt_not_found",
+      "details": {}
+    }
+  },
+  {
+    "name": "werkstatt_not_found-details-1",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "werkstatt_not_found",
+      "details": {
+        "id": "example"
+      }
+    }
+  },
+  {
+    "name": "werkstatt_not_found-poison-295",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "werkstatt_not_found",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "werkstatt_not_found-poison-296",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "werkstatt_not_found",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "werkstatt_not_found-invalid-id",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "werkstatt_not_found",
+      "details": {
+        "id": "INVALID/\nVALUE"
+      }
+    }
+  },
+  {
+    "name": "werkstatt_operation_unresolved-details-00",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "werkstatt_operation_unresolved",
+      "details": {}
+    }
+  },
+  {
+    "name": "werkstatt_operation_unresolved-details-01",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "werkstatt_operation_unresolved",
+      "details": {
+        "operation": "11111111-1111-4111-8111-111111111111"
+      }
+    }
+  },
+  {
+    "name": "werkstatt_operation_unresolved-details-10",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "werkstatt_operation_unresolved",
+      "details": {
+        "reason": "manager_missing"
+      }
+    }
+  },
+  {
+    "name": "werkstatt_operation_unresolved-details-11",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "werkstatt_operation_unresolved",
+      "details": {
+        "reason": "manager_missing",
+        "operation": "11111111-1111-4111-8111-111111111111"
+      }
+    }
+  },
+  {
+    "name": "werkstatt_operation_unresolved-poison-302",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "werkstatt_operation_unresolved",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "werkstatt_operation_unresolved-poison-303",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "werkstatt_operation_unresolved",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "werkstatt_operation_unresolved-invalid-reason",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "werkstatt_operation_unresolved",
+      "details": {
+        "reason": "INVALID/\nVALUE"
+      }
+    }
+  },
+  {
+    "name": "werkstatt_operation_unresolved-invalid-operation",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "werkstatt_operation_unresolved",
+      "details": {
+        "operation": "INVALID/\nVALUE"
+      }
+    }
+  },
+  {
+    "name": "werkstatt_record_invalid-details-0",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "werkstatt_record_invalid",
+      "details": {}
+    }
+  },
+  {
+    "name": "werkstatt_record_invalid-details-1",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "werkstatt_record_invalid",
+      "details": {
+        "id": "example"
+      }
+    }
+  },
+  {
+    "name": "werkstatt_record_invalid-poison-308",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "werkstatt_record_invalid",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "werkstatt_record_invalid-poison-309",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "werkstatt_record_invalid",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "werkstatt_record_invalid-invalid-id",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "werkstatt_record_invalid",
+      "details": {
+        "id": "INVALID/\nVALUE"
+      }
+    }
+  },
+  {
+    "name": "werkstatt_session_manager_required-details-0",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "werkstatt_session_manager_required",
+      "details": {}
+    }
+  },
+  {
+    "name": "werkstatt_session_manager_required-details-1",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "werkstatt_session_manager_required",
+      "details": {
+        "state": "empty"
+      }
+    }
+  },
+  {
+    "name": "werkstatt_session_manager_required-poison-313",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "werkstatt_session_manager_required",
+      "details": {
+        "unexpected": "sentinel"
+      }
+    }
+  },
+  {
+    "name": "werkstatt_session_manager_required-poison-314",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "werkstatt_session_manager_required",
+      "details": {
+        "reason": 3
+      }
+    }
+  },
+  {
+    "name": "werkstatt_session_manager_required-invalid-state",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "werkstatt_session_manager_required",
+      "details": {
+        "state": "INVALID/\nVALUE"
+      }
+    }
+  },
+  {
+    "name": "missing-protocol",
+    "valid": false,
+    "document": {
+      "ok": false,
+      "code": "session_host_unavailable",
+      "details": {}
+    }
+  },
+  {
+    "name": "missing-ok",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "code": "session_host_unavailable",
+      "details": {}
+    }
+  },
+  {
+    "name": "missing-code",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "details": {}
+    }
+  },
+  {
+    "name": "missing-details",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_host_unavailable"
+    }
+  },
+  {
+    "name": "unknown-member",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_host_unavailable",
+      "details": {},
+      "extra": "sentinel"
+    }
+  },
+  {
+    "name": "wrong-protocol",
+    "valid": false,
+    "document": {
+      "protocol": "other",
+      "ok": false,
+      "code": "session_host_unavailable",
+      "details": {}
+    }
+  },
+  {
+    "name": "required-type-protocol",
+    "valid": false,
+    "document": {
+      "protocol": null,
+      "ok": false,
+      "code": "session_host_unavailable",
+      "details": {}
+    }
+  },
+  {
+    "name": "required-type-ok",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": null,
+      "code": "session_host_unavailable",
+      "details": {}
+    }
+  },
+  {
+    "name": "required-type-code",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": null,
+      "details": {}
+    }
+  },
+  {
+    "name": "required-type-details",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "session_host_unavailable",
+      "details": null
+    }
+  },
+  {
+    "name": "reserved-detail-326",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "credential_reserved_name",
+      "details": {
+        "name": "LD_PRELOAD"
+      }
+    }
+  },
+  {
+    "name": "reserved-detail-327",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "credential_reserved_name",
+      "details": {
+        "name": "LD_free text"
+      }
+    }
+  },
+  {
+    "name": "reserved-detail-328",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "credential_reserved_name",
+      "details": {
+        "name": "LD_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+      }
+    }
+  },
+  {
+    "name": "reserved-detail-329",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": false,
+      "code": "credential_reserved_name",
+      "details": {
+        "name": "UNRELATED"
+      }
+    }
+  }
+]

@@ -1,0 +1,159 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:relux:curator-run:werkstatt-liveness-v1",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,47}$"
+    },
+    "state": {
+      "enum": [
+        "starting",
+        "idle",
+        "busy",
+        "draining",
+        "down",
+        "unknown"
+      ]
+    },
+    "manager": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]{0,31}$"
+        },
+        "executable": {
+          "type": "string",
+          "pattern": "^/[^\u0000]*$"
+        },
+        "registered_at": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "executable",
+        "registered_at"
+      ],
+      "additionalProperties": false
+    },
+    "operation_id": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        }
+      ]
+    },
+    "state_source": {
+      "enum": [
+        "manager",
+        "operator_override"
+      ]
+    },
+    "session": {
+      "type": "string",
+      "pattern": "^SES-[A-Za-z0-9]{1,48}$"
+    },
+    "generation": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "started_at": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+      "format": "date-time"
+    },
+    "last_heartbeat_at": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+      "format": "date-time"
+    },
+    "last_activity_at": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+          "format": "date-time"
+        }
+      ]
+    },
+    "doorbell": {
+      "enum": [
+        "armed",
+        "unavailable",
+        "off"
+      ]
+    },
+    "doorbell_uncertain": {
+      "type": "boolean"
+    },
+    "current_task": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string"
+        }
+      ]
+    },
+    "queue_depth": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "abandoned_operations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "operation_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          },
+          "abandoned_at": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "operation_id",
+          "abandoned_at"
+        ],
+        "additionalProperties": false
+      },
+      "maxItems": 16
+    }
+  },
+  "required": [
+    "id",
+    "state",
+    "manager",
+    "operation_id",
+    "state_source",
+    "session",
+    "generation",
+    "started_at",
+    "last_heartbeat_at",
+    "last_activity_at",
+    "doorbell",
+    "doorbell_uncertain",
+    "current_task",
+    "queue_depth",
+    "abandoned_operations"
+  ],
+  "additionalProperties": false
+}

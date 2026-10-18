@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:relux:curator-run:list-request",
+  "title": "list-request 1.0.0",
+  "type": "object",
+  "properties": {
+    "labels": {
+      "type": "object",
+      "maxProperties": 16,
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[a-z0-9.-]{1,32}$"
+      },
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9._@:-]{1,128}$"
+      }
+    },
+    "cursor": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._-]{1,256}$"
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100
+    }
+  },
+  "required": [],
+  "additionalProperties": false
+}
