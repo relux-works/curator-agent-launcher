@@ -28,7 +28,13 @@ func selectorBinary(t *testing.T) string {
 }
 func selectorPolicy(t *testing.T, f *pipelineFixture, binary, mode, behavior string) {
 	t.Helper()
-	data, _ := json.Marshal(map[string]any{"schema": selector.Schema, "mode": mode, "executable": binary, "argv_prefix": []string{behavior}, "timeout_seconds": 1})
+	// Successful helpers include process startup and race-host scheduling. The
+	// hanging negative control retains its independent one-second deadline.
+	timeout := 10
+	if behavior == "hang" {
+		timeout = 1
+	}
+	data, _ := json.Marshal(map[string]any{"schema": selector.Schema, "mode": mode, "executable": binary, "argv_prefix": []string{behavior}, "timeout_seconds": timeout})
 	machine := filepath.Dir(f.deps.defaults.Machine)
 	if err := os.MkdirAll(machine, 0700); err != nil {
 		t.Fatal(err)
@@ -43,20 +49,20 @@ func selectorResponse(t *testing.T, binary string, response string) {
 const selectedResponse = `{"decision_id":"decision/@+1","runtime":"codex","model":"gpt-5.6-sol","effort":"high","weights_id":null,"refusal":null}`
 
 // Production calls the fake selector before building a plan, applies per-member
-// flag precedence, and prints its decision id in the existing provenance group.
+// flag precedence (including a success taking over one second), and prints its decision id in the existing provenance group.
 func TestRunSelectorEnforce(t *testing.T) {
 	binary := selectorBinary(t)
 	for _, tc := range []struct {
-		name          string
-		flags         []string
-		model, effort string
+		name, behavior string
+		flags          []string
+		model, effort  string
 	}{
-		{"selector", nil, "gpt-5.6-sol", "high"}, {"model-flag", []string{"--model", "gpt-6-astra"}, "gpt-6-astra", "high"}, {"effort-flag", []string{"--effort", "low"}, "gpt-5.6-sol", "low"},
+		{"selector", "valid", nil, "gpt-5.6-sol", "high"}, {"slow-selector", "slow-valid", nil, "gpt-5.6-sol", "high"}, {"model-flag", "valid", []string{"--model", "gpt-6-astra"}, "gpt-6-astra", "high"}, {"effort-flag", "valid", []string{"--effort", "low"}, "gpt-5.6-sol", "low"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			f := entryFixture(t, "codex_cli", false)
 			f.args = append([]string{"codex_cli", "--permissions", "native"}, tc.flags...)
-			selectorPolicy(t, f, binary, "enforce", "valid")
+			selectorPolicy(t, f, binary, "enforce", tc.behavior)
 			selectorResponse(t, binary, selectedResponse)
 			cleanupSelectorFake(t, binary)
 			code, _, stderr := f.run()

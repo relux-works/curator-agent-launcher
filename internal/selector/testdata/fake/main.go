@@ -36,6 +36,9 @@ func main() {
 	if len(os.Args) > 1 {
 		mode = os.Args[1]
 	}
+	if mode == "slow-valid" {
+		time.Sleep(1250 * time.Millisecond)
+	}
 	if mode == "lock" {
 		f, err := os.OpenFile(os.Args[2], os.O_WRONLY, 0)
 		if err != nil {

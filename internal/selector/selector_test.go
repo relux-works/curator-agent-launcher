@@ -231,18 +231,22 @@ func TestResponse(t *testing.T) {
 }
 
 // The real binary transport accepts a valid response and fails closed on every
-// configured failure. Stderr is never reflected in errors. The helper exits at
+// configured failure, with a success longer than the one-second hang control. Stderr is never reflected in errors. The helper exits at
 // 20 seconds regardless of transport behavior; no process survives test cleanup.
 func TestEnforce(t *testing.T) {
 	binary := fake(t)
 	req := request(t)
-	for _, mode := range []string{"valid", "atbound", "hang", "exit", "invalid", "oversize"} {
+	for _, mode := range []string{"valid", "slow-valid", "atbound", "hang", "exit", "invalid", "oversize"} {
 		t.Run(mode, func(t *testing.T) {
 			t.Cleanup(func() { pid := pidFile(t, binary); _ = syscall.Kill(-pid, syscall.SIGKILL); assertGone(t, pid) })
-			c := Config{Executable: binary, ArgvPrefix: []string{mode}, TimeoutSeconds: 1}
+			timeout := 10
+			if mode == "hang" {
+				timeout = 1
+			}
+			c := Config{Executable: binary, ArgvPrefix: []string{mode}, TimeoutSeconds: timeout}
 			start := time.Now()
 			d, err := Enforce(context.Background(), c, req)
-			if mode == "valid" || mode == "atbound" {
+			if mode == "valid" || mode == "slow-valid" || mode == "atbound" {
 				if err != nil || d.DecisionID != "decision-1" {
 					t.Fatal(d, err)
 				}
@@ -250,7 +254,7 @@ func TestEnforce(t *testing.T) {
 				reason := map[string]string{"hang": "timeout", "exit": "exit", "invalid": "invalid", "oversize": "invalid"}[mode]
 				failure(t, err, CodeUnavailable, reason)
 			}
-			if time.Since(start) > 3*time.Second {
+			if mode == "hang" && time.Since(start) > 3*time.Second {
 				t.Fatal("deadline exceeded")
 			}
 			if err != nil && strings.Contains(err.Error(), "private") {
@@ -449,7 +453,7 @@ func TestEnforceNullAndGrammar(t *testing.T) {
 	req := request(t)
 	candidate := defaults.SelectionCandidate{Runtime: "runtime/@+", Model: "model/@+", Effort: nil}
 	req.Candidates = []defaults.SelectionCandidate{candidate}
-	c := Config{Executable: binary, TimeoutSeconds: 1}
+	c := Config{Executable: binary, TimeoutSeconds: 10}
 	for _, tc := range []struct {
 		name   string
 		effort any
