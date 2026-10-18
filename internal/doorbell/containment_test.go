@@ -31,7 +31,9 @@ func containmentHelper() int {
 	}
 	group, _ := syscall.Getpgid(0)
 	evidence, _ := json.Marshal(map[string]any{"pid": os.Getpid(), "group": group, "settings": os.Args[8]})
-	if os.WriteFile("ready", evidence, 0600) != nil {
+	// Publish the complete barrier atomically; observing an empty/truncated
+	// evidence file must never release a filesystem plant prematurely.
+	if os.WriteFile("ready.tmp", evidence, 0600) != nil || os.Rename("ready.tmp", "ready") != nil {
 		return 2
 	}
 	deadline := time.Now().Add(5 * time.Second)
