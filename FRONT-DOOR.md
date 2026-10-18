@@ -1608,6 +1608,21 @@ schema `werkstatt-liveness-v1`, written atomically:
   and `attach`. task-board does this once its v4 consumer lands
   (TASK-261018-yzorfb). Before that, a hosted Muse launch refuses
   `session_host_provider_unsupported` (6), with no native fallback.
+- **How the v4 facts reach a hosted launch.** The §5.3 request gains no
+  `root_context` or `credential_store` member.
+  - `launch-delegated/1`: `profile.fragment_digest` covers the whole v4
+    fragment, so both facts are bound by digest. The manager resolves the
+    same profile, refuses `policy_refused` (16) on any digest difference,
+    and composes the Muse argv and environment from its own resolved
+    fragment exactly as environments §10.2 requires: the exclusion
+    arguments, the credential-store constant and the `serve` refusal. A
+    manager that cannot apply a required exclusion refuses before exec. It
+    does not list `muse` in `runtimes` until it can.
+  - `launch-exact/2`: the launcher composes the plan, so the exclusion
+    arguments and the environment are already in the plan's argv and env,
+    and the manager executes them as given.
+  - A launcher test changes only `root_context` and checks that the request
+    digest changes.
 
 ## 8. a2a doorbells for hosted sessions
 
@@ -1652,7 +1667,8 @@ directory it did not validate.
      symlink following and a bounded size.
    - A missing `.claude` is created relative to the `<cwd>` descriptor, with
      mode `0700`, then opened the same way.
-   - Any failure here is `step=install`, and nothing has been written.
+   - Any failure here is `step=install`. Nothing has been written, except
+     a `.claude` directory that this step itself created.
 2. **Stage.**
    - The launcher copies those bytes to a staged file in a fresh private
      directory (mode `0700`). An absent target gives an absent staged file.
@@ -1665,8 +1681,7 @@ directory it did not validate.
    - The launcher creates a temporary file there exclusively, with no symlink
      following, writes it and syncs it.
    - The file keeps the permission bits of the file read in step 1. A new
-     file gets `0600`. This is the one way staging differs from running the
-     helper on the real path, and it affects metadata only, never content.
+     file gets `0600`.
    - Just before the rename, the launcher checks that the entry is still the
      file it read in step 1: same device and inode, or still absent. If not,
      it removes the temporary file and refuses `step=install`.
