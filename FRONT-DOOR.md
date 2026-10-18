@@ -1239,8 +1239,11 @@ detail values are allowed only from the vocabularies shown:
     with the bytes that migrate **would produce** from the current old file,
     after the `host` transformation below.
     - Equal bytes count as already migrated.
-    - Different bytes refuse `migrate_destination_exists` (2), and nothing
-      is written.
+    - A destination that is an exact copy of the raw old file is transformed
+      in place, and its pre-rewrite bytes are kept in `.bak`.
+    - Any other bytes refuse `migrate_destination_exists` (2), and nothing is
+      written. A newly generated `launcher.json` has no prior file, so it
+      gets no backup.
   - **The `host` member.** It is removed from every `defaults.json` entry.
     An entry that held only `host` is removed entirely, because an empty
     entry is invalid. Then:
