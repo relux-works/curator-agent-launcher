@@ -696,6 +696,18 @@ is `session_host_provider_unsupported` (6). Both are checked before any
 | `native_tail` | The selector-free tail after the module's typed-intent elevation (SPEC §4.8). |
 | `detach` | Boolean. |
 
+**Scalar grammars.** These apply in every §5 schema:
+
+- `model`, `effort` and `service_tier` match `[A-Za-z0-9._:/@+-]{1,128}`,
+  the same grammar as the selector values of §3.4. Admitting a value is
+  still the module's decision.
+- `weights_id` matches `gguf-sha256:[0-9a-f]{64}`.
+- The `describe` `version` matches `[A-Za-z0-9._+-]{1,64}`.
+- Profile names follow Curator's fragment profile-name grammar.
+- Timestamps are RFC 3339 UTC with the `Z` suffix only, at second or
+  fractional precision. `+00:00` is refused, so there is one canonical
+  form.
+
 **Secret check for `child_env`.** This check is a closed rule set,
 versioned with this document.
 
