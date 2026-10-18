@@ -1174,8 +1174,8 @@ exclusive lock on `<state>/werkstatt/<id>.lock`.
   - `up`, `down` and `recycle` then refuse `werkstatt_busy` (1),
     `operation=in_progress`;
   - `status` then prints the last liveness record read-only, and writes
-    nothing. In `--json`, the output object (`werkstatt-status-v1`) carries
-    `stale: true` beside the record. `stale` is an output field only and is
+    nothing. In `--json`, the Werkstatt's row in the `werkstatt-status-v1`
+    array (§6.6) has `stale: true`. `stale` is an output field only and is
     never stored.
 - Every liveness write is also the expected-value compare-and-swap of §6.5.
 - Manager admission still decides across clients and state roots.
@@ -1470,7 +1470,7 @@ schema `werkstatt-liveness-v1`, written atomically:
   first one. Together with `generation` it is the compare-and-swap key of
   §5.7, used as an **expected-value** check, never as an ordering of UUIDs.
   A writer reads `(manager, operation_id, generation)` under the lock, and
-  commits only if the file still holds exactly that tuple. One of three
+  commits only if the file still holds exactly that tuple. One of four
   transitions must then hold:
   - the same operation keeps its generation (a status refresh);
   - a newly settled operation **on the same binding** moves `generation` up
@@ -1479,7 +1479,10 @@ schema `werkstatt-liveness-v1`, written atomically:
     own generation, whatever its value. This is allowed only when the
     previous record is `down`, by manager evidence or by operator override.
     `generation` is always the bound manager's number, and there is no
-    cross-manager counter.
+    cross-manager counter;
+  - the first settled operation after an override that came **before the
+    first start** (`generation: null`), on the same binding or a new one,
+    takes that manager's generation, whatever its value.
 
   Every other write is dropped.
   - **Abandoned ids.** The drop applies to *operation outcomes* for an id in
@@ -1493,10 +1496,13 @@ schema `werkstatt-liveness-v1`, written atomically:
   `abandoned_operations`.
   - If no session ever started, `manager` is the binding copied from
     `op.json`, and these fields are `null`, because nothing is fabricated:
-    `session`, `generation`, `operation_id`, `started_at`,
-    `last_heartbeat_at` and `last_activity_at`.
+    `session`, `generation`, `operation_id`, `started_at` and
+    `last_heartbeat_at`. `last_activity_at` is `null` as well.
   - In that case `doorbell` is `off` and `doorbell_uncertain` is `false`.
-  - This is the only record shape in which these fields may be `null`.
+  - This override-only record is the only shape in which `session`,
+    `generation`, `operation_id`, `started_at` or `last_heartbeat_at` may be
+    `null`. `last_activity_at` may be `null` in any record, because a
+    readable session may have no provider activity yet (§5.4).
   - It does not cancel or stop anything remote.
   - `status` and the router show `state_source`. The router treats an
     override as not established, so it cannot be used as evidence of
@@ -1504,21 +1510,27 @@ schema `werkstatt-liveness-v1`, written atomically:
   - The next manager read through a valid binding replaces it with
     `state_source: manager`.
 - **No record yet.** If `status` cannot take the lock and no liveness file
-  exists, for example during the first `up`, it outputs
-  `{record, liveness: null, stale: true}` and exits 0.
+  exists, for example during the first `up`, it outputs the normal
+  `werkstatt-status-v1` array. The Werkstatt's row is `{record, liveness:
+  null, manager_session: null, a2a: null, stale: true}`, and `status` exits
+  0.
 - **Unreadable manager record.** When the bound manager returns an
   unreadable record (`readable: false`, §5.2), the liveness write sets only
-  `state: unknown` and `last_heartbeat_at`. Every other field keeps its
-  previous value; the projection's nulls are never copied in. `up` and
+  `state: unknown`, `state_source: manager` and `last_heartbeat_at`.
+  - The manager answered, but it could not establish the state; that answer
+    replaces an earlier operator override as the newest evidence.
+  - Every other field keeps its previous value; the projection's nulls are
+    never copied in. `up` and
   `down` refuse `session_liveness_unknown`. `readable` itself is never
   stored in the liveness file.
 - **`last_heartbeat_at`** is the time of that manager read. A stale value
   means nobody looked, not that the session is down.
 - **`current_task` and `queue_depth`** are written only by the orchestrator,
   through `werkstatt status <id> --set-task/--clear-task/--queue-depth`.
-  These edits require an existing liveness record. A Werkstatt that was
-  never up refuses `werkstatt_not_up` (1). There is no dispatch-only
-  liveness shape.
+  These edits require a liveness record with a non-null `session`. A
+  Werkstatt that was never up refuses `werkstatt_not_up` (1). That covers
+  both a missing liveness file and an override-only record from before the
+  first start. There is no dispatch-only liveness shape.
 - **`unknown`** is outside the router's five states. It means the manager
   answered `unknown`, or did not answer. The router treats it as not
   dispatchable.
@@ -1866,7 +1878,7 @@ Detail vocabularies are closed (§5.6). Grammar names:
 | `werkstatt_context_leak` | 2 | an instruction file above the clone | `path` |
 | `werkstatt_context_check_failed` | 2 | an ancestor could not be checked | `path` |
 | `werkstatt_identity_missing` | 1 | no a2a credential file | `identity`: from the record |
-| `werkstatt_not_up` | 1 | a dispatch edit with no liveness record (§6.5) | `id` |
+| `werkstatt_not_up` | 1 | a dispatch edit with no liveness record, or with only an override-only record (§6.5) | `id` |
 | `werkstatt_busy` | 1 | `not-busy` refusal, the lock is held, or `recycle` timed out while draining | `state`: `busy`, `draining`; `operation`: `in_progress` |
 | `werkstatt_liveness_write_failed` | 1 | session up, liveness file not written | `session`: `<handle>` |
 | `doorbell_setup_failed` | 1 | hook install or verification failed | `step`: `install`, `verify` |
