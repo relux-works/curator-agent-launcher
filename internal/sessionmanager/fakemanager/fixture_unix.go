@@ -87,7 +87,11 @@ func Fixture(dir string, input io.Reader, output io.Writer) int {
 		if sessionmanager.WriteAtomic(filepath.Join(m.dir, "config.json"), encode(c)) != nil {
 			return 2
 		}
-		result.Launch = encode(LaunchTemplate(m.dir))
+		template := LaunchTemplate(m.dir)
+		if len(c.Models) > 0 {
+			template["model"] = c.Models[0]
+		}
+		result.Launch = encode(template)
 	case "set_activity":
 		if m.state.Sessions[r.Session] == nil {
 			return 2

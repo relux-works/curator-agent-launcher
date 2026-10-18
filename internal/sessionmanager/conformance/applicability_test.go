@@ -50,19 +50,20 @@ func TestScenarioPrerequisites(t *testing.T) {
 }
 
 // A truthfully smaller capability set qualifies through the very same driver.
-// No-resume exercises the review witness; launch-only also removes stop, attach,
-// status, list, labels and admission to catch implicit lifecycle prerequisites.
+// No-resume exercises the review witness; individual omissions catch implicit
+// lifecycle prerequisites, and launch-only exercises a minimal launch surface.
 func TestAdvertisedSubsets(t *testing.T) {
 	if *plugin != "" {
 		t.Skip("reference configuration control")
 	}
 	binary := buildFake(t)
-	for _, kind := range []string{"no-resume", "launch-only", "runtime-no-resume"} {
+	for _, kind := range []string{"no-resume", "no-stop", "no-list", "no-attach", "no-status", "no-admission", "no-labels", "launch-only", "runtime-no-resume"} {
 		t.Run(kind, func(t *testing.T) {
 			cfg := fakemanager.DefaultConfig()
 			switch kind {
-			case "no-resume":
-				cfg.Capabilities = slices.DeleteFunc(cfg.Capabilities, func(v string) bool { return v == "resume/1" })
+			case "no-resume", "no-stop", "no-list", "no-attach", "no-status", "no-admission", "no-labels":
+				missing := strings.TrimPrefix(kind, "no-") + "/1"
+				cfg.Capabilities = slices.DeleteFunc(cfg.Capabilities, func(v string) bool { return v == missing })
 			case "launch-only":
 				cfg.Capabilities = []string{"launch-delegated/1"}
 			case "runtime-no-resume":
@@ -72,5 +73,25 @@ func TestAdvertisedSubsets(t *testing.T) {
 			}
 			runConformance(t, func(t *testing.T) *harness { return newHarnessWithConfig(t, binary, nil, &cfg) })
 		})
+	}
+}
+
+// A restrictive fixture rejects an invented model but admits its own template;
+// policy preservation must exercise that template without substituting a model.
+func TestResumeTemplatePolicy(t *testing.T) {
+	if *plugin != "" {
+		t.Skip("reference policy control")
+	}
+	cfg := fakemanager.DefaultConfig()
+	cfg.Models = []string{"fixture-model"}
+	h := newHarnessWithConfig(t, buildFake(t), nil, &cfg)
+	r := h.launch()
+	r["model"] = "original"
+	_, e := h.call("launch", r)
+	if !client.IsCode(e, "policy_refused") {
+		t.Fatalf("restricted model control: %v", e)
+	}
+	if e = resumePolicyCase(h); e != nil {
+		t.Fatal(e)
 	}
 }

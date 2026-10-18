@@ -42,6 +42,9 @@ mutants = [
  ('F23', 'resume-ambiguous', [('&& !m.bad("resume-ambiguous") {', '&& false && !m.bad("resume-ambiguous") {')]),
  ('F24', 'index-labels', [('encode(projection(s))) != nil', 'encode(projection(s))) != nil && false')]),
  ('F25', 'record-binding', [('return !record.Readable || record.Session != s.Handle || record.Manager != s.Manager || record.Runtime != s.Runtime || !reflect.DeepEqual(record.Labels, s.Labels)', 'return !record.Readable')]),
+ ('F26', 'activity-timestamp', [('&& m.bad("activity-on-read") {', '{')]),
+ ('F27', 'doorbell-gate-closure', [('if !m.bad("doorbell-gate-closure") {', 'if false && !m.bad("doorbell-gate-closure") {')]),
+ ('F28', 'doorbell-uncertain', [('Generation: prev.Doorbell.Generation, Reason:', 'Generation: nil, Reason:')]),
 ]
 if args.list:
     for ident, prop, _ in mutants:
@@ -70,7 +73,7 @@ for ident, prop, edits in mutants:
             }[prop]
         else:
             package = './internal/sessionmanager/conformance'
-            tier = 'B' if prop in {'operation-expiry', 'reserved-crash', 'not-busy-busy', 'unreadable-index', 'unreadable-row', 'started-unreadable', 'doorbell-uncertain', 'graceful-retirement', 'identity-drift', 'profile-digest', 'filtered-index', 'resume-ambiguous'} else 'A'
+            tier = 'B' if prop in {'operation-expiry', 'reserved-crash', 'not-busy-busy', 'unreadable-index', 'unreadable-row', 'started-unreadable', 'doorbell-uncertain', 'graceful-retirement', 'identity-drift', 'profile-digest', 'filtered-index', 'resume-ambiguous', 'activity-timestamp', 'doorbell-gate-closure'} else 'A'
             test = f'^TestConformance$/^{tier}$/^{re.escape(prop)}$'
             marker = 'VIOLATION ' + prop + ':'
         cmd = ['go', 'test', package, '-count=1', '-v', '-timeout=45s', '-run', test]

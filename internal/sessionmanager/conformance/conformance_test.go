@@ -244,6 +244,16 @@ func TestKnownBadControls(t *testing.T) {
 				if plant == "busy-side-effect" && !strings.Contains(finding.Detail, "busy refusal changed") {
 					t.Fatalf("effect scanner control failed elsewhere: %v", finding)
 				}
+				for selected, detail := range map[string]string{
+					"activity-on-read":      "read manufactured activity",
+					"doorbell-gate-closure": "closed gate must project off",
+					"doorbell-generation":   "rebind must retain uncertainty and last armed generation",
+					"advertised-resume":     "resume did not preserve handle",
+				} {
+					if plant == selected && !strings.Contains(finding.Detail, detail) {
+						t.Fatalf("plant %s failed outside its target assertion: %v", plant, finding)
+					}
+				}
 				t.Logf("KILLED %s: %s", plant, finding.Property)
 			})
 		}
@@ -650,8 +660,7 @@ func ambiguousCase(h *harness) error {
 }
 func resumePolicyCase(h *harness) error {
 	r := h.launch()
-	r["model"] = "original"
-	r["child_env"] = map[string]string{"SAFE_OPTION": "original"}
+	// The adapter supplies the admitted model and policy; preserve those values.
 	s, e := h.start(r)
 	if e != nil {
 		return e
@@ -996,7 +1005,7 @@ func doorbellCase(h *harness) error {
 		return err
 	}
 	v, e = h.call("resume", h.resume(s))
-	return check("doorbell-uncertain", e == nil && v.Session.Doorbell.Uncertain && v.Session.Doorbell.State == "off" && sameArmedGeneration(s, v.Session) && v.Session.Doorbell.Reason != nil && *v.Session.Doorbell.Reason == "previous_generation_uncertain", "rebind must not erase uncertainty")
+	return check("doorbell-uncertain", e == nil && v.Session.Doorbell.Uncertain && v.Session.Doorbell.State == "off" && sameArmedGeneration(s, v.Session) && v.Session.Doorbell.Reason != nil && *v.Session.Doorbell.Reason == "previous_generation_uncertain", "rebind must retain uncertainty and last armed generation")
 }
 func gracefulCase(h *harness) error {
 	s, e := h.start(h.launch())

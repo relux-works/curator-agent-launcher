@@ -55,16 +55,25 @@ must not release a newer handle's admission key.
 Without an adapter, supply `-launch /absolute/valid-launch-template.json` for
 Tier A. The suite refreshes `operation_id`, `submitted_at` and its isolation
 label; all profile, policy and working-directory fields come from this known
-valid template. If a plugin supports every optional capability or all three
+valid template. Each scenario declares its operation/capability prerequisites
+and checks both capabilities and the template runtime's operation cells from
+`describe` before exercising them. Missing advertised prerequisites produce
+**SKIP: not_applicable**, never pass or failure. The advertised-operations case
+probes each runtime's available cells independently and does not require stop,
+list, attach or resume when absent. Label-scoped scenarios require `labels/1`;
+the launch-only control still exercises wire, unknown operations and advertised
+launches without adding labels. If a plugin supports every optional capability or all three
 delegated runtimes, the corresponding absence case is explicitly not applicable.
 No absent feature is invented just to obtain a refusal.
 
 **Tier B** requires the separate adapter: profile digest refusal, identity drift
 and precedence, ambiguous resume, preserved policy, busy/unknown stop with no
 state/gate/provider effects, unknown liveness, seven-day retention and expiry,
-stable snapshot values and membership, unreadable projections and whole-page
+event timestamps that remain stable under polling/listing and advance only
+on new activity, stable snapshot values and membership, unreadable projections and whole-page
 index refusals, unreadable historical outcomes, start/reservation crash windows,
-doorbell uncertainty across retirement/rebind, graceful draining, credential
+armed doorbell gate closure and preserved generation/uncertainty across
+retirement/rebind, graceful draining, credential
 sentinel scans, plain terminal exit, lost replies and poisoned response handling.
 
 Without `-fixture`, every selected Tier B case reports **SKIP: UNQUALIFIED**.
@@ -92,7 +101,7 @@ handles. No request or response contains real credentials.
 | `operation` | Members | Required effect |
 | --- | --- | --- |
 | `reset` | optional fake-only `config` | Reset disposable fixture state; return a known valid `launch` template. |
-| `set_activity` | `session`, `activity`, optional `enabled` | Set `idle`, `busy`, `unknown`, `draining`; `uncertain` persists prior doorbell uncertainty; `graceful-hang` simulates a live provider after its graceful share; `provider-gone` allows persisted retirement to finish. |
+| `set_activity` | `session`, `activity`, optional `enabled` | Set `idle`, `busy`, `unknown`, `draining`; idle/busy events persist the logical clock as activity time, while unknown/draining retain the previous event time; `uncertain` persists prior doorbell uncertainty; `graceful-hang` simulates a live provider after its graceful share; `provider-gone` allows persisted retirement to finish. |
 | `set_identity_drift` | `enabled` | Drift/restore the template profile's persisted binding without changing the admitted session identity. |
 | `inject_fault` | `name`; optional reference-only `bad` array | Select a fault below; empty name restores ordinary replies. `bad` persists across fault changes and is cleared by reset. |
 | `set_clock` | `now` | Set the manager's logical clock, never the host clock. |
@@ -146,18 +155,26 @@ A previously unseen operation older than seven days refuses expired; an existing
 operation replays retained evidence. Exactly seven days is still admissible.
 
 `config.json` can override `id`, `capabilities`, `runtimes`, `profiles` and the
-nonsecret `credential_source` binding. Profile `lock_sha256` is 64 lowercase
+nonsecret `credential_source` binding. An optional fake-only `models` allowlist
+restricts launch policy; reset supplies its first value in the known-valid
+template. The policy-preservation control uses the adapter's original model and
+policy values, without substituting provider identifiers. Profile `lock_sha256` is 64 lowercase
 hex characters without a prefix; `fragment_digest` is `sha256:` followed by
 64 lowercase hex characters, matching the shared launch/resume schemas.
 Defaults enable the implemented delegated
-lifecycle, admission and labels for Claude and Codex. Exact launch and upgrade
+lifecycle, admission, labels and simulated doorbell records for Claude and Codex. Exact launch and upgrade
 claims are never advertised. Doorbell capabilities enable simulated record
 shapes only; this fixture sends no a2a traffic. Configuring an unimplemented
 capability refuses instead of advertising a scaffold.
 
 `TestKnownBadControls` runs each normal scenario again with its corresponding
 reference-only `bad` flag and requires that exact property to fail. A setup
-failure does not count. Poison cases verify the exact injected wire sample reached
+failure does not count. Activity-on-read, armed gate-closure, lost-generation
+and falsely advertised resume controls must reach their specific assertions.
+`TestAdvertisedSubsets` runs the same qualification driver against individual capability omissions,
+launch-only and runtime-without-resume configurations, reporting absent features
+as not_applicable. `TestScenarioPrerequisites` checks every declared prerequisite
+in both capability and runtime directions. Poison cases verify the exact injected wire sample reached
 the validator; known-bad wire controls corrupt ordinary status instead of skipping
 the injection. Additional busy controls preserve the refusal while changing state,
 and the credential control preserves the refusal while leaking into records, so

@@ -38,6 +38,8 @@ type Profile struct {
 	FragmentDigest string `json:"fragment_digest"`
 }
 type Config struct {
+	// Models restricts this fixture to declared, nonsecret model values when set.
+	Models           []string            `json:"models,omitempty"`
 	ID               string              `json:"id"`
 	Capabilities     []string            `json:"capabilities"`
 	Runtimes         map[string][]string `json:"runtimes"`
@@ -549,6 +551,15 @@ func (m *manager) start(op string, r request, data []byte) reply {
 	}
 	if !sameJSON(r.Credential, m.config.CredentialSource) {
 		return fail("credential_source_stale")
+	}
+	if op == "launch" && len(m.config.Models) > 0 {
+		var plan struct {
+			Model *string `json:"model"`
+		}
+		_ = json.Unmarshal(data, &plan)
+		if plan.Model == nil || !slices.Contains(m.config.Models, *plan.Model) {
+			return fail("policy_refused")
+		}
 	}
 	key := ""
 	if r.AdmissionKey != nil {
