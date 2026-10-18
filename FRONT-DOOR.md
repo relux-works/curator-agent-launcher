@@ -1628,42 +1628,73 @@ launcher ensures the hooks before the start call:
 - A failure is `doorbell_setup_failed` (1), with the detail
   `step=install|verify`.
 
-**Containment.** The target is `<cwd>/.claude/settings.local.json`, and no
-byte may be written outside it, even when the tree changes concurrently. A
-check of the pathname followed by a write through the pathname is not enough,
+**Containment.** The target is `<cwd>/.claude/settings.local.json`. A check
+of the pathname followed by a write through the pathname is not enough,
 because the directory can be swapped in between. So the helper never writes
-the target directly:
+the target directly, and the launcher writes in exactly two places:
 
-1. The launcher opens `<cwd>` and then `.claude` relative to it, with no
-   symlink following at either step, and keeps the `.claude` descriptor
-   pinned. `.claude` must be a directory owned by the user and not group- or
-   world-writable. An existing `settings.local.json` must be a regular file
-   with one link, owned by the user. It is read through the pinned descriptor,
-   with no symlink following and a bounded size. A missing `.claude` is
-   created relative to the `<cwd>` descriptor, with mode `0700`, and then
-   opened the same way. Any failure here is `step=install`.
-2. The launcher copies those bytes to a staged file in a fresh private
-   directory under its state directory (mode `0700`). An absent target gives
-   an absent staged file. The helper runs with `--settings <staged file>`.
-   Its output depends only on the input bytes, the identity, the runtime and
-   the `a2a` executable, never on the path.
-3. The launcher checks the staged result with the predicate above. A failure
-   is `step=verify`, and the target is left untouched.
-4. The launcher commits the staged bytes through the pinned descriptor. It
-   creates a temporary file there exclusively, with no symlink following and
-   mode `0600`, writes and syncs it, and renames it over
-   `settings.local.json` within the same directory. Just before the rename,
-   it checks that the target is still the file it read in step 1 (same
-   device and inode, or still absent). If not, it removes the temporary file
-   and refuses `step=install`.
-5. It reads the target back through the pinned descriptor and applies the
-   predicate, then checks that `<cwd>/.claude` still resolves to the pinned
-   directory. A failure is `step=verify`.
+- a fresh private staging directory under its state directory;
+- the `.claude` directory it validated in step 1, identified by its open
+  descriptor rather than its pathname: one temporary file there, and the
+  `settings.local.json` entry that replaces the old one.
 
-The private staging directory is removed on every path. If the pinned
-directory is moved elsewhere during these steps, the write still lands in the
-user's own directory, never in a target chosen by whoever moved it; step 5
-then refuses.
+It never writes through a substituted symlink, and never into a file or
+directory it did not validate.
+
+1. **Validate and pin.**
+   - The launcher opens `<cwd>`, then `.claude` relative to it, with no
+     symlink following at either step, and keeps the `.claude` descriptor
+     pinned.
+   - Checked on the descriptor, `.claude` must be a directory owned by the
+     user and not group- or world-writable.
+   - An existing `settings.local.json` must be a regular file with one link,
+     owned by the user. It is read through the pinned descriptor, with no
+     symlink following and a bounded size.
+   - A missing `.claude` is created relative to the `<cwd>` descriptor, with
+     mode `0700`, then opened the same way.
+   - Any failure here is `step=install`, and nothing has been written.
+2. **Stage.**
+   - The launcher copies those bytes to a staged file in a fresh private
+     directory (mode `0700`). An absent target gives an absent staged file.
+   - The helper runs with `--settings <staged file>`. The settings bytes it
+     writes depend only on the input bytes, the identity, the runtime and the
+     `a2a` executable, never on the path.
+3. **Check the staged result** with the predicate above. A failure is
+   `step=verify`, and the target is left untouched.
+4. **Commit** through the pinned descriptor.
+   - The launcher creates a temporary file there exclusively, with no symlink
+     following, writes it and syncs it.
+   - The file keeps the permission bits of the file read in step 1. A new
+     file gets `0600`. This is the one way staging differs from running the
+     helper on the real path, and it affects metadata only, never content.
+   - Just before the rename, the launcher checks that the entry is still the
+     file it read in step 1: same device and inode, or still absent. If not,
+     it removes the temporary file and refuses `step=install`.
+   - It then renames the temporary file over `settings.local.json` within the
+     same directory.
+
+   The check only detects a conflict that is visible at the moment it runs.
+   It is not an atomic compare-and-swap. A replacement or an in-place edit
+   made between the check and the rename is overwritten. This is accepted:
+   the launcher is the only expected writer of this file at launch.
+5. **Read back and confirm.**
+   - The launcher reads the target back through the pinned descriptor and
+     applies the predicate.
+   - It then opens `<cwd>` afresh, and checks the `.claude` entry relative to
+     it with no symlink following. The entry must be a directory, with the
+     pinned descriptor's device and inode and the step 1 owner and mode
+     constraints. A symlink fails, even one that resolves to the pinned
+     directory.
+   - Any failure is `step=verify`.
+
+If the pinned directory was moved during steps 1–4, step 4 has already
+committed into it at its new location. That location is still the user's own
+validated directory, never a target chosen by whoever moved it. Step 5 then
+refuses `step=verify`, so a verify refusal does not mean that nothing was
+written. Step 5 sees only the state at the moment it runs: a move that is
+undone before it runs is not detected.
+
+The private staging directory is removed on every path.
 
 `doorbell-claude/1` means the manager's Claude composition keeps
 project-local settings active. It never means task-board's board-notice
