@@ -2,7 +2,7 @@
 
 **Amends:** [SPEC](SPEC.md) `0.5.1-draft` → `0.6.0-draft` (target; nothing
 here is implemented yet).
-**Status:** revision 5, draft. `ivmbp_curator_orch` accepted revision 1
+**Status:** revision 6, draft. `ivmbp_curator_orch` accepted revision 1
 (0ed45c5) as the basis on 2026-10-18 with four must-change points. Revision 2
 folds those in, together with the independent reviews `review-1` and
 `review-2` and `review-3` (all rework, converging). Revision 3 also adopts the accepted
@@ -75,9 +75,10 @@ sessions.
    managed home)              model/effort admission)         liveness, doorbell)
 ```
 
-The launcher keeps its non-goals (SPEC §1). Its only session-related state
-is the Werkstatt liveness record (§6.5). That record is observation, not
-authority: the session manager remains the truth about processes.
+The launcher keeps its non-goals (SPEC §1). It has two kinds of
+session-related state: the Werkstatt liveness record (§6.5) and the pending
+operation journal `op.json` (§5.7). Both are observation and correlation,
+not authority. The session manager remains the truth about processes.
 
 ## 2. Surface
 
@@ -89,7 +90,7 @@ curator-run werkstatt up <id> [--attach] [--new]
 curator-run werkstatt down <id> [--force]
 curator-run werkstatt recycle <id>
 curator-run werkstatt status [<id>] [--json]
-            [--set-task <ID> | --clear-task] [--queue-depth N] [--abandon-operation]
+            [--set-task <ID> | --clear-task] [--queue-depth N] [--abandon-operation | --rebind-manager]
 curator-run werkstatt list [--json]
 
 curator-run session-manager list [--json]
@@ -866,35 +867,59 @@ local write.
    - Missing: `werkstatt_not_found` (1).
    - Invalid: `werkstatt_record_invalid` (2).
 3. **Manager.** Resolve the selected manager (§4.2) and `describe` it. The
-   Werkstatt capability set is required (§5.2), and §5.8 bounds a
-   delegated-only manager.
+   Werkstatt capability set is required (§5.2), and §5.8 gates the selected
+   delegated route.
    - An empty or unselected registry is
      `werkstatt_session_manager_required` (1).
    - `up` is always hosted, whatever the machine mode is.
-4. **Existing sessions.** `list {labels: {werkstatt: id}}` on the selected
-   manager. If the liveness record names a different manager and a state
-   other than `down`:
-   - if that manager is still registered with the same executable, `status`
-     runs there:
-     - a session there that is not `down` is `werkstatt_already_up` (1);
-     - an unreachable manager is `session_liveness_unknown` (1);
-   - if it is missing from the registry or its executable changed, `up`
-     **fails closed** with `werkstatt_operation_unresolved` (1),
-     `reason=manager_missing|manager_changed`. Unregistering a manager never
-     clears a Werkstatt's live generation.
-   - Recovery: re-register the manager, or run `werkstatt status <id>
-     --abandon-operation`. The second is a manual decision that marks the
-     old generation `down` in the liveness record.
+4. **Owner and existing sessions.**
+   1. **Owner check.** This step always runs when a liveness record exists
+      and its state is not `down`, whether or not the binding's id equals
+      the selected id. The binding is the record's `manager` member (§6.5).
+      - The registry has no entry with the binding's id: fail closed with
+        `werkstatt_operation_unresolved` (1), `reason=manager_missing`.
+      - The entry's `executable` or `registered_at` differs from the
+        binding: fail closed with `werkstatt_operation_unresolved` (1),
+        `reason=manager_changed`. A same-id re-registration (§4.3 rule 4)
+        is therefore never trusted to own an older generation.
+      - Otherwise, `status {session}` goes through the bound manager:
+        - a state other than `down` is `werkstatt_already_up` (1);
+        - an unreachable manager, or `unknown`, is
+          `session_liveness_unknown` (1);
+        - `down` means the owner check passes.
+   2. **Selected manager.** `list {labels: {werkstatt: id}}` on the
+      selected manager.
+      - A session there in a state other than `down` is
+        `werkstatt_already_up` (1).
+      - An `unknown` session there is `session_liveness_unknown` (1).
+   3. **Resume target.** This applies with `context_mode` `continue` and no
+      `--new`.
+      - The target is the liveness record's session when the owner check
+        found it `down` on the bound manager, and the bound manager is the
+        selected one.
+      - Otherwise it is the newest `down` session on the selected manager
+        by `started_at`.
+      - A tie, or an unreadable candidate, is `session_resume_ambiguous`
+        (1).
+      - If the bound manager is not the selected one, there is no
+        cross-manager resume: the launch is new.
+   4. **Recovery.** Two explicit commands leave the fail-closed state.
+      - `werkstatt status <id> --rebind-manager`:
+        - asks the current entry with the binding's id for `status
+          {session}`;
+        - if it answers with a record for exactly that session handle, the
+          binding is updated to the entry;
+        - any other answer refuses, and the binding is unchanged.
+      - `werkstatt status <id> --abandon-operation` is an **operator
+        override** (§6.5). It is a decision, not evidence that the old
+        generation stopped.
+   5. **Routing.** While the binding exists, `status`, `stop`, `resume` and
+      `down` for this Werkstatt go to the **bound** manager, not to the
+      selected one.
 
-   The launcher does not start a second generation on another manager while
-   the first may live.
-   - A session in a state other than `down` is `werkstatt_already_up` (1).
-   - An `unknown` session is `session_liveness_unknown` (1).
-   - The resume target, with `context_mode` `continue` and no `--new`, is
-     the session named in the liveness record (§6.5), if that session is
-     listed as `down`. Otherwise it is the newest `down` session by
-     `started_at`. A tie, or an unreadable candidate, is
-     `session_resume_ambiguous` (1).
+   With these checks, the launcher never automatically starts a second
+   generation while the first may live. The only exception is the explicit
+   operator override.
 5. **Workspace checks.** All of them are read-only, and an inconclusive
    check refuses.
    - The clone exists and is a directory (`werkstatt_clone_missing`).
@@ -936,7 +961,9 @@ local write.
        - the labels `werkstatt=<id>`, `generation=<previous + 1>` and
          `identity`.
    - Reconcile per §5.7.
-9. **Liveness.** Write the §6.5 record and remove `op.json`.
+9. **Liveness.** Write the §6.5 record, including the owner binding copied
+   from `op.json`'s `manager` and the settled `operation_id`. Only then
+   remove `op.json`.
    - If the liveness write fails, the session is still up: print the
      handle, and refuse `werkstatt_liveness_write_failed` (1).
    - The next `status` rewrites the record.
@@ -998,17 +1025,41 @@ schema `werkstatt-liveness-v1`, written atomically:
 
 ```json
 { "id": "...", "state": "starting|idle|busy|draining|down|unknown",
-  "manager": "task-board", "session": "SES-…", "generation": 3,
+  "manager": { "id": "task-board", "executable": "/abs/path", "registered_at": "…Z" },
+  "operation_id": "…", "state_source": "manager|operator_override",
+  "session": "SES-…", "generation": 3,
   "started_at": "…Z", "last_heartbeat_at": "…Z", "last_activity_at": "…Z",
   "doorbell": "armed|unavailable|off", "doorbell_uncertain": false,
   "current_task": null, "queue_depth": 0, "abandoned_operations": [] }
 ```
 
 - **Who writes:** curator-run writes the file on `up`, `down`, `recycle` and
-  every `status`. Each time it copies `state`, `session`, `generation`,
-  `started_at`, `last_activity_at`, `doorbell.state` and
-  `doorbell.uncertain` from the manager's session record, and infers
-  nothing else.
+  every `status`. Each time it copies these fields from the bound manager's
+  session record, and infers nothing else:
+  - `state`, `session`, `generation`;
+  - `started_at`, `last_activity_at`;
+  - `doorbell.state`, `doorbell.uncertain`.
+
+  `state_source` is then `manager`.
+- **`manager`** is the owner binding: the registry entry the operation was
+  submitted to, frozen at submission. It changes only through
+  `--rebind-manager`.
+- **`operation_id`** is the last settled operation, and `null` before the
+  first one. It is the compare-and-swap key of §5.7, together with
+  `generation`. A write whose `(operation_id, generation)` is older than the
+  file's is dropped.
+- **Operator override.** `--abandon-operation` sets `state: down`,
+  `state_source: operator_override`, and appends the abandoned id to
+  `abandoned_operations`.
+  - It does not cancel or stop anything remote.
+  - `status` and the router show `state_source`. The router treats an
+    override as not established, so it cannot be used as evidence of
+    termination.
+  - The next manager read through a valid binding replaces it with
+    `state_source: manager`.
+- **No record yet.** If `status` cannot take the lock and no liveness file
+  exists, for example during the first `up`, it outputs
+  `{record, liveness: null, stale: true}` and exits 0.
 - **`last_heartbeat_at`** is the time of that manager read. A stale value
   means nobody looked, not that the session is down.
 - **`current_task` and `queue_depth`** are written only by the orchestrator,
@@ -1306,7 +1357,7 @@ Detail vocabularies are closed (§5.6). Grammar names:
 | `credential_reserved_name` | 2 | a reserved credential name in `child_env` | `name`: one of the reserved names |
 | `migrate_destination_exists` | 2 | `migrate` would overwrite a different file | `path` |
 | `werkstatt_operation_unresolved` | 1 | the manager owning a pending operation or a live generation is missing or changed (§§5.7, 6.2) | `reason`: `manager_missing`, `manager_changed`; `operation`: UUID |
-| `session_host_delegated_unauthorized` | 16 | a delegated-only manager before Q1 sign-off without a trial authorisation (§5.8) | none |
+| `session_host_delegated_unauthorized` | 16 | the selected route is delegated, before Q1 sign-off and without a trial authorisation (§5.8) | none |
 
 **Reused with their meaning.** These codes keep their meaning. Plugin-borne
 detail values are allowed only from the vocabularies shown:
@@ -1337,6 +1388,7 @@ detail values are allowed only from the vocabularies shown:
 | task-board (infra-exit, `#skill-project-management`) | 1. `task-board session-manager register --for curator-run` (§4.3), called by its installer. 2. A plugin entry `task-board session-manager plugin <op>` implementing §5: `launch-delegated/1`, `resume/1`, `attach/1`, `status/1` with operation outcomes, `cancel`, `list/1`, `stop/1` with `not-busy`, `admission/1` covering launch and resume, `labels/1`, `board-goal/1`, `doorbell-codex/1` with a per-session owner and the rebind gate (§8.2), `doorbell-claude/1`, and later `credential-node/1` (Appendix B). It must pass the §5.5 suite. 3. **A board-less session daemon mode:** keyed by the user state root, not a board directory; sessions keyed by cwd and labels; no primary goal unless `board_goal: workspace`. 4. `--profile` for hosted sessions (TASK-261018-cliw6c, in flight). 5. The v4 Muse consumer (TASK-261018-yzorfb). 6. `task-board claude\|codex` become aliases of `curator run <env> --hosted --board-goal` (Decision 0021 §5). This is not a blocker. |
 | Router lane (`#model-routing`) | Freeze the `station` fields with task-board against §6.1. Read `werkstatt-liveness-v1` as the snapshot liveness source, with `unknown` treated as not dispatchable. |
 | `ivmbp_curator_orch` (Curator) | 1. The release-workflow change (§10, C8). 2. The CIP-0016 amendment (Appendix A), after Ivan's sign-off. 3. Implement `local-setup-token-source` T1–T3a and publish the `pkg/localcredential` pin, plus fragment v6. 4. Qualify the interactive mode, and file Appendix B (C10). 5. Manifest-declared home-level hooks under strict mode (§8.1). 6. The Curator config-home CIP. |
+| Session-host extraction (`swarma-session-host`) | The first conforming manager after task-board. The extraction research (`#curator` › curator-run, 2026-10-18) recommends four things that map onto this protocol: operation ids with generation fencing (§5.7), per-session runners that survive a host restart (`survives-upgrade`), a stop tombstone, and resume that never becomes a new conversation (§5.3). |
 | a2a (Courier) | 1. Verify the native Codex adapter on app-server 0.162.x (§8.2). 2. Optionally, a live-owner release for a generation, so that a manager can retire a binding without the owner's death. |
 
 ## 13. Compatibility and migration
