@@ -20,23 +20,32 @@ refuse() {
 	exit 2
 }
 
+# matches VALUE ERE: true when VALUE is exactly one line and matches ERE in
+# full. A value with a newline never matches, even if one of its lines would.
+matches() {
+	case $1 in
+	*"
+"*) return 1 ;;
+	esac
+	printf '%s\n' "$1" | grep -Eqx -- "$2"
+}
+
 version=${RELEASE_VERSION:-}
-printf '%s\n' "$version" | grep -Eqx '[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?' ||
-	refuse "VERSION must be a semantic version, got '$version'"
-[ "$(printf '%s' "$version" | wc -l)" -eq 0 ] || refuse "VERSION must be one line"
+matches "$version" '[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?' ||
+	refuse "VERSION must be a one-line semantic version, got '$version'"
 
 goos=${RELEASE_GOOS:-$(go env GOOS)}
 goarch=${RELEASE_GOARCH:-$(go env GOARCH)}
 for value in "$goos" "$goarch"; do
-	printf '%s\n' "$value" | grep -Eqx '[a-z0-9]+' || refuse "GOOS and GOARCH must be lowercase alphanumeric, got '$value'"
+	matches "$value" '[a-z0-9]+' || refuse "GOOS and GOARCH must be one lowercase alphanumeric word, got '$value'"
 done
 
 dist=${RELEASE_DIST:-dist}
-printf '%s\n' "$dist" | grep -Eqx '[A-Za-z0-9._/+][A-Za-z0-9._/+-]*' ||
+matches "$dist" '[A-Za-z0-9._/+][A-Za-z0-9._/+-]*' ||
 	refuse "DIST must be a plain path ([A-Za-z0-9._/+-], not starting with '-'), got '$dist'"
 
 toolchain=go$(sed -n 's/^go //p' go.mod)
-printf '%s\n' "$toolchain" | grep -Eqx 'go[0-9]+\.[0-9]+(\.[0-9]+)?' || refuse "cannot read the go line from go.mod"
+matches "$toolchain" 'go[0-9]+\.[0-9]+(\.[0-9]+)?' || refuse "cannot read the go line from go.mod"
 
 name="curator-run-$version-$goos-$goarch"
 mkdir -p -- "$dist"

@@ -12,7 +12,7 @@
 #   - control: a different VERSION gives different bytes, so the comparison
 #     is not vacuous;
 #   - negatives: crafted VERSION, GOOS, GOARCH and DIST values (spaces,
-#     $(shell), backticks, $$(), ;, a leading -) are refused by the input guard,
+#     $(shell), backticks, $$(), ;, a leading -, a second line) are refused by the input guard,
 #     run nothing and write nothing.
 #
 # Usage: scripts/release-repro.sh  (from the repository root; needs git, make, go)
@@ -92,5 +92,12 @@ refused goos-make-shell VERSION=0.6.0 GOOS="\$(shell touch $MARK/g1)" DIST=bad-d
 refused goarch-backtick VERSION=0.6.0 GOARCH="\`touch $MARK/g2\`" DIST=bad-dist
 refused dist-make-shell VERSION=0.6.0 DIST="\$(shell touch $MARK/d1)"
 refused dist-option VERSION=0.6.0 DIST=-rf
+# Multiline values whose first line is valid (S9R2-S1).
+NL='
+'
+refused version-multiline VERSION="0.6.0${NL}0.6.1" DIST=bad-dist
+refused goos-multiline VERSION=0.6.0 GOOS="linux${NL}darwin" DIST=bad-dist
+refused goarch-multiline VERSION=0.6.0 GOARCH="amd64${NL}arm64" DIST=bad-dist
+refused dist-multiline VERSION=0.6.0 DIST="bad-dist${NL}other"
 
 echo "release-repro: OK $(sum "$A/dist/$name" | cut -d' ' -f1) $name"
