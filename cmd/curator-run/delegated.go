@@ -133,6 +133,13 @@ func terminalStreams(tty *os.File, stdout, stderr io.Writer, stdin io.Reader) cl
 		streams.Stdin, _ = stdin.(*os.File)
 	}
 	streams.Stdout, _ = stdout.(*os.File)
-	streams.Stderr, _ = stderr.(*os.File)
+	// Session output must not enter the launcher's diagnostic classifier.
+	if observer, ok := stderr.(*selectorOutcomeWriter); ok {
+		stderr = observer.Writer
+	}
+	streams.Stderr = stderr
+	if streams.Stderr == nil {
+		streams.Stderr = os.Stderr
+	}
 	return streams
 }

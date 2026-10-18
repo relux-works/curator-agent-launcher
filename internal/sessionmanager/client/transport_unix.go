@@ -274,9 +274,12 @@ func (c Client) Start(ctx context.Context, operation string, request []byte) (*S
 // TerminalIO supplies already-open terminal streams. Attach passes the request
 // only on fd3; exact passes the private plan on stdin and the terminal on fd3.
 // Files remain caller-owned and the launcher's copies stay close-on-exec.
+// Stderr files pass through directly; other writers use os/exec's pipe copier.
+// command's WaitDelay bounds draining an inherited pipe after the child exits.
 type TerminalIO struct {
-	Terminal              *os.File
-	Stdin, Stdout, Stderr *os.File
+	Terminal      *os.File
+	Stdin, Stdout *os.File
+	Stderr        io.Writer
 }
 type TerminalResult struct {
 	Exit    int
@@ -424,6 +427,10 @@ func (c Client) Terminal(ctx context.Context, operation string, request []byte, 
 		return TerminalResult{Exit: last.ExitCode(), Refusal: last}, nil
 	}
 	if cmd.ProcessState == nil {
+		return TerminalResult{}, unavailable("transport")
+	}
+	var exitErr *exec.ExitError
+	if waitErr != nil && !errors.As(waitErr, &exitErr) {
 		return TerminalResult{}, unavailable("transport")
 	}
 	if waitErr != nil && cmd.ProcessState.ExitCode() < 0 {
