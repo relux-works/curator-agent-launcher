@@ -589,8 +589,16 @@ The v1 capability tokens are closed. An unknown token confers nothing.
   boundary is in §5.8.
 - **`launch-exact/2`.** The CIP-0016 exact-plan shape, with the jointly
   published successor payload. The launcher prefers it **per runtime**: when
-  `describe` lists `launch-exact` for that env-id and the launch is attached.
-  Exact support for one runtime never retires delegated support for another.
+  `describe` lists `launch-exact` for that env-id and the launch is attached
+  and requests no doorbell. Exact support for one runtime never retires
+  delegated support for another.
+  - The `launch-exact/2` payload cannot carry a doorbell or return a
+    session record. A launch that is detached or that requests a doorbell
+    (`--a2a`, or a Werkstatt record with a doorbell) therefore uses the
+    delegated route, and the §5.8 matrix applies to it.
+  - An exact-only manager refuses such a launch with
+    `session_host_capability_missing`, with `capability=launch-exact-doorbell`
+    for a doorbell, or `launch-exact-detached` for a detached launch.
 - **`resume/1`, `attach/1`, `status/1`, `list/1`, `stop/1`.** A manager
   that advertises `stop/1` defines `busy` per runtime, as an observable
   state. The `not-busy` precondition and `state: busy` use the same
@@ -1854,7 +1862,7 @@ Detail vocabularies are closed (§5.6). Grammar names:
 | --- | --- |
 | `<handle>` | `SES-[A-Za-z0-9]{1,48}` |
 | `<id>` | the manager or Werkstatt id grammars of §§4.2, 6.1 |
-| `<cap>` | a §5.2 capability token, or one of `launch-exact-detached`, `weights-pin` |
+| `<cap>` | a §5.2 capability token, or one of `launch-exact-detached`, `launch-exact-doorbell`, `weights-pin` |
 | `<env>` | a §4.2 SPEC env-id |
 | `<path>`, `<field>` | sourced only by the launcher from its own configuration or validated record, never from a plugin |
 
