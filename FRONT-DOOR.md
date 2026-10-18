@@ -1219,7 +1219,10 @@ expected outcome.
 ### 6.1 The record [decided Q4]
 
 A Werkstatt is project × role profile × environment, with its own managed
-home, clone and identity. Its record is `werkstatt-record-v1`, closed:
+home, clone and identity. Its record is `werkstatt-record-v1`, closed. It
+carries `"schema": "werkstatt-record-v1"` as a required member, because a
+person edits the file. The launcher-internal `op.json` and liveness files
+carry no `schema` member; their file names and locations identify them.
 
 | Field | Meaning |
 | --- | --- |
@@ -1371,8 +1374,8 @@ local write.
        - `system_prompt: null`;
        - `detach: true`;
        - `credential_source` from the fragment;
-       - the labels `werkstatt=<id>`, `generation=<previous + 1>` and
-         `identity`.
+       - the labels `werkstatt=<id>` and `identity`. There is no generation
+         label, because each manager numbers its own generations (§6.5).
    - Reconcile per §5.7.
 9. **Liveness.** Write the §6.5 record, including the owner binding copied
    from `op.json`'s `manager` and the settled `operation_id`. Only then
@@ -1466,16 +1469,25 @@ schema `werkstatt-liveness-v1`, written atomically:
 - **`operation_id`** is the last settled operation, and `null` before the
   first one. Together with `generation` it is the compare-and-swap key of
   §5.7, used as an **expected-value** check, never as an ordering of UUIDs.
-  A writer reads `(operation_id, generation)` under the lock, and commits
-  only if the file still holds exactly that tuple. One of two transitions
-  must then hold:
+  A writer reads `(manager, operation_id, generation)` under the lock, and
+  commits only if the file still holds exactly that tuple. One of three
+  transitions must then hold:
   - the same operation keeps its generation (a status refresh);
-  - a newly settled operation moves `generation` up by exactly one.
+  - a newly settled operation **on the same binding** moves `generation` up
+    by exactly one;
+  - a newly settled operation **on a new binding** takes the new manager's
+    own generation, whatever its value. This is allowed only when the
+    previous record is `down`, by manager evidence or by operator override.
+    `generation` is always the bound manager's number, and there is no
+    cross-manager counter.
 
   Every other write is dropped, as is any write for an abandoned id.
 - **Operator override.** `--abandon-operation` sets `state: down`,
   `state_source: operator_override`, and appends the abandoned id to
   `abandoned_operations`.
+  - If no session ever started, `session` and `generation` are `null` and
+    `manager` is the binding copied from `op.json`. These are the only
+    records in which `session` and `generation` may be `null`.
   - It does not cancel or stop anything remote.
   - `status` and the router show `state_source`. The router treats an
     override as not established, so it cannot be used as evidence of
