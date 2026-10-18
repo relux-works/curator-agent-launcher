@@ -51,7 +51,8 @@ func normalizeAuthorizedPermissionsLine(t *testing.T, name string, current []byt
 // second copy of the live fixtures.
 //
 // The parity chain is two links: TestProductionPipelineGoldens and the
-// Muse golden tests prove production output equals the live goldens,
+// TestMuseV3CompositionGoldens proves the old admitted composition projection
+// equals the Muse live goldens (new managed v3 launches refuse),
 // and this test proves the live goldens equal baseline plus the
 // enumerated delta. Any other unmanaged drift — a second added line, a
 // changed value, a new golden outside this list — fails here by name.

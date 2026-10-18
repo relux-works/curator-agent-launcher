@@ -101,9 +101,10 @@ type AvailabilityFunc func(q providerlimits.VerdictQuery) (vendorplugin.Availabi
 // Deps wires the module boundaries. Registry is the vendorplugin registry
 // (production: vendorplugin.Default, populated by the blank imports above).
 type Deps struct {
-	Registry     *vendorplugin.Registry
-	BuildLaunch  BuildLaunchFunc
-	Availability AvailabilityFunc
+	Registry      *vendorplugin.Registry
+	BuildLaunch   BuildLaunchFunc
+	Availability  AvailabilityFunc
+	ModuleVersion func() string
 }
 
 // DefaultDeps wires the real tagged contracts: the default registry, the
@@ -228,6 +229,21 @@ func Build(ctx context.Context, d Deps, req Request) (agentic.PlanWithEnvironmen
 	}
 	if d.Availability == nil {
 		return agentic.PlanWithEnvironment{}, &RefusedError{Detail: "no provider-limits read wired"}
+	}
+	if req.Context != nil && req.Context.Environment == "muse" {
+		version := linkedModuleVersion()
+		if d.ModuleVersion != nil {
+			version = d.ModuleVersion()
+		}
+		if version == "" {
+			version = "unknown"
+		}
+		if err := checkMuseModuleVersion(version); err != nil {
+			return agentic.PlanWithEnvironment{}, err
+		}
+		if err := checkMuseInteractiveForm(req); err != nil {
+			return agentic.PlanWithEnvironment{}, err
+		}
 	}
 	spawn := SpawnRequest(req)
 	// The mode is spelled by name. Never a numeric literal, never a bare

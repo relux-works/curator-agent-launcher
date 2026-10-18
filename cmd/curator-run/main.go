@@ -110,14 +110,15 @@ type launchDeps struct {
 	shadowStart     func(selector.ShadowJob) (*selector.Child, error)
 	observationPath func() string
 
-	axPaths      func() (defaults.Paths, error)
-	workdir      func() (string, error)
-	environ      func() []string
-	availability func() (plan.AvailabilityFunc, error)
-	build        plan.BuildLaunchFunc
-	axBinary     string
-	stdin        io.Reader
-	now          func() time.Time
+	axPaths       func() (defaults.Paths, error)
+	workdir       func() (string, error)
+	environ       func() []string
+	availability  func() (plan.AvailabilityFunc, error)
+	build         plan.BuildLaunchFunc
+	moduleVersion func() string // Tests supply metadata omitted by Go test binaries.
+	axBinary      string
+	stdin         io.Reader
+	now           func() time.Time
 	// providerPath supplies the §4.3 provider-line path. Production
 	// leaves it nil so EmitGroup resolves os.Executable; tests inject
 	// a deterministic path so goldens stay stable across machines.
@@ -309,7 +310,14 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, deps laun
 		ProfileSet: inv.ProfileSet,
 		Stderr:     stderr,
 	})
+	if err == nil {
+		err = fragment.CheckLaunchRevision(frag)
+	}
 	if err != nil {
+		var version *fragment.VersionError
+		if errors.As(err, &version) {
+			return emitHostFailure(stderr, err)
+		}
 		if re, ok := fragment.IsResolve(err); ok {
 			_ = diagnostics.Emit(stderr, re.Code, re.Detail)
 			return diagnostics.ExitForCode(re.Code)
@@ -500,7 +508,7 @@ func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, ta
 		return emitFailure(stderr, code, err)
 	}
 	launchContext := plan.Context(frag, fragment.Semantics(inv.SystemPrompt))
-	admitted, err := plan.Build(ctx, plan.Deps{Registry: deps.registry, BuildLaunch: build, Availability: availability}, plan.Request{
+	admitted, err := plan.Build(ctx, plan.Deps{Registry: deps.registry, BuildLaunch: build, Availability: availability, ModuleVersion: deps.moduleVersion}, plan.Request{
 		Runtime: resolved.Runtime, Model: resolved.Model.Value, Effort: resolved.Effort.Value,
 		PermissionMode: decision.Mode, ToolRelease: toolRelease, NativeArgs: tail,
 		Home: frag.Home(), WorkDir: wd, Env: parentEnv, Context: launchContext,
@@ -782,7 +790,7 @@ func resolvePermission(ctx context.Context, inv cli.Invocation, frag *fragment.F
 	decision, err := execution.ResolvePermission(execution.PermissionRequest{
 		Flag: inv.PermissionMode, FlagPresent: inv.PermissionSet, Profile: frag.Permissions,
 		Global: global, Headless: headless, Tracked: inv.Tracked, Hosted: hosted,
-		Transport: frag.Revision == fragment.IdentityV2 || frag.Revision == fragment.IdentityV3,
+		Transport: frag.Revision == fragment.IdentityV2 || frag.Revision == fragment.IdentityV3 || frag.Revision == fragment.IdentityV4,
 	})
 	if err != nil {
 		return execution.PermissionDecision{}, "", nil, err

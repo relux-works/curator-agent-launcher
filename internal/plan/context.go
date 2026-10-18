@@ -8,15 +8,12 @@ import (
 	"github.com/relux-works/skill-agents-management/pkg/agentic"
 )
 
-// Context projects validated Claude/Codex fragment channels without constructing
-// argv. The system plugin owns channel selection, encoding and conflict checks.
-// Later fragment revisions retain their permission transport in the launcher;
-// their context members are the v1-compatible subset supported by the carrier.
-// Pi prompt discovery and Muse's XDG environment stay on their existing paths.
-// Reserved fragment members remain in the original fragment's digest and
-// transport only; forwarding them would activate unsupported carrier semantics.
+// Context forwards validated v4 policy to the module, which owns argv and
+// sealing. Older Claude/Codex carriers keep their v1-compatible projection;
+// older Muse/Pi fragments retain their existing paths. Reserved members remain
+// in the original fragment digest and do not activate execution semantics.
 func Context(f *fragment.Fragment, intent fragment.Semantics) *agentic.CuratorContext {
-	if f.Environment != fragment.EnvClaudeCode && f.Environment != fragment.EnvCodexCLI {
+	if f.Revision != fragment.IdentityV4 && f.Environment != fragment.EnvClaudeCode && f.Environment != fragment.EnvCodexCLI {
 		return nil
 	}
 	value := &agentic.CuratorContext{
@@ -24,6 +21,20 @@ func Context(f *fragment.Fragment, intent fragment.Semantics) *agentic.CuratorCo
 		Profile:    agentic.CuratorProfilePin{Name: f.Profile.Name, LockSHA256: f.Profile.LockSHA256},
 		Precedence: agentic.CuratorPrecedence{Winner: f.Precedence.Winner, Placement: f.Precedence.Placement},
 		Env:        maps.Clone(f.Env),
+	}
+	if f.Revision == fragment.IdentityV4 {
+		value.Revision = agentic.CuratorLaunchFragmentV4
+		if f.Permissions != nil {
+			value.Permissions = &agentic.CuratorPermissions{
+				Mode: agentic.CuratorPermissionMode(f.Permissions.Mode), Locked: f.Permissions.Locked, Source: agentic.CuratorPermissionSource(f.Permissions.Source),
+			}
+		}
+		if f.RootContext != nil {
+			value.RootContext = &agentic.CuratorRootContext{Exclusive: f.RootContext.Exclusive}
+		}
+		if f.CredentialStore != nil {
+			value.CredentialStore = &agentic.CuratorCredentialStore{Selection: agentic.CuratorCredentialSelection(f.CredentialStore.Selection), ConfigOverrides: maps.Clone(f.CredentialStore.ConfigOverrides)}
+		}
 	}
 	channels := func(source []fragment.Channel) []agentic.CuratorChannelDescriptor {
 		out := make([]agentic.CuratorChannelDescriptor, 0, len(source))

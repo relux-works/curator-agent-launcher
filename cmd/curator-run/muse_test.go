@@ -22,7 +22,19 @@ import (
 func museFixture(t *testing.T) (*pipelineFixture, *fragment.Fragment) {
 	t.Helper()
 	f := entryFixture(t, "pi", false)
+	f.deps.moduleVersion = func() string { return "v0.5.68" }
 	data, err := os.ReadFile("../../internal/fragment/testdata/v3/muse.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var object map[string]any
+	if err := json.Unmarshal(data, &object); err != nil {
+		t.Fatal(err)
+	}
+	object["fragment"] = fragment.IdentityV4
+	object["credential_store"] = map[string]string{"selection": "file"}
+	object["env"].(map[string]any)["TBH_CREDENTIAL_BACKEND"] = "file"
+	data, err = json.Marshal(object)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -33,7 +45,8 @@ func museFixture(t *testing.T) (*pipelineFixture, *fragment.Fragment) {
 	if err := json.Unmarshal(data, &wire); err != nil {
 		t.Fatal(err)
 	}
-	frag := &fragment.Fragment{Revision: fragment.IdentityV3, Environment: fragment.EnvMuse, Env: wire.Env}
+	frag := &fragment.Fragment{Revision: fragment.IdentityV4, Environment: fragment.EnvMuse, Env: wire.Env,
+		Profile: fragment.Profile{Name: "default", LockSHA256: strings.Repeat("a", 64)}, Precedence: fragment.Precedence{Winner: "higher-weight", Placement: "winner-last"}, Permissions: &fragment.Permissions{Mode: "native", Source: "default"}, CredentialStore: &fragment.CredentialStore{Selection: "file"}}
 	fragmentPath := filepath.Join(f.dir, "muse-fragment.json")
 	writeFixture(t, fragmentPath, data, 0600)
 	curator := filepath.Join(f.dir, "curator")
@@ -60,7 +73,7 @@ func museFixture(t *testing.T) (*pipelineFixture, *fragment.Fragment) {
 // Production call sites: run -> Resolve -> resolvePermission -> plan.Build
 // (real BuildLaunchWithEnvironment in Interactive mode) -> Compose -> fake Muse.
 // These rows require admission; a plugin regression to exec-only must fail.
-func TestMuseV3InteractiveThroughRun(t *testing.T) {
+func TestMuseV4InteractiveThroughRun(t *testing.T) {
 	for _, tc := range []struct {
 		name string
 		args []string
@@ -103,7 +116,7 @@ func TestMuseV3InteractiveThroughRun(t *testing.T) {
 			if !strings.Contains(string(stderr), "curator-run: permissions="+string(tc.mode)+" source=flag mapped="+mapped+"\n") {
 				t.Fatalf("permission diagnostic: %s", stderr)
 			}
-			golden(t, "pipeline-muse-"+tc.name, child, f.dir)
+			golden(t, "pipeline-muse-v4-"+tc.name, child, f.dir)
 		})
 	}
 }
@@ -117,7 +130,7 @@ func museArgv(workdir string, mode agentic.PermissionMode) []string {
 }
 
 // Production call site: plan.Build with the real tagged BuildLaunch API.
-func TestMuseV3PlanBuildInteractive(t *testing.T) {
+func TestMuseV4PlanBuildInteractive(t *testing.T) {
 	for _, mode := range []agentic.PermissionMode{agentic.PermissionModeNative, agentic.PermissionModeYolo} {
 		t.Run(string(mode), func(t *testing.T) {
 			f, frag := museFixture(t)
@@ -144,7 +157,7 @@ func TestMuseV3PlanBuildInteractive(t *testing.T) {
 
 func assertMuseEnv(t *testing.T, env []string, nativeHome string, frag *fragment.Fragment) {
 	t.Helper()
-	want := []string{"HOME=" + nativeHome, "MUSE_NO_AUTO_UPDATE=1", "PATH=" + nativeHome,
+	want := []string{"HOME=" + nativeHome, "MUSE_NO_AUTO_UPDATE=1", "PATH=" + nativeHome, "TBH_CREDENTIAL_BACKEND=file",
 		"XDG_CACHE_HOME=" + frag.Env["XDG_CACHE_HOME"], "XDG_CONFIG_HOME=" + frag.Env["XDG_CONFIG_HOME"],
 		"XDG_DATA_HOME=" + frag.Env["XDG_DATA_HOME"], "XDG_STATE_HOME=" + frag.Env["XDG_STATE_HOME"]}
 	if !reflect.DeepEqual(env, want) {
@@ -152,7 +165,7 @@ func assertMuseEnv(t *testing.T, env []string, nativeHome string, frag *fragment
 	}
 }
 
-func TestMuseV3CompositionPreservesHOME(t *testing.T) {
+func TestMuseV4CompositionPreservesHOME(t *testing.T) {
 	f, frag := museFixture(t)
 	p := agentic.Plan{Binary: f.binary, WorkDir: f.dir, Argv: []string{"opaque"}, Env: []string{"HOME=" + f.dir, "PATH=" + f.dir, "MUSE_NO_AUTO_UPDATE=1"}}
 	v, err := composition.Compose(p, []string{"MUSE_NO_AUTO_UPDATE=1"}, *frag, composition.PromptApplication{}, nil)
@@ -173,7 +186,7 @@ func TestMuseV3CompositionPreservesHOME(t *testing.T) {
 	}
 }
 
-func TestMuseV3MalformedReleaseRefusedThroughRun(t *testing.T) {
+func TestMuseV4MalformedReleaseRefusedThroughRun(t *testing.T) {
 	for _, mode := range []string{"native", "yolo"} {
 		for _, version := range []string{"", "garbage\n", "Muse Code 1.4.6 (1.4.5-R5000.1)\n"} {
 			t.Run(mode+"/version="+version, func(t *testing.T) {
@@ -196,7 +209,7 @@ func TestMuseV3MalformedReleaseRefusedThroughRun(t *testing.T) {
 
 // run -> resolvePermission probes a claim; the real module builder must
 // compare it with the selected binary's later attestation, for both postures.
-func TestMuseV3ReleaseMismatchRefusedThroughRun(t *testing.T) {
+func TestMuseV4ReleaseMismatchRefusedThroughRun(t *testing.T) {
 	for _, mode := range []string{"native", "yolo"} {
 		t.Run(mode, func(t *testing.T) {
 			f, _ := museFixture(t)
@@ -218,7 +231,7 @@ func TestMuseV3ReleaseMismatchRefusedThroughRun(t *testing.T) {
 	}
 }
 
-func TestMuseV3YoloRequiresHelpEvidenceThroughRun(t *testing.T) {
+func TestMuseV4YoloRequiresHelpEvidenceThroughRun(t *testing.T) {
 	for _, help := range []string{"", "Example: muse --yolo\n", "  --yolo-extra  Not the bypass flag\n"} {
 		t.Run(help, func(t *testing.T) {
 			f, _ := museFixture(t)
@@ -237,7 +250,7 @@ func TestMuseV3YoloRequiresHelpEvidenceThroughRun(t *testing.T) {
 	}
 }
 
-func TestMuseV3NovelBuildAndWonderThroughRun(t *testing.T) {
+func TestMuseV4NovelBuildAndWonderThroughRun(t *testing.T) {
 	for _, release := range []string{"1.4.6", "9.9.9"} {
 		for _, mode := range []string{"native", "yolo"} {
 			t.Run(release+"/"+mode, func(t *testing.T) {
@@ -267,7 +280,7 @@ func TestMuseV3NovelBuildAndWonderThroughRun(t *testing.T) {
 // Production call site: run -> cli.Parse, before any fragment/env-specific
 // stage. An unknown --permissions value must refuse with usage even when
 // the operand is the muse environment; nothing may resolve or launch.
-func TestMuseV3UnknownPermissionsRefusedThroughRun(t *testing.T) {
+func TestMuseV4UnknownPermissionsRefusedThroughRun(t *testing.T) {
 	for _, tc := range []struct {
 		name  string
 		args  []string
@@ -294,7 +307,7 @@ func TestMuseV3UnknownPermissionsRefusedThroughRun(t *testing.T) {
 	}
 }
 
-func TestMuseV3DuplicateYoloRefusedThroughRun(t *testing.T) {
+func TestMuseV4DuplicateYoloRefusedThroughRun(t *testing.T) {
 	for _, args := range [][]string{{"--yolo"}, {"--yolo=true"}, {"--disable-approval", "--disable-sandbox"}} {
 		t.Run(strings.Join(args, ","), func(t *testing.T) {
 			f, _ := museFixture(t)
@@ -309,9 +322,9 @@ func TestMuseV3DuplicateYoloRefusedThroughRun(t *testing.T) {
 }
 
 // Production call sites: run -> launch -> plan.Context/plan.Build -> real
-// BuildLaunchWithEnvironment -> composition -> execution. Muse v3 declares no
-// prompt/MCP descriptors, so its interactive root launch has no context carrier.
-func TestMuseV3InteractiveReservedContextAndNativeSuffix(t *testing.T) {
+// BuildLaunchWithEnvironment -> composition -> execution. Muse v4 carries typed
+// backend policy, while path_prepend remains reserved and the tail stays opaque.
+func TestMuseV4InteractiveReservedContextAndNativeSuffix(t *testing.T) {
 	for _, mode := range []agentic.PermissionMode{agentic.PermissionModeNative, agentic.PermissionModeYolo} {
 		t.Run(string(mode), func(t *testing.T) {
 			f, frag := museFixture(t)
@@ -336,11 +349,11 @@ func TestMuseV3InteractiveReservedContextAndNativeSuffix(t *testing.T) {
 			if code != 0 || f.builds != 1 || f.verdicts != 1 {
 				t.Fatalf("interactive Muse launch: exit=%d builds=%d verdicts=%d stderr=%s", code, f.builds, f.verdicts, stderr)
 			}
-			if f.request.Context != nil {
-				t.Fatalf("Muse has no context descriptors: %+v", f.request.Context)
+			if f.request.Context == nil || f.request.Context.Revision != fragment.IdentityV4 || f.request.Context.RootContext != nil || f.request.Context.CredentialStore == nil || f.request.Context.PathPrepend != "" {
+				t.Fatalf("wrong explicit Muse carrier: %+v", f.request.Context)
 			}
-			if _, present := f.plan.CuratorContextProvenanceSnapshot(); present {
-				t.Fatal("Muse plan must not attest a context carrier")
+			if _, present := f.plan.CuratorContextProvenanceSnapshot(); !present {
+				t.Fatal("Muse v4 plan must attest its typed context")
 			}
 			var child childCapture
 			if err := json.Unmarshal(out, &child); err != nil {
@@ -355,6 +368,41 @@ func TestMuseV3InteractiveReservedContextAndNativeSuffix(t *testing.T) {
 			if err != nil || !reflect.DeepEqual(unchanged, raw) {
 				t.Fatalf("reserved fragment changed: %v", err)
 			}
+		})
+	}
+}
+
+// A release admitted without a root fact must still refuse a required
+// exclusion it cannot qualify. The real tagged builder owns that distinction;
+// refusal occurs before the provider-limits boundary or provider execution.
+func TestMuseV4UnqualifiedExclusionBuild(t *testing.T) {
+	for _, root := range []bool{false, true} {
+		t.Run(strconv.FormatBool(root), func(t *testing.T) {
+			f, frag := museFixture(t)
+			if root {
+				frag.RootContext = &fragment.RootContext{Exclusive: true}
+			}
+			reads := 0
+			deps := plan.DefaultDeps(nil)
+			deps.Registry = f.deps.registry
+			deps.ModuleVersion = func() string { return "v0.5.68" }
+			deps.Availability = func(providerlimits.VerdictQuery) (vendorplugin.Availability, error) {
+				reads++
+				return vendorplugin.Availability{State: vendorplugin.AvailabilityHealthy}, nil
+			}
+			_, err := plan.Build(context.Background(), deps, plan.Request{
+				Runtime: "muse", Model: "muse-wonder-1.0-contributor", Effort: "xhigh",
+				PermissionMode: agentic.PermissionModeNative, ToolRelease: "1.4.6",
+				Home: frag.Home(), WorkDir: f.dir, Env: f.deps.environ(), Context: plan.Context(frag, ""),
+			})
+			if root {
+				if err == nil || !strings.Contains(err.Error(), "required foreign personal context exclusion is unqualified") || reads != 0 {
+					t.Fatalf("unqualified exclusion: %v reads=%d", err, reads)
+				}
+			} else if err != nil || reads != 1 {
+				t.Fatalf("absent-fact control: %v reads=%d", err, reads)
+			}
+			f.assertNoChild(t)
 		})
 	}
 }

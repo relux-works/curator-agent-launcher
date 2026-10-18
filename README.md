@@ -385,20 +385,23 @@ as spec gaps. See the [figure index](diagrams/README.md).
 The executable supports `claude_code` (alias `claude`), `codex_cli`
 (alias `codex`), native `pi`, and Muse (`muse`).
 
-Muse has a registered `muse` system/provider mapping and accepts
-`launch-env-fragment-v3` with four XDG parents under one managed home,
-preserving inherited `HOME`. The pinned agents-management v0.5.62 plugin
-declares interactive mode and admits any well-formed build attested by the
-selected binary, including 1.4.6, with no release table. The frozen-copy tuple
-is optional; without it `muse` resolves on the handed PATH. `muse-wonder`
+Muse requires `launch-env-fragment-v4`: exactly four XDG parents under one
+managed home plus `TBH_CREDENTIAL_BACKEND=file`, preserving inherited `HOME`.
+Older Muse fragments refuse `fragment_version_unsupported` before launch.
+The pinned agents-management v0.5.68 plugin owns the native plan; managed
+Muse refuses module versions older than v0.5.66. The optional frozen-copy
+tuple otherwise leaves binary resolution on the handed PATH. `muse-wonder`
 resolves to `muse-wonder-1.0-contributor` with module-owned effort rules.
-`curator-run muse` builds
-an interactive plan with XDG overrides and inherited `HOME`; it supplies no
-context carrier because Muse v3 declares no prompt or MCP channels. Reserved
-members remain non-operative. Native adds no
-posture flag; yolo adds exactly one `--yolo` only after bounded binary help
-evidence declares it. Malformed build evidence and a probed release claim
-that differs from the binary attestation fail closed. For example:
+
+An explicit `root_context: {"exclusive":true}` supplies exactly
+`-c context.foreign_personal_skills=false` in interactive launch. A native
+`exec` or `serve` command with that fact refuses; this launcher exposes no
+exec or dry-run command. Module-level Exec and DryRun tests both require
+`--no-foreign-personal-context`. The fact is never inferred from files.
+Contradictory backend overlays and native exclusion overrides refuse.
+Native adds no posture flag; yolo adds exactly one `--yolo` after bounded
+binary help evidence declares it. Malformed build evidence and mismatched
+binary attestations fail closed. For example:
 
 ```sh
 curator run muse --profile P --model muse-wonder
@@ -459,21 +462,32 @@ The launch pipeline follows these steps:
    `workspace` and requires `board-goal/1`; ordinary requests use `none`.
    Selector decision ids are copied verbatim to the `selector` label. Credential
    requests remain null. Doorbell requests follow the hosted doorbell path
-   above. Unsupported fragment revisions refuse before manager contact. Muse
-   hosted remains a future slice. Plain exact-plan requests retain the qualified
-   payload path.
+   above. Unsupported fragment revisions refuse before manager contact. Hosted
+   Muse requires a manager-advertised launch shape and attach operation,
+   including their global capabilities. Plain exact-plan requests retain
+   the qualified payload path.
    Lost launch/resume answers use the client's single reconciliation loop,
    without local `op.json`; unresolved outcomes disclose the operation id and
    refuse `session_liveness_unknown`. No hosted refusal executes natively.
 
 The permission interface is implemented against upstream
-`skill-agents-management v0.5.62` (F-M1). It owns
+`skill-agents-management v0.5.68`. It owns
 `LaunchRequest.PermissionMode`, the release-bound mapping, versioned native
 argument classification, stored-policy inspection, and the capability table.
 Claude Code and Codex CLI use `permission-grammar-v2`; Pi uses
 `permission-grammar-v1`. The admitted result supplies
 the plan and owned environment literals from the same prepared,
 alias-projected request; composition never rebuilds the plan.
+
+Codex v4 `credential_store` accepts absent or `native` policy without an auth
+store override. The reader validates `file` and `keychain` with their matching
+`config_overrides`, but the pinned module explicitly refuses both with
+`plan_refused`; it leaves `config.toml` unchanged. Positive `-c` application
+is an open upstream dependency: v0.5.68 sets
+`curatorCodexCredentialStoreApplied=false` in
+`pkg/agentic/curator_context.go:714–725`. A future released consumer is
+required before those selections can launch. The launcher does not implement
+a substitute argv mapping.
 
 ## Environment and transport
 
@@ -933,6 +947,7 @@ runs need their own explicit timeout budget, for example
 | `.scripts/diagnostics-mutants.sh` | narrowing mutants for the §6 gates (exit mapping, closed membership, no-invention classification, anchored code-line parsing, entry exits, owner/form registry, exact-Detail framing exemption); restores candidate bytes after every mutant | `.scripts/diagnostics-mutants.sh [evidence-dir]` (optional `MUTANT_RUN` for bounded batches) | per-mutant logs and `summary.tsv` (default `.temp/diagnostics-mutants/`) |
 | `.scripts/plan-mutants.py` | SPEC §4.4 behavioral narrowing probes at `plan.Build`, restoring exact candidate bytes | `python3 .scripts/plan-mutants.py [evidence-dir]`; narrow validation: `go test ./internal/plan -count=1 -race`, `go vet ./internal/plan`, `go build ./internal/plan` | per-mutant logs and `summary.tsv`, default `.temp/plan-mutants/` |
 | execution process helpers | exact document/argv/env/stdin/exit and late-check tests; compiles disposable fake provider/ax and API signal driver; Python 3 supplies isolated POSIX PTY regression | `go test ./internal/axconfig ./internal/execution -count=1` | test stdout; helper binaries use temporary directories and are removed |
+| v4 Muse/Codex witnesses | strict reader policy, native Muse argv and environment, typed Codex refusals, Exec/DryRun module boundary and fake-manager routing/digest fences | `go test ./internal/fragment ./cmd/curator-run -run 'TestV4|TestMuseV4|TestCodexV4' -count=1` | stdout; bounded child fixtures under Go test temporary directories; source-pinned v4 schema in `internal/fragment/testdata/v4` |
 | fragment test corpus | `internal/fragment/testdata/schema-cases` is the `launch-env-fragment-v1` slice of curator-spec `conformance/v1/schema-cases` (index rows copied with their verdicts, source commit recorded in `index.json`); `testdata/a0` holds the three fragments and digests the installed Curator printed during A0 verification | `go test ./internal/fragment` | none; 49 indexed names/verdicts and fixture bytes are pinned by an independently upstream-derived manifest hash in `TestConformanceCorpus`; refresh requires reviewing the upstream rows and updating that pin as well as `index.json` |
 
 ## License

@@ -97,7 +97,7 @@ func newFront(t *testing.T, bin frontBinaries) *frontFixture {
 			t.Fatal(err)
 		}
 	}
-	for _, name := range []string{"curator", "claude", "codex"} {
+	for _, name := range []string{"curator", "claude", "codex", "muse"} {
 		data, err := os.ReadFile(bin.provider)
 		if err != nil {
 			t.Fatal(err)

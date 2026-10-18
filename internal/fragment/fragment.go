@@ -1,9 +1,9 @@
 // Package fragment implements SPEC.md §4.1, the context-plane step of the
 // launcher: it runs `curator env resolve <env-id> [--profile <name>]
 // --repair --format json` as a subprocess, parses the closed
-// launch-env-fragment-v1, v2, and v3 objects (curator-spec environments.md §10.2 as
+// launch-env-fragment-v1 through v4 objects (curator-spec environments.md §10.2 as
 // revised by Decision 0012 D8, conformance schema
-// launch-env-fragment-v1/v2/v3 schemas, retaining the v2 permissions member,
+// launch-env-fragment-v1/v2/v3/v4 schemas, retaining the v2 permissions member,
 // and computes the CCJ-1 digest
 // (registry.md §1) from the parsed object.
 //
@@ -29,6 +29,18 @@ const IdentityV2 = "launch-env-fragment-v2"
 
 // IdentityV3 adds Muse and its four XDG parents, retaining v2 permissions.
 const IdentityV3 = "launch-env-fragment-v3"
+
+// IdentityV4 adds typed credential storage and Muse root-context policy.
+const IdentityV4 = "launch-env-fragment-v4"
+
+// RootContext carries Curator's verified fact; its absence permits no inference.
+type RootContext struct{ Exclusive bool }
+
+// CredentialStore is the adapter-validated effective backend and typed overrides.
+type CredentialStore struct {
+	Selection       string
+	ConfigOverrides map[string]string
+}
 
 // Environment identifiers of the closed adapter registry (environments.md
 // §7.1). The launcher's own support for a launch into one of them is a §4.2
@@ -124,17 +136,19 @@ type MCP struct {
 	Channels []Channel
 }
 
-// Fragment is a parsed, validated launch-env-fragment-v1, v2, or v3.
+// Fragment is a parsed, validated launch-env-fragment-v1 through v4.
 type Fragment struct {
 	// Revision is the exact fragment token and the only permission-transport
-	// signal. Only v2/v3 can carry Permissions.
-	Revision    string
-	Environment string
-	Profile     Profile
-	Precedence  Precedence
-	Permissions *Permissions
+	// signal. Only v2 through v4 carry Permissions.
+	Revision        string
+	Environment     string
+	Profile         Profile
+	Precedence      Precedence
+	Permissions     *Permissions
+	RootContext     *RootContext
+	CredentialStore *CredentialStore
 	// Env maps the adapter's registry-declared variable name to the managed
-	// home path. Muse declares four XDG variables in v3; other adapters declare one.
+	// home path. Muse declares four XDG paths, plus a backend constant in v4.
 	Env map[string]string
 	// SystemPrompt is nil when the section is absent.
 	SystemPrompt *SystemPrompt
@@ -333,12 +347,15 @@ func checkFlagToken(path, s string) error {
 }
 
 func fromValue(root Value) (*Fragment, error) {
-	revision, err := enumMember("", root, "fragment", Identity, IdentityV2, IdentityV3)
+	revision, err := enumMember("", root, "fragment", Identity, IdentityV2, IdentityV3, IdentityV4)
 	if err != nil {
 		return nil, err
 	}
 	required := []string{"fragment", "environment", "profile", "precedence", "env"}
 	optional := []string{"system_prompt", "mcp", "path_prepend"}
+	if revision == IdentityV4 {
+		optional = append(optional, "root_context", "credential_store")
+	}
 	if revision != Identity {
 		required = append(required, "permissions")
 	} else {
@@ -353,7 +370,7 @@ func fromValue(root Value) (*Fragment, error) {
 	if err != nil {
 		return nil, err
 	}
-	if env == EnvMuse && revision != IdentityV3 {
+	if env == EnvMuse && revision != IdentityV3 && revision != IdentityV4 {
 		return nil, invalid("/environment", "muse requires launch-env-fragment-v3")
 	}
 	f.Environment = env
@@ -419,6 +436,9 @@ func fromValue(root Value) (*Fragment, error) {
 	variables := []string{homeVariable[env]}
 	if env == EnvMuse {
 		variables = []string{"XDG_CONFIG_HOME", "XDG_DATA_HOME", "XDG_STATE_HOME", "XDG_CACHE_HOME"}
+		if revision == IdentityV4 {
+			variables = append(variables, "TBH_CREDENTIAL_BACKEND")
+		}
 	}
 	if err := closedObject("/env", envObj, variables, nil); err != nil {
 		return nil, err
@@ -429,7 +449,11 @@ func fromValue(root Value) (*Fragment, error) {
 		if err != nil {
 			return nil, err
 		}
-		if err := checkAbsolutePath("/env/"+name, value); err != nil {
+		if name == "TBH_CREDENTIAL_BACKEND" {
+			if value != "file" {
+				return nil, invalid("/env/"+name, "must equal file")
+			}
+		} else if err := checkAbsolutePath("/env/"+name, value); err != nil {
 			return nil, err
 		}
 		f.Env[name] = value
@@ -445,6 +469,11 @@ func fromValue(root Value) (*Fragment, error) {
 		}
 	}
 
+	if revision == IdentityV4 {
+		if err := v4Policy(root, f); err != nil {
+			return nil, err
+		}
+	}
 	// system_prompt
 	if sp, ok := root.Get("system_prompt"); ok {
 		if env == EnvMuse {

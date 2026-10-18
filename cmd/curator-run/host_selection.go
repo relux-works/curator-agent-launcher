@@ -28,6 +28,10 @@ type hostSelection struct {
 }
 
 func emitHostFailure(w io.Writer, err error) int {
+	var version *fragment.VersionError
+	if errors.As(err, &version) {
+		err = hostError(fragment.CodeVersionUnsupported, map[string]string{"environment": version.Environment, "required": version.Required})
+	}
 	if client.IsCode(err, "network_scope_unsupported") {
 		_ = diagnostics.Emit(w, "network_scope_unsupported", "managed network selections are not supported by hosted execution")
 		return diagnostics.ExitPolicy
@@ -147,8 +151,8 @@ func resolveHost(ctx context.Context, inv cli.Invocation, frag *fragment.Fragmen
 			return result, err
 		}
 	}
-	// S4 admits the existing Claude/Codex profile route. Muse hosted is a later slice.
-	if frag.Environment != fragment.EnvClaudeCode && frag.Environment != fragment.EnvCodexCLI {
+	// Admit profile runtimes before negotiating the manager capability fence.
+	if frag.Environment != fragment.EnvClaudeCode && frag.Environment != fragment.EnvCodexCLI && frag.Environment != fragment.EnvMuse {
 		return result, hostError("session_host_provider_unsupported", map[string]string{"environment": frag.Environment})
 	}
 	systems := deps.systems

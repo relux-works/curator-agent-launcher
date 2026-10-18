@@ -72,6 +72,14 @@ func DefaultConfig() Config {
 	return Config{ID: "fake", Capabilities: []string{"launch-delegated/1", "resume/1", "attach/1", "status/1", "list/1", "stop/1", "admission/1", "labels/1", "doorbell-codex/1", "doorbell-claude/1"}, Runtimes: map[string][]string{"codex_cli": ops, "claude_code": ops}, Profiles: map[string]Profile{"sample": {strings.Repeat("1", 64), fragment.DigestPrefix + strings.Repeat("2", 64)}}}
 }
 
+// MuseConfig qualifies the fixture's no-op Muse launch/attach lifecycle only.
+// DefaultConfig deliberately remains without Muse to witness the closed gate.
+func MuseConfig() Config {
+	c := DefaultConfig()
+	c.Runtimes["muse"] = []string{"launch", "attach", "status", "cancel", "list", "stop"}
+	return c
+}
+
 type Stored struct {
 	Handle          string            `json:"handle"`
 	Manager         string            `json:"manager"`

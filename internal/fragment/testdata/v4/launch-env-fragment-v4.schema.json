@@ -1,0 +1,716 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://relux-works.github.io/curator-spec/schemas/v1/launch-env-fragment-v4.schema.json",
+  "title": "launch-env-fragment-v4",
+  "type": "object",
+  "required": [
+    "fragment",
+    "environment",
+    "profile",
+    "precedence",
+    "env",
+    "permissions"
+  ],
+  "properties": {
+    "fragment": {
+      "const": "launch-env-fragment-v4"
+    },
+    "environment": {
+      "enum": [
+        "claude_code",
+        "codex_cli",
+        "opencode",
+        "pi",
+        "muse"
+      ]
+    },
+    "profile": {
+      "type": "object",
+      "required": [
+        "name",
+        "lock_sha256"
+      ],
+      "properties": {
+        "name": {
+          "$ref": "common.schema.json#/$defs/identifier"
+        },
+        "lock_sha256": {
+          "$ref": "common.schema.json#/$defs/hex256"
+        }
+      },
+      "additionalProperties": false
+    },
+    "precedence": {
+      "$ref": "agent-environment-marker-v1.schema.json#/$defs/precedence"
+    },
+    "env": {
+      "type": "object",
+      "minProperties": 1,
+      "maxProperties": 5,
+      "properties": {
+        "CLAUDE_CONFIG_DIR": {
+          "$ref": "#/$defs/absolutePath"
+        },
+        "CODEX_HOME": {
+          "$ref": "#/$defs/absolutePath"
+        },
+        "PI_CODING_AGENT_DIR": {
+          "$ref": "#/$defs/absolutePath"
+        },
+        "XDG_CONFIG_HOME": {
+          "$ref": "#/$defs/absolutePath"
+        },
+        "XDG_DATA_HOME": {
+          "$ref": "#/$defs/absolutePath"
+        },
+        "XDG_STATE_HOME": {
+          "$ref": "#/$defs/absolutePath"
+        },
+        "XDG_CACHE_HOME": {
+          "$ref": "#/$defs/absolutePath"
+        },
+        "TBH_CREDENTIAL_BACKEND": {
+          "const": "file"
+        }
+      },
+      "additionalProperties": false
+    },
+    "system_prompt": {
+      "type": "object",
+      "required": [
+        "path",
+        "channels"
+      ],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/absolutePath"
+        },
+        "channels": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/systemPromptDescriptor"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "mcp": {
+      "type": "object",
+      "required": [
+        "path",
+        "env_names",
+        "channels"
+      ],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/absolutePath"
+        },
+        "env_names": {
+          "$ref": "agent-mcp-v1.schema.json#/$defs/envNames"
+        },
+        "channels": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1,
+          "items": {
+            "$ref": "#/$defs/mcpDescriptor"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "path_prepend": {
+      "$ref": "#/$defs/absolutePath"
+    },
+    "permissions": {
+      "type": "object",
+      "required": [
+        "mode",
+        "locked",
+        "source"
+      ],
+      "properties": {
+        "mode": {
+          "enum": [
+            "native",
+            "yolo"
+          ]
+        },
+        "locked": {
+          "type": "boolean"
+        },
+        "source": {
+          "enum": [
+            "profile",
+            "global",
+            "default"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "locked": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "source": {
+                "const": "global"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "source": {
+                "const": "global"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "locked": {
+                "const": true
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "source": {
+                "enum": [
+                  "global",
+                  "default"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "mode": {
+                "const": "native"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "root_context": {
+      "type": "object",
+      "required": [
+        "exclusive"
+      ],
+      "properties": {
+        "exclusive": {
+          "const": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "credential_store": {
+      "type": "object",
+      "required": [
+        "selection"
+      ],
+      "properties": {
+        "selection": {
+          "enum": [
+            "native",
+            "file",
+            "keychain"
+          ]
+        },
+        "config_overrides": {
+          "type": "object",
+          "required": [
+            "cli_auth_credentials_store"
+          ],
+          "properties": {
+            "cli_auth_credentials_store": {
+              "enum": [
+                "file",
+                "keyring"
+              ]
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "environment": {
+            "const": "claude_code"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "env": {
+            "required": [
+              "CLAUDE_CONFIG_DIR"
+            ],
+            "maxProperties": 1
+          },
+          "root_context": false,
+          "credential_store": {
+            "properties": {
+              "selection": {
+                "const": "native"
+              },
+              "config_overrides": false
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "environment": {
+            "const": "codex_cli"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "env": {
+            "required": [
+              "CODEX_HOME"
+            ],
+            "maxProperties": 1
+          },
+          "root_context": false,
+          "credential_store": {
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "selection": {
+                      "const": "native"
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "config_overrides": false
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "selection": {
+                      "const": "file"
+                    }
+                  }
+                },
+                "then": {
+                  "required": [
+                    "config_overrides"
+                  ],
+                  "properties": {
+                    "config_overrides": {
+                      "properties": {
+                        "cli_auth_credentials_store": {
+                          "const": "file"
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "selection": {
+                      "const": "keychain"
+                    }
+                  }
+                },
+                "then": {
+                  "required": [
+                    "config_overrides"
+                  ],
+                  "properties": {
+                    "config_overrides": {
+                      "properties": {
+                        "cli_auth_credentials_store": {
+                          "const": "keyring"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "environment": {
+            "const": "opencode"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "env": {
+            "required": [
+              "XDG_CONFIG_HOME"
+            ],
+            "maxProperties": 1
+          },
+          "root_context": false,
+          "credential_store": {
+            "properties": {
+              "selection": {
+                "const": "native"
+              },
+              "config_overrides": false
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "environment": {
+            "const": "pi"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "env": {
+            "required": [
+              "PI_CODING_AGENT_DIR"
+            ],
+            "maxProperties": 1
+          },
+          "mcp": false,
+          "root_context": false,
+          "credential_store": {
+            "properties": {
+              "selection": {
+                "const": "native"
+              },
+              "config_overrides": false
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "environment": {
+            "const": "muse"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "env": {
+            "required": [
+              "XDG_CONFIG_HOME",
+              "XDG_DATA_HOME",
+              "XDG_STATE_HOME",
+              "XDG_CACHE_HOME",
+              "TBH_CREDENTIAL_BACKEND"
+            ],
+            "minProperties": 5,
+            "maxProperties": 5,
+            "propertyNames": {
+              "enum": [
+                "XDG_CONFIG_HOME",
+                "XDG_DATA_HOME",
+                "XDG_STATE_HOME",
+                "XDG_CACHE_HOME",
+                "TBH_CREDENTIAL_BACKEND"
+              ]
+            }
+          },
+          "system_prompt": false,
+          "mcp": false,
+          "credential_store": {
+            "properties": {
+              "selection": {
+                "const": "file"
+              },
+              "config_overrides": false
+            }
+          }
+        },
+        "required": [
+          "credential_store"
+        ]
+      }
+    }
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "absolutePath": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 4096,
+      "pattern": "^/[^\\u0000]*$",
+      "not": {
+        "pattern": "(?:^|/)\\.\\.(?:/|$)"
+      }
+    },
+    "flagArgument": {
+      "enum": [
+        "path",
+        "contents",
+        "name"
+      ]
+    },
+    "flagDescriptorCore": {
+      "properties": {
+        "kind": {
+          "const": "flag"
+        },
+        "flag": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 128,
+          "pattern": "^-[^\\s]+$"
+        },
+        "argument": {
+          "$ref": "#/$defs/flagArgument"
+        },
+        "name": {
+          "$ref": "common.schema.json#/$defs/identifier"
+        },
+        "with": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 128,
+            "pattern": "^-[^\\s]+$"
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "argument": {
+                "const": "name"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "name"
+            ]
+          },
+          "else": {
+            "not": {
+              "required": [
+                "name"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "systemPromptDescriptor": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "kind",
+            "semantics",
+            "flag",
+            "argument"
+          ],
+          "properties": {
+            "kind": {
+              "const": "flag"
+            },
+            "semantics": {
+              "enum": [
+                "append",
+                "replace"
+              ]
+            },
+            "flag": true,
+            "argument": true,
+            "name": true,
+            "with": true
+          },
+          "additionalProperties": false,
+          "allOf": [
+            {
+              "$ref": "#/$defs/flagDescriptorCore"
+            }
+          ]
+        },
+        {
+          "type": "object",
+          "required": [
+            "kind",
+            "semantics",
+            "key"
+          ],
+          "properties": {
+            "kind": {
+              "const": "config-key"
+            },
+            "semantics": {
+              "enum": [
+                "append",
+                "replace"
+              ]
+            },
+            "key": {
+              "$ref": "common.schema.json#/$defs/identifier"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "kind",
+            "semantics",
+            "variable"
+          ],
+          "properties": {
+            "kind": {
+              "const": "variable"
+            },
+            "semantics": {
+              "enum": [
+                "append",
+                "replace"
+              ]
+            },
+            "variable": {
+              "$ref": "common.schema.json#/$defs/identifier"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "kind",
+            "semantics",
+            "filename"
+          ],
+          "properties": {
+            "kind": {
+              "const": "file"
+            },
+            "semantics": {
+              "enum": [
+                "append",
+                "replace"
+              ]
+            },
+            "filename": {
+              "$ref": "common.schema.json#/$defs/portablePath"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "mcpDescriptor": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "kind",
+            "flag",
+            "argument"
+          ],
+          "properties": {
+            "kind": {
+              "const": "flag"
+            },
+            "flag": true,
+            "argument": true,
+            "name": true,
+            "with": true
+          },
+          "additionalProperties": false,
+          "allOf": [
+            {
+              "$ref": "#/$defs/flagDescriptorCore"
+            }
+          ]
+        },
+        {
+          "type": "object",
+          "required": [
+            "kind",
+            "key"
+          ],
+          "properties": {
+            "kind": {
+              "const": "config-key"
+            },
+            "key": {
+              "$ref": "common.schema.json#/$defs/identifier"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "kind",
+            "variable"
+          ],
+          "properties": {
+            "kind": {
+              "const": "variable"
+            },
+            "variable": {
+              "$ref": "common.schema.json#/$defs/identifier"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "kind",
+            "filename"
+          ],
+          "properties": {
+            "kind": {
+              "const": "file"
+            },
+            "filename": {
+              "$ref": "common.schema.json#/$defs/portablePath"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    }
+  }
+}

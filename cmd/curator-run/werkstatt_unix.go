@@ -184,6 +184,9 @@ func prepareWerkstatt(ctx context.Context, r *werkstatt.Record, c werkstatt.Comm
 		resolver = fragment.New()
 	}
 	frag, err := resolver.Resolve(ctx, fragment.Request{EnvID: r.Runtime, Profile: r.Profile, ProfileSet: true, Dir: r.Clone, Env: env, Stderr: stderr})
+	if err == nil {
+		err = fragment.CheckLaunchRevision(frag)
+	}
 	if err != nil {
 		return werkstatt.Prepared{}, err
 	}
@@ -253,10 +256,14 @@ func prepareWerkstatt(ctx context.Context, r *werkstatt.Record, c werkstatt.Comm
 	if build == nil {
 		build = vendorplugin.BuildLaunchWithEnvironment
 	}
-	admitted, err := plan.Build(ctx, plan.Deps{Registry: deps.registry, BuildLaunch: build, Availability: availability}, plan.Request{
+	var launchContext *agentic.CuratorContext
+	if frag.Revision == fragment.IdentityV4 {
+		launchContext = plan.Context(frag, fragment.Semantics(inv.SystemPrompt))
+	}
+	admitted, err := plan.Build(ctx, plan.Deps{Registry: deps.registry, BuildLaunch: build, Availability: availability, ModuleVersion: deps.moduleVersion}, plan.Request{
 		Runtime: resolved.Runtime, Model: resolved.Model.Value, Effort: resolved.Effort.Value,
 		PermissionMode: permission.Mode, ToolRelease: toolRelease, NativeArgs: []string{},
-		Home: frag.Home(), WorkDir: r.Clone, Env: env,
+		Home: frag.Home(), WorkDir: r.Clone, Env: env, Context: launchContext,
 	})
 	if err != nil {
 		return werkstatt.Prepared{}, err

@@ -54,6 +54,12 @@ func Required(d Describe, n Needs) (Route, error) {
 	if !ok {
 		return Route{}, refusal("session_host_provider_unsupported", map[string]string{"environment": n.Runtime})
 	}
+	// FRONT-DOOR section 7 qualifies Muse only when both launch and attach
+	// are advertised for that runtime, including detached requests.
+	if n.Runtime == "muse" && ((!slices.Contains(operations, "launch") && !slices.Contains(operations, "launch-exact")) || !slices.Contains(operations, "attach") || !slices.Contains(d.Capabilities, "attach/1") ||
+		!(slices.Contains(operations, "launch") && slices.Contains(d.Capabilities, "launch-delegated/1") || slices.Contains(operations, "launch-exact") && slices.Contains(d.Capabilities, "launch-exact/2"))) {
+		return Route{}, refusal("session_host_provider_unsupported", map[string]string{"environment": n.Runtime})
+	}
 	route := "delegated"
 	launchCap := "launch-delegated/1"
 	launchOp := "launch"

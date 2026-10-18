@@ -47,12 +47,22 @@ func main() {
 		return
 	}
 	if len(os.Args) > 1 && os.Args[1] == "--version" {
-		if filepath.Base(os.Args[0]) == "codex" {
+		if filepath.Base(os.Args[0]) == "muse" {
+			fmt.Println("Muse Code 1.4.7 (1.4.7-R6101.1)")
+		} else if filepath.Base(os.Args[0]) == "codex" {
 			fmt.Println("codex-cli 0.153.2")
 		} else {
 			fmt.Println("2.1.261")
 		}
 		return
+	}
+	if len(os.Args) > 1 && os.Args[1] == "--help" {
+		fmt.Println("Options:\n  --yolo  Bypass approvals and sandbox")
+		return
+	}
+	capture, _ := json.Marshal(map[string]any{"Argv": os.Args[1:], "Env": os.Environ()})
+	if err := os.WriteFile("native.json", capture, 0600); err != nil {
+		os.Exit(1)
 	}
 	if os.WriteFile("native-called", []byte("called"), 0600) != nil {
 		os.Exit(1)

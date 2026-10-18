@@ -187,9 +187,12 @@ func (r *Resolver) Resolve(ctx context.Context, req Request) (*Fragment, error) 
 		}
 		return nil, re
 	}
+	if err := legacyMuseUpgrade(stdout, req.EnvID); err != nil {
+		return nil, err
+	}
 	f, err := Parse(stdout)
 	if err != nil {
-		return nil, &ResolveError{Code: CodeFragmentInvalid, ExitCode: 0, Detail: "curator env resolve exited 0 but its output is not a valid launch-env-fragment-v1, v2, or v3: " + err.Error(), Err: err}
+		return nil, &ResolveError{Code: CodeFragmentInvalid, ExitCode: 0, Detail: "curator env resolve exited 0 but its output is not a valid launch-env-fragment-v1, v2, v3, or v4: " + err.Error(), Err: err}
 	}
 	if f.Environment != req.EnvID {
 		return nil, &ResolveError{Code: CodeFragmentInvalid, ExitCode: 0, Detail: fmt.Sprintf("fragment names environment %q, resolve was asked for %q", f.Environment, req.EnvID)}

@@ -1,0 +1,22 @@
+{
+  "Argv": [
+    "--model",
+    "muse-wonder-1.0-contributor",
+    "--reasoning-effort",
+    "xhigh",
+    "--workspace",
+    "<ROOT>"
+  ],
+  "Env": [
+    "HOME=<ROOT>",
+    "MUSE_NO_AUTO_UPDATE=1",
+    "PATH=<ROOT>",
+    "TBH_CREDENTIAL_BACKEND=file",
+    "XDG_CACHE_HOME=<ROOT>/managed/cache",
+    "XDG_CONFIG_HOME=<ROOT>/managed/config",
+    "XDG_DATA_HOME=<ROOT>/managed/data",
+    "XDG_STATE_HOME=<ROOT>/managed/state"
+  ],
+  "Stdin": "cGFyZW50IHN0ZGluCgD/",
+  "WorkDir": "<ROOT>"
+}
