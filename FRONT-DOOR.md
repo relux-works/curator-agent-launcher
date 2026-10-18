@@ -2,7 +2,7 @@
 
 **Amends:** [SPEC](SPEC.md) `0.5.1-draft` → `0.6.0-draft` (target; nothing
 here is implemented yet).
-**Status:** revision 6.1, draft. The independent review accepted revision 6 (f8c2756); 6.1 adds only its three non-blocking clarifications. `ivmbp_curator_orch` accepted revision 1
+**Status:** revision 6.2, draft. The independent review accepted revision 6 (f8c2756); 6.1 adds only its three non-blocking clarifications. 6.2 adds the model-selection seam (§3.4) at the router lane's request. `ivmbp_curator_orch` accepted revision 1
 (0ed45c5) as the basis on 2026-10-18 with four must-change points. Revision 2
 folds those in, together with the independent reviews `review-1` and
 `review-2` and `review-3` (all rework, converging). Revision 3 also adopts the accepted
@@ -227,6 +227,60 @@ Rules that carry over:
   neither `survives-upgrade` nor `drains-on-upgrade` proceeds and prints one
   line: `curator-run: session manager <id> ends hosted sessions when it is
   upgraded`. The code `session_host_default_not_ready` is retired.
+
+### 3.4 Model-selection seam
+
+A launch's runtime, model and effort can be chosen by an external selector
+before composition, such as the model router (`cmr`). The selector can move
+to this seam without wrapping the CLI.
+
+**Configuration.** `selector.json`, schema `curator-run-selector-v1`,
+closed, system layer only:
+
+```json
+{ "schema": "curator-run-selector-v1", "mode": "shadow|enforce",
+  "executable": "/abs/path/cmr", "argv_prefix": ["recommend", "--format", "json"] }
+```
+
+When the file is absent, the seam is off.
+
+**Call.** The seam runs once per launch:
+
+- after the profile resolves and before SPEC §4.3 default resolution;
+- for Werkstätten, after the record loads.
+
+The request goes on stdin, bounded to 64 KiB, with a 5 s deadline:
+`{env_id, profile, cwd, role?, project?, werkstatt?, task?, flags: {model?, effort?}}`.
+
+The response is
+`{runtime?, model?, effort?, weights_id?, decision_id}`, bounded and
+validated like a §5.6 response. Its values must match the
+`[A-Za-z0-9._:-]{1,128}` grammar.
+
+**Precedence.**
+
+- Explicit flags always win.
+- The record's pinned model wins for a Werkstatt. The selector may set only
+  `effort`, because dispatch returns (station, effort).
+- Below those, a selector value enters as a new level, directly above
+  `defaults.json`. It is still subject to admission by the spawn plane.
+- A selector `runtime` that differs from `<env-id>` is never applied in
+  v1. It is recorded only.
+
+**Modes.**
+
+- `shadow`: the launch ignores the response. The launcher logs the
+  `decision_id`, together with what it actually chose, to
+  `<state>/selector/observations.ndjson`. Any selector failure is silent:
+  the launch proceeds unchanged, with byte-identical composition.
+- `enforce`: a valid response applies under the precedence above. A
+  failure, timeout or invalid response refuses `selector_unavailable` (1).
+  It never falls back to defaults, because a configured enforcing selector
+  is policy.
+
+**Provenance.** The `decision_id` is passed on as the label
+`selector=<decision_id>` in hosted requests and shown in the §4.3
+line-group.
 
 ## 4. Session-manager registry
 
@@ -1372,6 +1426,7 @@ Detail vocabularies are closed (§5.6). Grammar names:
 | `fragment_version_unsupported` | 2 | Muse with a pre-v4 fragment | `environment`: `muse`; `required`: `launch-env-fragment-v4` |
 | `credential_reserved_name` | 2 | a reserved credential name in `child_env` | `name`: one of the reserved names |
 | `migrate_destination_exists` | 2 | `migrate` would overwrite a different file | `path` |
+| `selector_unavailable` | 1 | enforcing selector failed, timed out or answered invalidly (§3.4) | `reason`: `timeout`, `exit`, `invalid` |
 | `werkstatt_operation_unresolved` | 1 | the manager owning a pending operation or a live generation is missing or changed (§§5.7, 6.2) | `reason`: `manager_missing`, `manager_changed`; `operation`: UUID |
 | `session_host_delegated_unauthorized` | 16 | the selected route is delegated, before Q1 sign-off and without a trial authorisation (§5.8) | none |
 
@@ -1402,7 +1457,7 @@ detail values are allowed only from the vocabularies shown:
 | Owner | Item |
 | --- | --- |
 | task-board (infra-exit, `#skill-project-management`) | 1. `task-board session-manager register --for curator-run` (§4.3), called by its installer. 2. A plugin entry `task-board session-manager plugin <op>` implementing §5: `launch-delegated/1`, `resume/1`, `attach/1`, `status/1` with operation outcomes, `cancel`, `list/1`, `stop/1` with `not-busy`, `admission/1` covering launch and resume, `labels/1`, `board-goal/1`, `doorbell-codex/1` with a per-session owner and the rebind gate (§8.2), `doorbell-claude/1`, and later `credential-node/1` (Appendix B). It must pass the §5.5 suite. 3. **A board-less session daemon mode:** keyed by the user state root, not a board directory; sessions keyed by cwd and labels; no primary goal unless `board_goal: workspace`. 4. `--profile` for hosted sessions (TASK-261018-cliw6c, in flight). 5. The v4 Muse consumer (TASK-261018-yzorfb). 6. `task-board claude\|codex` become aliases of `curator run <env> --hosted --board-goal` (Decision 0021 §5). This is not a blocker. |
-| Router lane (`#model-routing`) | Freeze the `station` fields with task-board against §6.1. Read `werkstatt-liveness-v1` as the snapshot liveness source, with `unknown` treated as not dispatchable. |
+| Router lane (`#model-routing`) | Provide `cmr recommend --format json` answering the §3.4 request and response. Freeze the `station` fields with task-board against §6.1. Read `werkstatt-liveness-v1` as the snapshot liveness source, with `unknown` treated as not dispatchable. |
 | `ivmbp_curator_orch` (Curator) | 1. The release-workflow change (§10, C8). 2. The CIP-0016 amendment (Appendix A), after Ivan's sign-off. 3. Implement `local-setup-token-source` T1–T3a and publish the `pkg/localcredential` pin, plus fragment v6. 4. Qualify the interactive mode, and file Appendix B (C10). 5. Manifest-declared home-level hooks under strict mode (§8.1). 6. The Curator config-home CIP. |
 | Session-host extraction (`swarma-session-host`) | The first conforming manager after task-board. The extraction research (`#curator` › curator-run, 2026-10-18) recommends four things that map onto this protocol: operation ids with generation fencing (§5.7), per-session runners that survive a host restart (`survives-upgrade`), a stop tombstone, and resume that never becomes a new conversation (§5.3). |
 | a2a (Courier) | 1. Verify the native Codex adapter on app-server 0.162.x (§8.2). 2. Optionally, a live-owner release for a generation, so that a manager can retire a binding without the owner's death. |
@@ -1462,6 +1517,7 @@ its refusals, next to positive controls.
 | --- | --- | --- | --- |
 | S1 | Config home and fallback, `launcher.json`, `host` withdrawal, `migrate` (§§3.1, 4.1, 13) | spec | Yes |
 | S2 | Registry, states, `session-manager` commands, registration rules (§§4.2–4.3) | S1 | Yes |
+| S3b | The model-selection seam (§3.4): shadow and enforce, against a fake selector | S1 | Yes |
 | S3 | Plugin client: the transport table, bounds, stderr discard, fd 4 status reuse, value validation and poisoning, outcomes, `cancel` and durable `op.json` correlation (§§5.1–5.2, 5.6–5.7). The conformance suite and the fake manager (§5.5). | S2 | Yes |
 | S4 | Host-mode resolution and notices (§3.2); the activation boundary (§5.8); hosted `launch`, `resume` and `attach` through the plugin (§5.3) | S3 | Yes, as launcher logic. A fake host is not runtime qualification. |
 | S5 | Credential projection reading; native start through `pkg/localcredential`; the hosted `credential-node/1` gate; reserved names (§9) | S3, Curator's API pin | Launcher side, behind the pin. Token behaviour needs Curator's T1–T3a and the Appendix B qualification. |
