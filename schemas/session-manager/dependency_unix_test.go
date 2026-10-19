@@ -29,22 +29,19 @@ func TestStandardLibraryDependencies(t *testing.T) {
 }
 
 // A real Go import of the launcher internal path must trip the same guard,
-// whether it sits in the root package or in a subpackage. A tiny local
-// launcher replacement isolates this dependency-control plant from network
-// availability and the actual launcher's provider dependencies.
+// whether it sits in the root package or in a subpackage. The plant goes into
+// a source tree *before* it is copied, so the subpackage case also proves the
+// copy keeps every package. A copy that dropped subdirectories would lose the
+// plant and let it pass. A tiny local launcher replacement isolates the plant
+// from network availability and the real launcher's provider dependencies.
 func TestDependencyGuardRejectsLauncherImport(t *testing.T) {
 	for _, tc := range []struct{ name, dir, pkg string }{
 		{"root package", ".", "managerschema"},
 		{"subpackage", "extra", "extra"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			fixture := copyModule(t)
-			if err := checkDependencies(t, fixture); err != nil {
+			if err := checkDependencies(t, copyModule(t)); err != nil {
 				t.Fatalf("unplanted control: %v", err)
-			}
-			launcher := filepath.Join(t.TempDir(), "launcher")
-			if err := os.MkdirAll(filepath.Join(launcher, "internal", "fragment"), 0700); err != nil {
-				t.Fatal(err)
 			}
 			write := func(name, body string) {
 				t.Helper()
@@ -55,15 +52,17 @@ func TestDependencyGuardRejectsLauncherImport(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
+			launcher := filepath.Join(t.TempDir(), "launcher")
 			write(filepath.Join(launcher, "go.mod"), "module github.com/relux-works/curator-agent-launcher\n\ngo 1.25.5\n")
 			write(filepath.Join(launcher, "internal", "fragment", "fragment.go"), "package fragment\n")
-			write(filepath.Join(fixture, tc.dir, "dependency_plant.go"), "package "+tc.pkg+"\nimport _ \"github.com/relux-works/curator-agent-launcher/internal/fragment\"\n")
-			data, err := os.ReadFile(filepath.Join(fixture, "go.mod"))
+			source := copyModule(t)
+			write(filepath.Join(source, tc.dir, "dependency_plant.go"), "package "+tc.pkg+"\nimport _ \"github.com/relux-works/curator-agent-launcher/internal/fragment\"\n")
+			data, err := os.ReadFile(filepath.Join(source, "go.mod"))
 			if err != nil {
 				t.Fatal(err)
 			}
-			write(filepath.Join(fixture, "go.mod"), string(data)+"\nrequire github.com/relux-works/curator-agent-launcher v0.0.0\nreplace github.com/relux-works/curator-agent-launcher => "+fmt.Sprintf("%q", filepath.ToSlash(launcher))+"\n")
-			err = checkDependencies(t, fixture)
+			write(filepath.Join(source, "go.mod"), string(data)+"\nrequire github.com/relux-works/curator-agent-launcher v0.0.0\nreplace github.com/relux-works/curator-agent-launcher => "+fmt.Sprintf("%q", filepath.ToSlash(launcher))+"\n")
+			err = checkDependencies(t, copyModuleFrom(t, source))
 			if err == nil || err.Error() != "non-standard dependency: github.com/relux-works/curator-agent-launcher/internal/fragment" {
 				t.Fatalf("plant must reach the dependency violation, got %v", err)
 			}
@@ -71,10 +70,23 @@ func TestDependencyGuardRejectsLauncherImport(t *testing.T) {
 	}
 }
 
+// copyModule copies the whole module tree, so that `go list ./...` in the copy
+// sees every package the real module has. A symlink or other special file
+// fails the test instead of being skipped.
 func copyModule(t *testing.T) string {
 	t.Helper()
+	return copyModuleFrom(t, ".")
+}
+
+// copyModuleFrom copies the module tree rooted at src.
+func copyModuleFrom(t *testing.T, src string) string {
+	t.Helper()
 	dir := t.TempDir()
-	err := filepath.WalkDir(".", func(name string, entry os.DirEntry, err error) error {
+	err := filepath.WalkDir(src, func(path string, entry os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		name, err := filepath.Rel(src, path)
 		if err != nil {
 			return err
 		}
@@ -83,7 +95,7 @@ func copyModule(t *testing.T) string {
 		case entry.IsDir():
 			return os.MkdirAll(target, 0700)
 		case entry.Type().IsRegular():
-			data, err := os.ReadFile(name)
+			data, err := os.ReadFile(path)
 			if err != nil {
 				return err
 			}
