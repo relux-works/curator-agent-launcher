@@ -775,9 +775,20 @@ that matches none of the rules still must not be put there.
 `schemas/session-manager/`: the launch request, the resume request, the
 session record, the operation outcome, the list page and the refusal. Each
 comes with positive and negative vectors that cover every nullable and
-optional combination, the cross-field rules (sandbox roots against `none`;
-selector-free tail), and the bounds. The plugin and the launcher both
-validate against them.
+optional combination, the cross-field rules (sandbox roots against `none`),
+and the bounds. The plugin and the launcher both validate against them.
+The schemas and their Go validator are published as a standalone module
+with no dependencies beyond the standard library, so that a plugin never
+imports the launcher or a provider module.
+
+The **selector-free tail** is a semantic rule, not a schema rule: it needs
+the provider module's typed-intent elevation (SPEC §4.8). So the published
+validator checks only the wire shape of `native_tail`, and the vectors for
+selector-bearing tails are wire-valid. Both sides still enforce the rule:
+- the launcher, before it sends a request: a tail with a resume selector is
+  `launch_plan_invalid` (2), and no plugin is contacted;
+- the plugin, on receipt, with its own provider module: it refuses
+  `launch_plan_invalid` and starts nothing.
 
 **Resume** — `urn:relux:curator-run:delegated-resume` `1.0.0`, closed. It
 carries the launch members `operation_id`, `submitted_at`,
