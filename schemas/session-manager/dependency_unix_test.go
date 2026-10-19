@@ -12,7 +12,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"syscall"
 	"testing"
 	"time"
@@ -29,35 +28,46 @@ func TestStandardLibraryDependencies(t *testing.T) {
 	}
 }
 
-// A real Go import of the launcher internal path must trip the same guard.
-// A tiny local launcher replacement isolates this dependency-control plant
-// from network availability and the actual launcher's provider dependencies.
+// A real Go import of the launcher internal path must trip the same guard,
+// whether it sits in the root package or in a subpackage. A tiny local
+// launcher replacement isolates this dependency-control plant from network
+// availability and the actual launcher's provider dependencies.
 func TestDependencyGuardRejectsLauncherImport(t *testing.T) {
-	fixture := copyModule(t)
-	if err := checkDependencies(t, fixture); err != nil {
-		t.Fatalf("unplanted control: %v", err)
-	}
-	launcher := filepath.Join(t.TempDir(), "launcher")
-	if err := os.MkdirAll(filepath.Join(launcher, "internal", "fragment"), 0700); err != nil {
-		t.Fatal(err)
-	}
-	write := func(name, body string) {
-		t.Helper()
-		if err := os.WriteFile(name, []byte(body), 0600); err != nil {
-			t.Fatal(err)
-		}
-	}
-	write(filepath.Join(launcher, "go.mod"), "module github.com/relux-works/curator-agent-launcher\n\ngo 1.25.5\n")
-	write(filepath.Join(launcher, "internal", "fragment", "fragment.go"), "package fragment\n")
-	write(filepath.Join(fixture, "dependency_plant.go"), "package managerschema\nimport _ \"github.com/relux-works/curator-agent-launcher/internal/fragment\"\n")
-	data, err := os.ReadFile(filepath.Join(fixture, "go.mod"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	write(filepath.Join(fixture, "go.mod"), string(data)+"\nrequire github.com/relux-works/curator-agent-launcher v0.0.0\nreplace github.com/relux-works/curator-agent-launcher => "+fmt.Sprintf("%q", filepath.ToSlash(launcher))+"\n")
-	err = checkDependencies(t, fixture)
-	if err == nil || err.Error() != "non-standard dependency: github.com/relux-works/curator-agent-launcher/internal/fragment" {
-		t.Fatalf("plant must reach the dependency violation, got %v", err)
+	for _, tc := range []struct{ name, dir, pkg string }{
+		{"root package", ".", "managerschema"},
+		{"subpackage", "extra", "extra"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			fixture := copyModule(t)
+			if err := checkDependencies(t, fixture); err != nil {
+				t.Fatalf("unplanted control: %v", err)
+			}
+			launcher := filepath.Join(t.TempDir(), "launcher")
+			if err := os.MkdirAll(filepath.Join(launcher, "internal", "fragment"), 0700); err != nil {
+				t.Fatal(err)
+			}
+			write := func(name, body string) {
+				t.Helper()
+				if err := os.MkdirAll(filepath.Dir(name), 0700); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(name, []byte(body), 0600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			write(filepath.Join(launcher, "go.mod"), "module github.com/relux-works/curator-agent-launcher\n\ngo 1.25.5\n")
+			write(filepath.Join(launcher, "internal", "fragment", "fragment.go"), "package fragment\n")
+			write(filepath.Join(fixture, tc.dir, "dependency_plant.go"), "package "+tc.pkg+"\nimport _ \"github.com/relux-works/curator-agent-launcher/internal/fragment\"\n")
+			data, err := os.ReadFile(filepath.Join(fixture, "go.mod"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			write(filepath.Join(fixture, "go.mod"), string(data)+"\nrequire github.com/relux-works/curator-agent-launcher v0.0.0\nreplace github.com/relux-works/curator-agent-launcher => "+fmt.Sprintf("%q", filepath.ToSlash(launcher))+"\n")
+			err = checkDependencies(t, fixture)
+			if err == nil || err.Error() != "non-standard dependency: github.com/relux-works/curator-agent-launcher/internal/fragment" {
+				t.Fatalf("plant must reach the dependency violation, got %v", err)
+			}
+		})
 	}
 }
 
@@ -68,20 +78,19 @@ func copyModule(t *testing.T) string {
 		if err != nil {
 			return err
 		}
-		if entry.IsDir() {
-			if name != "." && name != "vectors" {
-				return filepath.SkipDir
+		target := filepath.Join(dir, name)
+		switch {
+		case entry.IsDir():
+			return os.MkdirAll(target, 0700)
+		case entry.Type().IsRegular():
+			data, err := os.ReadFile(name)
+			if err != nil {
+				return err
 			}
-			return os.MkdirAll(filepath.Join(dir, name), 0700)
+			return os.WriteFile(target, data, 0600)
+		default:
+			return fmt.Errorf("module copy: unsupported file type at %s", name)
 		}
-		if name != "go.mod" && !strings.HasSuffix(name, ".go") && !strings.HasSuffix(name, ".json") {
-			return nil
-		}
-		data, err := os.ReadFile(name)
-		if err != nil {
-			return err
-		}
-		return os.WriteFile(filepath.Join(dir, name), data, 0600)
 	})
 	if err != nil {
 		t.Fatal(err)
