@@ -1,4 +1,4 @@
-# Session-manager wire schemas
+# Session-manager protocol module
 
 These closed draft 2020-12 schemas describe `curator-session-manager/1`
 requests, responses and local correlation records. References are absolute
@@ -11,16 +11,20 @@ including the scalar, reserved-name, doorbell and digest-spelling clarifications
 matching the production fragment resolver without conversion.
 
 `Validate(name, bytes)` accepts the filename or published URN through the same
-structural and semantic validator, and applies the repository's strict JSON reader: duplicate members, invalid UTF-8, unsafe integers,
+wire validator, and applies a standard-library-only strict JSON reader: duplicate members, invalid UTF-8, unsafe integers,
 trailing documents and documents over 64 KiB are rejected. Only the JSON
 Schema subset used by these files is implemented; unsupported schema keywords
 are errors. This is a validator for this published schema set, not a general
 JSON Schema implementation.
 
-Launch checks also require semantic validation in Go: `child_env` values
-are bounded in UTF-8 bytes (JSON Schema `maxLength` counts characters), and
-`native_tail` must remain unchanged and selector-free under the runtime
-module's typed-intent elevation. The manager still admits model, effort,
+Launch wire checks bound `child_env` values in UTF-8 bytes (JSON Schema
+`maxLength` counts characters). Provider semantics belong to the consumer:
+**a plugin must apply the `native_tail` selector check using its own provider
+module**. The tail must remain unchanged and selector-free under that module's
+typed-intent elevation. The launcher applies this in
+`internal/sessionmanager/client.ValidateRequest` and returns the same
+`launch_plan_invalid` refusal for selectors; `Validate` alone grants no launch
+authority. The manager still admits model, effort,
 service tier, weights and credentials; structural validation grants no such
 authority. The independent exact-plan transport retains SPEC §4.9's 1 MiB,
 depth-16 bounds.
@@ -44,10 +48,13 @@ use outcome `unknown`.
 Every file in `vectors/` is an array of `{name, valid, document}` fixtures.
 They enumerate nullable/optional combinations, code-specific detail presence,
 doorbell relations, bounds and rejection cases, with valid controls. Every vector
-runs through both the schema filename and its published URN.
+runs through both the schema filename and its published URN. The four
+selector-tail documents remain in the corpus as structurally valid shapes;
+launcher regression tests require their provider-semantic refusal alongside
+accepted value-position controls.
 
 ```sh
-go test ./schemas/session-manager -count=1
+go -C schemas/session-manager test ./... -count=1
 go test ./internal/sessionmanager/client -race -count=10
 python3 .scripts/plugin-client-mutants.py .temp/plugin-client-mutants
 ```
@@ -67,3 +74,24 @@ manager projection retains the original protocol envelope and explicit nulls.
 
 Label values use `[A-Za-z0-9._:/@+=-]{1,128}` so raw a2a identities
 containing `=` fit without encoding. Selector value grammar remains unchanged.
+
+The Go module path is
+`github.com/relux-works/curator-agent-launcher/schemas/session-manager`.
+It has no dependencies outside the standard library. Plugins require this
+nested module directly at a published module version, without requiring the
+launcher root module. The launcher uses an in-tree `replace` and keeps its
+provider dependencies separate. `Documents`, `Limit`, `Validate` and
+`ReservedChildName` retain their APIs. `CanonicalJSON` exposes the same strict
+reader and CCJ-1 canonical bytes for consumers that need them; it omits a
+top-level `sig` member as CCJ-1 specifies, and does not impose the protocol
+byte limit. `Validate` imposes that limit.
+
+`make build`, `make vet`, `make test` and `make race` in the launcher include
+explicit nested-module steps, so `make check` and hosted CI cover both modules.
+The module tests inspect `go list -deps -test -json` in a temporary standalone
+copy with workspace and network resolution disabled. Its known-bad control
+adds a Go import of the launcher internal fragment path with a local fixture
+replacement and requires the specific non-standard-dependency violation.
+Launcher alignment tests compare both readers on every existing fragment
+corpus JSON file and every protocol vector, including strict-reader negative
+neighbors and byte-for-byte canonical output.

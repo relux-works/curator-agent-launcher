@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/relux-works/curator-agent-launcher/internal/hosted"
+	managerschema "github.com/relux-works/curator-agent-launcher/schemas/session-manager"
 )
 
 // A valid session/refusal/describe/page is accepted, while any poisoned member,
@@ -116,6 +117,87 @@ func TestRequestPolicy(t *testing.T) {
 				t.Fatal("request value escaped")
 			}
 		})
+	}
+}
+
+// Selector-bearing tails remain wire-valid but the launcher refuses them
+// before transport, with the same code, empty detail and exit as before the
+// module split. Value-position "resume" is an adjacent accepted control.
+func TestNativeTailProviderValidation(t *testing.T) {
+	for _, runtime := range []string{"codex_cli", "claude_code", "muse"} {
+		for _, tc := range []struct {
+			name  string
+			tail  []string
+			valid bool
+		}{
+			{"empty", []string{}, true},
+			{"value", []string{"--model", "resume"}, true},
+			{"selector", []string{"--resume", "latest"}, false},
+			{"selector-id", []string{"--resume", operationID}, false},
+			{"incomplete-selector", []string{"--resume"}, false},
+		} {
+			t.Run(runtime+"/"+tc.name, func(t *testing.T) {
+				var request map[string]any
+				if err := json.Unmarshal(document(t, "launch"), &request); err != nil {
+					t.Fatal(err)
+				}
+				request["runtime"], request["native_tail"] = runtime, tc.tail
+				body := encoded(request)
+				if err := managerschema.Validate("launch.schema.json", body); err != nil {
+					t.Fatalf("wire control refused: %v", err)
+				}
+				err := ValidateRequest("launch", body)
+				if tc.valid {
+					if err != nil {
+						t.Fatal(err)
+					}
+					return
+				}
+				refusal := requireCode(t, err, "launch_plan_invalid")
+				if len(refusal.Details) != 0 || refusal.ExitCode() != 2 || refusal.Diagnostic() != "launch_plan_invalid: Invalid launch plan." {
+					t.Fatalf("selector refusal changed: %#v", refusal)
+				}
+			})
+		}
+	}
+}
+
+// The client preserves all pre-split launch-vector verdicts: the four tails
+// whose wire shape is now valid still fail provider semantics at this boundary.
+func TestLaunchVectorVerdicts(t *testing.T) {
+	data, err := managerschema.Documents.ReadFile("vectors/launch.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var vectors []struct {
+		Name     string          `json:"name"`
+		Valid    bool            `json:"valid"`
+		Document json.RawMessage `json:"document"`
+	}
+	if err := json.Unmarshal(data, &vectors); err != nil {
+		t.Fatal(err)
+	}
+	semantic := map[string]bool{
+		"native-tail-codex-selector-id-shape":    true,
+		"native-tail-codex_cli-selector-shape":   true,
+		"native-tail-claude_code-selector-shape": true,
+		"native-tail-muse-selector-shape":        true,
+	}
+	seen := 0
+	for _, vector := range vectors {
+		want := vector.Valid
+		if semantic[vector.Name] {
+			seen++
+			want = false
+		}
+		t.Run(vector.Name, func(t *testing.T) {
+			if err := ValidateRequest("launch", vector.Document); (err == nil) != want {
+				t.Fatalf("pre-split verdict valid=%t, got %v", want, err)
+			}
+		})
+	}
+	if seen != len(semantic) {
+		t.Fatal("semantic regression vector missing")
 	}
 }
 

@@ -5,13 +5,19 @@ package client
 import (
 	"encoding/json"
 	"errors"
+	"reflect"
 	"sort"
 	"strconv"
 	"strings"
 
 	"github.com/relux-works/curator-agent-launcher/internal/diagnostics"
 	"github.com/relux-works/curator-agent-launcher/internal/hosted"
+	"github.com/relux-works/curator-agent-launcher/internal/mapping"
 	managerschema "github.com/relux-works/curator-agent-launcher/schemas/session-manager"
+	"github.com/relux-works/skill-agents-management/pkg/agentic"
+	_ "github.com/relux-works/skill-agents-management/pkg/agentic/systems/claude"
+	_ "github.com/relux-works/skill-agents-management/pkg/agentic/systems/codex"
+	_ "github.com/relux-works/skill-agents-management/pkg/agentic/systems/muse"
 )
 
 const Protocol = "curator-session-manager/1"
@@ -141,6 +147,25 @@ func ValidateRequest(operation string, data []byte) error {
 			return refusal("secret_policy_violation", nil)
 		}
 		return refusal("launch_plan_invalid", nil)
+	}
+	if operation == "launch" {
+		// JSON shape is owned by the dependency-free wire module. Selector
+		// elevation is provider semantics and stays at the launcher boundary.
+		var request struct {
+			Runtime    string   `json:"runtime"`
+			NativeTail []string `json:"native_tail"`
+		}
+		if json.Unmarshal(data, &request) != nil {
+			return refusal("launch_plan_invalid", nil)
+		}
+		target, err := mapping.Resolve(request.Runtime)
+		if err != nil {
+			return refusal("launch_plan_invalid", nil)
+		}
+		elevated, err := agentic.ElevateResumeIntent(agentic.Default, agentic.SystemID(target.System), nil, request.NativeTail)
+		if err != nil || elevated.Intent.Kind != agentic.ResumeNew || !reflect.DeepEqual(append([]string{}, elevated.NativeArgs...), append([]string{}, request.NativeTail...)) {
+			return refusal("launch_plan_invalid", nil)
+		}
 	}
 	return nil
 }

@@ -137,9 +137,9 @@ func TestSchemaCatalog(t *testing.T) {
 	}
 }
 
-// Filename and published URN apply the same byte-bound and selector-free-tail
-// rules: 4096 UTF-8 bytes and value-position "resume" pass; 4098 bytes and
-// actual resume selectors refuse. Verdicts come from the contract, not parity.
+// Filename and published URN apply the same UTF-8 byte bound. Native tail
+// strings, including selectors, are structurally valid; provider semantics
+// belong to the caller and are covered by launcher client regression tests.
 func TestValidationIdentity(t *testing.T) {
 	data, err := Documents.ReadFile("vectors/launch.json")
 	if err != nil {
@@ -158,7 +158,7 @@ func TestValidationIdentity(t *testing.T) {
 		{"byte-bound", strings.Repeat("é", 2048), []string{}, true},
 		{"byte-overflow", strings.Repeat("é", 2049), []string{}, false},
 		{"native-value", "ok", []string{"--model", "resume"}, true},
-		{"native-selector", "ok", []string{"--resume", "latest"}, false},
+		{"native-selector-shape", "ok", []string{"--resume", "latest"}, true},
 	} {
 		var request map[string]any
 		if err := json.Unmarshal(vectors[0].Document, &request); err != nil {

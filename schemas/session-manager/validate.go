@@ -15,13 +15,6 @@ import (
 	"strings"
 	"time"
 	"unicode/utf8"
-
-	"github.com/relux-works/curator-agent-launcher/internal/fragment"
-	"github.com/relux-works/curator-agent-launcher/internal/mapping"
-	"github.com/relux-works/skill-agents-management/pkg/agentic"
-	_ "github.com/relux-works/skill-agents-management/pkg/agentic/systems/claude"
-	_ "github.com/relux-works/skill-agents-management/pkg/agentic/systems/codex"
-	_ "github.com/relux-works/skill-agents-management/pkg/agentic/systems/muse"
 )
 
 //go:embed *.schema.json vectors/*.json
@@ -63,7 +56,7 @@ func buildCatalog() (map[string]string, error) {
 }
 
 // Validate reads the actual published schema, not a parallel Go shape. JSON
-// also obeys the repository's strict reader (duplicates, UTF-8, safe integers).
+// also obeys the strict CCJ-1 reader (duplicates, UTF-8, safe integers).
 // Errors identify schema locations only; request or plugin values never escape.
 func Validate(name string, data []byte) error {
 	// Resolve a published identity before both structural and semantic checks.
@@ -73,12 +66,12 @@ func Validate(name string, data []byte) error {
 	if len(data) > Limit {
 		return errors.New("protocol document exceeds byte bound")
 	}
-	v, err := fragment.ParseJSON(data)
+	canonical, err := CanonicalJSON(data)
 	if err != nil {
 		return errors.New("invalid protocol JSON")
 	}
 	var value any
-	if json.Unmarshal(fragment.Canonical(v), &value) != nil {
+	if json.Unmarshal(canonical, &value) != nil {
 		return errors.New("invalid protocol JSON")
 	}
 	if err := validateFile(name, value, 0); err != nil {
@@ -118,18 +111,6 @@ func Validate(name string, data []byte) error {
 			if len(v.(string)) > 4096 {
 				return errors.New("schema violation at $.child_env")
 			}
-		}
-		var tail []string
-		for _, v := range object["native_tail"].([]any) {
-			tail = append(tail, v.(string))
-		}
-		target, err := mapping.Resolve(object["runtime"].(string))
-		if err != nil {
-			return errors.New("schema violation at $.runtime")
-		}
-		elevated, err := agentic.ElevateResumeIntent(agentic.Default, agentic.SystemID(target.System), nil, tail)
-		if err != nil || elevated.Intent.Kind != agentic.ResumeNew || !reflect.DeepEqual(append([]string{}, elevated.NativeArgs...), append([]string{}, tail...)) {
-			return errors.New("schema violation at $.native_tail")
 		}
 	}
 	return nil
