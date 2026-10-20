@@ -876,6 +876,8 @@ func (m *manager) operate(op string, r request, data []byte) reply {
 	}
 	if r.Mode == "graceful" && m.control.GracefulHang && s.Alive && !m.bad("graceful-retirement") {
 		row["state"] = "draining"
+		// The provider outlived its graceful share (§5.4 draining reason).
+		row["draining"] = map[string]any{"reason": "provider_alive_after_graceful", "remediation": "wait"}
 		// Closing the gate and projecting off are one durable transaction.
 		if !m.bad("doorbell-gate-closure") {
 			d := row["doorbell"].(map[string]any)
@@ -906,6 +908,8 @@ func (m *manager) retire(s *Stored) {
 		d["uncertain"], d["reason"] = false, nil
 	}
 	row["state"] = "down"
+	// The draining explanation is valid only while the state is draining.
+	delete(row, "draining")
 	s.Record = encode(row)
 	s.Alive, s.Gate, s.Retirement = false, false, 4
 	owner := m.state.Operations[m.state.Admissions[s.Admission]]
