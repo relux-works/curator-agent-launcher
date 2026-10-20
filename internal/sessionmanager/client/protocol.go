@@ -84,6 +84,13 @@ type Doorbell struct {
 	Reason     *string `json:"reason"`
 }
 
+// Draining explains a draining session (FRONT-DOOR §5.4). The schema pins
+// each reason to its remediation; absence claims no reason.
+type Draining struct {
+	Reason      string `json:"reason"`
+	Remediation string `json:"remediation"`
+}
+
 // Session is a validated record. If Readable is false, lifecycle fields
 // have no evidence and decode to zero values; only its handle, manager and
 // index labels may be used. The schema enforces the exact null projection.
@@ -102,6 +109,7 @@ type Session struct {
 	StartedAt      string            `json:"started_at"`
 	LastActivityAt *string           `json:"last_activity_at"`
 	Doorbell       Doorbell          `json:"doorbell"`
+	Draining       *Draining         `json:"draining,omitempty"`
 }
 type Outcome struct {
 	Outcome string   `json:"outcome"`

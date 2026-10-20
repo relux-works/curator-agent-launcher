@@ -9485,5 +9485,317 @@
         "reason": null
       }
     }
+  },
+  {
+    "name": "draining-unsignalled-after-restart",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "session": "SES-example",
+      "operation_id": "11111111-1111-4111-8111-111111111111",
+      "manager": "demo",
+      "runtime": "codex_cli",
+      "native_id": null,
+      "readable": true,
+      "state": "draining",
+      "labels": {},
+      "generation": 1,
+      "started_at": "2026-01-01T00:00:00Z",
+      "last_activity_at": null,
+      "doorbell": {
+        "state": "off",
+        "uncertain": false,
+        "generation": null,
+        "reason": null
+      },
+      "draining": {
+        "reason": "stop_intent_unsignalled_after_restart",
+        "remediation": "stop_force"
+      }
+    }
+  },
+  {
+    "name": "draining-alive-after-graceful",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "session": "SES-example",
+      "operation_id": "11111111-1111-4111-8111-111111111111",
+      "manager": "demo",
+      "runtime": "codex_cli",
+      "native_id": null,
+      "readable": true,
+      "state": "draining",
+      "labels": {},
+      "generation": 1,
+      "started_at": "2026-01-01T00:00:00Z",
+      "last_activity_at": null,
+      "doorbell": {
+        "state": "off",
+        "uncertain": false,
+        "generation": null,
+        "reason": null
+      },
+      "draining": {
+        "reason": "provider_alive_after_graceful",
+        "remediation": "wait"
+      }
+    }
+  },
+  {
+    "name": "draining-without-reason",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "session": "SES-example",
+      "operation_id": "11111111-1111-4111-8111-111111111111",
+      "manager": "demo",
+      "runtime": "codex_cli",
+      "native_id": null,
+      "readable": true,
+      "state": "draining",
+      "labels": {},
+      "generation": 1,
+      "started_at": "2026-01-01T00:00:00Z",
+      "last_activity_at": null,
+      "doorbell": {
+        "state": "off",
+        "uncertain": false,
+        "generation": null,
+        "reason": null
+      }
+    }
+  },
+  {
+    "name": "draining-reason-outside-draining-state",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "session": "SES-example",
+      "operation_id": "11111111-1111-4111-8111-111111111111",
+      "manager": "demo",
+      "runtime": "codex_cli",
+      "native_id": null,
+      "readable": true,
+      "state": "busy",
+      "labels": {},
+      "generation": 1,
+      "started_at": "2026-01-01T00:00:00Z",
+      "last_activity_at": null,
+      "doorbell": {
+        "state": "off",
+        "uncertain": false,
+        "generation": null,
+        "reason": null
+      },
+      "draining": {
+        "reason": "stop_intent_unsignalled_after_restart",
+        "remediation": "stop_force"
+      }
+    }
+  },
+  {
+    "name": "draining-reason-on-down",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "session": "SES-example",
+      "operation_id": "11111111-1111-4111-8111-111111111111",
+      "manager": "demo",
+      "runtime": "codex_cli",
+      "native_id": null,
+      "readable": true,
+      "state": "down",
+      "labels": {},
+      "generation": 1,
+      "started_at": "2026-01-01T00:00:00Z",
+      "last_activity_at": null,
+      "doorbell": {
+        "state": "off",
+        "uncertain": false,
+        "generation": null,
+        "reason": null
+      },
+      "draining": {
+        "reason": "provider_alive_after_graceful",
+        "remediation": "wait"
+      }
+    }
+  },
+  {
+    "name": "draining-pairing-mismatch",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "session": "SES-example",
+      "operation_id": "11111111-1111-4111-8111-111111111111",
+      "manager": "demo",
+      "runtime": "codex_cli",
+      "native_id": null,
+      "readable": true,
+      "state": "draining",
+      "labels": {},
+      "generation": 1,
+      "started_at": "2026-01-01T00:00:00Z",
+      "last_activity_at": null,
+      "doorbell": {
+        "state": "off",
+        "uncertain": false,
+        "generation": null,
+        "reason": null
+      },
+      "draining": {
+        "reason": "stop_intent_unsignalled_after_restart",
+        "remediation": "wait"
+      }
+    }
+  },
+  {
+    "name": "draining-unknown-reason",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "session": "SES-example",
+      "operation_id": "11111111-1111-4111-8111-111111111111",
+      "manager": "demo",
+      "runtime": "codex_cli",
+      "native_id": null,
+      "readable": true,
+      "state": "draining",
+      "labels": {},
+      "generation": 1,
+      "started_at": "2026-01-01T00:00:00Z",
+      "last_activity_at": null,
+      "doorbell": {
+        "state": "off",
+        "uncertain": false,
+        "generation": null,
+        "reason": null
+      },
+      "draining": {
+        "reason": "provider_ignored_sigterm",
+        "remediation": "wait"
+      }
+    }
+  },
+  {
+    "name": "draining-extra-member",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "session": "SES-example",
+      "operation_id": "11111111-1111-4111-8111-111111111111",
+      "manager": "demo",
+      "runtime": "codex_cli",
+      "native_id": null,
+      "readable": true,
+      "state": "draining",
+      "labels": {},
+      "generation": 1,
+      "started_at": "2026-01-01T00:00:00Z",
+      "last_activity_at": null,
+      "doorbell": {
+        "state": "off",
+        "uncertain": false,
+        "generation": null,
+        "reason": null
+      },
+      "draining": {
+        "reason": "stop_intent_unsignalled_after_restart",
+        "remediation": "stop_force",
+        "detail": "x"
+      }
+    }
+  },
+  {
+    "name": "draining-missing-remediation",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "session": "SES-example",
+      "operation_id": "11111111-1111-4111-8111-111111111111",
+      "manager": "demo",
+      "runtime": "codex_cli",
+      "native_id": null,
+      "readable": true,
+      "state": "draining",
+      "labels": {},
+      "generation": 1,
+      "started_at": "2026-01-01T00:00:00Z",
+      "last_activity_at": null,
+      "doorbell": {
+        "state": "off",
+        "uncertain": false,
+        "generation": null,
+        "reason": null
+      },
+      "draining": {
+        "reason": "provider_alive_after_graceful"
+      }
+    }
+  },
+  {
+    "name": "draining-null",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "session": "SES-example",
+      "operation_id": "11111111-1111-4111-8111-111111111111",
+      "manager": "demo",
+      "runtime": "codex_cli",
+      "native_id": null,
+      "readable": true,
+      "state": "draining",
+      "labels": {},
+      "generation": 1,
+      "started_at": "2026-01-01T00:00:00Z",
+      "last_activity_at": null,
+      "doorbell": {
+        "state": "off",
+        "uncertain": false,
+        "generation": null,
+        "reason": null
+      },
+      "draining": null
+    }
+  },
+  {
+    "name": "draining-on-unreadable",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "session": "SES-example",
+      "operation_id": null,
+      "manager": "demo",
+      "runtime": null,
+      "native_id": null,
+      "readable": false,
+      "state": "unknown",
+      "labels": {},
+      "generation": null,
+      "started_at": null,
+      "last_activity_at": null,
+      "doorbell": {
+        "state": "off",
+        "uncertain": false,
+        "generation": null,
+        "reason": null
+      },
+      "draining": {
+        "reason": "stop_intent_unsignalled_after_restart",
+        "remediation": "stop_force"
+      }
+    }
   }
 ]

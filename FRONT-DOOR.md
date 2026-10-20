@@ -700,7 +700,12 @@ is `session_host_provider_unsupported` (6). Both are checked before any
     persisted step index of §8.2 carries it: owner exit, abandon, then
     `off`. The session becomes `down` only when the provider is gone and
     retirement has finished.
-  - `force` kills the provider's process group.
+  - `force` kills the provider's process group. After a manager restart
+    it first proves that the persisted process is the one it started: at
+    least the uid and the process start time recorded at launch, or a
+    pidfd equivalent. Without that proof it refuses
+    `session_liveness_unknown` and sends no signal. A reused PID is never
+    signalled. Within one manager lifetime `force` needs no extra proof.
   - `not-busy` fences new turns (manager submissions, app-server writes,
     doorbell turns) atomically with the busy check. A refusal changes
     nothing.
@@ -848,7 +853,7 @@ What the plugin may add:
 
 ### 5.4 The session record
 
-Schema `urn:relux:curator-run:session` `1.0.0`:
+Schema `urn:relux:curator-run:session` `1.1.0`:
 
 ```json
 {
@@ -866,7 +871,8 @@ Schema `urn:relux:curator-run:session` `1.0.0`:
   "started_at": "…Z",
   "last_activity_at": "…Z",
   "doorbell": {"state": "armed|unavailable|off", "uncertain": false,
-               "generation": "…", "reason": "…"}
+               "generation": "…", "reason": "…"},
+  "draining": {"reason": "…", "remediation": "…"}
 }
 ```
 
@@ -906,6 +912,20 @@ Validation (§5.6 applies to the whole record):
     persisted step index records that.
   - When `uncertain` is true and the state is not `armed`, `reason` is
     `previous_generation_uncertain`.
+- `draining` is optional and appears only on a readable record whose
+  `state` is `draining`. It has exactly the two members `reason` and
+  `remediation`, and each reason fixes its remediation:
+  - `provider_alive_after_graceful` with `wait`: the provider outlived its
+    graceful share (§5.2) and retirement continues inside the manager;
+  - `stop_intent_unsignalled_after_restart` with `stop_force`: the manager
+    restarted after it persisted the stop intent but before it signalled
+    the provider. It does not signal a persisted process again without
+    proving that process's identity, so only an explicit `force` stop
+    resolves the session.
+
+  An absent `draining` claims no reason. The member never appears on an
+  unreadable record or in any other state. Schema `1.1.0` adds it, and a
+  `1.0.0` record stays valid.
 
 ### 5.5 Conformance
 

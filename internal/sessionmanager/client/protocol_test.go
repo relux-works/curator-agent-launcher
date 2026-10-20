@@ -92,6 +92,33 @@ func TestDecodeResponse(t *testing.T) {
 	}
 }
 
+// A draining record keeps its schema-paired reason and remediation through
+// decoding; the same member on a non-draining record rejects the response.
+func TestDecodeDrainingReason(t *testing.T) {
+	stop := `{"session":"SES-example","expected_generation":1,"mode":"graceful","precondition":"none"}`
+	draining := session()
+	draining.State = "draining"
+	draining.Draining = &Draining{Reason: "stop_intent_unsignalled_after_restart", Remediation: "stop_force"}
+	r, err := DecodeResponse("stop", []byte(stop), encoded(draining), 0, "demo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.Session.Draining == nil || *r.Session.Draining != *draining.Draining {
+		t.Fatalf("draining reason lost: %+v", r.Session.Draining)
+	}
+	busy := draining
+	busy.State = "busy"
+	r, err = DecodeResponse("stop", []byte(stop), encoded(busy), 0, "demo")
+	requireCode(t, err, "session_host_protocol_error")
+	if r.Session != nil {
+		t.Fatal("partial poisoned response")
+	}
+	mismatch := draining
+	mismatch.Draining = &Draining{Reason: "stop_intent_unsignalled_after_restart", Remediation: "wait"}
+	_, err = DecodeResponse("stop", []byte(stop), encoded(mismatch), 0, "demo")
+	requireCode(t, err, "session_host_protocol_error")
+}
+
 // Request validation rejects secrets and reserved loader inputs before exec;
 // neighboring non-secret names remain allowed and errors reveal no values.
 func TestRequestPolicy(t *testing.T) {

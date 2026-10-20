@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:relux:curator-run:session-record",
-  "title": "session-record 1.0.0",
+  "title": "session-record 1.1.0",
   "oneOf": [
     {
       "type": "object",
@@ -219,6 +219,42 @@
               }
             }
           ]
+        },
+        "draining": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "reason": {
+                  "const": "provider_alive_after_graceful"
+                },
+                "remediation": {
+                  "const": "wait"
+                }
+              },
+              "required": [
+                "reason",
+                "remediation"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "reason": {
+                  "const": "stop_intent_unsignalled_after_restart"
+                },
+                "remediation": {
+                  "const": "stop_force"
+                }
+              },
+              "required": [
+                "reason",
+                "remediation"
+              ],
+              "additionalProperties": false
+            }
+          ]
         }
       },
       "required": [
@@ -235,7 +271,27 @@
         "last_activity_at",
         "doorbell"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "not": {
+                  "const": "draining"
+                }
+              }
+            }
+          },
+          "then": {
+            "not": {
+              "required": [
+                "draining"
+              ]
+            }
+          }
+        }
+      ]
     },
     {
       "type": "object",
