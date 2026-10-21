@@ -164,8 +164,8 @@ then the machine mode. Closed table, first match wins:
 The two `auto` lines are fixed:
 
 ```text
-notice-empty:      curator-run: no session manager registered; launching natively (curator-run session-manager list)
-notice-unselected: curator-run: no session manager selected (<N> registered); launching natively (curator-run session-manager select <id>)
+notice-empty:      curator-run: no session manager registered; launching natively (curator run session-manager list)
+notice-unselected: curator-run: no session manager selected (<N> registered); launching natively (curator run session-manager select <id>)
 ```
 
 **Resolution algorithm.** This is the one order. The first refusal wins.
@@ -450,7 +450,7 @@ Rules, closed, applied in order:
      new manager. The default answer keeps the current selection.
    - Without a TTY, it registers without selecting, exits 0, and prints one
      line: `registered <id>; selection unchanged (<current or none>); run:
-     curator-run session-manager select <id>`. An agent installer has no
+     curator run session-manager select <id>`. An agent installer has no
      TTY: it asks its human in its own channel, then passes `--select` or
      `--no-select`, or runs `select` later.
 7. **Writes are atomic**: a temp file in the same directory, fsync, rename,
