@@ -50,7 +50,7 @@ decided it as Ivan's delegate.
 | # | Changed text | Change | Disposition |
 | --- | --- | --- | --- |
 | C1 | CIP-0016 / Decision 0021 amendment v2 (exact plan only; snapshots) | A transitional `launch-delegated/1`: the manager composes, against the live managed home | Q1, signed off 2026-10-21; accepted in curator-spec `cips/CIP-0016-local-hosted-launches.md` at `3a3e041b` (PR #163) |
-| C2 | CIP-0016 §1 (Claude, Codex and Muse qualify together for the first release) | Kept for `launch-exact/2`. For `launch-delegated/1`, activation goes runtime by runtime: Claude and Codex first, Muse when task-board's v4 consumer lands. | Part of Q1, pending Ivan |
+| C2 | CIP-0016 §1 (Claude, Codex and Muse qualify together for the first release) | Kept for `launch-exact/2`. For `launch-delegated/1`, activation goes runtime by runtime: Claude and Codex first, Muse when task-board's v4 consumer lands. | Part of Q1, signed off 2026-10-21 |
 | C3 | Decision 0021 §7, SPEC §4.8 (machine hosted defaults refuse until upgrade without hang-up) | The machine mode replaces the gate; upgrade behaviour becomes a disclosure line | Q2, decided |
 | C4 | CIP-0016 §2 (explicit `--hosted` with no backend selection means `local-task-board`, stable across upgrades) | The registry replaces the implicit backend. With no registered manager, `--hosted` refuses. task-board's installer registers it, so a machine with task-board installed keeps the meaning. | Proposed here; falls under C1's amendment |
 | C5 | Decision 0021 §4 (board behaviour follows the workspace) | The board goal is bound only on explicit `--board-goal` | Proposed here (mission: no board goal binding) |

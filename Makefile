@@ -43,9 +43,11 @@ vet:
 	$(GO) -C schemas/session-manager vet ./...
 
 # cmd/curator-run builds and drives the real binary; on a loaded host it has
-# run close to go test's default 10m per-package limit, so allow 20m.
+# run close to go test's default 10m per-package limit. 13m stays inside the
+# hosted test job's 15-minute budget, so a slow package still fails with a Go
+# timeout stack rather than a killed job.
 test:
-	$(GO) test ./... -count=1 -timeout=20m
+	$(GO) test ./... -count=1 -timeout=13m
 	$(GO) -C schemas/session-manager test ./... -count=1
 
 # Conformance includes deliberate deadline controls; leave race-runner margin.

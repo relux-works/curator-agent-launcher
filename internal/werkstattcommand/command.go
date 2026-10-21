@@ -30,9 +30,11 @@ func ParseCommand(args []string) (Command, error) {
 	switch c.Action {
 	case "up", "down", "recycle", "status", "list":
 	default:
-		return Command{}, fmt.Errorf("unknown werkstatt action %q; expected up, down, recycle, status or list; see: curator run werkstatt --help", c.Action)
+		return Command{}, fmt.Errorf("unknown werkstatt action; expected up, down, recycle, status or list; see: curator run werkstatt --help")
 	}
-	// Each refusal names the offending token and the smallest help command.
+	// Each refusal names the rule and the smallest help command. It quotes only
+	// tokens of the closed grammar (actions and known flags), never an operand,
+	// a value or an unknown token: those can carry a misplaced credential.
 	bad := func(format string, a ...any) (Command, error) {
 		return Command{}, fmt.Errorf("werkstatt %s: %s; see: curator run werkstatt %s --help", c.Action, fmt.Sprintf(format, a...), c.Action)
 	}
@@ -41,16 +43,19 @@ func ParseCommand(args []string) (Command, error) {
 		a := args[i]
 		if !strings.HasPrefix(a, "--") {
 			if c.ID != "" {
-				return bad("unexpected operand %q after id %q", a, c.ID)
+				return bad("unexpected second operand after the id")
 			}
 			if !ValidID(a) {
-				return bad("invalid id %q (expected [a-z0-9][a-z0-9-]{0,47})", a)
+				return bad("invalid id (expected [a-z0-9][a-z0-9-]{0,47})")
 			}
 			c.ID = a
 			continue
 		}
 		if seen[a] {
-			return bad("%s given twice", a)
+			if knownFlag[a] {
+				return bad("%s given twice", a)
+			}
+			return bad("unknown flag")
 		}
 		seen[a] = true
 		switch a {
@@ -117,7 +122,7 @@ func ParseCommand(args []string) (Command, error) {
 					return bad("%s is valid only with status", a)
 				}
 				if e != nil || n < 0 || n > 9007199254740991 {
-					return bad("%s %q is not an integer from 0 to 2^53-1", a, v)
+					return bad("%s needs an integer from 0 to 2^53-1", a)
 				}
 				c.QueueDepth = &n
 			case "--task-class":
@@ -125,7 +130,7 @@ func ParseCommand(args []string) (Command, error) {
 					return bad("%s is valid only with up", a)
 				}
 				if !dispatchValue(v) {
-					return bad("%s %q is not a valid dispatch value", a, v)
+					return bad("%s needs a dispatch value of [A-Za-z0-9._:/@+-]{1,128}", a)
 				}
 				c.TaskClass = v
 			case "--difficulty":
@@ -133,12 +138,12 @@ func ParseCommand(args []string) (Command, error) {
 					return bad("%s is valid only with up", a)
 				}
 				if !dispatchValue(v) {
-					return bad("%s %q is not a valid dispatch value", a, v)
+					return bad("%s needs a dispatch value of [A-Za-z0-9._:/@+-]{1,128}", a)
 				}
 				c.Difficulty = v
 			}
 		default:
-			return bad("unknown flag %s", a)
+			return bad("unknown flag")
 		}
 	}
 	switch {
@@ -155,6 +160,10 @@ func ParseCommand(args []string) (Command, error) {
 	}
 	return c, nil
 }
+
+// knownFlag is the closed flag set; only these names may appear in a refusal.
+var knownFlag = map[string]bool{"--attach": true, "--new": true, "--force": true, "--json": true, "--rebind-manager": true, "--abandon-operation": true, "--clear-task": true, "--set-task": true, "--queue-depth": true, "--task-class": true, "--difficulty": true}
+
 func dispatchValue(s string) bool {
 	if len(s) == 0 || len(s) > 128 {
 		return false

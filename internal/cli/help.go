@@ -78,8 +78,11 @@ Shows one registered manager.
 	"register": `usage: curator run session-manager register --manifest <path|-> [--select | --no-select]
 
 Validates a manager manifest (a file, or - for stdin) and adds it to the
-registry. The first manager is selected. Later ones ask once on a terminal;
-without a terminal they are added unselected unless --select is given.
+registry, or updates the entry with the same id. --select selects it and
+--no-select leaves the selection unchanged. Without either flag: an update
+keeps the selection, a manager registered into an empty registry is
+selected, and otherwise the command asks once on a terminal; without a
+terminal the selection stays unchanged.
 `,
 	"select": `usage: curator run session-manager select <id>
 

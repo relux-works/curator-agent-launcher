@@ -54,15 +54,15 @@ func TestSessionManagerDiagnostics(t *testing.T) {
 		want []string
 	}{
 		{[]string{"session-manager"}, []string{"needs an operation", "curator run session-manager --help"}},
-		{[]string{"session-manager", "use", "x"}, []string{`"use"`, "curator run session-manager --help"}},
-		{[]string{"session-manager", "list", "extra"}, []string{`"extra"`, "curator run session-manager list --help"}},
+		{[]string{"session-manager", "use", "x"}, []string{"unknown session-manager operation", "curator run session-manager --help"}},
+		{[]string{"session-manager", "list", "extra"}, []string{"unexpected argument", "curator run session-manager list --help"}},
 		{[]string{"session-manager", "show"}, []string{"manager id is required", "curator run session-manager show --help"}},
-		{[]string{"session-manager", "select", "Bad_ID"}, []string{`"Bad_ID"`}},
+		{[]string{"session-manager", "select", "Bad_ID"}, []string{"invalid manager id"}},
 		{[]string{"session-manager", "register"}, []string{"--manifest is required", "curator run session-manager register --help"}},
 		{[]string{"session-manager", "register", "--manifest"}, []string{"--manifest needs a path or -"}},
 		{[]string{"session-manager", "register", "--manifest", "-", "--select", "--no-select"}, []string{"mutually exclusive"}},
 		{[]string{"session-manager", "register", "--manifest", "-", "--select", "--select"}, []string{"--select given twice"}},
-		{[]string{"session-manager", "register", "--manifest", "-", "--force"}, []string{`"--force"`}},
+		{[]string{"session-manager", "register", "--manifest", "-", "--force"}, []string{"unknown argument"}},
 	} {
 		_, err := Parse(tc.args, Options{})
 		if err == nil || !IsUsage(err) {
@@ -75,6 +75,33 @@ func TestSessionManagerDiagnostics(t *testing.T) {
 		}
 	}
 	for _, args := range [][]string{{"session-manager", "list", "--json"}, {"session-manager", "register", "--manifest", "-", "--no-select"}, {"session-manager", "select", "task-board"}} {
+		if _, err := Parse(args, Options{}); err != nil {
+			t.Fatal(args, err)
+		}
+	}
+}
+
+// A registry refusal never echoes an id, a value or an unknown token; the
+// same positions with valid input parse (review B1 on launcher #57).
+func TestSessionManagerDiagnosticsDiscloseNoInput(t *testing.T) {
+	const secret = "SENTINEL_SECRET_57"
+	for _, args := range [][]string{
+		{"session-manager", secret},
+		{"session-manager", "list", "--token=" + secret},
+		{"session-manager", "show", "x" + secret + "!"},
+		{"session-manager", "show", "board", secret},
+		{"session-manager", "register", "--manifest", "-", "--token=" + secret},
+		{"session-manager", "register", "--manifest", "-", "--token=" + secret, "--token=" + secret},
+	} {
+		_, err := Parse(args, Options{})
+		if err == nil || !IsUsage(err) {
+			t.Fatalf("%v: %v", args, err)
+		}
+		if strings.Contains(err.Error(), "SENTINEL") {
+			t.Fatalf("%v disclosed input: %q", args, err)
+		}
+	}
+	for _, args := range [][]string{{"session-manager", "show", "board"}, {"session-manager", "register", "--manifest", "-"}} {
 		if _, err := Parse(args, Options{}); err != nil {
 			t.Fatal(args, err)
 		}

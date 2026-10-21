@@ -70,7 +70,8 @@ candidates can still produce warnings without opt-in.
 Tracking: sibling ax.json, schema curator-run-ax-v1, enabled:true.
 An existing machine ax.json wins; otherwise use the operator file.
 Missing files or enabled:false select direct execution. Invalid/unreadable
-configuration refuses even --help/--version. No direct fallback on ax failure.
+configuration refuses launches; --help and --version never read it. No direct
+fallback on ax failure.
 --name defaults to <env-id>-<YYYYMMDDTHHMMSSZ> (UTC), accepts
 [A-Za-z0-9][A-Za-z0-9._-]{0,63}, and has no effect when untracked.
 --ax-profile is a usage error when untracked; absent uses ax's default.

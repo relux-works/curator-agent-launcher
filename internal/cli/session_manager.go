@@ -3,7 +3,9 @@ package cli
 import "github.com/relux-works/curator-agent-launcher/internal/sessionmanager"
 
 // parseSessionManager admits the closed registry grammar. Each refusal names
-// the offending token and the smallest help command.
+// the rule and the smallest help command. It quotes only grammar tokens
+// (operations and known flags), never an id, a value or an unknown token:
+// those can carry a misplaced credential.
 func parseSessionManager(args []string) (sessionmanager.Command, error) {
 	var c sessionmanager.Command
 	if len(args) == 0 {
@@ -19,28 +21,31 @@ func parseSessionManager(args []string) (sessionmanager.Command, error) {
 		if len(args) == 1 && args[0] == "--json" {
 			c.JSON = true
 		} else if len(args) != 0 {
-			return fail("unexpected argument %q", args[0])
+			return fail("unexpected argument")
 		}
 	case "show", "select", "unregister":
 		if len(args) == 0 {
 			return fail("a manager id is required")
 		}
 		if !sessionmanager.ValidID(args[0]) {
-			return fail("invalid manager id %q", args[0])
+			return fail("invalid manager id")
 		}
 		c.ID = args[0]
 		args = args[1:]
 		if c.Operation == "show" && len(args) == 1 && args[0] == "--json" {
 			c.JSON = true
 		} else if len(args) != 0 {
-			return fail("unexpected argument %q", args[0])
+			return fail("unexpected argument")
 		}
 	case "register":
 		seen := map[string]bool{}
 		for i := 0; i < len(args); i++ {
 			flag := args[i]
 			if seen[flag] {
-				return fail("%s given twice", flag)
+				if flag == "--manifest" || flag == "--select" || flag == "--no-select" {
+					return fail("%s given twice", flag)
+				}
+				return fail("unknown argument")
 			}
 			seen[flag] = true
 			switch flag {
@@ -55,7 +60,7 @@ func parseSessionManager(args []string) (sessionmanager.Command, error) {
 			case "--no-select":
 				c.NoSelect = true
 			default:
-				return fail("unknown argument %q", flag)
+				return fail("unknown argument")
 			}
 		}
 		if c.Manifest == "" {
@@ -65,7 +70,7 @@ func parseSessionManager(args []string) (sessionmanager.Command, error) {
 			return fail("--select and --no-select are mutually exclusive")
 		}
 	default:
-		return sessionmanager.Command{}, usageErr("unknown session-manager operation %q; expected list, show, register, select or unregister%s", c.Operation, helpHint("session-manager", ""))
+		return sessionmanager.Command{}, usageErr("unknown session-manager operation; expected list, show, register, select or unregister%s", helpHint("session-manager", ""))
 	}
 	return c, nil
 }
