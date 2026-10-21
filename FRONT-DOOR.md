@@ -129,7 +129,8 @@ The host mode is machine policy. It lives in `launcher.json` (schema
 ```
 
 `delegated_trial`, an optional boolean, is the only other member. It is
-system-layer only and is defined in §5.8.
+system-layer only. Since the Q1 sign-off it is withdrawn: it is still
+validated, but it has no effect (§5.8).
 
 - `host_mode` is exactly `hosted`, `native` or `auto`. Any other value, or
   an unknown member, is `defaults_config_invalid`.
@@ -163,8 +164,8 @@ then the machine mode. Closed table, first match wins:
 The two `auto` lines are fixed:
 
 ```text
-notice-empty:      curator-run: no session manager registered; launching natively (curator run session-manager list)
-notice-unselected: curator-run: no session manager selected (<N> registered); launching natively (curator run session-manager select <id>)
+notice-empty:      curator-run: no session manager registered; launching natively (curator-run session-manager list)
+notice-unselected: curator-run: no session manager selected (<N> registered); launching natively (curator-run session-manager select <id>)
 ```
 
 **Resolution algorithm.** This is the one order. The first refusal wins.
@@ -449,7 +450,7 @@ Rules, closed, applied in order:
      new manager. The default answer keeps the current selection.
    - Without a TTY, it registers without selecting, exits 0, and prints one
      line: `registered <id>; selection unchanged (<current or none>); run:
-     curator run session-manager select <id>`. An agent installer has no
+     curator-run session-manager select <id>`. An agent installer has no
      TTY: it asks its human in its own channel, then passes `--select` or
      `--no-select`, or runs `select` later.
 7. **Writes are atomic**: a temp file in the same directory, fsync, rename,
@@ -1226,9 +1227,18 @@ If it stays unresolved, the launcher prints the `operation_id` and refuses
 
 ### 5.8 Activation boundary for `launch-delegated/1`
 
-`delegated_trial` (system-layer `launcher.json`, §3.1) authorises a live
-trial. The owner sets it only after `ivmbp_curator_orch` or Ivan explicitly
-authorises that trial. Nothing in this document implies the authorisation.
+**Q1 is signed off** (Ivan, 2026-10-21, relayed by `ivmbp_curator_orch`):
+`launch-delegated/1` is accepted as the interim route, for Claude Code and
+Codex now and for Muse once its task-board consumer qualifies (§7). The
+launcher therefore applies the **After sign-off** column below to every
+launch.
+
+`delegated_trial` (system-layer `launcher.json`, §3.1) authorised a live
+trial before the sign-off. It is now withdrawn: the launcher still validates
+it as a boolean, so existing machine files stay valid, but it changes no
+route. A later schema revision drops it. The launcher no longer emits
+`session_host_delegated_unauthorized`. The code stays reserved, because
+historical operation outcomes may carry it.
 
 The matrix below applies whenever the launcher **would use the
 `launch-delegated/1` route**, whatever else the manager offers. That
@@ -1244,10 +1254,10 @@ launch use delegated, because exact cannot detach:
 | No flag, `host_mode: hosted` | Refuse `session_host_missing`, `reason=no manager selected` | Refuse, the same | Hosted |
 | `--native`; or `host_mode: native` with neither `--hosted` nor `werkstatt up` (`werkstatt up` is always hosted, and its row above applies) | Native | Native | Native |
 
-- The trial flag never changes the two implicit rows.
-- Fake-manager tests set `delegated_trial` in their fixture configuration.
-- At sign-off, the next revision lifts the implicit-row restriction, and the
-  flag is withdrawn.
+- The trial flag never changed the two implicit rows. Since the sign-off it
+  changes no row at all.
+- The two pre-sign-off columns stay as history. The decision function still
+  covers them with unit vectors, but no launch takes them.
 - Launches that use the `launch-exact/2` route are outside this matrix.
 
 The paired test vectors are the 15 cells of the matrix, each with its
@@ -2010,7 +2020,7 @@ Detail vocabularies are closed (§5.6). Grammar names:
 | `selector_unavailable` | 1 | enforcing selector failed, timed out or answered invalidly (§3.4) | `reason`: `timeout`, `exit`, `invalid` |
 | `selector_abstained` | 1 | enforcing selector returned a typed abstention (§3.4) | `code`: `[a-z0-9_]{1,64}` |
 | `werkstatt_operation_unresolved` | 1 | the manager owning a pending operation or a live generation is missing or changed (§§5.7, 6.2) | `reason`: `manager_missing`, `manager_changed`; `operation`: UUID |
-| `session_host_delegated_unauthorized` | 16 | the selected route is delegated, before Q1 sign-off and without a trial authorisation (§5.8) | none |
+| `session_host_delegated_unauthorized` | 16 | reserved: before the Q1 sign-off, the selected route was delegated without a trial authorisation (§5.8). Not emitted since 2026-10-21 | none |
 
 **Reused with their meaning.** These codes keep their meaning. Plugin-borne
 detail values are allowed only from the vocabularies shown:

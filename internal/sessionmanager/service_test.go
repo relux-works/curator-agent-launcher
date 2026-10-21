@@ -99,7 +99,7 @@ func TestRegistrationRules(t *testing.T) {
 				if current == "" {
 					current = "none"
 				}
-				want := "registered new; selection unchanged (" + current + "); run: curator run session-manager select new\n"
+				want := "registered new; selection unchanged (" + current + "); run: curator-run session-manager select new\n"
 				if out.String() != want {
 					t.Fatal(out.String())
 				}

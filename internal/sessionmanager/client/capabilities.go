@@ -31,6 +31,11 @@ func RequiredForRequest(d Describe, operation string, request []byte, selection 
 	return Required(d, selection)
 }
 
+// Q1SignedOff records Ivan's sign-off of launch-delegated/1 on 2026-10-21
+// (FRONT-DOOR §5.8). Every launch applies the after-sign-off column; the
+// machine delegated_trial flag is still parsed but no longer changes a route.
+const Q1SignedOff = true
+
 type Needs struct {
 	Runtime, HostMode                                                                        string
 	Native, ExplicitHosted, Werkstatt, Detached, Resume, BoardGoal, CredentialNode, Doorbell bool

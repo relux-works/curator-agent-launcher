@@ -228,9 +228,10 @@ func (f *frontFixture) require(t *testing.T, code, want int, stderr, diagnostic 
 	}
 }
 
-// Every current non-Werkstatt matrix row uses the real binary, real config
-// files, and a delegated-only fake. The future sign-off column and Werkstatt
-// row remain pure client.Required tests; no production sign-off switch exists.
+// Every non-Werkstatt §5.8 row in the after-sign-off column (Q1 signed off
+// 2026-10-21) uses the real binary, real config files and a delegated-only
+// fake. The withdrawn delegated_trial flag changes no row; the pre-sign-off
+// columns remain pure client.Required tests.
 func TestFrontDoorBinary(t *testing.T) {
 	bin := frontBuild(t)
 	t.Run("activation", func(t *testing.T) {
@@ -243,9 +244,9 @@ func TestFrontDoorBinary(t *testing.T) {
 				starts           int
 				native           bool
 			}{
-				{"explicit", "auto", "--hosted", 16, "session_host_delegated_unauthorized", []string{"describe"}, 0, false},
-				{"auto", "auto", "", 0, "no session manager selected (1 registered)", []string{"describe"}, 0, true},
-				{"hosted-default", "hosted", "", 1, "session_host_missing", []string{"describe"}, 0, false},
+				{"explicit", "auto", "--hosted", 0, "ends hosted sessions when it is upgraded", []string{"describe", "launch", "attach"}, 1, false},
+				{"auto", "auto", "", 0, "ends hosted sessions when it is upgraded", []string{"describe", "launch", "attach"}, 1, false},
+				{"hosted-default", "hosted", "", 0, "ends hosted sessions when it is upgraded", []string{"describe", "launch", "attach"}, 1, false},
 				{"native-flag", "hosted", "--native", 0, "", nil, 0, true},
 				{"native-mode", "native", "", 0, "", nil, 0, true},
 			} {
@@ -257,11 +258,7 @@ func TestFrontDoorBinary(t *testing.T) {
 						args = append(args, row.flag)
 					}
 					code, _, stderr := f.invoke(true, false, args...)
-					if row.name == "explicit" && trial {
-						f.require(t, code, 0, stderr, "ends hosted sessions when it is upgraded", []string{"describe", "launch", "attach"}, 1, false)
-					} else {
-						f.require(t, code, row.code, stderr, row.diagnostic, row.calls, row.starts, row.native)
-					}
+					f.require(t, code, row.code, stderr, row.diagnostic, row.calls, row.starts, row.native)
 					if strings.Count(stderr, "curator-run: no session manager") > 1 || strings.Contains(stderr, "session_host_default_not_ready") {
 						t.Fatal(stderr)
 					}
@@ -290,18 +287,14 @@ func TestFrontDoorBinary(t *testing.T) {
 						return
 					}
 					if kind == "selected" {
-						if flag == "--hosted" {
-							f.require(t, code, 0, stderr, "", []string{"describe", "launch", "attach"}, 1, false)
-						} else {
-							f.require(t, code, 0, stderr, "no session manager selected (1 registered)", []string{"describe"}, 0, true)
-						}
+						f.require(t, code, 0, stderr, "", []string{"describe", "launch", "attach"}, 1, false)
 						return
 					}
 					detail := "no manager selected"
-					notice := "curator-run: no session manager selected (1 registered); launching natively (curator run session-manager select <id>)"
+					notice := "curator-run: no session manager selected (1 registered); launching natively (curator-run session-manager select <id>)"
 					if kind == "empty" {
 						detail = "no manager registered"
-						notice = "curator-run: no session manager registered; launching natively (curator run session-manager list)"
+						notice = "curator-run: no session manager registered; launching natively (curator-run session-manager list)"
 					}
 					if flag == "--hosted" {
 						f.require(t, code, 1, stderr, detail, nil, 0, false)

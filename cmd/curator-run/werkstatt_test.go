@@ -185,8 +185,8 @@ func TestWerkstattBinary(t *testing.T) {
 					w.write()
 					want, diagnostic, calls = 2, "werkstatt_record_invalid", nil
 				case "trial-off":
+					// Q1 is signed off: the withdrawn trial flag no longer gates up.
 					w.policy("auto", false)
-					want, diagnostic, calls = 16, "session_host_delegated_unauthorized", []string{"describe"}
 				case "native-mode-trial", "hosted-mode-trial", "native-mode-no-trial", "hosted-mode-no-trial":
 					mode := "native"
 					if strings.HasPrefix(name, "hosted") {
@@ -194,9 +194,6 @@ func TestWerkstattBinary(t *testing.T) {
 					}
 					trial := strings.HasSuffix(name, "-trial") && !strings.HasSuffix(name, "no-trial")
 					w.policy(mode, trial)
-					if !trial {
-						want, diagnostic, calls = 16, "session_host_delegated_unauthorized", []string{"describe"}
-					}
 				case "identity-equals":
 					w.record["identity"] = "example=dev"
 					writeFixture(t, filepath.Join(w.root, "a2a", "agents", "example=dev.json"), []byte("PRESENCE_ONLY"), 0600)

@@ -57,9 +57,9 @@ func hostError(code string, details map[string]string) error {
 
 func hostNotice(w io.Writer, count int) {
 	if count == 0 {
-		fmt.Fprintln(w, "curator-run: no session manager registered; launching natively (curator run session-manager list)")
+		fmt.Fprintln(w, "curator-run: no session manager registered; launching natively (curator-run session-manager list)")
 	} else {
-		fmt.Fprintf(w, "curator-run: no session manager selected (%d registered); launching natively (curator run session-manager select <id>)\n", count)
+		fmt.Fprintf(w, "curator-run: no session manager selected (%d registered); launching natively (curator-run session-manager select <id>)\n", count)
 	}
 }
 
@@ -184,7 +184,7 @@ func resolveHost(ctx context.Context, inv cli.Invocation, frag *fragment.Fragmen
 	result.route, err = client.Required(*response.Describe, client.Needs{
 		Runtime: frag.Environment, HostMode: mode, ExplicitHosted: inv.HostFlag == cli.HostFlagHosted,
 		Detached: inv.Detach, Resume: elevation.Intent.Kind != agentic.ResumeNew, BoardGoal: inv.BoardGoal,
-		DelegatedTrial: deps.launcherConfig.DelegatedTrial, Doorbell: inv.A2A != "",
+		DelegatedTrial: deps.launcherConfig.DelegatedTrial, SignedOff: client.Q1SignedOff, Doorbell: inv.A2A != "",
 	})
 	if err != nil {
 		return result, err

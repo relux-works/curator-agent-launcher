@@ -51,8 +51,8 @@ curator-run werkstatt status example --clear-task
 curator-run werkstatt list --json
 ```
 
-`up` always uses the selected session manager and requires the delegated trial
-flag until runtime sign-off. It checks existing ownership before repairing the
+`up` always uses the selected session manager (delegated launches are signed
+off; the trial flag is withdrawn). It checks existing ownership before repairing the
 profile, verifies both lexical and physical strict ancestors for context leaks,
 and checks only the presence of the identity file. Continue resumes the bound
 conversation; `--new`, fresh mode, recycle or a manager switch starts a new one.
@@ -432,9 +432,9 @@ The launch pipeline follows these steps:
    reads the registry first. An empty or unselected auto registry prints the
    fixed native notice. Selected managers answer `describe` once; capabilities
    and the per-runtime activation matrix decide the route without failure
-   fallback. Delegated trials require explicit `--hosted` and system
-   `delegated_trial: true`. Implicit auto remains native for delegated-only
-   managers until sign-off, and implicit hosted refuses `session_host_missing`.
+   fallback. Delegated launches are signed off (Q1, 2026-10-21): explicit
+   `--hosted`, implicit auto and implicit hosted all use the selected manager,
+   including a delegated-only one.
    A manager without an upgrade capability prints the upgrade disclosure.
    Hosted Claude/Codex permissions use the native ladder, including yolo.
    Resume selectors are elevated through the module's typed grammar.
@@ -678,8 +678,8 @@ refuse the invocation; absence alone permits fallback.
 `launcher.json` uses the closed schema `curator-run-launcher-v1` and optional
 `host_mode` (`auto`, `native`, `hosted`) in the system layer only. Absence
 means `auto`; an explicit value has source `machine`, absence source `default`.
-The optional system-only `delegated_trial` boolean authorizes the explicit
-delegated launch row. It does not change implicit auto or hosted rows.
+The optional system-only `delegated_trial` boolean is withdrawn since the Q1
+sign-off: it is still validated as a boolean but changes no route.
 A user-layer `host_mode` or `delegated_trial` refuses and names the system path. Host selection uses this mode and the per-launch flag. The v3 defaults `host` member is withdrawn: it refuses
 `host_member_withdrawn` (exit 2), naming `launcher.json`; see
 [FRONT-DOOR §3.1](FRONT-DOOR.md#31-the-machine-mode).

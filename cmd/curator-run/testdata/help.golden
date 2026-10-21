@@ -81,9 +81,9 @@ or a combination refuses. Machine launcher.json selects native, hosted or auto
 (default). Native skips the manager registry; explicit --native also bypasses
 ax. Auto uses the selected registered manager, or launches natively with a notice.
 An invalid registry refuses auto; hosted refusals never fall back to native.
-Delegated launches require explicit --hosted and machine delegated_trial:true
-until sign-off. Implicit auto stays native for delegated-only managers; implicit
-hosted refuses session_host_missing. A missing upgrade capability prints a notice.
+Delegated launches are signed off (Q1): auto and hosted use the selected
+manager, including a delegated-only one. Machine delegated_trial is withdrawn
+and has no effect. A missing upgrade capability prints a notice.
 The v3 defaults host member is withdrawn; use migrate.
 resume selectors and --resume are hosted-only; in native mode they refuse.
 --hosted with --network refuses network_scope_unsupported (exit 16).

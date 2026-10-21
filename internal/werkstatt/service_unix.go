@@ -375,7 +375,7 @@ func (s Service) up(ctx context.Context, c Command, tx *client.Transaction, reg 
 	if err != nil {
 		return 0, err
 	}
-	needs := client.Needs{Runtime: r.Runtime, Werkstatt: true, Detached: true, AttachAfter: c.Attach, DelegatedTrial: trial, Doorbell: r.Doorbell != nil}
+	needs := client.Needs{Runtime: r.Runtime, Werkstatt: true, Detached: true, AttachAfter: c.Attach, DelegatedTrial: trial, SignedOff: client.Q1SignedOff, Doorbell: r.Doorbell != nil}
 	if _, err = client.Required(*response.Describe, needs); err != nil {
 		return 0, err
 	}
