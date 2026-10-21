@@ -55,6 +55,7 @@ decided it as Ivan's delegate.
 | C4 | CIP-0016 §2 (explicit `--hosted` with no backend selection means `local-task-board`, stable across upgrades) | The registry replaces the implicit backend. With no registered manager, `--hosted` refuses. task-board's installer registers it, so a machine with task-board installed keeps the meaning. | Proposed here; falls under C1's amendment |
 | C5 | Decision 0021 §4 (board behaviour follows the workspace) | The board goal is bound only on explicit `--board-goal` | Proposed here (mission: no board goal binding) |
 | C6 | SPEC §4.3 (`defaults.json` per-env `host`) | Withdrawn in favour of the machine `host_mode` | Proposed here |
+| C6a | SPEC §4.6 (`ax.json` is read before argument validation, so a config fault outranks a usage error) | §3.2 parses the flags first, then reads `ax.json` and `launcher.json`; a usage error now reports first. Configuration-location discovery still runs first. SPEC §4.6 updated to match (TASK-261021-tn82d5). | Decided with §3.2 |
 | C7 | SPEC §§4.3, 4.7 paths (`~/.config/curator-run/`, `/etc/curator-run/`) | Move to `swarma/launcher/`, with one release of fallback | Q3, decided |
 | C8 | environments §11 (no provider-specific version coupling) | Curator's release reports the bundled `curator-run` version (§10) | Proposed; owner `ivmbp_curator_orch` |
 | C9 | Decision 0021 open question 4 (how a non-task-board host learns about boards) | Answered by `board-goal/1` and an explicit request member | Proposed here |

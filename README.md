@@ -415,9 +415,11 @@ that state is malformed.
 
 The launch pipeline follows these steps:
 
-1. Read machine-first `ax.json` before argument validation. Missing configuration
-   or `enabled:false` selects direct execution. Malformed or unreadable
-   configuration refuses the invocation.
+1. Parse the flag grammar, then read machine-first `ax.json` (FRONT-DOOR §3.2).
+   Missing configuration or `enabled:false` selects direct execution. Malformed
+   or unreadable configuration refuses the invocation; a command line that is
+   itself a usage error reports `usage` first. Only configuration-location
+   discovery runs before parsing.
 2. Normalize the `<env-id>` operand (`claude` → `claude_code`,
    `codex` → `codex_cli`) before validation or lookup, then resolve the
    fragment with `curator env resolve --repair --format json`, forwarding

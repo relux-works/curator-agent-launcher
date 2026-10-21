@@ -1024,14 +1024,16 @@ this machine are tracked is machine policy, so a machine file that exists
 always wins, without a `locked` member — the operator file is consulted
 only where the machine is silent. Model and effort defaults are a
 per-operator preference, so there the operator wins unless the machine
-locks. The file is read once per invocation before argument handling
-completes, so the §3 usage rules for `--ax-profile` and `--name` can name
-the fact; a file that exists but cannot be read or parsed is
-`defaults_config_invalid`, never "not configured", and because that read
-precedes argument validation it is the diagnostic that fires when the
-command line would also have been a usage error — both are terminal, and
-the configuration fault is the one the operator cannot see from the
-command line. Informational invocations are the exception: `--help`, `-h`,
+locks. The file is read once per invocation, after the flag grammar has
+been parsed (FRONT-DOOR §3.2 amends the earlier read-first order: "Parse
+the flags, then read `ax.json` and the system `launcher.json`"). A file
+that exists but cannot be read or parsed is `defaults_config_invalid`,
+never "not configured". A command line that is itself a usage error
+therefore reports `usage` first; only the configuration-location
+discovery runs before parsing, so a discovery failure still reports
+`defaults_config_invalid` first. The §3 usage rules that depend on
+whether ax is configured (`--ax-profile`, `--name`) are checked again
+after the read. Informational invocations are the exception: `--help`, `-h`,
 `--version`, and the static help of the administrative topics
 (FRONT-DOOR §2) read no configuration at all, so they print and exit 0
 even when this file or any other launcher-owned file is broken. A configured integration is not a per-launch option: there
