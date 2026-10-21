@@ -138,7 +138,7 @@ func (s Service) Run(c Command) error {
 			if current == "" {
 				current = "none"
 			}
-			notice += fmt.Sprintf("registered %s; selection unchanged (%s); run: curator-run session-manager select %s\n", id, current, id)
+			notice += fmt.Sprintf("registered %s; selection unchanged (%s); run: curator run session-manager select %s\n", id, current, id)
 		}
 		registry.Managers[id] = entry
 		// Report output errors before commit, so every failed command preserves
