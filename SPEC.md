@@ -1031,7 +1031,10 @@ the fact; a file that exists but cannot be read or parsed is
 precedes argument validation it is the diagnostic that fires when the
 command line would also have been a usage error — both are terminal, and
 the configuration fault is the one the operator cannot see from the
-command line. A configured integration is not a per-launch option: there
+command line. Informational invocations are the exception: `--help`, `-h`,
+`--version`, and the static help of the administrative topics
+(FRONT-DOOR §2) read no configuration at all, so they print and exit 0
+even when this file or any other launcher-owned file is broken. A configured integration is not a per-launch option: there
 is no `--no-ax` flag, and bypassing tracking is a configuration change,
 not a flag. The launcher composes the Decision 0013 D3.2 request document
 and invokes, as a subprocess:

@@ -407,11 +407,17 @@ binary attestations fail closed. For example:
 curator run muse --profile P --model muse-wonder
 ```
 
+Help and version are static: `--help`, `-h` and `--version`, and `--help` or
+`-h` anywhere in a `werkstatt`, `session-manager` or `migrate` invocation
+(for example `curator run werkstatt status <id> --help`), are answered before
+any configuration, registry or station state is read. They exit 0 even when
+that state is malformed.
+
 The launch pipeline follows these steps:
 
 1. Read machine-first `ax.json` before argument validation. Missing configuration
    or `enabled:false` selects direct execution. Malformed or unreadable
-   configuration refuses the invocation, including informational flags.
+   configuration refuses the invocation.
 2. Normalize the `<env-id>` operand (`claude` → `claude_code`,
    `codex` → `codex_cli`) before validation or lookup, then resolve the
    fragment with `curator env resolve --repair --format json`, forwarding

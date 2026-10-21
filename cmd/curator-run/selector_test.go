@@ -233,13 +233,17 @@ func TestRunSelectorShadow(t *testing.T) {
 	}
 }
 
-// System-only selector authority is validated before information/fragment
-// resolution; removing the user policy restores the seam-off launch control.
+// System-only selector authority is validated before fragment resolution of a
+// launch; version is static and does not read it (CLI review F3). Removing the
+// user policy restores the seam-off launch control.
 func TestRunSelectorUserPolicy(t *testing.T) {
 	deps, runner, loc := configHomeFixture(t)
 	writeConfig(t, loc.User, "selector.json", `{"schema":"curator-run-selector-v1","mode":"enforce","executable":"/abs/selector","argv_prefix":[]}`)
 	var out, stderr bytes.Buffer
-	code := run(t.Context(), []string{"--version"}, &out, &stderr, deps)
+	if code := run(t.Context(), []string{"--version"}, &out, &stderr, deps); code != 0 || stderr.Len() != 0 || runner.calls != 0 {
+		t.Fatal("version on broken selector policy", code, &stderr)
+	}
+	code := run(t.Context(), []string{"claude_code"}, &out, &stderr, deps)
 	if code != 1 || runner.calls != 0 || !bytes.Contains(stderr.Bytes(), []byte("defaults_config_invalid")) {
 		t.Fatal(code, &stderr)
 	}

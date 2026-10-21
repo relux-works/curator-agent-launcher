@@ -165,6 +165,23 @@ type launchDeps struct {
 // run is the production entry point. Configuration precedes argument validation;
 // every admitted launch flows through composition and all late execution checks.
 func run(ctx context.Context, args []string, stdout, stderr io.Writer, deps launchDeps) int {
+	// Help and version are static (CLI review F2/F3): answer them before any
+	// configuration, registry or station path is resolved, so they work even
+	// when that state is missing or broken.
+	if text, ok := cli.TopicHelp(args); ok {
+		fmt.Fprint(stdout, text)
+		return 0
+	}
+	if inv, err := cli.Parse(args, cli.Options{AxConfigured: true}); err == nil {
+		switch inv.Info {
+		case cli.InfoHelp:
+			fmt.Fprintf(stdout, "%s %s (specification %s)\n\n%s", name, buildVersion, specVersion, cli.Usage)
+			return 0
+		case cli.InfoVersion:
+			fmt.Fprintf(stdout, "%s %s (specification %s)\n", name, buildVersion, specVersion)
+			return 0
+		}
+	}
 	paths := deps.defaults
 	if deps.configLocations == nil && deps.axPaths != nil {
 		var err error

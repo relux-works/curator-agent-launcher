@@ -68,13 +68,18 @@ func TestRunSharedConfigHome(t *testing.T) {
 	}
 }
 
-// Machine policy errors refuse even informational invocations before resolver
-// contact; removing the forbidden user member restores ordinary version output.
+// Machine policy errors refuse a launch before resolver contact, while version
+// stays static and answers on the same broken policy (CLI review F3);
+// removing the forbidden user member lets the launch reach its next stage.
 func TestRunLauncherPolicyBeforeVersion(t *testing.T) {
 	deps, runner, loc := configHomeFixture(t)
 	writeConfig(t, loc.User, "launcher.json", `{"schema":"curator-run-launcher-v1","host_mode":"native"}`)
 	var out, stderr strings.Builder
-	code := run(context.Background(), []string{"--version"}, &out, &stderr, deps)
+	if code := run(context.Background(), []string{"--version"}, &out, &stderr, deps); code != 0 || runner.calls != 0 || stderr.Len() != 0 || !strings.Contains(out.String(), buildVersion) {
+		t.Fatalf("version on broken policy: exit=%d stderr=%s", code, &stderr)
+	}
+	out.Reset()
+	code := run(context.Background(), []string{"claude_code"}, &out, &stderr, deps)
 	if code != 1 || runner.calls != 0 || out.Len() != 0 || !strings.Contains(stderr.String(), "defaults_config_invalid") || !strings.Contains(stderr.String(), filepath.Join(loc.System, "launcher.json")) {
 		t.Fatalf("exit=%d stderr=%s", code, &stderr)
 	}

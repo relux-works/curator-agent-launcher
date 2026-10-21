@@ -1,6 +1,9 @@
 package cli
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 // Every reserved command has a closed grammar, with JSON only on list/show;
 // launch flags, duplicate flags and extra/native tails cannot change it.
@@ -40,5 +43,66 @@ func TestHostedSwitches(t *testing.T) {
 	inv, err = Parse([]string{"claude_code", "--", "--board-goal", "--detach"}, Options{})
 	if err != nil || inv.BoardGoal || inv.Detach || len(inv.Native) != 2 {
 		t.Fatalf("native tail changed: %+v %v", inv, err)
+	}
+}
+
+// Registry grammar refusals name the offending token or rule and the smallest
+// help command (CLI review F11); valid neighbours still parse.
+func TestSessionManagerDiagnostics(t *testing.T) {
+	for _, tc := range []struct {
+		args []string
+		want []string
+	}{
+		{[]string{"session-manager"}, []string{"needs an operation", "curator run session-manager --help"}},
+		{[]string{"session-manager", "use", "x"}, []string{`"use"`, "curator run session-manager --help"}},
+		{[]string{"session-manager", "list", "extra"}, []string{`"extra"`, "curator run session-manager list --help"}},
+		{[]string{"session-manager", "show"}, []string{"manager id is required", "curator run session-manager show --help"}},
+		{[]string{"session-manager", "select", "Bad_ID"}, []string{`"Bad_ID"`}},
+		{[]string{"session-manager", "register"}, []string{"--manifest is required", "curator run session-manager register --help"}},
+		{[]string{"session-manager", "register", "--manifest"}, []string{"--manifest needs a path or -"}},
+		{[]string{"session-manager", "register", "--manifest", "-", "--select", "--no-select"}, []string{"mutually exclusive"}},
+		{[]string{"session-manager", "register", "--manifest", "-", "--select", "--select"}, []string{"--select given twice"}},
+		{[]string{"session-manager", "register", "--manifest", "-", "--force"}, []string{`"--force"`}},
+	} {
+		_, err := Parse(tc.args, Options{})
+		if err == nil || !IsUsage(err) {
+			t.Fatalf("%v: %v", tc.args, err)
+		}
+		for _, w := range tc.want {
+			if !strings.Contains(err.Error(), w) {
+				t.Fatalf("%v: %q lacks %q", tc.args, err, w)
+			}
+		}
+	}
+	for _, args := range [][]string{{"session-manager", "list", "--json"}, {"session-manager", "register", "--manifest", "-", "--no-select"}, {"session-manager", "select", "task-board"}} {
+		if _, err := Parse(args, Options{}); err != nil {
+			t.Fatal(args, err)
+		}
+	}
+}
+
+// Topic help is chosen only when -h or --help appears in an administrative
+// grammar; a known verb selects its own text, anything else the topic text.
+// Launch arguments never match, so a native tail cannot ask for topic help.
+func TestTopicHelp(t *testing.T) {
+	for _, tc := range []struct {
+		args  []string
+		first string
+	}{
+		{[]string{"werkstatt", "--help"}, "usage: curator run werkstatt up <id>"},
+		{[]string{"werkstatt", "down", "x", "-h"}, "usage: curator run werkstatt down"},
+		{[]string{"werkstatt", "bogus", "--help"}, "usage: curator run werkstatt up <id>"},
+		{[]string{"session-manager", "unregister", "--help"}, "usage: curator run session-manager unregister"},
+		{[]string{"migrate", "-h"}, "usage: curator run migrate"},
+	} {
+		text, ok := TopicHelp(tc.args)
+		if !ok || !strings.HasPrefix(text, tc.first) {
+			t.Fatalf("%v: %v %q", tc.args, ok, text)
+		}
+	}
+	for _, args := range [][]string{nil, {"werkstatt", "status"}, {"claude_code", "--help"}, {"claude_code", "--", "werkstatt", "--help"}, {"--help"}} {
+		if _, ok := TopicHelp(args); ok {
+			t.Fatalf("%v selected topic help", args)
+		}
 	}
 }

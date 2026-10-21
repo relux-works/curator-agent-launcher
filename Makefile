@@ -42,8 +42,10 @@ vet:
 	$(GO) vet ./...
 	$(GO) -C schemas/session-manager vet ./...
 
+# cmd/curator-run builds and drives the real binary; on a loaded host it has
+# run close to go test's default 10m per-package limit, so allow 20m.
 test:
-	$(GO) test ./... -count=1
+	$(GO) test ./... -count=1 -timeout=20m
 	$(GO) -C schemas/session-manager test ./... -count=1
 
 # Conformance includes deliberate deadline controls; leave race-runner margin.

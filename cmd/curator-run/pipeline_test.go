@@ -688,11 +688,17 @@ func TestProductionAxProfileAndConfigDiscovery(t *testing.T) {
 	if !reflect.DeepEqual(child.Argv, want) {
 		t.Fatalf("argv=%q want=%q", child.Argv, want)
 	}
-	// A discovery failure must precede help, not only launch/usage validation.
+	// A discovery failure precedes launch and usage validation. Help is static
+	// and answers without discovery (CLI review F3).
 	f.deps.axPaths = func() (defaults.Paths, error) {
 		return defaults.Paths{}, fmt.Errorf("discovery\ncurator-run: usage: injected")
 	}
 	f.args = []string{"--help"}
+	code, out, stderr = f.run()
+	if code != 0 || len(stderr) != 0 || !strings.Contains(string(out), "usage:") {
+		t.Fatalf("help on failed discovery: exit=%d stderr=%q", code, stderr)
+	}
+	f.args = []string{"pi", "--bogus-flag"}
 	code, out, stderr = f.run()
 	if code != 1 || len(out) != 0 || string(stderr) != "curator-run: defaults_config_invalid: discovery\n  curator-run: usage: injected\n" {
 		t.Fatalf("exit=%d stderr=%q", code, stderr)

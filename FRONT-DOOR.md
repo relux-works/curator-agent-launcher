@@ -1,7 +1,14 @@
 # curator run as the front door — specification amendment
 
-**Amends:** [SPEC](SPEC.md) `0.5.1-draft` → `0.6.0-draft` (target; nothing
-here is implemented yet).
+**Amends:** [SPEC](SPEC.md) `0.5.1-draft` → `0.6.0-draft` (target).
+**Implementation:** partial, and always gated by the sections themselves. The
+launcher on main implements the host selection, the session-manager registry
+and protocol client, `werkstatt up|down|recycle|status|list` against a
+conforming manager, and the §5.8 activation after the Q1 sign-off. Sections
+marked **[decided Qn]** are decided. Features named as later work (for example
+lazy registration, the exact-plan route and Muse hosting) are proposals until
+their own section says otherwise. The README's "Front doors" section tracks
+what ships.
 **Status:** revision 7, draft. The independent review accepted revision 6 (f8c2756); 6.1 adds only its three non-blocking clarifications. 6.2 adds the model-selection seam (§3.4) at the router lane's request. 7 folds in the task-board host review TASK-261018-m9kukq, findings F1–F14 (§§3.3, 5, 8, 11, 12). 6.4 revises §3.4 after the router lane's review. 6.3 adds infra-exit's conditions: admission composes with digest admission, and `busy` is defined per runtime. `ivmbp_curator_orch` accepted revision 1
 (0ed45c5) as the basis on 2026-10-18 with four must-change points. Revision 2
 folds those in, together with the independent reviews `review-1` and
@@ -13,9 +20,8 @@ TASK-261018-st9yo0.
 
 Five shape questions went to `ivmbp_curator_orch` on 2026-10-18. It decided
 Q2–Q5 as Ivan's delegate, as recommended; those sections are marked
-**[decided Qn]**. Q1 (`launch-delegated/1`) is recommended by
-`ivmbp_curator_orch` and **needs Ivan's sign-off**; those sections are marked
-**[pending Q1, Ivan]**. §15 records the answers. §0.1 lists every change this
+**[decided Qn]**. Ivan signed off Q1 (`launch-delegated/1`) on 2026-10-21;
+its sections are marked **[decided Q1]**. §15 records the answers. §0.1 lists every change this
 amendment proposes to an accepted text.
 
 ## 0. Sources and decisions applied
@@ -43,7 +49,7 @@ decided it as Ivan's delegate.
 
 | # | Changed text | Change | Disposition |
 | --- | --- | --- | --- |
-| C1 | CIP-0016 / Decision 0021 amendment v2 (exact plan only; snapshots) | A transitional `launch-delegated/1`: the manager composes, against the live managed home | Q1, pending Ivan; Appendix A |
+| C1 | CIP-0016 / Decision 0021 amendment v2 (exact plan only; snapshots) | A transitional `launch-delegated/1`: the manager composes, against the live managed home | Q1, signed off 2026-10-21; accepted in curator-spec `cips/CIP-0016-local-hosted-launches.md` at `3a3e041b` (PR #163) |
 | C2 | CIP-0016 §1 (Claude, Codex and Muse qualify together for the first release) | Kept for `launch-exact/2`. For `launch-delegated/1`, activation goes runtime by runtime: Claude and Codex first, Muse when task-board's v4 consumer lands. | Part of Q1, pending Ivan |
 | C3 | Decision 0021 §7, SPEC §4.8 (machine hosted defaults refuse until upgrade without hang-up) | The machine mode replaces the gate; upgrade behaviour becomes a disclosure line | Q2, decided |
 | C4 | CIP-0016 §2 (explicit `--hosted` with no backend selection means `local-task-board`, stable across upgrades) | The registry replaces the implicit backend. With no registered manager, `--hosted` refuses. task-board's installer registers it, so a machine with task-board installed keeps the meaning. | Proposed here; falls under C1's amendment |
@@ -584,10 +590,10 @@ overrun is followed by reconciliation (§5.7); otherwise it is
 
 The v1 capability tokens are closed. An unknown token confers nothing.
 
-- **`launch-delegated/1` [pending Q1, Ivan].** The plugin composes through
+- **`launch-delegated/1` [decided Q1].** The plugin composes through
   the same agents-management construction site, from the profile the request
-  names. This is the proposed CIP-0016 amendment (Appendix A). The activation
-  boundary is in §5.8.
+  names. It is the accepted CIP-0016 amendment "delegated local launches",
+  normative in curator-spec `cips/CIP-0016-local-hosted-launches.md` at `3a3e041b` (PR #163). The activation boundary is in §5.8.
 - **`launch-exact/2`.** The CIP-0016 exact-plan shape, with the jointly
   published successor payload. The launcher prefers it **per runtime**: when
   `describe` lists `launch-exact` for that env-id and the launch is attached
@@ -2053,7 +2059,7 @@ detail values are allowed only from the vocabularies shown:
 | --- | --- |
 | task-board (infra-exit, `#skill-project-management`) | Host review TASK-261018-m9kukq estimates 18–30 engineer-days for the usable Claude/Codex surface. Registration goes through curator-run's registry: task-board emits its manifest and never writes the registry itself. If curator-run is missing at install, that is reported as a deferred registration, never claimed as done. Conditions from infra-exit: the board-bound mode stays byte-identical, and the board-less state root is keyed so that it never collides with a board's manager lock. 1. `task-board session-manager register --for curator-run` (§4.3), called by its installer. 2. A plugin entry `task-board session-manager plugin <op>` implementing §5: `launch-delegated/1`, `resume/1`, `attach/1`, `status/1` with operation outcomes, `cancel`, `list/1`, `stop/1` with `not-busy`, `admission/1` covering launch and resume, `labels/1`, `board-goal/1`, `doorbell-codex/1` with a per-session owner and the rebind gate (§8.2), `doorbell-claude/1`, and later `credential-node/1` (Appendix B). It must pass the §5.5 suite. 3. **A board-less session daemon mode:** keyed by the user state root, not a board directory; sessions keyed by cwd and labels; no primary goal unless `board_goal: workspace`. 4. `--profile` for hosted sessions (TASK-261018-cliw6c, in flight). 5. The v4 Muse consumer (TASK-261018-yzorfb). 6. `task-board claude\|codex` become aliases of `curator run <env> --hosted --board-goal` (Decision 0021 §5). This is not a blocker. |
 | Router lane (`#model-routing`) | Provide `cmr recommend --format json` answering the §3.4 request and response. Freeze the `station` fields with task-board against §6.1. Read `werkstatt-liveness-v1` as the snapshot liveness source, with `unknown` treated as not dispatchable. |
-| `ivmbp_curator_orch` (Curator) | 1. The release-workflow change (§10, C8). 2. The CIP-0016 amendment (Appendix A), after Ivan's sign-off. 3. Implement `local-setup-token-source` T1–T3a and publish the `pkg/localcredential` pin, plus fragment v6. 4. Qualify the interactive mode, and file Appendix B (C10). 5. Manifest-declared home-level hooks under strict mode (§8.1). 6. The Curator config-home CIP. |
+| `ivmbp_curator_orch` (Curator) | 1. The release-workflow change (§10, C8). 2. The CIP-0016 amendment: done, curator-spec `cips/CIP-0016-local-hosted-launches.md` at `3a3e041b` (PR #163). 3. Implement `local-setup-token-source` T1–T3a and publish the `pkg/localcredential` pin, plus fragment v6. 4. Qualify the interactive mode, and file Appendix B (C10). 5. Manifest-declared home-level hooks under strict mode (§8.1). 6. The Curator config-home CIP. |
 | Session-host extraction (`swarma-session-host`) | The first conforming manager after task-board. The extraction research (`#curator` › curator-run, 2026-10-18) recommends four things that map onto this protocol: operation ids with generation fencing (§5.7), per-session runners that survive a host restart (`survives-upgrade`), a stop tombstone, and resume that never becomes a new conversation (§5.3). |
 | a2a (Courier) | 1. Verify the native Codex adapter on app-server 0.162.x (§8.2). 2. Optionally, a live-owner release for a generation, so that a manager can retire a binding without the owner's death. |
 
@@ -2127,16 +2133,16 @@ its refusals, next to positive controls.
 Asked of `ivmbp_curator_orch` in `#curator` › `curator-run`, and answered as
 Ivan's delegate.
 
-1. **Q1: transitional launch shape. Answer (b), pending Ivan.**
+1. **Q1: transitional launch shape. Answer (b), signed off by Ivan on 2026-10-21.**
    - `launch-exact` remains the target.
    - `launch-delegated/1` is declared per manager and per runtime. It is
      retired for a runtime once the manager advertises an exact form for it
-     that also covers detached launches (Appendix A).
-   - It is recorded as a proposed CIP-0016 amendment (Appendix A), with the
-     stated limits.
-   - It needs Ivan's sign-off, because it deviates from an accepted owner
-     design.
-   - It is not used as a default before that sign-off (§5.2).
+     that also covers detached launches (CIP-0016, `3a3e041b`).
+   - It is the accepted CIP-0016 amendment in curator-spec `cips/CIP-0016-local-hosted-launches.md` at `3a3e041b` (PR #163), with the stated
+     limits. Two further conditions there, a home lease while a hosted session
+     runs and one profile per Werkstatt, wait for operator confirmation.
+   - It needed Ivan's sign-off because it deviates from an accepted owner
+     design. Since the sign-off it is the default route (§5.8).
 2. **Q2: upgrade without hang-up. Yes.** The machine mode replaces the
    gate, and the upgrade behaviour becomes a disclosure line (§3.3).
 3. **Q3: config element. `launcher`** (§4.1).
@@ -2162,10 +2168,10 @@ Still open, not blocking:
 - whether `werkstatt up` should post the Werkstatt's arrival to its room;
 - an a2a live-owner release (§8.2).
 
-## Appendix A. Proposed CIP-0016 amendment: delegated local launches
+## Appendix A. CIP-0016 amendment: delegated local launches (historical)
 
-Proposed text, for `ivmbp_curator_orch` to file in curator-spec once Ivan
-signs off Q1.
+This is the text as proposed on 2026-10-18. The accepted, normative version is
+curator-spec `cips/CIP-0016-local-hosted-launches.md` at `3a3e041b` (PR #163). Where the two differ, curator-spec wins.
 
 > **Amendment (proposed 2026-10-18): delegated local launches.** Until a
 > session manager advertises the exact-plan successor capability, a
