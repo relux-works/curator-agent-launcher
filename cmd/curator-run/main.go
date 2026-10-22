@@ -162,7 +162,8 @@ type launchDeps struct {
 	stdinTerminal func() bool
 }
 
-// run is the production entry point. Configuration precedes argument validation;
+// run is the production entry point. Flags parse before configuration is read
+// (FRONT-DOOR §3.2), so a usage error wins over a broken configuration;
 // every admitted launch flows through composition and all late execution checks.
 func run(ctx context.Context, args []string, stdout, stderr io.Writer, deps launchDeps) int {
 	// Help and version are static (CLI review F2/F3): answer them before any
