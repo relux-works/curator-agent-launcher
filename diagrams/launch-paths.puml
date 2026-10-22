@@ -21,7 +21,7 @@ participant "swarma-session-runner\napproved agent-side executor" as targetrunne
 
 == CURRENT interactive API: SPEC 0.5.1-draft ==
 caller -> launcher : curator-run <env-id> ...
-launcher -> launcher : discover config locations; normalize / validate argv\nhelp/version return without config; then machine-first config read
+launcher -> launcher : static help / version return first: no config discovery or read\nnormalize / validate argv; then discover config locations and machine-first config read
 alt invalid config or usage
   launcher --> caller : terminal refusal; no resolve / launch
 else accepted invocation
@@ -31,7 +31,11 @@ else accepted invocation
   launcher -> launcher : map environment; defaults / host / permissions\nhosted: resume, stdin and terminal gates before build
   alt resolve / mapping / defaults / host / permission refused
     launcher --> caller : SPEC 6 refusal; no child / receiver
-  else gates admit
+  else hosted resume (non-new intent)
+    launcher -> manager : resume delegated request; no caller-side plan build,\nprovider-limit, network or composition step
+    manager --> launcher : operation outcome / readable session record
+    launcher --> caller : result or typed refusal; no native fallback
+  else gates admit (new launch)
     launcher -> spawn : BuildLaunchWithEnvironment(..., LaunchModeInteractive)
     spawn --> launcher : admitted plan value or refusal (no child)
     alt plan admission refused
@@ -42,7 +46,7 @@ else accepted invocation
       launcher --> caller : plan_refused / plan_provider_limited / network refusal\nno retry, weaker posture or model substitution
     else composed launch
       alt hosted selected - registered and selected conforming manager
-        launcher -> manager : launch/resume delegated profile / digest request\nFRONT-DOOR 3-5 / 5.8
+        launcher -> manager : new delegated launch, profile / digest request\nFRONT-DOOR 3-5 / 5.8
         manager -> manager : compose admitted provider launch; own process / session
         manager --> launcher : operation outcome / readable session record
         opt attached launch

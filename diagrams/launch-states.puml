@@ -25,14 +25,15 @@ state "CURRENT interactive API - SPEC 0.5.1-draft" as Current {
   Args --> Exited : accepted help / version (0)
   Resolve --> Validate : closed v1 / v2 / v3 / v4 fragment
   Resolve --> Refused : resolve / repair / lock / fragment failure
-  Validate --> Plan : supported mapping / posture / host
+  Validate --> Plan : supported mapping / posture / host (new launch)
+  Validate --> Hosted : hosted resume (non-new intent)\nno caller-side plan / network / compose
   Validate --> Refused : unsupported mapping / permission / hosted capability\nconflict, missing manager or invalid resume / terminal
   Plan --> Network : admitted plan; no process created
   Plan --> Refused : unsupported mode / model / effort / release / context collision
   Network --> Compose : serviceable verdict; optional network admitted
   Network --> Refused : failed / unknown verdict; limited provider; network refusal
   Compose --> Late : native (direct or ax)
-  Compose --> Hosted : registered/selected manager; delegated request valid
+  Compose --> Hosted : new launch; registered/selected manager; delegated request valid
   Compose --> Refused : payload / stdin / composition invalid
   Late --> Refused : first binary / MCP / prompt failure
   Late --> Execute : direct route
