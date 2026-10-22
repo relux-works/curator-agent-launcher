@@ -47,6 +47,9 @@
 
 ### Fixed
 
+- Use the published standalone schema module without a local replacement for
+  versioned Go installs. A shallow-checkout-safe parity guard requires all
+  contract files to match the pin; only the module README prose is excluded.
 - Resolve registry paths correctly with a symlinked temporary directory and
   serialize concurrent registry edits instead of losing another writer's
   update.

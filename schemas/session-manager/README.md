@@ -79,7 +79,8 @@ The Go module path is
 `github.com/relux-works/curator-agent-launcher/schemas/session-manager`.
 It has no dependencies outside the standard library. Plugins require this
 nested module directly at a published module version, without requiring the
-launcher root module. The launcher uses an in-tree `replace` and keeps its
+launcher root module. The launcher also requires the published module without
+an in-tree `replace`, so version-suffixed Go installs work, and keeps its
 provider dependencies separate. `Documents`, `Limit`, `Validate` and
 `ReservedChildName` retain their APIs. `CanonicalJSON` exposes the same strict
 reader and CCJ-1 canonical bytes for consumers that need them; it omits a
@@ -95,3 +96,31 @@ replacement and requires the specific non-standard-dependency violation.
 Launcher alignment tests compare both readers on every existing fragment
 corpus JSON file and every protocol vector, including strict-reader negative
 neighbors and byte-for-byte canonical output.
+
+
+## Re-pinning the launcher
+
+The launcher root module pins a published version of this module. Its
+`internal/schemaparity` tests resolve that version with `go list -m -json`
+and compare every file and directory against this checkout, byte for byte.
+They require no Git history, so depth-one CI checkouts work. Resolution or
+read failures refuse; there is no fallback to an in-tree replacement.
+The only excluded path is `schemas/session-manager/README.md`, whose prose
+may advance separately. Other READMEs, `go.mod`, Go source/tests, schemas and
+vectors are all compared; added and removed paths also fail.
+
+After editing the contract, publish the nested module commit first, then
+select its version in the launcher root (replace `<version>` below):
+
+```sh
+go mod edit -require=github.com/relux-works/curator-agent-launcher/schemas/session-manager@<version>
+go mod download github.com/relux-works/curator-agent-launcher/schemas/session-manager
+go test ./internal/schemaparity -count=1 -v
+make check
+```
+
+Keep the in-repo contract tree identical to that published version and review
+the schema requirement and checksum changes together. Do not restore a local
+`replace`: it prevents version-suffixed `go install`. The guard is part of
+`go test ./...`, hence `make test`, `make race`, `make check` and hosted CI.
+Its results go to stdout; temporary comparison fixtures use `t.TempDir`.
