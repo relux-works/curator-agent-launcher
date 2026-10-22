@@ -21,7 +21,7 @@ participant "swarma-session-runner\napproved agent-side executor" as targetrunne
 
 == CURRENT interactive API: SPEC 0.5.1-draft ==
 caller -> launcher : curator-run <env-id> ...
-launcher -> launcher : static help / version return first: no config discovery or read\nnormalize / validate argv; then discover config locations and machine-first config read
+launcher -> launcher : static help / version return first: no config discovery or read\notherwise discover config locations, normalize / validate argv, then machine-first config read
 alt invalid config or usage
   launcher --> caller : terminal refusal; no resolve / launch
 else accepted invocation
