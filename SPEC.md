@@ -237,7 +237,7 @@ change, not a flag addition.
 | `--permissions <native\|yolo>` | spawn | Permission mode resolved by §4.3. The launcher passes the selected mode to `LaunchRequest.PermissionMode` for `LaunchModeInteractive`; agents-management owns the mapping. |
 | `--yolo` | spawn | Exact alias of `--permissions yolo`, shipped in the same increment and occupying the same precedence level. Supplying both forms is a repeated permission request and a `usage` error. |
 | `-d`, `--danger` | — | Rejected before `--` as `usage`; neither spelling is an alias. After `--`, arguments remain opaque native arguments under the normal boundary rule. |
-| `--hosted`, `--native`, `--untracked` | session | The one host request slot (§4.8). `--hosted` is unavailable until the swarma dispatcher path ships; production receiver lookup refuses `session_host_missing` before any handoff; `--native` and its exact synonym `--untracked` run natively. A repeat or a combination is a `usage` error; permissions stay independent of the spelling. |
+| `--hosted`, `--native`, `--untracked` | session | The one host request slot (§4.8). `--hosted` uses the registered and selected conforming session manager under FRONT-DOOR §§3–5 and §5.8; without one it refuses `session_host_missing` with a reason detail. `--native` and its exact synonym `--untracked` run natively. A repeat or a combination is a `usage` error; permissions stay independent of the spelling. |
 | `resume [SES-HANDLE]`, `--resume <id>` | session | Hosted-only resume selectors (§4.8). `resume` selects the latest session, `resume SES-HANDLE` a handle, `--resume <id>` a provider identity. Handle and identity shape belong to the spawn plane's typed-intent grammar; in native mode any selector is a `usage` error. |
 | `--name <session-name>` | session | Tracked mode only (§4.6): the `ax` session name, replacing the default `<env-id>-<utc-stamp>`. MUST satisfy the `ax` §2.1 grammar `[A-Za-z0-9][A-Za-z0-9._-]{0,63}`; a longer or ill-formed value is a `usage` error naming `--name`, never a silent truncation. On an untracked machine the flag is accepted and has no effect. |
 | `--ax-profile <standard\|yolo>` | session | Tracked mode only (§4.6): the `ax` execution profile, forwarded as `ax start --profile <value>`. Absent, no `--profile` is passed and `ax`'s own default applies. This flag is the **only** way `--profile yolo` reaches `ax` from a launcher-mediated launch (Decision 0013 D6.4); the launcher never derives it from the fragment, the plan, or the native arguments. On an untracked machine the flag is a `usage` error: an execution profile is `ax`'s concept, and a value that would be silently discarded is a value the operator was misled about. |
@@ -1191,7 +1191,7 @@ machine), each with its own closed schema:
 | `ax.json` (`curator-run-ax-v1`, §4.6) | whether the `ax` integration is configured | machine over operator; `enabled: false` is not configured |
 | `launcher.json` (`curator-run-launcher-v1`, FRONT-DOOR §3.1) | machine `host_mode`: `hosted`, `native`, or `auto`; absent member/file means `auto`; optional boolean `delegated_trial` (FRONT-DOOR §5.8) | machine only; either policy member in the user layer refuses and names the system path |
 | `selector.json` (`curator-run-selector-v1`, FRONT-DOOR §3.4) | optional external model/effort selector, shadow observations or enforcing policy | system only; any user file refuses; selector choice above file defaults and below explicit flags; exact candidate tuple required, null effort only for an effort-less model |
-| `session-managers.json` (`curator-run-session-managers-v1`, FRONT-DOOR §§4.2–4.4) | registered managers and optional selected id | machine first; no PATH search; parsing and administrative commands do not yet change launch selection |
+| `session-managers.json` (`curator-run-session-managers-v1`, FRONT-DOOR §§4.2–4.4) | registered managers and optional selected id | machine first; no PATH search; the selected manager participates in launch selection under FRONT-DOOR §§3–5 |
 
 For one release, each filename independently falls back to the corresponding
 `/etc/curator-run/` or `${XDG_CONFIG_HOME:-~/.config}/curator-run/` file only
@@ -1242,98 +1242,48 @@ their schemas stay.
 
 ### 4.8 Host selection
 
-The configured per-environment `host` level below is withdrawn by
-[FRONT-DOOR §3.1](FRONT-DOOR.md#31-the-machine-mode). V3 files carrying it
-refuse before host selection; S1 validates and exposes machine `host_mode`
-without wiring its replacement resolution ladder yet. Explicit host flags
-and implicit native selection retain their existing behavior.
+Host selection follows [FRONT-DOOR §3.2](FRONT-DOOR.md#32-resolution),
+with the registry in [§4](FRONT-DOOR.md#4-session-manager-registry),
+capability decisions in [§5.2](FRONT-DOOR.md#52-operations-and-capabilities)
+and delegated activation in
+[§5.8](FRONT-DOOR.md#58-activation-boundary-for-launch-delegated1).
+The machine `host_mode` replaces the withdrawn per-environment `host`
+member; old v3 defaults carrying that member refuse.
 
-Hosted launch is unavailable in v0.3.0 until the swarma dispatcher path ships.
-Production receiver lookup MUST fail closed with the existing
-`session_host_missing` (exit 1), before any handoff, even if `task-board` is
-on PATH. Earlier validation refusals below still apply. Machine and operator
-hosted defaults MUST NOT start a hosted launch; native execution, `--native`,
-`--untracked`, and direct `--network` retain their behavior. The hosted
-composition and payload rules below specify the dormant contract exercised
-with injected receivers; they are not evidence of an available public host.
+A registered and selected conforming manager takes the delegated route for
+Claude/Codex under the post-Q1 policy. In `auto` mode, no manager registered
+or selected means native launch with a one-line notice. Explicit hosted
+instead refuses `session_host_missing` (exit 1), with
+`reason=no manager registered` or `reason=no manager selected`, after the
+earlier checks in FRONT-DOOR §3.2. These are selection outcomes; a subsequent
+hosted refusal never falls back to native.
 
-After normalization and configuration validation, and before permissions
-and the plan build, the launcher resolves the host: native execution, or
-the managed session host of §4.9. The host flag (§3) is the explicit
-level; the v3 `host` member (§4.3) is the configured level. Precedence,
-closed, first match wins:
+Explicit `--native`/`--untracked` and machine native mode return without a
+registry read. Explicit native bypasses `ax`; implicit native retains the
+existing `ax` behavior. Hosted plus enabled `ax` refuses
+`host_configuration_conflict`. Hosted network, terminal, stdin, resume and
+runtime-capability checks retain the order defined by FRONT-DOOR §§3–5.
+The old machine-hosted-default upgrade gate is replaced by machine host mode
+and the manager's upgrade-behavior disclosure.
 
-| First match | Result |
-|---|---|
-| Machine locked and names the environment | Ignore the entire operator entry; a flag with a machine host present refuses `usage`, even when equal; otherwise flag, then machine host, then native |
-| Flag present | Flag |
-| Operator host present | Operator |
-| Machine host present | Machine |
-| Otherwise | Native |
-
-The machine lock keeps its §4.3 named-environment scope. No flag and no
-configured default means native with zero receiver lookup and zero daemon
-probe, including through legacy `ax` routing. There is no silent
-fallback in either direction: a hosted launch that cannot reach its
-receiver refuses, and a native launch never contacts one.
-
-The legacy `ax` table applies next, before the defaults gate:
-
-| Effective `ax.json` | Host selection | Routing |
-|---|---|---|
-| Absent or disabled | Any | The host table above |
-| Enabled | Implicit native (absent flag and default) | Existing `ax` behavior |
-| Enabled | Configured native | Existing `ax` behavior; a native default does not imply explicit bypass |
-| Enabled | Explicit `--native` or `--untracked` | The existing untracked native path; `--ax-profile` would be discarded and is a `usage` error |
-| Enabled | Hosted flag or default | `host_configuration_conflict`, exit 2, before the defaults gate |
-
-Effective `ax` authority stays machine-first (§4.6, §4.7).
-
-The defaults gate follows: a resolved machine hosted default refuses
-`session_host_default_not_ready` (exit 16) until
-upgrade-without-hangup (Decision 0021 section 7 amendment pending). An
-operator hosted default is the operator's own opt-in and passes the
-gate (operator decision Q-D1a, 2026-10-05, = yes), as does an explicit
-`--hosted` flag. Neither passes production receiver lookup in this release. Next, a
-hosted launch with a `--network` selection refuses
-`network_scope_unsupported` (exit 16, the hosted policy mapping) before
-permissions, the plan build, or any probe: the receiver cannot enforce a
-source-side network scope. A native launch with `--network` is the §4.4b
-path and keeps its own exit 1 refusals; only the hosted refusal exits 16,
-so the exit status of this one code depends on the host. An explicit
-`--native` or `--untracked` bypasses `ax`, so on an ax-configured machine
-it also bypasses the tracked refusal of §4.4b and the launch is the
-untracked direct path. Resume selectors in a
-native launch refuse `usage`: handles are hosted-only and the native
-tail stays the provider's own grammar.
-
-Hosted launches run tracked but are exempt from tracked permission
-semantics (operator decision Q-D3, 2026-10-05; Decisions 0018/0013
-amendments pending): the §4.3 ladder resolves flag, then profile,
-then the launcher-global file value, then the built-in default, and
-the built-in default is `yolo` with `source=default-interactive` on
-every stdio shape, exactly as on the native path — headless signals
-(non-terminal stdio, CI markers) never change it. `yolo` from any
-level is admitted and builds the same plan once for export. Phase 1
-admits `claude_code`
-only; any other mapped environment
-refuses `session_host_provider_unsupported` (exit 6) before the plan
-build. Resume elevation runs the module typed-intent API over the
-wrapper selectors and the verbatim native tail; conflicting, ambiguous,
-or malformed selectors refuse `session_resume_invalid` (exit 2), and
-the plan builds from the selector-free tail. The launcher never parses
-provider flags itself.
+Hosted launches retain the shared permission resolution and typed resume
+intent; the plugin composes delegated launches against the resolved profile.
+The exact-plan route and real Muse hosting remain subject to their own
+FRONT-DOOR gates. The retained payload contract below does not activate them.
 
 ### 4.9 Hosted payload and receiver handoff
 
-This is the dormant payload contract. Production lookup refuses
-`session_host_missing` before any receiver handoff until the swarma dispatcher
-path ships (§4.8); test receivers do not establish hosted availability.
+This section retains the exact-plan payload and descriptor contract; it does
+not describe the activated delegated request. Current hosted selection and
+`launch-delegated/1` use [FRONT-DOOR §§3–5](FRONT-DOOR.md#3-host-mode-hosted-by-default)
+and [§5.8](FRONT-DOOR.md#58-activation-boundary-for-launch-delegated1).
+Exact-plan activation remains subject to FRONT-DOOR's own gates. The legacy
+receiver transport is retained; it is not the selected-manager plugin path.
 
 Figures: [hosted handoff sequence](diagrams/launch-paths.puml) and
 [private payload and descriptor layout](diagrams/artifact-layout.puml).
 
-A hosted launch builds the same plan once and serializes the composed
+An exact-plan launch builds the same plan once and serializes the composed
 value — binary, ordered argv, full env, cwd, home, stdin, and the Curator
 fragment record — into the versioned
 `urn:relux:task-board:session-launch-plan` 1.0.0 payload instead of
@@ -1621,7 +1571,7 @@ receiving registry, which recognizes codes the launcher never emits.
 | system prompt | `sysprompt_channel_unavailable`, `sysprompt_file_unreadable` | §5.2: opt-in given but the fragment carries no non-`file` channel with the requested semantics; §5.1: a registry-declared file-kind channel's file exists but cannot be read (or is not a regular file) at the pre-exec probe — an absent managed-home file is not this diagnostic and says nothing about other native sources |
 | network | `network_profile_unknown`, `network_profile_denied`, `network_scope_unsupported`, `network_configuration_conflict`, `network_proxy_unreachable`, `network_proxy_auth_failed`, `network_profile_invalid`, `network_file_unreadable` | §4.4b: the explicit network selection could not be honored — an unknown profile name; a denied one (outside the host allowed set, or unconfirmed at the current digest); an unsupported launch shape (tracked mode, a refused adapter Decision or unsupported child scope — including any launch without a print selection — an unmapped launch mode, or an enforced assurance request); a proxy-family name in a composed overlay or an uncovered engine host under a proxy profile; an unreachable proxy (TCP, CONNECT, or TLS step, or a malformed endpoint; a `kind = "direct"` profile skips every probe step); a proxy demanding authentication; a malformed catalog or profile; or a catalog or ledger that cannot be located, read, or parsed — every one terminal, with no fallback to an unmanaged launch; a hosted launch with `--network` refuses `network_scope_unsupported` with exit 16 (§4.8) while every native network refusal exits 1 |
 | host | `host_configuration_conflict` | §4.8: a hosted flag or default with the `ax` integration enabled — exit 2, before the defaults gate, with no fallback to either side |
-| session host | `session_host_missing`, `session_host_unavailable`, `session_host_provider_unsupported`, `session_host_protocol_unsupported`, `session_host_scope_unsupported`, `session_host_execution_profile_unsupported`, `session_host_terminal_required`, `session_host_stdin_unsupported`, `session_host_default_not_ready` | §4.8, §4.9: hosted launch is unavailable until the swarma dispatcher path ships; production receiver lookup refuses `session_host_missing` before any handoff (exit 1), even with `task-board` on PATH; the status channel is corrupt (exit 1); a non-Claude environment seeks the Phase 1 host (exit 6); the receiver reports an unsupported protocol, scope, or execution profile (exit 6, receiver-mapped); no controlling terminal is available or the descriptor fails validation, checked before the plan build with zero lookup (exit 6); stdin is attached (exit 6); a machine hosted default awaits upgrade-without-hangup while an operator hosted default resolves but still refuses production receiver lookup (machine gate exit 16) |
+| session host | `session_host_missing`, `session_host_unavailable`, `session_host_provider_unsupported`, `session_host_protocol_unsupported`, `session_host_scope_unsupported`, `session_host_execution_profile_unsupported`, `session_host_terminal_required`, `session_host_stdin_unsupported`, `session_host_default_not_ready` | FRONT-DOOR §§3–5 and §5.8 govern current hosted selection: explicit hosted without a registered or selected manager refuses `session_host_missing` (exit 1) with the reason detail; `auto` instead launches natively with a one-line notice. Terminal, stdin, protocol, runtime and capability checks refuse before the corresponding effect; a hosted failure never falls back to native. §4.9 retains the legacy exact-plan contract and its diagnostics, including historical `session_host_default_not_ready`; it does not activate that route. |
 | resume | `session_resume_invalid` | §4.8: conflicting, ambiguous, or malformed resume selectors from the wrapper or the native tail, as elevated by the module typed-intent grammar — exit 2, before the plan build |
 | launch plan | `launch_plan_invalid` | §4.9: the composed plan cannot be projected into the closed payload shape — non-absolute paths, literal/env mismatches, missing lookup names, an inadmissible guard, a restart mismatch, or a wire-limit violation; no value in the detail — exit 2, before contact |
 | policy | `secret_policy_violation`, `policy_refused` | §4.9: the receiver reports a secret-policy violation or a refused policy — exit 16, receiver-mapped, with field and reason only |
@@ -1671,7 +1621,7 @@ supports.
 
 ## 8. Versioning
 
-The launcher v0.3.0 candidate reports `0.3.0`; its tag is pending.
+The launcher v0.4.0 release reports `0.4.0` (specification `0.5.1-draft`).
 
 - This specification is versioned semantically; the current version is
   **`0.5.1-draft`**. Draft versions may change incompatibly between
@@ -2595,6 +2545,13 @@ acceptability requires the stated owner decision; naming a reference
 mechanism proves neither enforcement nor admission readiness.
 
 ## Specification changelog
+
+- 2026-10-22, 0.5.1-draft documentation revision for the v0.4.0 release:
+  align §§3, 4.7–4.9, 6 and 8 and the diagram sources with registered-manager
+  selection and the Q1 delegated activation in FRONT-DOOR §§3–5/§5.8.
+  Retain the exact-plan payload as a reference contract and leave its
+  activation, lazy registration and real Muse hosting subject to their own
+  gates. The specification version remains 0.5.1-draft.
 
 - 2026-10-11, target one-shot exec amendment (version pending) (§§1.1, 10): record
   D-EXECUTOR and D-PATH, immutable FD3 intake, caller/executor authority,

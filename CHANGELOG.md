@@ -2,6 +2,66 @@
 
 ## Unreleased
 
+## 0.4.0 — 2026-10-22
+
+### Added
+
+- A session-manager registry with register, list, select and unregister
+  commands, layered configuration and serialized mutations. Launches use the
+  selected manager without searching PATH for a host.
+- A validated session-manager protocol client with capability checks,
+  launch/resume/attach, durable operation reconciliation and owner binding.
+  A durable fake manager and conformance suite qualify the contract without
+  claiming a real provider integration. The standard-library-only protocol
+  schemas are also available as a standalone Go module.
+- Hosted Werkstatt up, down, recycle, status and list, with durable liveness,
+  generation fencing, explicit manager rebind and abandoned-operation recovery.
+- An external model/effort selector with bounded enforcing decisions and
+  asynchronous shadow observations; invalid or refused enforcing decisions
+  never fall back to a different choice.
+- Hosted doorbell requests, staged Claude hook installation and separate
+  manager/a2a status evidence. This release does not ship `doorbell-codex/1`.
+- Static nested help for the registry and Werkstatt commands, plus parse
+  errors that name the grammar token and its actionable help command.
+- Reproducible release-binary and two-checkout verification targets, with
+  inert, validated build inputs. Release signing and packaging remain the
+  distributor's responsibility.
+
+### Changed
+
+- Activate `launch-delegated/1` for Claude and Codex after the Q1 sign-off.
+  A registered and selected conforming manager supplies hosted execution.
+  `auto` without a registered or selected manager launches natively with a
+  one-line notice; explicit hosted refuses `session_host_missing` with its
+  reason. Explicit native execution does not contact a manager.
+- Move launcher configuration to `swarma/launcher`, with per-file legacy-path
+  fallback and transactional migration. Machine `host_mode` replaces the
+  withdrawn per-environment host default. Parse arguments before reading
+  configuration; help/version read none.
+- Pin agents-management v0.5.68. Read v4 fragments and require v4 for Muse,
+  preserving its exclusive root-context and file credential-store policy.
+  Unsupported Codex file/Keychain credential application refuses explicitly.
+  Hosted Muse forwarding is tested against the fake manager; real Muse
+  hosting, lazy registration and exact-plan activation remain proposals
+  subject to FRONT-DOOR's own gates. See README's "Front doors" section.
+
+### Fixed
+
+- Resolve registry paths correctly with a symlinked temporary directory and
+  serialize concurrent registry edits instead of losing another writer's
+  update.
+- Validate delegated profile digests and launch semantics consistently with
+  the published schema identities; retain operation journals until settled
+  liveness is durable and preserve typed refusals from owner reads.
+- Keep shadow observations independent of launch completion while preserving
+  hosted handles and stderr destinations; reject selector refusals that also
+  carry a choice.
+- Stage and commit Claude hooks through a pinned directory, preserve unrelated
+  settings, and refuse visible target changes or a substituted directory
+  before start. This is a best-effort conflict check, not an atomic writer fence.
+- Keep draining reason and doorbell uncertainty in readable manager evidence;
+  retiring a fake session clears its draining reason.
+
 ## 0.3.0 — 2026-10-13
 
 ### Changed

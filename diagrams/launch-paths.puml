@@ -1,5 +1,5 @@
 @startuml
-' Revision: accepted architecture-review findings (2026-10-13).
+' Revision: v0.4.0 release alignment (2026-10-22).
 title Current launch routes and target one-shot path
 actor "Caller / operator" as caller
 participant "curator-run\ncaller identity" as launcher
@@ -7,6 +7,7 @@ participant "curator env resolve\ncaller-side subprocess" as curator
 participant "agents-management\nin-process library" as spawn
 participant "Native provider\ncaller-side child" as native
 participant "ax start\nsubprocess / session owner" as ax
+participant "Selected session-manager plugin\nhosted process / session owner" as manager
 participant "swarma-dispatcher\nservice UID unspecified" as dispatcher
 participant "swarma-user-launcher\nroot" as root
 participant "curator-run exec\nagent UID worker-<label>" as agent
@@ -20,13 +21,13 @@ participant "swarma-session-runner\napproved agent-side executor" as targetrunne
 
 == CURRENT interactive API: SPEC 0.5.1-draft ==
 caller -> launcher : curator-run <env-id> ...
-launcher -> launcher : machine-first ax.json read before argv validation\nnormalize / validate argv
+launcher -> launcher : discover config locations; normalize / validate argv\nhelp/version return without config; then machine-first config read
 alt invalid config or usage
   launcher --> caller : terminal refusal; no resolve / launch
 else accepted invocation
   launcher -> curator : env resolve <canonical env-id> --repair --format json
   curator -> curator : resolve / repair persistent managed home (Curator-owned)
-  curator --> launcher : closed fragment v1 / v2 / v3
+  curator --> launcher : closed fragment v1 / v2 / v3 / v4
   launcher -> launcher : map environment; defaults / host / permissions\nhosted: resume, stdin and terminal gates before build
   alt resolve / mapping / defaults / host / permission refused
     launcher --> caller : SPEC 6 refusal; no child / receiver
@@ -40,14 +41,15 @@ else accepted invocation
     alt provider-limit / network / composition refused
       launcher --> caller : plan_refused / plan_provider_limited / network refusal\nno retry, weaker posture or model substitution
     else composed launch
-      alt hosted selected - unavailable in v0.3.0
-        launcher -> launcher : project payload + digest; earlier bounds / metadata checks remain
-        alt payload invalid
-          launcher --> caller : launch_plan_invalid; no handoff
-        else payload admitted
-          launcher -> launcher : production receiver lookup refuses\nincluding when task-board is on PATH
-          launcher --> caller : session_host_missing (exit 1); no handoff / native fallback\nuntil swarma dispatcher path ships
+      alt hosted selected - registered and selected conforming manager
+        launcher -> manager : launch/resume delegated profile / digest request\nFRONT-DOOR 3-5 / 5.8
+        manager -> manager : compose admitted provider launch; own process / session
+        manager --> launcher : operation outcome / readable session record
+        opt attached launch
+          launcher -> manager : attach with private terminal fd3 / status fd4
+          manager --> launcher : terminal exchange / result
         end
+        launcher --> caller : result or typed refusal; no native fallback
       else native route (direct or ax)
         launcher -> launcher : immediately before launch: binary check, Codex MCP stat,\nprompt probe / PrepareLaunch; first failure refuses
         alt late check refused
@@ -74,9 +76,13 @@ else accepted invocation
 end
 note over launcher
   [[../SPEC.md#4-composition-algorithm SPEC 4]] / [[../SPEC.md#46-hand-off-and-exec SPEC 4.6]] / [[../SPEC.md#49-hosted-payload-and-receiver-handoff SPEC 4.9]] / [[../SPEC.md#6-errors-and-diagnostics SPEC 6]].
-  Launcher owns only invocation state. Direct wait / terminal behavior:
+  Launcher owns invocation state, operation journals and liveness; the manager owns hosted processes.
+  Direct wait / terminal behavior:
   [[../README.md#environment-and-transport README Environment and transport]].
-  Hosted has no receiver / descriptor handoff in v0.3.0; native paths keep direct / ax behavior.
+  FRONT-DOOR 3-5 / 5.8: selected manager takes delegated launch.
+  Auto without a registered/selected manager: native + one-line notice.
+  Explicit hosted instead refuses session_host_missing with reason (after earlier checks).
+  Exact-plan activation and real Muse hosting remain gated; native keeps direct / ax behavior.
   Missing Codex layer: deliberate new invocation lets Curator repair; launcher never repairs it.
 end note
 

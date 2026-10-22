@@ -14,13 +14,21 @@ No implementation, qualification or activation is claimed.
 | Entry | Composer | Process/lifetime owner | Status |
 |---|---|---|---|
 | Direct human `curator-run <env-id> …` | Caller-side interactive launcher | Launcher starts and waits for native child | Existing API below. |
-| Hosted or `ax` launch | Validated caller policy; plugin composes delegated launches | Registered session manager or `ax` | Explicit delegated trial route is wired for Claude/Codex; refusal never falls back to native. |
+| Hosted or `ax` launch | Validated caller policy; plugin composes delegated launches | Registered session manager or `ax` | Delegated launch is activated for Claude/Codex through a selected conforming manager; refusal never falls back to native. |
 | Agent one-shot exec | Caller composes; dispatcher admits/provisions/tracks | `curator-run` under `worker-<label>` verifies and executes; dispatcher/helper own stop and cleanup | **Target amendment (version pending), not implemented**; [SPEC §10](SPEC.md#10-agent-account-one-shot-exec-contract-target-amendment). |
 
-Front-door amendment (partially implemented; delegated activation remains gated):
+Front-door amendment (partially implemented; delegated activation signed off):
 [FRONT-DOOR.md](FRONT-DOOR.md) makes `curator run` hosted by default through
 a registered session-manager plugin, adds `curator run werkstatt up|down`,
 Muse v4, setup-token injection, a2a doorbells and the signed distribution.
+Delegated activation follows
+[FRONT-DOOR §5.8](FRONT-DOOR.md#58-activation-boundary-for-launch-delegated1).
+In `auto` mode, no registered or selected manager means native launch with a
+one-line notice; explicit hosted instead refuses `session_host_missing` with
+`reason=no manager registered|no manager selected` (after earlier validation).
+Lazy registration, exact-plan activation and real Muse hosting remain proposals
+subject to their own FRONT-DOOR gates. The launcher can request a Codex doorbell,
+but `doorbell-codex/1` does not ship in this release.
 
 The launcher-side protocol library is available in
 `internal/sessionmanager/client`: validated RPCs, terminal fd4 transport,
@@ -93,9 +101,10 @@ curator-run codex_cli --hosted --detach --a2a example.dev
 `--a2a` accepts `[a-z0-9._=-]{1,64}` and requires hosted execution. It asks
 for a doorbell with heartbeat `1m` and six wakes per hour. Werkstatt records
 supply their own values. A doorbell selects delegated launch/resume, even
-when the manager also supports exact launch, so delegated trial authorization
-still applies. Exact-only managers refuse `launch-exact-doorbell`; missing
-runtime doorbell capabilities refuse before hook installation or start.
+when the manager also supports exact launch, under the post-sign-off policy
+in FRONT-DOOR §5.8; `delegated_trial` no longer changes routing. Exact-only
+managers refuse `launch-exact-doorbell`; missing runtime doorbell capabilities
+refuse before hook installation or start.
 
 For Claude, the launcher runs the resolved absolute `a2a` executable with
 `hook install --agent <identity> --runtime claude --settings <staged file>`.
@@ -548,11 +557,11 @@ made from this host's tests.
 Install the tagged release with the Go toolchain specified by `go.mod`:
 
 ```bash
-go install github.com/relux-works/curator-agent-launcher/cmd/curator-run@v0.3.0
+go install github.com/relux-works/curator-agent-launcher/cmd/curator-run@v0.4.0
 curator-run --version
 ```
 
-The v0.3.0 release reports `0.3.0` (specification `0.5.1-draft`).
+The v0.4.0 release reports `0.4.0` (specification `0.5.1-draft`).
 Compatible with curator v0.15.0-rc.3 or later, once published.
 Ensure `$(go env GOPATH)/bin` is on `PATH`, or set `GOBIN` to a dedicated
 trusted operator-owned directory on `PATH`. Do **not** install into Curator's
@@ -852,9 +861,10 @@ Enable tracking with this `ax.json` document:
 
 Here **machine wins**: an existing `/etc/swarma/launcher/ax.json` decides;
 the operator file is read only when the machine file is absent. Absence of
-both files or `enabled: false` selects direct execution. This read precedes
-argument validation, including help/version. Invalid configuration is
-`defaults_config_invalid`, never an untracked fallback.
+both files or `enabled: false` leaves native launches untracked. Argument
+parsing precedes configuration reads; help/version read no configuration.
+Invalid configuration on a launch is `defaults_config_invalid`, never an
+untracked fallback. See [FRONT-DOOR §3.2](FRONT-DOOR.md#32-resolution).
 
 Tracked launches call `ax start <name> --provider <id> --launch-plan -
 [--profile <ax-profile>] --workspace <cwd>`. Without `--name`, the name is
@@ -863,9 +873,12 @@ alias launch names the session `claude_code-…` or `codex_cli-…`. An explicit
 `--native` or `--untracked` flag bypasses `ax` on any machine (with
 `--ax-profile` a usage error, since the profile would be discarded); a
 silent native selection keeps the existing `ax` behavior. A hosted flag
-with `ax` enabled refuses `host_configuration_conflict`. Hosted launch
-is unavailable until the swarma dispatcher path ships: production receiver
-lookup refuses `session_host_missing` before any handoff. Withdrawn
+with `ax` enabled refuses `host_configuration_conflict`. Hosted selection
+uses the registered and selected manager under
+[FRONT-DOOR §§3–5](FRONT-DOOR.md#3-host-mode-hosted-by-default), including
+the §5.8 delegated activation. `auto` without a registered or selected manager
+launches natively with a one-line notice; explicit hosted refuses
+`session_host_missing` with the reason detail instead. Withdrawn
 per-environment host defaults refuse before host selection.
 A failed handoff never starts a direct child. Repository tests use **fake ax
 only**; they do not demonstrate an installed ax integration.

@@ -1,5 +1,5 @@
 @startuml
-' Revision: accepted architecture-review findings (2026-10-13).
+' Revision: v0.4.0 release alignment (2026-10-22).
 title Launcher components and process authority
 skinparam componentStyle rectangle
 
@@ -18,7 +18,7 @@ package "CURRENT interactive API - SPEC 0.5.1-draft" {
   }
   component "Native provider child\ncaller-side identity" as child
   component "ax start subprocess\nprocess / terminal / session owner" as ax
-  component "Hosted launch unavailable in v0.3.0\nsession_host_missing (exit 1)\nuntil swarma dispatcher path ships" as receiver
+  component "Selected session-manager plugin\nlaunch-delegated/1 for Claude/Codex\nFRONT-DOOR 3-5 / 5.8" as receiver
   database "Managed profile / home\npersistent: Curator owns\nlauncher never writes" as home
   database "Session Record\npersistent: ax owns" as record
   operator --> umbrella : curator run ...
@@ -26,7 +26,7 @@ package "CURRENT interactive API - SPEC 0.5.1-draft" {
   operator --> config : direct curator-run ...
   config --> curator : resolve canonical env-id
   curator --> home : resolve / repair
-  curator --> config : closed v1/v2/v3 fragment
+  curator --> config : closed v1/v2/v3/v4 fragment
   config --> composer : LaunchModeInteractive request
   composer --> limits : admitted plan value, no process
   limits --> network : serviceable verdict only
@@ -36,7 +36,7 @@ package "CURRENT interactive API - SPEC 0.5.1-draft" {
   compose --> exporter : destination contract
   exporter --> ax : launch-plan on stdin
   ax --> record : records Curator extensions
-  compose --> receiver : receiver lookup refuses; no handoff / child
+  compose --> receiver : delegated request; manager composes / owns session
   note right of config
     [[../SPEC.md#2-discovery-and-naming SPEC 2]]: trust roots belong to Curator;
     revision A warns, revision B refuses outside roots.
@@ -51,10 +51,11 @@ package "CURRENT interactive API - SPEC 0.5.1-draft" {
     Deliberate retry re-runs Curator repair; no automatic downgrade.
   end note
   note bottom of receiver
-    Hosted launch unavailable until the swarma dispatcher path ships (SPEC 4.8-4.9).
-    Native paths do not probe a receiver.
-    Earlier hosted validation gates remain; task-board on PATH does not enable hosting.
-    Native paths keep direct / ax behavior; no launcher session state.
+    [[../FRONT-DOOR.md#32-resolution FRONT-DOOR 3-5]] / [[../FRONT-DOOR.md#58-activation-boundary-for-launch-delegated1 FRONT-DOOR 5.8]].
+    Selected conforming manager: delegated; native paths do not contact it.
+    Auto with no registered/selected manager: native + one-line notice.
+    Explicit hosted: session_host_missing with reason; no native fallback.
+    Native paths keep direct / ax behavior; manager owns hosted sessions.
     Direct child status propagates; signal exit 128 + signal.
     [[../README.md#environment-and-transport README Environment and transport]].
   end note

@@ -1,20 +1,20 @@
 @startuml
-' Revision: accepted architecture-review findings (2026-10-13).
+' Revision: v0.4.0 release alignment (2026-10-22).
 title Artifact ownership, transport and cleanup boundaries
 skinparam componentStyle rectangle
 
 package "CURRENT interactive API - SPEC 0.5.1-draft" {
   folder "Launcher config - persistent\ncontract owner: curator-run\nfile identity: configuration-directory owner" as config {
-    artifact "defaults.json\nmodel / effort / permissions / host\noperator first unless machine lock" as defaults
+    artifact "defaults.json\nmodel / effort / permissions\noperator first unless machine lock" as defaults
     artifact "ax.json\ntracking switch\nmachine first" as axconfig
   }
   folder "Curator-owned persistent context" as context {
     artifact "Profile / lock / current selection" as profile
     folder "Managed home\nmarker-recorded prompt / MCP surfaces\nCurator materializes / repairs / garbage collects" as home
   }
-  folder "curator-run - caller identity\ntransient invocation only" as launcher {
-    artifact "Closed fragment v1 / v2 / v3\nCCJ-1 digest; profile pin\nreserved path_prepend remains non-operative" as fragment
-    artifact "Admitted / composed plan value\nBinary / Argv / Env / Stdin / WorkDir\nno persisted launcher session record" as plan
+  folder "curator-run - caller identity\ntransient invocation buffers" as launcher {
+    artifact "Closed fragment v1 / v2 / v3 / v4\nCCJ-1 digest; profile pin\nreserved path_prepend remains non-operative" as fragment
+    artifact "Admitted / composed plan value\nBinary / Argv / Env / Stdin / WorkDir\nno provider session state" as plan
     artifact "ax request - generated stdin bytes\nargv suffix, owned literals, lookup names\nencoded stdin, Curator extensions\nNOT full inherited environment" as axpayload
     artifact "Optional native network snapshot\nprivate read-only evaluated executable\nprocess owner stages and executes same bytes" as snapshot
   }
@@ -22,7 +22,7 @@ package "CURRENT interactive API - SPEC 0.5.1-draft" {
   component "Native provider child\ncaller-side identity" as native
   component "ax start subprocess\ndestination UID unspecified in spec 4.6" as ax
   database "ax Session Record\nax-owned persistent extensions / session" as record
-  artifact "Hosted unavailable in v0.3.0\nsession_host_missing (exit 1)\nuntil swarma dispatcher path ships" as receiver
+  artifact "Selected session-manager plugin\nlaunch-delegated/1 request / attach\nmanager-owned session state" as receiver
   config --> launcher : validated reads; unsafe / failed read refuses, never absence
   profile --> curator : resolve selected profile / pin
   curator --> home : repair ownership; launcher never writes
@@ -33,14 +33,16 @@ package "CURRENT interactive API - SPEC 0.5.1-draft" {
   plan --> axpayload : literals-only transport
   axpayload --> ax : stdin is request, not child stdin
   ax --> record : copied extensions; destination manages session / resume
-  plan --> receiver : earlier validation retained; receiver lookup refuses\nno hosted payload / terminal / status-descriptor handoff
+  fragment --> receiver : delegated profile / digest request; manager composes\nterminal attach uses private fd3 / status fd4
+  config --> receiver : FRONT-DOOR 3-5 / 5.8 selection and capability checks
   snapshot --> native : optional admitted direct network scope
   note bottom of launcher
     [[../SPEC.md#47-the-launchers-configuration-file-family SPEC 4.7]] / [[../SPEC.md#41-obtain-the-fragment-context-plane SPEC 4.1]] / [[../SPEC.md#45-compose-the-launch SPEC 4.5]] / [[../SPEC.md#46-hand-off-and-exec SPEC 4.6]] / [[../SPEC.md#49-hosted-payload-and-receiver-handoff SPEC 4.9]].
     Missing / unreadable Codex layer refuses; retry starts a new Curator repair.
     Payload / config / channel failure never silently drops metadata or tracking.
     Invocation buffers / descriptors are not persistent session state.
-    Exact native snapshot removal: unspecified in spec 4.4b; hosted handoff unavailable (SPEC 4.9).
+    Exact native snapshot removal: unspecified in spec 4.4b; delegated hosting follows FRONT-DOOR 3-5 / 5.8.
+    Auto without manager: native + notice; explicit hosted refuses session_host_missing with reason.
     Tracked destination environment filtering remains open (SPEC 9).
   end note
 }

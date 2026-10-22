@@ -397,10 +397,10 @@ func TestRunProductionResolverAgainstFakeCurator(t *testing.T) {
 }
 
 // TestReleaseVersionPinned fails when the reported release or specification
-// version drifts from the changelog and install documentation.
+// version drifts from the changelog, install documentation or help header.
 func TestReleaseVersionPinned(t *testing.T) {
 	const (
-		wantBuild = "0.3.0"
+		wantBuild = "0.4.0"
 		wantSpec  = "0.5.1-draft"
 	)
 	if buildVersion != wantBuild {
@@ -415,10 +415,10 @@ func TestReleaseVersionPinned(t *testing.T) {
 	}{
 		{path: "../../SPEC.md", content: specVersion},
 		{path: "../../README.md", content: specVersion},
-		{path: "../../README.md", content: "github.com/relux-works/curator-agent-launcher/cmd/curator-run@v0.3.0"},
-		{path: "../../README.md", content: "The v0.3.0 release reports `0.3.0` (specification `0.5.1-draft`)."},
+		{path: "../../README.md", content: "github.com/relux-works/curator-agent-launcher/cmd/curator-run@v0.4.0"},
+		{path: "../../README.md", content: "The v0.4.0 release reports `0.4.0` (specification `0.5.1-draft`)."},
 		{path: "../../README.md", content: "curator v0.15.0-rc.3 or later, once published"},
-		{path: "../../CHANGELOG.md", content: "## 0.3.0 — 2026-10-13"},
+		{path: "../../CHANGELOG.md", content: "## 0.4.0 — 2026-10-22"},
 	} {
 		data, err := os.ReadFile(check.path)
 		if err != nil {
@@ -427,6 +427,15 @@ func TestReleaseVersionPinned(t *testing.T) {
 		if !strings.Contains(string(data), check.content) {
 			t.Fatalf("%s does not state %q", check.path, check.content)
 		}
+	}
+	// The checked-in help header must agree independently with --version.
+	help, err := os.ReadFile("testdata/help.golden")
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantHelpHeader := name + " " + wantBuild + " (specification " + wantSpec + ")\n"
+	if !strings.HasPrefix(string(help), wantHelpHeader) {
+		t.Fatalf("testdata/help.golden does not start with %q", wantHelpHeader)
 	}
 	var out, errOut strings.Builder
 	if got := runNoResolve(t, []string{"--version"}, &out, &errOut); got != 0 {

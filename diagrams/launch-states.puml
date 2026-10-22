@@ -1,5 +1,5 @@
 @startuml
-' Revision: accepted architecture-review findings (2026-10-13).
+' Revision: v0.4.0 release alignment (2026-10-22).
 title Invocation states, refusal and recovery (not session records)
 
 state "CURRENT interactive API - SPEC 0.5.1-draft" as Current {
@@ -14,25 +14,25 @@ state "CURRENT interactive API - SPEC 0.5.1-draft" as Current {
   state "Direct execution / wait\ncurator-run owns child / terminal restoration" as Execute
   state "ax handoff\nax start subprocess" as Ax
   state "Accepted ax handoff\nax owns process / terminal / Session Record" as Accepted
-  state "Hosted unavailable in v0.3.0\nreceiver lookup refuses before handoff" as Hosted
+  state "Delegated manager launch / attach\nmanager owns hosted process / session" as Hosted
   state "Refused\nterminal invocation; no weaker launch" as Refused
   state "Exited\nchild status" as Exited
-  [*] --> Config
-  Config --> Args : valid config; enabled / disabled / absent ax routes explicitly
+  [*] --> Args
+  Args --> Config : accepted launch invocation
+  Config --> Resolve : valid config; enabled / disabled / absent ax routes explicitly
   Config --> Refused : unreadable / malformed / unsafe file
-  Args --> Resolve : accepted interactive invocation
   Args --> Refused : usage / unknown flags / locked override
   Args --> Exited : accepted help / version (0)
-  Resolve --> Validate : closed v1 / v2 / v3 fragment
+  Resolve --> Validate : closed v1 / v2 / v3 / v4 fragment
   Resolve --> Refused : resolve / repair / lock / fragment failure
   Validate --> Plan : supported mapping / posture / host
-  Validate --> Refused : unsupported mapping / permission / hosted capability\nconflict, machine hosted default or invalid resume / terminal
+  Validate --> Refused : unsupported mapping / permission / hosted capability\nconflict, missing manager or invalid resume / terminal
   Plan --> Network : admitted plan; no process created
   Plan --> Refused : unsupported mode / model / effort / release / context collision
   Network --> Compose : serviceable verdict; optional network admitted
   Network --> Refused : failed / unknown verdict; limited provider; network refusal
   Compose --> Late : native (direct or ax)
-  Compose --> Hosted : hosted selected; payload valid
+  Compose --> Hosted : registered/selected manager; delegated request valid
   Compose --> Refused : payload / stdin / composition invalid
   Late --> Refused : first binary / MCP / prompt failure
   Late --> Execute : direct route
@@ -40,7 +40,8 @@ state "CURRENT interactive API - SPEC 0.5.1-draft" as Current {
   Execute --> Exited : waits; forwards signals / stop-continue\nrestores terminal; exit or 128 + signal
   Ax --> Refused : cannot start / rejects / nonzero; no direct fallback
   Ax --> Accepted : accepted handoff; launch work ends
-  Hosted --> Refused : session_host_missing (exit 1), even with task-board on PATH\nuntil swarma dispatcher path ships; no native fallback
+  Hosted --> Refused : protocol / capability / manager refusal; no native fallback
+  Hosted --> Exited : delegated launch / attach returns
   Refused --> [*]
   Exited --> [*]
   Accepted --> [*]
@@ -48,10 +49,11 @@ state "CURRENT interactive API - SPEC 0.5.1-draft" as Current {
 note right of Current
   [[../SPEC.md#1-scope-and-non-goals SPEC 1]] / [[../SPEC.md#4-composition-algorithm SPEC 4]] / [[../SPEC.md#46-hand-off-and-exec SPEC 4.6]] / [[../SPEC.md#49-hosted-payload-and-receiver-handoff SPEC 4.9]] / [[../SPEC.md#6-errors-and-diagnostics SPEC 6]].
   States are per-invocation descriptions, not a persisted launcher FSM.
-  Current launcher owns no leases, checkpoints, resume records or session memory.
+  Launcher owns invocation state, operation journal and liveness, not hosted provider processes.
   Config is launcher-owned; homes / profiles are Curator-owned;
-  ax owns its Session Record. Hosted has no receiver handoff in v0.3.0.
-  Earlier hosted validation gates remain. Direct terminal / wait behavior:
+  ax owns its Session Record; the selected manager owns hosted sessions.
+  FRONT-DOOR 3-5 / 5.8: auto without manager is native + notice;
+  explicit hosted refuses session_host_missing with reason. No failed hosted fallback. Direct terminal / wait behavior:
   [[../README.md#environment-and-transport README Environment and transport]].
   Refusal has no outgoing retry transition: operator deliberately starts a new invocation.
   New resolve --repair can restore a missing MCP layer; launcher never repairs it.
