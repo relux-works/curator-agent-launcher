@@ -1,4 +1,4 @@
-curator-run 0.4.0 (specification 0.5.1-draft)
+curator-run 0.5.0 (specification 0.5.1-draft)
 
 usage: curator-run <env-id> [--hosted | --native | --untracked]
                    [resume [SES-HANDLE]] [--resume <id>]

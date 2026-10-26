@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.5.0 — 2026-10-27
+
 ### Added
 
 - Optional `profile_lock_sha256` in Werkstatt records. `up` refuses a resolved
