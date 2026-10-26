@@ -184,10 +184,13 @@ func prepareWerkstatt(ctx context.Context, r *werkstatt.Record, c werkstatt.Comm
 		resolver = fragment.New()
 	}
 	frag, err := resolver.Resolve(ctx, fragment.Request{EnvID: r.Runtime, Profile: r.Profile, ProfileSet: true, Dir: r.Clone, Env: env, Stderr: stderr})
-	if err == nil {
-		err = fragment.CheckLaunchRevision(frag)
-	}
 	if err != nil {
+		return werkstatt.Prepared{}, err
+	}
+	if r.ProfileLockSHA256 != "" && r.ProfileLockSHA256 != frag.Profile.LockSHA256 {
+		return werkstatt.Prepared{}, hostError("werkstatt_profile_lock_mismatch", map[string]string{"id": r.ID})
+	}
+	if err = fragment.CheckLaunchRevision(frag); err != nil {
 		return werkstatt.Prepared{}, err
 	}
 	files, err := defaults.LoadResolved(config)

@@ -17,30 +17,32 @@ type Doorbell struct {
 	MaxWakesPerHour int    `json:"max_wakes_per_hour"`
 }
 type Record struct {
-	Schema           string            `json:"schema"`
-	ID               string            `json:"id"`
-	Project          string            `json:"project"`
-	Role             string            `json:"role"`
-	Runtime          string            `json:"runtime"`
-	Model            *string           `json:"model"`
-	Effort           *string           `json:"effort"`
-	WeightsID        *string           `json:"weights_id,omitempty"`
-	Profile          string            `json:"profile"`
-	Clone            string            `json:"clone"`
-	GitDir           string            `json:"git_dir,omitempty"`
-	Identity         string            `json:"identity"`
-	Room             string            `json:"room"`
-	Orchestrator     string            `json:"orchestrator"`
-	ContextMode      string            `json:"context_mode,omitempty"`
-	HarnessMemory    *bool             `json:"harness_memory,omitempty"`
-	Sandbox          string            `json:"sandbox"`
-	ChildEnv         map[string]string `json:"child_env,omitempty"`
-	TrustClass       string            `json:"trust_class"`
-	Doorbell         *Doorbell         `json:"doorbell"`
-	ConfigDecisionID string            `json:"config_decision_id,omitempty"`
+	Schema            string            `json:"schema"`
+	ID                string            `json:"id"`
+	Project           string            `json:"project"`
+	Role              string            `json:"role"`
+	Runtime           string            `json:"runtime"`
+	Model             *string           `json:"model"`
+	Effort            *string           `json:"effort"`
+	WeightsID         *string           `json:"weights_id,omitempty"`
+	Profile           string            `json:"profile"`
+	ProfileLockSHA256 string            `json:"profile_lock_sha256,omitempty"`
+	Clone             string            `json:"clone"`
+	GitDir            string            `json:"git_dir,omitempty"`
+	Identity          string            `json:"identity"`
+	Room              string            `json:"room"`
+	Orchestrator      string            `json:"orchestrator"`
+	ContextMode       string            `json:"context_mode,omitempty"`
+	HarnessMemory     *bool             `json:"harness_memory,omitempty"`
+	Sandbox           string            `json:"sandbox"`
+	ChildEnv          map[string]string `json:"child_env,omitempty"`
+	TrustClass        string            `json:"trust_class"`
+	Doorbell          *Doorbell         `json:"doorbell"`
+	ConfigDecisionID  string            `json:"config_decision_id,omitempty"`
 }
 
 var idPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,47}$`)
+var profileLockPattern = regexp.MustCompile(`^[0-9a-f]{64}$`)
 
 func ValidID(id string) bool { return idPattern.MatchString(id) }
 func failure(code string, details map[string]string) error {
@@ -66,6 +68,12 @@ func Parse(data []byte, id string) (*Record, error) {
 	}
 	var fields map[string]json.RawMessage
 	if err := json.Unmarshal(data, &fields); err == nil {
+		if lock, ok := fields["profile_lock_sha256"]; ok {
+			var value string
+			if json.Unmarshal(lock, &value) != nil || !profileLockPattern.MatchString(value) {
+				return nil, invalid(id, "profile_lock_sha256")
+			}
+		}
 		if env, ok := fields["child_env"]; ok {
 			if schema.Validate("child-env.schema.json", env) != nil {
 				var names map[string]json.RawMessage

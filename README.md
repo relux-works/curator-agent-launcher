@@ -48,6 +48,15 @@ and [vectors](schemas/session-manager/vectors/werkstatt-record.json) show its
 required fields and optional settings. The future board station source has
 an interface only.
 
+Optional `profile_lock_sha256` pins the required profile lock as exactly 64
+lowercase hex characters without a prefix. After resolving the profile with
+repair, `up` compares it with the fragment’s `profile.lock_sha256`. A mismatch
+refuses `werkstatt_profile_lock_mismatch` (exit 1, `id` only) before writing
+hooks or `op.json` or calling launch/resume, and leaves liveness unchanged.
+Neither hash is printed. An absent member preserves existing behavior; null
+or malformed values refuse `werkstatt_record_invalid` (exit 2) with
+`field=profile_lock_sha256` before any manager call.
+
 ```sh
 curator-run werkstatt up example
 curator-run werkstatt up example --attach --task-class code.implement --difficulty high

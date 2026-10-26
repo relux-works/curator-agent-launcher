@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Added
+
+- Optional `profile_lock_sha256` in Werkstatt records. `up` refuses a resolved
+  profile lock mismatch before hooks or launch/resume, preserving liveness
+  and omitting both hashes from the diagnostic.
+
 ## 0.4.0 — 2026-10-22
 
 ### Added

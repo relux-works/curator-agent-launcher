@@ -452,14 +452,27 @@ func (s Service) up(ctx context.Context, c Command, tx *client.Transaction, reg 
 		return 0, err
 	}
 	fmt.Fprintf(s.Stderr, "curator-run: werkstatt %s source=%s\n", r.ID, filepath.Join(s.Loader.Directory, r.ID+".json"))
-	if confirmed != nil && confirmed.State == "down" && l != nil && l.State != "down" {
-		if err = refresh(tx, l, confirmed, s.now()); err != nil {
+	refreshDown := func() error {
+		if confirmed != nil && confirmed.State == "down" && l != nil && l.State != "down" {
+			return refresh(tx, l, confirmed, s.now())
+		}
+		return nil
+	}
+	// Unpinned records keep the existing refresh-before-prepare behavior.
+	if r.ProfileLockSHA256 == "" {
+		if err = refreshDown(); err != nil {
 			return 0, err
 		}
 	}
 	prepared, err := s.Prepare(ctx, r, c, target)
 	if err != nil {
 		return 0, err
+	}
+	// Preparation may refuse a profile lock; retain the prior liveness on refusal.
+	if r.ProfileLockSHA256 != "" {
+		if err = refreshDown(); err != nil {
+			return 0, err
+		}
 	}
 	op := "launch"
 	if target != "" {

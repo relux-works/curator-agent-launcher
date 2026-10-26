@@ -24,6 +24,10 @@ Q2–Q5 as Ivan's delegate, as recommended; those sections are marked
 its sections are marked **[decided Q1]**. §15 records the answers. §0.1 lists every change this
 amendment proposes to an accepted text.
 
+**2026-10-26 amendment (owner-approved):** an optional `profile_lock_sha256`
+in the Werkstatt record pins the resolved profile lock (§§6.1–6.2). A mismatch
+refuses before hooks or launch/resume, without printing either hash (§11).
+
 ## 0. Sources and decisions applied
 
 | Source | What it fixes here |
@@ -1289,6 +1293,7 @@ carry no `schema` member; their file names and locations identify them.
 | `model`, `effort` | Pinned at create or restart. A per-task effort travels in the task, not the record (dispatch returns (station, effort)). |
 | `weights_id` | Optional exact local-weights id, passed to the spawn plane as the model's weights pin. |
 | `profile` | Curator profile name. |
+| `profile_lock_sha256` | Optional required profile lock: exactly 64 lowercase hex characters, no prefix. Absence preserves existing behavior; null, empty, uppercase, prefixed or otherwise malformed values are `werkstatt_record_invalid` (2), `field=profile_lock_sha256`. |
 | `clone` | Absolute path of the worktree. |
 | `git_dir` | Absolute path of the separate git dir, or absent. |
 | `identity` | a2a identity. |
@@ -1411,6 +1416,13 @@ local write.
      (`werkstatt_identity_missing`).
 6. **Context plane and admission.**
    - Resolve the fragment for `profile` (SPEC §4.1, `--repair`).
+   - Immediately after resolution, if the record has `profile_lock_sha256`,
+     compare it with the resolved fragment’s `profile.lock_sha256`. A mismatch
+     refuses `werkstatt_profile_lock_mismatch` (1), with `id` only: neither
+     hash is printed. No transitional hook file or `op.json` is written, no
+     `launch`/`resume` is called, and liveness is unchanged. The step-1 lock
+     and step-3/4 manager reads keep their existing order. If the member is
+     absent, no comparison is made.
    - Admit `model` and `effort` (SPEC §4.3).
    - Read the fragment's credential projection (§9). A node source refuses
      here until §9.2 allows it.
@@ -2010,6 +2022,7 @@ Detail vocabularies are closed (§5.6). Grammar names:
 | `session_board_goal_unavailable` | 1 | manager capable, no workspace board | none |
 | `werkstatt_not_found` | 1 | no record | `id` |
 | `werkstatt_record_invalid` | 2 | the record fails the schema | `id`, `field` |
+| `werkstatt_profile_lock_mismatch` | 1 | the record’s required profile lock differs from the resolved fragment | `id` |
 | `werkstatt_session_manager_required` | 1 | `up` with an empty or unselected registry | `state`: `empty`, `unselected` |
 | `werkstatt_already_up` | 1 | an active generation holds the key | `session`: `<handle>` |
 | `werkstatt_clone_missing` | 1 | the clone is absent or not a directory | `path` |

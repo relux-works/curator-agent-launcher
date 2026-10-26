@@ -3,8 +3,10 @@ package werkstatt
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/relux-works/curator-agent-launcher/internal/sessionmanager/client"
@@ -181,6 +183,43 @@ func TestWorkspace(t *testing.T) {
 				code(t, err, want)
 			} else if err != nil {
 				t.Fatal(err)
+			}
+		})
+	}
+}
+
+// Parsing preserves a valid lock, defaults absence, and identifies the field
+// on malformed values rather than returning a generic record diagnostic.
+func TestRecordProfileLock(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		value any
+		valid bool
+	}{
+		{"absent", nil, true}, {"matching", strings.Repeat("a", 64), true},
+		{"null", nil, false}, {"empty", "", false}, {"uppercase", strings.Repeat("A", 64), false},
+		{"prefixed", "sha256:" + strings.Repeat("a", 64), false}, {"short", strings.Repeat("a", 63), false},
+		{"long", strings.Repeat("a", 65), false}, {"number", 123, false}, {"boolean", true, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			v := recordValue(t.TempDir())
+			if tc.name != "absent" {
+				v["profile_lock_sha256"] = tc.value
+			}
+			r, err := Parse(encoded(v), "example")
+			if tc.valid {
+				if err != nil {
+					t.Fatal(err)
+				}
+				want, _ := tc.value.(string)
+				if r.ProfileLockSHA256 != want {
+					t.Fatal("lock not preserved")
+				}
+				return
+			}
+			var refusal *client.Error
+			if !errors.As(err, &refusal) || refusal.Code != "werkstatt_record_invalid" || refusal.ExitCode() != 2 || refusal.Details["field"] != "profile_lock_sha256" {
+				t.Fatalf("malformed lock error=%v", err)
 			}
 		})
 	}
