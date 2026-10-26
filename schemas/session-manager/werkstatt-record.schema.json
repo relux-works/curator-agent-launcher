@@ -75,6 +75,10 @@
         }
       ]
     },
+    "profile_lock_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
     "clone": {
       "type": "string",
       "pattern": "^/[^\u0000]*$"
