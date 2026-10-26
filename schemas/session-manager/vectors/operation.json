@@ -95,5 +95,133 @@
       },
       "extra": "sentinel"
     }
+  },
+  {
+    "name": "profile-name",
+    "valid": true,
+    "document": {
+      "operation_id": "11111111-1111-4111-8111-111111111111",
+      "kind": "launch",
+      "submitted_at": "2026-01-01T00:00:00Z",
+      "admission_key": "werkstatt:example",
+      "manager": {
+        "id": "demo",
+        "executable": "/plugin",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "profile": "sample"
+    }
+  },
+  {
+    "name": "profile-bound",
+    "valid": true,
+    "document": {
+      "operation_id": "11111111-1111-4111-8111-111111111111",
+      "kind": "launch",
+      "submitted_at": "2026-01-01T00:00:00Z",
+      "admission_key": "werkstatt:example",
+      "manager": {
+        "id": "demo",
+        "executable": "/plugin",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "profile": "pppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp"
+    }
+  },
+  {
+    "name": "profile-empty",
+    "valid": false,
+    "document": {
+      "operation_id": "11111111-1111-4111-8111-111111111111",
+      "kind": "launch",
+      "submitted_at": "2026-01-01T00:00:00Z",
+      "admission_key": "werkstatt:example",
+      "manager": {
+        "id": "demo",
+        "executable": "/plugin",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "profile": ""
+    }
+  },
+  {
+    "name": "profile-null",
+    "valid": false,
+    "document": {
+      "operation_id": "11111111-1111-4111-8111-111111111111",
+      "kind": "launch",
+      "submitted_at": "2026-01-01T00:00:00Z",
+      "admission_key": "werkstatt:example",
+      "manager": {
+        "id": "demo",
+        "executable": "/plugin",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "profile": null
+    }
+  },
+  {
+    "name": "profile-type",
+    "valid": false,
+    "document": {
+      "operation_id": "11111111-1111-4111-8111-111111111111",
+      "kind": "launch",
+      "submitted_at": "2026-01-01T00:00:00Z",
+      "admission_key": "werkstatt:example",
+      "manager": {
+        "id": "demo",
+        "executable": "/plugin",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "profile": 7
+    }
+  },
+  {
+    "name": "profile-overflow",
+    "valid": false,
+    "document": {
+      "operation_id": "11111111-1111-4111-8111-111111111111",
+      "kind": "launch",
+      "submitted_at": "2026-01-01T00:00:00Z",
+      "admission_key": "werkstatt:example",
+      "manager": {
+        "id": "demo",
+        "executable": "/plugin",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "profile": "ppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp"
+    }
+  },
+  {
+    "name": "profile-path",
+    "valid": false,
+    "document": {
+      "operation_id": "11111111-1111-4111-8111-111111111111",
+      "kind": "launch",
+      "submitted_at": "2026-01-01T00:00:00Z",
+      "admission_key": "werkstatt:example",
+      "manager": {
+        "id": "demo",
+        "executable": "/plugin",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "profile": "../sample"
+    }
+  },
+  {
+    "name": "profile-reserved",
+    "valid": false,
+    "document": {
+      "operation_id": "11111111-1111-4111-8111-111111111111",
+      "kind": "launch",
+      "submitted_at": "2026-01-01T00:00:00Z",
+      "admission_key": "werkstatt:example",
+      "manager": {
+        "id": "demo",
+        "executable": "/plugin",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "profile": "CON.txt"
+    }
   }
 ]

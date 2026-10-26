@@ -124,3 +124,13 @@ the schema requirement and checksum changes together. Do not restore a local
 `replace`: it prevents version-suffixed `go install`. The guard is part of
 `go test ./...`, hence `make test`, `make race`, `make check` and hosted CI.
 Its results go to stdout; temporary comparison fixtures use `t.TempDir`.
+
+The optional `profile` in `werkstatt-liveness-v1` records the Curator profile
+used by the installed generation, with the same name grammar as the Werkstatt
+record. Its absence in older files means unknown; null and malformed names are
+invalid. Ordinary refresh and edit writes preserve the value without inferring
+it from the current record.
+The operation journal also carries optional `profile`, copied from the validated
+submission request. Settlement, including crash recovery, installs that value;
+an old journal without it settles with an unknown profile. The current editable
+Werkstatt record is never used to reconstruct missing historical evidence.
