@@ -89,3 +89,48 @@ func TestCommandDiagnosticsDiscloseNoInput(t *testing.T) {
 		}
 	}
 }
+
+// Dedicated edits/recovery parse beside their legacy aliases; wrong-command
+// flags and incomplete requests identify the corrective command without IO.
+func TestEditRecoveryGrammar(t *testing.T) {
+	for _, args := range [][]string{
+		{"update", "example", "--set-task", "task", "--queue-depth", "0", "--json"},
+		{"update", "example", "--clear-task"},
+		{"update", "example", "--queue-depth", "9007199254740991"},
+		{"recover", "example", "--rebind-manager", "--json"},
+		{"recover", "example", "--abandon-operation"},
+		{"status", "example", "--set-task", "task", "--rebind-manager"},
+	} {
+		if _, err := ParseCommand(args); err != nil {
+			t.Fatal(args, err)
+		}
+	}
+	for _, tc := range []struct {
+		args []string
+		want string
+	}{
+		{[]string{"update", "example"}, "at least one of --set-task, --clear-task or --queue-depth"},
+		{[]string{"update", "--clear-task"}, "an id is required"},
+		{[]string{"recover", "--abandon-operation"}, "an id is required"},
+		{[]string{"recover", "example"}, "exactly one of --rebind-manager or --abandon-operation"},
+		{[]string{"recover", "example", "--rebind-manager", "--abandon-operation"}, "mutually exclusive"},
+		{[]string{"recover", "example", "--set-task"}, "valid only with update"},
+		{[]string{"recover", "example", "--queue-depth"}, "valid only with update"},
+		{[]string{"recover", "example", "--clear-task"}, "valid only with update"},
+		{[]string{"recover", "example", "--set-task", "task"}, "valid only with update"},
+		{[]string{"recover", "example", "--queue-depth", "1"}, "valid only with update"},
+		{[]string{"update", "example", "--rebind-manager"}, "valid only with recover"},
+		{[]string{"update", "example", "--abandon-operation"}, "valid only with recover"},
+		{[]string{"down", "example", "--set-task", "task"}, "valid only with update"},
+		{[]string{"up", "example", "--rebind-manager"}, "valid only with recover"},
+		{[]string{"update", "example", "--force"}, "valid only with down"},
+		{[]string{"recover", "example", "--new"}, "valid only with up"},
+		{[]string{"update", "example", "--set-task", "task", "--clear-task"}, "mutually exclusive"},
+		{[]string{"update", "example", "--queue-depth", "-1"}, "needs an integer"},
+	} {
+		_, err := ParseCommand(tc.args)
+		if err == nil || !strings.Contains(err.Error(), tc.want) {
+			t.Fatalf("%v: %v, want %q", tc.args, err, tc.want)
+		}
+	}
+}

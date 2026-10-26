@@ -11,14 +11,16 @@ const werkstattHelp = `usage: curator run werkstatt up <id> [--attach] [--new] [
        curator run werkstatt down <id> [--force]
        curator run werkstatt recycle <id>
        curator run werkstatt status [<id>] [--json]
-                   [--set-task <ID> | --clear-task] [--queue-depth N]
-                   [--abandon-operation | --rebind-manager]
+       curator run werkstatt update <id> [--set-task <ID> | --clear-task] [--queue-depth N] [--json]
+       curator run werkstatt recover <id> (--rebind-manager | --abandon-operation) [--json]
        curator run werkstatt list [--json]
 
 A Werkstatt is a long-lived hosted session for one project role. up starts or
 continues it through the selected session manager, down retires it (graceful
 unless --force), recycle retires it and starts a new generation, status and
-list report the record, liveness and manager status.
+list report the record, liveness and manager status. update edits dispatch
+fields; recover applies an explicit recovery override. Mutating status flags
+are deprecated aliases; use update or recover instead.
 `
 
 var werkstattVerbHelp = map[string]string{
@@ -42,13 +44,25 @@ Graceful down, then up with a new generation, under one lock. A provider that
 is still draining refuses and nothing new starts.
 `,
 	"status": `usage: curator run werkstatt status [<id>] [--json]
-                   [--set-task <ID> | --clear-task] [--queue-depth N]
-                   [--abandon-operation | --rebind-manager]
 
-Reports the Werkstatt record, liveness, manager status and a2a evidence. The
-dispatch flags need an <id> with a live session. --abandon-operation and
---rebind-manager are explicit recovery overrides; they stop nothing remote.
+Reports the Werkstatt record, liveness, manager status and a2a evidence.
 A zero exit is not proof of fresh liveness: check the reported source.
+Legacy --set-task, --clear-task and --queue-depth are deprecated aliases for
+update; --abandon-operation and --rebind-manager are deprecated aliases for
+recover. These aliases print one warning on stderr.
+`,
+	"update": `usage: curator run werkstatt update <id> [--set-task <ID> | --clear-task] [--queue-depth N] [--json]
+
+Edits dispatch fields of a Werkstatt with a bound session, then reports its
+status row. At least one field flag is required. --set-task and --clear-task
+are mutually exclusive; --queue-depth accepts an integer from 0 to 2^53-1.
+`,
+	"recover": `usage: curator run werkstatt recover <id> (--rebind-manager | --abandon-operation) [--json]
+
+Applies exactly one explicit recovery override, then reports the status row.
+--rebind-manager accepts a re-registered owner after a matching session read.
+--abandon-operation clears the pending journal and records an operator
+override and tombstone. Neither override stops or cancels anything remote.
 `,
 	"list": `usage: curator run werkstatt list [--json]
 

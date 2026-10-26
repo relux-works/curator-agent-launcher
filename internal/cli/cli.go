@@ -48,8 +48,9 @@ const Usage = `usage: curator-run <env-id> [--hosted | --native | --untracked]
        curator-run werkstatt up <id> [--attach] [--new] [--task-class C [--difficulty D]]
        curator-run werkstatt down <id> [--force]
        curator-run werkstatt recycle <id>
-       curator-run werkstatt status [<id>] [--json] [--set-task T | --clear-task] [--queue-depth N]
-                                    [--rebind-manager | --abandon-operation]
+       curator-run werkstatt status [<id>] [--json]
+       curator-run werkstatt update <id> [--set-task <ID> | --clear-task] [--queue-depth N] [--json]
+       curator-run werkstatt recover <id> (--rebind-manager | --abandon-operation) [--json]
        curator-run werkstatt list [--json]
        curator-run migrate [--dry-run]
        curator-run --help | -h

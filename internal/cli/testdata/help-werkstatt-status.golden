@@ -1,0 +1,7 @@
+usage: curator run werkstatt status [<id>] [--json]
+
+Reports the Werkstatt record, liveness, manager status and a2a evidence.
+A zero exit is not proof of fresh liveness: check the reported source.
+Legacy --set-task, --clear-task and --queue-depth are deprecated aliases for
+update; --abandon-operation and --rebind-manager are deprecated aliases for
+recover. These aliases print one warning on stderr.

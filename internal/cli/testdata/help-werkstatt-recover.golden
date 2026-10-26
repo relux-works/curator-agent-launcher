@@ -1,0 +1,6 @@
+usage: curator run werkstatt recover <id> (--rebind-manager | --abandon-operation) [--json]
+
+Applies exactly one explicit recovery override, then reports the status row.
+--rebind-manager accepts a re-registered owner after a matching session read.
+--abandon-operation clears the pending journal and records an operator
+override and tombstone. Neither override stops or cancels anything remote.

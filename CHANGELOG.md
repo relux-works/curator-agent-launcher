@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+### Changed
+
+- Add `werkstatt update` for task/queue dispatch edits and `werkstatt recover`
+  for manager rebind or abandoned-operation overrides, with the same locking,
+  CAS, diagnostics and status output as the former mutating status flags.
+
+### Deprecated
+
+- Mutating `werkstatt status` flags are deprecated in 0.6.0, removed no earlier
+  than 0.8.0: removed two releases after it was deprecated. Use `update` or
+  `recover` instead. Aliases preserve stdout and print one warning on stderr.
+
 ## 0.5.0 — 2026-10-27
 
 ### Added

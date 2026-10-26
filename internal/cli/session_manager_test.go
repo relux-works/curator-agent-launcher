@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -117,6 +119,8 @@ func TestTopicHelp(t *testing.T) {
 		first string
 	}{
 		{[]string{"werkstatt", "--help"}, "usage: curator run werkstatt up <id>"},
+		{[]string{"werkstatt", "update", "x", "--help"}, "usage: curator run werkstatt update"},
+		{[]string{"werkstatt", "recover", "x", "-h"}, "usage: curator run werkstatt recover"},
 		{[]string{"werkstatt", "down", "x", "-h"}, "usage: curator run werkstatt down"},
 		{[]string{"werkstatt", "bogus", "--help"}, "usage: curator run werkstatt up <id>"},
 		{[]string{"session-manager", "unregister", "--help"}, "usage: curator run session-manager unregister"},
@@ -131,5 +135,30 @@ func TestTopicHelp(t *testing.T) {
 		if _, ok := TopicHelp(args); ok {
 			t.Fatalf("%v selected topic help", args)
 		}
+	}
+}
+
+// Nested Werkstatt help has reviewed exact bytes, including the new grammar
+// and the status alias notice; help never needs runtime configuration.
+func TestWerkstattHelpGolden(t *testing.T) {
+	for _, verb := range []string{"", "status", "update", "recover"} {
+		t.Run(verb, func(t *testing.T) {
+			args := []string{"werkstatt"}
+			name := verb
+			if verb != "" {
+				args = append(args, verb)
+			} else {
+				name = "topic"
+			}
+			args = append(args, "--help")
+			got, ok := TopicHelp(args)
+			want, err := os.ReadFile(filepath.Join("testdata", "help-werkstatt-"+name+".golden"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !ok || got != string(want) {
+				t.Fatalf("help differs from %s golden: %q", name, got)
+			}
+		})
 	}
 }

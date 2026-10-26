@@ -121,6 +121,18 @@ func refresh(tx *client.Transaction, l *client.Liveness, v *client.Session, at t
 	return nil
 }
 func (s Service) Run(ctx context.Context, c Command) (int, error) {
+	if c.Action == "status" {
+		var replacements []string
+		if c.SetTask || c.QueueDepth != nil {
+			replacements = append(replacements, "'werkstatt update <id> …'")
+		}
+		if c.RebindManager || c.AbandonOperation {
+			replacements = append(replacements, "'werkstatt recover <id> …'")
+		}
+		if len(replacements) != 0 {
+			fmt.Fprintf(s.Stderr, "curator-run: deprecated: use %s\n", strings.Join(replacements, " and "))
+		}
+	}
 	if c.Action == "list" || c.Action == "status" && c.ID == "" {
 		entries, err := configfile.ReadDirectory(s.Loader.Directory)
 		if err != nil {
@@ -148,7 +160,7 @@ func (s Service) Run(ctx context.Context, c Command) (int, error) {
 	if err != nil {
 		return exit, err
 	}
-	if c.Action == "status" {
+	if c.Action == "status" || c.Action == "update" || c.Action == "recover" {
 		return exit, s.output(c, []Status{row})
 	}
 	return exit, nil
@@ -176,7 +188,7 @@ func (s Service) output(c Command, rows []Status) error {
 func (s Service) one(ctx context.Context, c Command) (row Status, exit int, result error) {
 	tx, err := s.Store.Lock(ctx, c.ID)
 	if err != nil {
-		if c.Action != "status" || !client.IsCode(err, "werkstatt_busy") {
+		if (c.Action != "status" && c.Action != "update" && c.Action != "recover") || !client.IsCode(err, "werkstatt_busy") {
 			return row, 0, err
 		}
 		row.Record, _, err = s.Loader.Load(ctx, c.ID)
@@ -283,7 +295,7 @@ func (s Service) one(ctx context.Context, c Command) (row Status, exit int, resu
 			c.New = true
 			exit, err = s.up(ctx, c, tx, reg, row.Record, l)
 		}
-	case "status":
+	case "status", "update", "recover":
 		if c.RebindManager && row.Liveness != nil && row.Liveness.Session != "" {
 			l := row.Liveness
 			e, ok := reg.Managers[l.Manager.ID]

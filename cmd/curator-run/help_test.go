@@ -35,6 +35,8 @@ func TestHelpBeforeConfig(t *testing.T) {
 		{[]string{"session-manager", "register", "--manifest", "-", "-h"}, "usage: curator run session-manager register"},
 		{[]string{"session-manager", "bogus", "--help"}, "usage: curator run session-manager list"},
 		{[]string{"werkstatt", "--help"}, "usage: curator run werkstatt up"},
+		{[]string{"werkstatt", "update", "example", "--help"}, "usage: curator run werkstatt update"},
+		{[]string{"werkstatt", "recover", "example", "--help"}, "usage: curator run werkstatt recover"},
 		{[]string{"werkstatt", "status", "example", "--help"}, "usage: curator run werkstatt status"},
 		{[]string{"werkstatt", "up", "example", "--task-class", "--help"}, "usage: curator run werkstatt up"},
 		{[]string{"migrate", "--help"}, "usage: curator run migrate"},

@@ -1,0 +1,14 @@
+usage: curator run werkstatt up <id> [--attach] [--new] [--task-class C [--difficulty D]]
+       curator run werkstatt down <id> [--force]
+       curator run werkstatt recycle <id>
+       curator run werkstatt status [<id>] [--json]
+       curator run werkstatt update <id> [--set-task <ID> | --clear-task] [--queue-depth N] [--json]
+       curator run werkstatt recover <id> (--rebind-manager | --abandon-operation) [--json]
+       curator run werkstatt list [--json]
+
+A Werkstatt is a long-lived hosted session for one project role. up starts or
+continues it through the selected session manager, down retires it (graceful
+unless --force), recycle retires it and starts a new generation, status and
+list report the record, liveness and manager status. update edits dispatch
+fields; recover applies an explicit recovery override. Mutating status flags
+are deprecated aliases; use update or recover instead.

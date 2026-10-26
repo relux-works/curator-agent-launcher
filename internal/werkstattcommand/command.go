@@ -24,13 +24,13 @@ type Command struct {
 // no reads or effects; launch flags cannot accidentally turn into station input.
 func ParseCommand(args []string) (Command, error) {
 	if len(args) == 0 {
-		return Command{}, fmt.Errorf("werkstatt needs an action: up, down, recycle, status or list; see: curator run werkstatt --help")
+		return Command{}, fmt.Errorf("werkstatt needs an action: up, down, recycle, status, update, recover or list; see: curator run werkstatt --help")
 	}
 	c := Command{Action: args[0]}
 	switch c.Action {
-	case "up", "down", "recycle", "status", "list":
+	case "up", "down", "recycle", "status", "update", "recover", "list":
 	default:
-		return Command{}, fmt.Errorf("unknown werkstatt action; expected up, down, recycle, status or list; see: curator run werkstatt --help")
+		return Command{}, fmt.Errorf("unknown werkstatt action; expected up, down, recycle, status, update, recover or list; see: curator run werkstatt --help")
 	}
 	// Each refusal names the rule and the smallest help command. It quotes only
 	// tokens of the closed grammar (actions and known flags), never an operand,
@@ -75,29 +75,35 @@ func ParseCommand(args []string) (Command, error) {
 			}
 			c.Force = true
 		case "--json":
-			if c.Action != "status" && c.Action != "list" {
-				return bad("%s is valid only with status or list", a)
+			if c.Action != "status" && c.Action != "list" && c.Action != "update" && c.Action != "recover" {
+				return bad("%s is valid only with status, update, recover or list", a)
 			}
 			c.JSON = true
 		case "--rebind-manager":
-			if c.Action != "status" {
-				return bad("%s is valid only with status", a)
+			if c.Action != "status" && c.Action != "recover" {
+				return bad("%s is valid only with recover (status is a deprecated alias)", a)
 			}
 			c.RebindManager = true
 		case "--abandon-operation":
-			if c.Action != "status" {
-				return bad("%s is valid only with status", a)
+			if c.Action != "status" && c.Action != "recover" {
+				return bad("%s is valid only with recover (status is a deprecated alias)", a)
 			}
 			c.AbandonOperation = true
 		case "--clear-task":
-			if c.Action != "status" {
-				return bad("%s is valid only with status", a)
+			if c.Action != "status" && c.Action != "update" {
+				return bad("%s is valid only with update (status is a deprecated alias)", a)
 			}
 			if c.SetTask {
 				return bad("--clear-task and --set-task are mutually exclusive")
 			}
 			c.SetTask = true
 		case "--set-task", "--queue-depth", "--task-class", "--difficulty":
+			if (a == "--set-task" || a == "--queue-depth") && c.Action != "status" && c.Action != "update" {
+				return bad("%s is valid only with update (status is a deprecated alias)", a)
+			}
+			if (a == "--task-class" || a == "--difficulty") && c.Action != "up" {
+				return bad("%s is valid only with up", a)
+			}
 			if i+1 >= len(args) || strings.HasPrefix(args[i+1], "--") {
 				return bad("%s needs a value", a)
 			}
@@ -105,9 +111,6 @@ func ParseCommand(args []string) (Command, error) {
 			v := args[i]
 			switch a {
 			case "--set-task":
-				if c.Action != "status" {
-					return bad("%s is valid only with status", a)
-				}
 				if c.SetTask {
 					return bad("--clear-task and --set-task are mutually exclusive")
 				}
@@ -118,25 +121,16 @@ func ParseCommand(args []string) (Command, error) {
 				c.Task = &v
 			case "--queue-depth":
 				n, e := strconv.ParseInt(v, 10, 64)
-				if c.Action != "status" {
-					return bad("%s is valid only with status", a)
-				}
 				if e != nil || n < 0 || n > 9007199254740991 {
 					return bad("%s needs an integer from 0 to 2^53-1", a)
 				}
 				c.QueueDepth = &n
 			case "--task-class":
-				if c.Action != "up" {
-					return bad("%s is valid only with up", a)
-				}
 				if !dispatchValue(v) {
 					return bad("%s needs a dispatch value of [A-Za-z0-9._:/@+-]{1,128}", a)
 				}
 				c.TaskClass = v
 			case "--difficulty":
-				if c.Action != "up" {
-					return bad("%s is valid only with up", a)
-				}
 				if !dispatchValue(v) {
 					return bad("%s needs a dispatch value of [A-Za-z0-9._:/@+-]{1,128}", a)
 				}
@@ -155,6 +149,10 @@ func ParseCommand(args []string) (Command, error) {
 		return bad("--difficulty needs --task-class")
 	case c.RebindManager && c.AbandonOperation:
 		return bad("--rebind-manager and --abandon-operation are mutually exclusive")
+	case c.Action == "update" && !c.SetTask && c.QueueDepth == nil:
+		return bad("at least one of --set-task, --clear-task or --queue-depth is required")
+	case c.Action == "recover" && !c.RebindManager && !c.AbandonOperation:
+		return bad("exactly one of --rebind-manager or --abandon-operation is required")
 	case c.ID == "" && (c.SetTask || c.QueueDepth != nil || c.RebindManager || c.AbandonOperation):
 		return bad("dispatch and recovery flags need an id")
 	}

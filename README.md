@@ -63,8 +63,10 @@ curator-run werkstatt up example --attach --task-class code.implement --difficul
 curator-run werkstatt down example
 curator-run werkstatt down example --force
 curator-run werkstatt recycle example
-curator-run werkstatt status example --set-task TASK-example --queue-depth 1 --json
-curator-run werkstatt status example --clear-task
+curator-run werkstatt update example --set-task TASK-example --queue-depth 1 --json
+curator-run werkstatt update example --clear-task
+curator-run werkstatt status example --json
+curator-run werkstatt recover example --rebind-manager
 curator-run werkstatt list --json
 ```
 
@@ -81,13 +83,27 @@ start; runtime binding remains the manager's responsibility.
 State, operation journal and lock files live under
 `${XDG_STATE_HOME:-~/.local/state}/swarma/launcher/werkstatt/`. The journal stays
 until a terminal outcome and a successful liveness write. Owner binding and
-expected tuple CAS prevent stale writes. `status --rebind-manager` explicitly
+expected tuple CAS prevent stale writes. `recover --rebind-manager` explicitly
 accepts a re-registered owner after a matching session read;
-`status --abandon-operation` records an operator override and a tombstone,
+`recover --abandon-operation` records an operator override and a tombstone,
 without stopping or cancelling anything remote. Dispatch edits require
 liveness with a non-null session (`werkstatt_not_up` for both a missing
 record and a pre-start override). A first settlement after a pre-start
 override takes the manager's own generation on either binding.
+
+`update` requires at least one dispatch field flag. `recover` requires exactly
+one of `--rebind-manager` or `--abandon-operation`; each refuses the other
+command's flags. Both accept `--json` and report the resulting status row.
+The former mutating `status` forms retain their effects and stdout as
+deprecated aliases, with exactly one replacement warning on stderr. They are
+deprecated in 0.6.0 and removed no earlier than 0.8.0 (two releases later).
+
+Ordinary `status` and `list` retain manager-evidence refresh and pending
+operation reconciliation. They perform no dispatch edit, rebind or abandonment
+without the deprecated flags. A settled read calls no mutating manager RPC;
+reconciling a prepared/not-found pending operation retains its cancellation
+fence. Mixed legacy dispatch/recovery flags keep recovery-before-edit ordering
+and print one warning naming both replacement commands.
 
 Status JSON is a bare array of closed rows
 `{record,liveness,manager_session,a2a,stale}`. Manager and a2a evidence stay

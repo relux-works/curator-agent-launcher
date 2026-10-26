@@ -3,7 +3,7 @@
 **Amends:** [SPEC](SPEC.md) `0.5.1-draft` → `0.6.0-draft` (target).
 **Implementation:** partial, and always gated by the sections themselves. The
 launcher on main implements the host selection, the session-manager registry
-and protocol client, `werkstatt up|down|recycle|status|list` against a
+and protocol client, `werkstatt up|down|recycle|status|update|recover|list` against a
 conforming manager, and the §5.8 activation after the Q1 sign-off. Sections
 marked **[decided Qn]** are decided. Features named as later work (for example
 lazy registration, the exact-plan route and Muse hosting) are proposals until
@@ -27,6 +27,12 @@ amendment proposes to an accepted text.
 **2026-10-26 amendment (owner-approved):** an optional `profile_lock_sha256`
 in the Werkstatt record pins the resolved profile lock (§§6.1–6.2). A mismatch
 refuses before hooks or launch/resume, without printing either hash (§11).
+
+**2026-10-27 amendment (owner-approved):** dispatch edits move to
+`werkstatt update`, and explicit recovery overrides to `werkstatt recover`
+(§§2, 6.2, 6.5–6.6). The former mutating `status` forms are deprecated in
+0.6.0, removed no earlier than 0.8.0, with one stderr warning per invocation.
+This applies the owner's decision to separate status, dispatch edits and recovery.
 
 ## 0. Sources and decisions applied
 
@@ -101,7 +107,8 @@ curator-run werkstatt up <id> [--attach] [--new] [--task-class C [--difficulty D
 curator-run werkstatt down <id> [--force]
 curator-run werkstatt recycle <id>
 curator-run werkstatt status [<id>] [--json]
-            [--set-task <ID> | --clear-task] [--queue-depth N] [--abandon-operation | --rebind-manager]
+curator-run werkstatt update <id> [--set-task <ID> | --clear-task] [--queue-depth N] [--json]
+curator-run werkstatt recover <id> (--rebind-manager | --abandon-operation) [--json]
 curator-run werkstatt list [--json]
 
 curator-run session-manager list [--json]
@@ -1199,7 +1206,7 @@ lock:
     `reason=manager_changed`.
   - Neither case ever reroutes the operation to the selected manager.
   - Re-registering the original entry, or an explicit operator
-    `werkstatt status <id> --abandon-operation`, clears the refusal.
+    `werkstatt recover <id> --abandon-operation`, clears the refusal.
     `--abandon-operation` is a manual decision: it clears `op.json` and
     records the abandoned id in the liveness record.
 - **No overlap.** No new operation is generated while one is pending.
@@ -1381,13 +1388,13 @@ local write.
         therefore the one case in which `continue` starts a new
         conversation (§6.4).
    4. **Recovery.** Two explicit commands leave the fail-closed state.
-      - `werkstatt status <id> --rebind-manager`:
+      - `werkstatt recover <id> --rebind-manager`:
         - asks the current entry with the binding's id for `status
           {session}`;
         - if it answers with a record for exactly that session handle, the
           binding is updated to the entry;
         - any other answer refuses, and the binding is unchanged.
-      - `werkstatt status <id> --abandon-operation` is an **operator
+      - `werkstatt recover <id> --abandon-operation` is an **operator
         override** (§6.5). It is a decision, not evidence that the old
         generation stopped.
    5. **Routing.** While the binding exists, `status`, `stop`, `resume` and
@@ -1594,7 +1601,7 @@ schema `werkstatt-liveness-v1`, written atomically:
 - **`last_heartbeat_at`** is the time of that manager read. A stale value
   means nobody looked, not that the session is down.
 - **`current_task` and `queue_depth`** are written only by the orchestrator,
-  through `werkstatt status <id> --set-task/--clear-task/--queue-depth`.
+  through `werkstatt update <id> --set-task/--clear-task/--queue-depth`.
   These edits require a liveness record with a non-null `session`. A
   Werkstatt that was never up refuses `werkstatt_not_up` (1). That covers
   both a missing liveness file and an override-only record from before the
@@ -1639,7 +1646,30 @@ schema `werkstatt-liveness-v1`, written atomically:
     `werkstatt_busy` with `state=draining`, and nothing else happens.
   - `up` admission keeps refusing while the old generation lives, so a
     `draining` answer is never treated as "may start".
-- **`status [<id>]` and `list`:** the record, the manager status, the a2a
+- **`update <id>`:** applies at least one dispatch field flag:
+  `--set-task <ID>` or `--clear-task` (mutually exclusive), and/or
+  `--queue-depth N` (integer 0 through 2^53−1). The lock, reconciliation,
+  owner refresh and expected-tuple CAS are unchanged from the former status
+  flags. It reports the resulting status row; `--json` uses the same bytes.
+- **`recover <id>`:** requires exactly one of `--rebind-manager` and
+  `--abandon-operation`. The ordering, binding checks, operator override and
+  tombstones remain as defined in §§6.2 and 6.5. It reports the resulting
+  status row, with optional `--json`.
+- **Deprecated aliases:** `status <id>` with any dispatch or recovery flag
+  retains the former behavior and stdout. Exactly one line on stderr names
+  `werkstatt update <id> …` or `werkstatt recover <id> …` as appropriate.
+  These aliases are deprecated in 0.6.0 and removed no earlier than 0.8.0.
+  A legacy invocation combining dispatch and recovery still applies recovery
+  before the dispatch edit and prints one warning naming both replacements.
+  New verbs reject the other verb's flags with usage exit 2; `update` without
+  a field flag and `recover` without exactly one override also exit 2 before
+  locks, liveness writes or manager calls.
+- **`status [<id>]` and `list`:** retain ordinary owner refresh and pending
+  operation reconciliation (§5.7), including its operation-id cancellation
+  fence for `prepared`/`not_found`. This is reconciliation, not an operator
+  edit: without the deprecated flags, status performs no dispatch edit,
+  rebind or abandonment. With no pending operation it calls no mutating
+  manager operation. Reports the record, the manager status, the a2a
   `who` line and the doorbell state. `--json` gives `werkstatt-status-v1`: a
   bare JSON array, with no wrapper, of rows of exactly
   `{record, liveness, manager_session, a2a, stale}`:

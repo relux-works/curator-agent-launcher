@@ -1,0 +1,5 @@
+usage: curator run werkstatt update <id> [--set-task <ID> | --clear-task] [--queue-depth N] [--json]
+
+Edits dispatch fields of a Werkstatt with a bound session, then reports its
+status row. At least one field flag is required. --set-task and --clear-task
+are mutually exclusive; --queue-depth accepts an integer from 0 to 2^53-1.
