@@ -2087,8 +2087,12 @@ Other rules:
 - The repository supplies a reproducible `make release-binary VERSION=…`
   target and the signed tag.
 - The release-workflow change is owned by `ivmbp_curator_orch`.
-- The launcher repository's own releases are for development. Hosts take
-  the distribution's.
+- The launcher repository also supplies signed and notarized GitHub release
+  artifacts. Curator's distribution remains the canonical host channel.
+  These artifacts serve hosts without Go and may be consumed by Curator's
+  bundle instead of rebuilding, if `curator_orch` chooses. Developer ID
+  signing and notarization run only when `MACOS_SIGN_P12` is configured;
+  artifacts built without it are unsigned.
 
 ## 11. Diagnostics added
 

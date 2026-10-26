@@ -1,11 +1,12 @@
 GO ?= go
 GOFMT ?= gofmt
 
-.PHONY: build fmt-check vet test race check clean release-binary release-repro
+.PHONY: build fmt-check vet test race check clean release-binary release-repro release-gate-test
 
 # Reproducible release binary for the signed Curator distribution
 # (FRONT-DOOR §10). Curator's release workflow calls it per platform, then
-# signs, notarizes and packs; none of that happens here.
+# signs, notarizes and packs. The launcher's optional GitHub artifact workflow
+# does the same after the build; neither signing nor publishing happens here.
 #   make release-binary VERSION=0.6.0 [GOOS=darwin GOARCH=arm64] [DIST=dist]
 # The inputs are data. $(value ...) takes their text unexpanded, and the raw
 # VERSION and DIST are never exported. So a crafted value never runs in make
@@ -56,7 +57,7 @@ race:
 	$(GO) test ./... -count=1 -race -timeout=12m
 	$(GO) -C schemas/session-manager test ./... -count=1 -race -timeout=12m
 
-check: build fmt-check vet test race
+check: build fmt-check vet test race release-gate-test
 
 clean:
 	$(GO) clean ./...
@@ -68,3 +69,8 @@ release-binary:
 # identical bytes.
 release-repro:
 	scripts/release-repro.sh
+
+# Trusted-signer positive control and release admission refusals, offline.
+release-gate-test:
+	@mkdir -p .temp
+	scripts/release-gate-test.sh

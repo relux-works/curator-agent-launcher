@@ -601,6 +601,44 @@ curator-run --version
 
 The v0.5.0 release reports `0.5.0` (specification `0.5.1-draft`).
 Compatible with curator v0.15.0-rc.3 or later, once published.
+
+Alternatively, hosts without Go can download GitHub release artifacts.
+Curator's distribution remains the canonical host channel; Curator's bundle
+may also consume these artifacts if `curator_orch` chooses. Archives contain
+`curator-run`, LICENSE, NOTICE and this README. The release matrix is Darwin
+and Linux, each for arm64 and amd64. For example, on an Apple Silicon Mac:
+
+```bash
+set -e
+version=0.5.0
+artifact="curator-run_${version}_darwin_arm64.tar.gz"
+base="https://github.com/relux-works/curator-agent-launcher/releases/download/v${version}"
+curl --fail --location --remote-name "$base/$artifact"
+curl --fail --location --remote-name "$base/checksums.txt"
+curl --fail --location --remote-name "$base/checksums.txt.pem"
+curl --fail --location --remote-name "$base/checksums.txt.sig"
+cosign verify-blob \
+  --certificate checksums.txt.pem --signature checksums.txt.sig \
+  --certificate-identity "https://github.com/relux-works/curator-agent-launcher/.github/workflows/release.yml@refs/tags/v${version}" \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  checksums.txt
+grep -F "  $artifact" checksums.txt | shasum -a 256 --check
+tar -xzf "$artifact" curator-run
+codesign --verify --strict --verbose=2 ./curator-run
+codesign --display --verbose=4 ./curator-run
+spctl --assess --type execute --verbose=4 ./curator-run
+./curator-run --version
+```
+
+Require a successful checksum/signature check, then on macOS a Developer ID
+Application signature for Relux Works, LLC and an accepted notarized result
+from `spctl`. Signing and notarization are enabled only when the release
+environment has `MACOS_SIGN_P12`; an artifact from an unsigned build does not
+satisfy these macOS checks. Bare CLI binaries have no stapled ticket, so
+Gatekeeper assessment may need network access. On Linux choose `linux_amd64`
+or `linux_arm64`, verify cosign and the checksum, and omit the macOS commands.
+After verification, place the binary in a trusted operator-owned directory.
+
 Ensure `$(go env GOPATH)/bin` is on `PATH`, or set `GOBIN` to a dedicated
 trusted operator-owned directory on `PATH`. Do **not** install into Curator's
 user-bin shim directory (`~/.local/bin`), a managed skill bin directory, or
@@ -1021,6 +1059,12 @@ runs need their own explicit timeout budget, for example
 | Schema module parity | shallow-checkout-safe comparison of the in-repo contract against the published schema pin; excludes only its root README | `go test ./internal/schemaparity -count=1 -v`; included in `make check` and CI | stdout; comparison fixtures in `t.TempDir` |
 | `go` (build, vet, test, race) | build and behavioral suite | `make check` and the targets above | stdout; nothing written to the tree |
 | `make release-binary` | reproducible release binary for the Curator distribution | `make release-binary VERSION=<semver> [GOOS=… GOARCH=…] [DIST=dist]` | `dist/curator-run-<version>-<os>-<arch>` and `.sha256` (gitignored) |
+| GoReleaser v2.17.0 | four-platform GitHub artifacts; optional Darwin Developer ID signing/notarization, then checksum-only keyless cosign | `goreleaser check`; `goreleaser release --snapshot --clean --skip=sign,notarize,publish` | `dist/` (gitignored); snapshot is unsigned and never published |
+| `scripts/release-go.sh` | GoReleaser's Go tool pinned from go.mod, matching `release-binary` | `scripts/release-go.sh version`; invoked by `.goreleaser.yml` | stdout and GoReleaser's `dist/` |
+| `scripts/release-gate.sh` | require an annotated SSH-signed stable tag from `.github/release-signers`, its exact checkout and matching buildVersion | `scripts/release-gate.sh v<semver>`; tag-push-only `.github/workflows/release.yml` runs it before credentials reach GoReleaser | stdout; no mutations |
+| Release admission fixtures | trusted SSH positive control; unsigned, foreign, version, ref and checkout refusals with unchanged state | `make release-gate-test`; included in `make check` and CI | isolated `.temp/release-gate-test.*`, removed on exit |
+| actionlint | static validation of GitHub workflows | `actionlint .github/workflows/release.yml .github/workflows/ci.yml` | stdout |
+| cosign, curl, shasum, tar, codesign, spctl | authenticate, download, unpack and verify release artifacts | installation commands above | downloaded archives, checksums/signatures and extracted `curator-run` in the current directory |
 | `scripts/release-binary.sh` | the release build itself; validates VERSION, GOOS, GOARCH and DIST before any use (the Makefile passes them as unexpanded data) | `make release-binary …` (not run directly) | as above; invalid input exits 2 and writes nothing |
 | `scripts/release-repro.sh` | committed-HEAD reproducibility across two checkout paths, checksum and `--version` checks, a different-version control, and crafted-input negatives that must run and write nothing | `make release-repro` | temporary directory, removed on exit; one `OK <sha256>` line |
 | `python3` defaults mutant harness | weaken defaults gates individually and run the behavioral suite; restore exact candidate bytes | `python3 .scripts/defaults-mutants.py [evidence-dir]` | per-mutant logs and `summary.tsv` (default `.temp/defaults-mutants/`) |

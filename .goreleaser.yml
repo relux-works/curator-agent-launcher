@@ -1,0 +1,64 @@
+version: 2
+
+project_name: curator-run
+
+builds:
+  - id: curator-run
+    main: ./cmd/curator-run
+    binary: curator-run
+    # Pin the toolchain from go.mod even outside Actions. These settings must
+    # produce the same unsigned bytes as make release-binary.
+    tool: ./scripts/release-go.sh
+    env: [CGO_ENABLED=0, GOFLAGS=-mod=readonly]
+    goos: [darwin, linux]
+    goarch: [arm64, amd64]
+    flags: [-trimpath, -buildvcs=false]
+    ldflags:
+      - -s -w -buildid= -X main.buildVersion={{ .Version }}
+
+archives:
+  - formats: [tar.gz]
+    name_template: '{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}'
+    files: [LICENSE, NOTICE, README.md]
+
+checksum:
+  name_template: checksums.txt
+
+# Same opt-in and five org secrets as Curator. GoReleaser applies this only
+# to Darwin binaries, after building and before archiving/checksumming.
+notarize:
+  macos:
+    - enabled: '{{ isEnvSet "MACOS_SIGN_P12" }}'
+      ids: [curator-run]
+      sign:
+        certificate: '{{ .Env.MACOS_SIGN_P12 }}'
+        password: '{{ .Env.MACOS_SIGN_P12_PASSWORD }}'
+      notarize:
+        issuer_id: '{{ .Env.ASC_ISSUER_ID }}'
+        key_id: '{{ .Env.ASC_KEY_ID }}'
+        key: '{{ .Env.ASC_KEY_P8 }}'
+        wait: true
+        timeout: 20m
+
+# Mirror Curator: keyless cosign signs only the final checksums file.
+signs:
+  - cmd: cosign
+    certificate: '${artifact}.pem'
+    args:
+      - sign-blob
+      - '--output-certificate=${certificate}'
+      - '--output-signature=${signature}'
+      - '${artifact}'
+      - --yes
+    artifacts: checksum
+    output: true
+
+release:
+  github:
+    owner: relux-works
+    name: curator-agent-launcher
+  draft: false
+  prerelease: auto
+
+changelog:
+  use: github

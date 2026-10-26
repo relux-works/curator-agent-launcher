@@ -1,0 +1,50 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+  id-token: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify signed release tag and pinned version
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: scripts/release-gate.sh "$RELEASE_TAG"
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Check release version documentation and help
+        run: go test ./cmd/curator-run -run '^TestReleaseVersionPinned$' -count=1
+
+      - uses: sigstore/cosign-installer@v3
+
+      - name: Build, sign, notarize and publish
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          version: v2.17.0
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          MACOS_SIGN_P12: ${{ secrets.MACOS_SIGN_P12 }}
+          MACOS_SIGN_P12_PASSWORD: ${{ secrets.MACOS_SIGN_P12_PASSWORD }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}

@@ -47,6 +47,9 @@ jobs:
       - name: go test
         run: make test
 
+      - name: Release admission controls
+        run: make release-gate-test
+
   race:
     name: Race (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
