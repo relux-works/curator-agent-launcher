@@ -16,7 +16,7 @@ func TestSessionManagerGrammar(t *testing.T) {
 			t.Fatal(args, got, err)
 		}
 	}
-	for _, args := range [][]string{{}, {"unknown"}, {"list", "other"}, {"list", "--json", "--json"}, {"show"}, {"show", "Bad"}, {"show", "id", "extra"}, {"select", "id", "--json"}, {"unregister", "id", "--"}, {"register"}, {"register", "--manifest"}, {"register", "--manifest", "--select"}, {"register", "--manifest", "-", "--select", "--no-select"}, {"register", "--manifest", "-", "--manifest", "file"}, {"register", "--manifest", "-", "--select", "--select"}, {"register", "--manifest", "-", "--json"}} {
+	for _, args := range [][]string{{}, {"unknown"}, {"list", "other"}, {"list", "--json", "--json"}, {"show"}, {"show", "Bad"}, {"show", "id", "extra"}, {"select", "id", "--json"}, {"unregister", "id", "--"}, {"register"}, {"register", "--manifest"}, {"register", "--manifest", "--select"}, {"register", "--manifest", "--scope", "user", "file"}, {"register", "--manifest", "-", "--select", "--no-select"}, {"register", "--manifest", "-", "--manifest", "file"}, {"register", "--manifest", "-", "--select", "--select"}, {"register", "--manifest", "-", "--json"}} {
 		got, err := Parse(append([]string{"session-manager"}, args...), Options{})
 		if !IsUsage(err) || got.SessionManager != nil {
 			t.Fatal(args, got, err)
@@ -55,12 +55,12 @@ func TestSessionManagerDiagnostics(t *testing.T) {
 		args []string
 		want []string
 	}{
-		{[]string{"session-manager"}, []string{"needs an operation", "curator run session-manager --help"}},
-		{[]string{"session-manager", "use", "x"}, []string{"unknown session-manager operation", "curator run session-manager --help"}},
-		{[]string{"session-manager", "list", "extra"}, []string{"unexpected argument", "curator run session-manager list --help"}},
-		{[]string{"session-manager", "show"}, []string{"manager id is required", "curator run session-manager show --help"}},
+		{[]string{"session-manager"}, []string{"needs an operation", "curator-run session-manager --help"}},
+		{[]string{"session-manager", "bogus", "x"}, []string{"unknown session-manager operation", "curator-run session-manager --help"}},
+		{[]string{"session-manager", "list", "extra"}, []string{"unexpected argument", "curator-run session-manager list --help"}},
+		{[]string{"session-manager", "show"}, []string{"manager id is required", "curator-run session-manager show --help"}},
 		{[]string{"session-manager", "select", "Bad_ID"}, []string{"invalid manager id"}},
-		{[]string{"session-manager", "register"}, []string{"--manifest is required", "curator run session-manager register --help"}},
+		{[]string{"session-manager", "register"}, []string{"--manifest is required", "curator-run session-manager register --help"}},
 		{[]string{"session-manager", "register", "--manifest"}, []string{"--manifest needs a path or -"}},
 		{[]string{"session-manager", "register", "--manifest", "-", "--select", "--no-select"}, []string{"mutually exclusive"}},
 		{[]string{"session-manager", "register", "--manifest", "-", "--select", "--select"}, []string{"--select given twice"}},
@@ -123,7 +123,7 @@ func TestTopicHelp(t *testing.T) {
 		{[]string{"werkstatt", "recover", "x", "-h"}, "usage: curator run werkstatt recover"},
 		{[]string{"werkstatt", "down", "x", "-h"}, "usage: curator run werkstatt down"},
 		{[]string{"werkstatt", "bogus", "--help"}, "usage: curator run werkstatt up <id>"},
-		{[]string{"session-manager", "unregister", "--help"}, "usage: curator run session-manager unregister"},
+		{[]string{"session-manager", "unregister", "--help"}, "usage: curator-run session-manager unregister"},
 		{[]string{"migrate", "-h"}, "usage: curator run migrate"},
 	} {
 		text, ok := TopicHelp(tc.args)
@@ -160,5 +160,65 @@ func TestWerkstattHelpGolden(t *testing.T) {
 				t.Fatalf("help differs from %s golden: %q", name, got)
 			}
 		})
+	}
+}
+
+// Scope is a closed mutation-only flag, supports either argv position, and
+// rejects duplicates/missing/secret values without disclosing supplied text.
+func TestSessionManagerScopeGrammar(t *testing.T) {
+	for _, op := range []string{"register", "use", "select", "unregister"} {
+		base := []string{op, "board"}
+		if op == "register" {
+			base = []string{op, "--manifest", "-"}
+		}
+		for _, scope := range []string{"user", "system"} {
+			for _, before := range []bool{false, true} {
+				args := append([]string{}, base...)
+				if before {
+					args = append([]string{op, "--scope", scope}, base[1:]...)
+				} else {
+					args = append(args, "--scope", scope)
+				}
+				got, err := Parse(append([]string{"session-manager"}, args...), Options{})
+				if err != nil || got.SessionManager.Scope != scope {
+					t.Fatalf("%v: %+v %v", args, got, err)
+				}
+			}
+		}
+		for _, tail := range [][]string{{"--scope"}, {"--scope", "SENTINEL_SECRET_SCOPE"}, {"--scope", "user", "--scope", "system"}, {"--scope=user"}} {
+			args := append(append([]string{"session-manager"}, base...), tail...)
+			got, err := Parse(args, Options{})
+			if !IsUsage(err) || got.SessionManager != nil || strings.Contains(err.Error(), "SENTINEL") {
+				t.Fatalf("%v: %+v %v", args, got, err)
+			}
+		}
+	}
+	for _, args := range [][]string{{"list", "--scope", "user"}, {"show", "board", "--scope", "system"}} {
+		if _, err := Parse(append([]string{"session-manager"}, args...), Options{}); !IsUsage(err) {
+			t.Fatal(args, err)
+		}
+	}
+}
+
+// Every nested registry help surface has reviewed exact bytes for canonical
+// use, scope, and the deprecated alias, independently of runtime configuration.
+func TestSessionManagerHelpGolden(t *testing.T) {
+	for _, verb := range []string{"", "list", "show", "register", "use", "select", "unregister"} {
+		name := verb
+		args := []string{"session-manager"}
+		if verb == "" {
+			name = "topic"
+		} else {
+			args = append(args, verb)
+		}
+		args = append(args, "--help")
+		got, ok := TopicHelp(args)
+		want, err := os.ReadFile(filepath.Join("testdata", "help-session-manager-"+name+".golden"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !ok || got != string(want) {
+			t.Fatalf("%s help differs: %q", name, got)
+		}
 	}
 }

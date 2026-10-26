@@ -4,11 +4,19 @@
 
 ### Changed
 
+- Add `session-manager use` and explicit mutation `--scope user|system` with
+  no fallback. Omitted scope preserves layer selection; list/show report the
+  layer read in text and CLI JSON, without changing the registry file schema.
+
 - Add `werkstatt update` for task/queue dispatch edits and `werkstatt recover`
   for manager rebind or abandoned-operation overrides, with the same locking,
   CAS, diagnostics and status output as the former mutating status flags.
 
 ### Deprecated
+
+- `session-manager select` is deprecated in 0.6.0; use `session-manager use`.
+  The alias preserves stdout and effects with one stderr warning. Removal is
+  no earlier than 0.8.0, two releases after deprecation.
 
 - Mutating `werkstatt status` flags are deprecated in 0.6.0, removed no earlier
   than 0.8.0: removed two releases after it was deprecated. Use `update` or

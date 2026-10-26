@@ -28,6 +28,13 @@ amendment proposes to an accepted text.
 in the Werkstatt record pins the resolved profile lock (§§6.1–6.2). A mismatch
 refuses before hooks or launch/resume, without printing either hash (§11).
 
+**2026-10-27 registry CLI amendment (owner-approved):** `session-manager use`
+replaces `select`; the alias warns once on stderr, deprecated in 0.6.0 and
+removed no earlier than 0.8.0 (two releases). Mutations accept explicit
+`--scope user|system` without fallback; omitted scope retains the existing
+layer policy. This applies the owner's CLI grammar decision to expose write
+authority (§§3.2, 4.2–4.3).
+
 **2026-10-27 amendment (owner-approved):** dispatch edits move to
 `werkstatt update`, and explicit recovery overrides to `werkstatt recover`
 (§§2, 6.2, 6.5–6.6). The former mutating `status` forms are deprecated in
@@ -113,9 +120,9 @@ curator-run werkstatt list [--json]
 
 curator-run session-manager list [--json]
 curator-run session-manager show <id> [--json]
-curator-run session-manager register --manifest <path|-> [--select | --no-select]
-curator-run session-manager select <id>
-curator-run session-manager unregister <id>
+curator-run session-manager register --manifest <path|-> [--select | --no-select] [--scope user|system]
+curator-run session-manager use <id> [--scope user|system]
+curator-run session-manager unregister <id> [--scope user|system]
 
 curator-run migrate [--dry-run]
 ```
@@ -182,8 +189,8 @@ then the machine mode. Closed table, first match wins:
 The two `auto` lines are fixed:
 
 ```text
-notice-empty:      curator-run: no session manager registered; launching natively (curator run session-manager list)
-notice-unselected: curator-run: no session manager selected (<N> registered); launching natively (curator run session-manager select <id>)
+notice-empty:      curator-run: no session manager registered; launching natively (curator-run session-manager list)
+notice-unselected: curator-run: no session manager selected (<N> registered); launching natively (curator-run session-manager use <id>)
 ```
 
 **Resolution algorithm.** This is the one order. The first refusal wins.
@@ -421,6 +428,12 @@ line-group.
 - **Effective registry:** if the system file exists, it alone decides, and
   the user file is not opened. Otherwise the user file decides. This is the
   same machine-first rule as `ax.json` (SPEC §4.6).
+- **CLI display:** `list` and `show` begin text output with `layer: system`,
+  `layer: user`, or (list with no file) `layer: none`. Their closed CLI JSON
+  adds the top-level member `"layer"` with the same vocabulary; otherwise list
+  retains the registry object and show the entry plus `id`. This member is
+  never stored in the registry file; its schema is unchanged. Legacy fallback
+  reports the layer actually read.
 - **Checks:** every read applies the SPEC §4.7 file checks. A file that
   fails them, or does not parse, is `session_manager_registry_invalid` (2).
 
@@ -437,7 +450,7 @@ Registry states for §3.2:
 A session manager's installer registers it:
 
 ```text
-curator-run session-manager register --manifest - [--select | --no-select]
+curator-run session-manager register --manifest - [--select | --no-select] [--scope user|system]
 ```
 
 task-board exposes this as `task-board session-manager register --for
@@ -451,6 +464,11 @@ Rules, closed, applied in order:
    target is the user file but a system registry exists, the command
    refuses `session_manager_registry_shadowed` (2): the registration would
    be ignored. A privileged installer must register in that case.
+   Explicit `--scope system` chooses only system: an unwritable system target
+   refuses `session_manager_registry_invalid` (2), `reason="unreadable"`,
+   before locking or writing either layer, with no fallback. `--scope user`
+   chooses only user and retains the shadowing refusal even when system is
+   writable. Invalid, missing or duplicate scope is `usage` (2) with no effect.
 2. **Explicit flags win.**
    - `--select` registers and selects.
    - `--no-select` registers without changing `selected`, even when this is
@@ -468,12 +486,12 @@ Rules, closed, applied in order:
      new manager. The default answer keeps the current selection.
    - Without a TTY, it registers without selecting, exits 0, and prints one
      line: `registered <id>; selection unchanged (<current or none>); run:
-     curator run session-manager select <id>`. An agent installer has no
+     curator-run session-manager use <id>`. An agent installer has no
      TTY: it asks its human in its own channel, then passes `--select` or
-     `--no-select`, or runs `select` later.
+     `--no-select`, or runs `use` later.
 7. **Writes are atomic**: a temp file in the same directory, fsync, rename,
    and fsync of the directory.
-8. **Mutations are serialised.** `register`, `select` and `unregister` each
+8. **Mutations are serialised.** `register`, `use` (or its `select` alias) and `unregister` each
    take one exclusive lock, `session-managers.json.lock` in the target
    layer's directory. They hold it across the whole read–decide–write
    transaction. That includes the TTY question: an interactive prompt holds
@@ -486,8 +504,11 @@ Rules, closed, applied in order:
    - Two acknowledged registrations can therefore never overwrite each
      other.
 
-After registration, no launch prompts about managers. `select <id>` and
-`unregister <id>` are explicit commands. An unknown id is
+After registration, no launch prompts about managers. `use <id>` and
+`unregister <id>` accept `[--scope user|system]`. `select <id>` remains a
+deprecated alias for `use`: identical stdout, effects, locks and diagnostics,
+plus exactly one stderr line naming `use`. Deprecated in 0.6.0, removal no
+earlier than 0.8.0 (two releases). An unknown id is
 `session_manager_not_registered` (2).
 
 All three mutating commands use rule 1 to choose their target layer. A
@@ -2042,9 +2063,9 @@ Detail vocabularies are closed (§5.6). Grammar names:
 | Code | Exit | When | Details (field: vocabulary) |
 | --- | ---: | --- | --- |
 | `host_member_withdrawn` | 2 | `defaults.json` has `host` (§3.1), or `migrate` meets mixed values | `path`; `reason`: `present`, `mixed_values` |
-| `session_manager_registry_invalid` | 2 | registry unreadable or failing the checks (§4.2) | `path`; `reason`: `unreadable`, `parse`, `schema`, `symlink`, `owner`, `mode` |
-| `session_manager_registry_shadowed` | 2 | user registration while a system registry exists | `path` |
-| `session_manager_not_registered` | 2 | `select`/`unregister` of an unknown id | `id`: `<id>` |
+| `session_manager_registry_invalid` | 2 | registry unreadable, failing the checks (§4.2), or explicit system write target unwritable (§4.3) | `path`; `reason`: `unreadable`, `parse`, `schema`, `symlink`, `owner`, `mode` |
+| `session_manager_registry_shadowed` | 2 | user mutation while a system registry exists | `path` |
+| `session_manager_not_registered` | 2 | `use` (or deprecated `select`)/`unregister` of an unknown id | `id`: `<id>` |
 | `session_manager_registry_busy` | 1 | another registry mutation holds the lock (§4.3 rule 8) | none |
 | `session_operation_conflict` | 1 | a reused `operation_id` with a different request digest (§5.7) | none |
 | `session_operation_expired` | 1 | `submitted_at` is older than the retention window (§5.7) | none |

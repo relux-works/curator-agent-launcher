@@ -1,0 +1,12 @@
+usage: curator-run session-manager list [--json]
+       curator-run session-manager show <id> [--json]
+       curator-run session-manager register --manifest <path|-> [--select | --no-select] [--scope user|system]
+       curator-run session-manager use <id> [--scope user|system]
+       curator-run session-manager select <id> [--scope user|system] (deprecated)
+       curator-run session-manager unregister <id> [--scope user|system]
+
+Manages the machine's session-manager registry. These commands never launch
+or contact a manager. list/show report the layer read (system, user or none).
+--scope chooses one write layer with no fallback. Without it, the writable
+system layer wins; otherwise user. A system registry shadows user mutations.
+select is deprecated in 0.6.0; removal no earlier than 0.8.0 (two releases).

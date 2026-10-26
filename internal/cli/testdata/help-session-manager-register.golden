@@ -1,0 +1,10 @@
+usage: curator-run session-manager register --manifest <path|-> [--select | --no-select] [--scope user|system]
+
+Validates a manager manifest (a file, or - for stdin) and adds it to the
+registry, or updates the entry with the same id. --select selects it and
+--no-select leaves the selection unchanged. Without either flag: an update
+keeps the selection, a manager registered into an empty registry is
+selected, and otherwise the command asks once on a terminal; without a
+terminal the selection stays unchanged.
+--scope system refuses if unwritable; --scope user refuses under a system
+registry. Without --scope, writable system wins, otherwise user (no shadowed writes).

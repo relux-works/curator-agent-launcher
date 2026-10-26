@@ -11,9 +11,10 @@ usage: curator-run <env-id> [--hosted | --native | --untracked]
                    [--] <native args...>
        curator-run session-manager list [--json]
        curator-run session-manager show <id> [--json]
-       curator-run session-manager register --manifest <path|-> [--select | --no-select]
-       curator-run session-manager select <id>
-       curator-run session-manager unregister <id>
+       curator-run session-manager register --manifest <path|-> [--select | --no-select] [--scope user|system]
+       curator-run session-manager use <id> [--scope user|system]
+       curator-run session-manager select <id> [--scope user|system] (deprecated)
+       curator-run session-manager unregister <id> [--scope user|system]
        curator-run werkstatt up <id> [--attach] [--new] [--task-class C [--difficulty D]]
        curator-run werkstatt down <id> [--force]
        curator-run werkstatt recycle <id>

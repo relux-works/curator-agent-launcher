@@ -9,13 +9,34 @@ import "github.com/relux-works/curator-agent-launcher/internal/sessionmanager"
 func parseSessionManager(args []string) (sessionmanager.Command, error) {
 	var c sessionmanager.Command
 	if len(args) == 0 {
-		return c, usageErr("session-manager needs an operation: list, show, register, select or unregister%s", helpHint("session-manager", ""))
+		return c, usageErr("session-manager needs an operation: list, show, register, use or unregister%s", helpHint("session-manager", ""))
 	}
 	c.Operation = args[0]
 	args = args[1:]
 	fail := func(format string, a ...any) (sessionmanager.Command, error) {
 		return sessionmanager.Command{}, usageErr("session-manager %s: "+format+"%s", append(append([]any{c.Operation}, a...), helpHint("session-manager", c.Operation))...)
 	}
+	// Selection/removal accept scope on either side of the positional id.
+	// Registration consumes it below alongside its other flags and values.
+	if c.Operation == "use" || c.Operation == "select" || c.Operation == "unregister" {
+		filtered := make([]string, 0, len(args))
+		for i := 0; i < len(args); i++ {
+			if args[i] != "--scope" {
+				filtered = append(filtered, args[i])
+				continue
+			}
+			if c.Scope != "" {
+				return fail("--scope given twice")
+			}
+			i++
+			if i == len(args) || (args[i] != "user" && args[i] != "system") {
+				return fail("--scope needs user or system")
+			}
+			c.Scope = args[i]
+		}
+		args = filtered
+	}
+
 	switch c.Operation {
 	case "list":
 		if len(args) == 1 && args[0] == "--json" {
@@ -23,7 +44,7 @@ func parseSessionManager(args []string) (sessionmanager.Command, error) {
 		} else if len(args) != 0 {
 			return fail("unexpected argument")
 		}
-	case "show", "select", "unregister":
+	case "show", "use", "select", "unregister":
 		if len(args) == 0 {
 			return fail("a manager id is required")
 		}
@@ -42,7 +63,7 @@ func parseSessionManager(args []string) (sessionmanager.Command, error) {
 		for i := 0; i < len(args); i++ {
 			flag := args[i]
 			if seen[flag] {
-				if flag == "--manifest" || flag == "--select" || flag == "--no-select" {
+				if flag == "--manifest" || flag == "--select" || flag == "--no-select" || flag == "--scope" {
 					return fail("%s given twice", flag)
 				}
 				return fail("unknown argument")
@@ -55,6 +76,12 @@ func parseSessionManager(args []string) (sessionmanager.Command, error) {
 					return fail("--manifest needs a path or -")
 				}
 				c.Manifest = args[i]
+			case "--scope":
+				i++
+				if i == len(args) || (args[i] != "user" && args[i] != "system") {
+					return fail("--scope needs user or system")
+				}
+				c.Scope = args[i]
 			case "--select":
 				c.Select = true
 			case "--no-select":
@@ -70,7 +97,7 @@ func parseSessionManager(args []string) (sessionmanager.Command, error) {
 			return fail("--select and --no-select are mutually exclusive")
 		}
 	default:
-		return sessionmanager.Command{}, usageErr("unknown session-manager operation; expected list, show, register, select or unregister%s", helpHint("session-manager", ""))
+		return sessionmanager.Command{}, usageErr("unknown session-manager operation; expected list, show, register, use or unregister%s", helpHint("session-manager", ""))
 	}
 	return c, nil
 }

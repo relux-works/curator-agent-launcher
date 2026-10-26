@@ -93,3 +93,44 @@ func TestSessionManagerBusyDiagnostic(t *testing.T) {
 		t.Fatalf("exit=%d stderr=%q", exit, stderr.String())
 	}
 }
+
+// Invalid scope is exit 2 before any registry directory or lock is created;
+// the same manifest/ID with a valid user scope registers and selects normally.
+func TestSessionManagerScopeUsageNoEffects(t *testing.T) {
+	deps, runner, loc := configHomeFixture(t)
+	deps.managerService = &sessionmanager.Service{CanWriteSystem: func(string) bool { return false }}
+	executable := filepath.Join(t.TempDir(), "manager")
+	if err := os.WriteFile(executable, []byte("never executed"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	data, _ := json.Marshal(map[string]any{"id": "board", "executable": executable, "argv_prefix": []string{"plugin"}, "protocol": sessionmanager.Protocol, "registered_by": "test installer"})
+	for _, op := range []string{"register", "use", "select", "unregister"} {
+		base := []string{"session-manager", op, "board"}
+		if op == "register" {
+			base = []string{"session-manager", op, "--manifest", "-"}
+		}
+		var out, stderr strings.Builder
+		deps.stdin = strings.NewReader(string(data))
+		code := run(context.Background(), append(base, "--scope", "SENTINEL_SECRET_SCOPE"), &out, &stderr, deps)
+		if code != 2 || out.Len() != 0 || !strings.Contains(stderr.String(), "--scope needs user or system") || strings.Contains(stderr.String(), "SENTINEL") {
+			t.Fatalf("exit=%d out=%q err=%q", code, out.String(), stderr.String())
+		}
+		for _, dir := range []string{loc.System, loc.User} {
+			for _, name := range []string{sessionmanager.Filename, sessionmanager.Filename + ".lock"} {
+				if _, err := os.Stat(filepath.Join(dir, name)); !os.IsNotExist(err) {
+					t.Fatalf("invalid scope touched %s: %v", name, err)
+				}
+			}
+		}
+	}
+	var out, stderr strings.Builder
+	deps.stdin = strings.NewReader(string(data))
+	for _, args := range [][]string{{"session-manager", "register", "--manifest", "-", "--scope", "user"}, {"session-manager", "use", "board", "--scope", "user"}} {
+		if code := run(context.Background(), args, &out, &stderr, deps); code != 0 || stderr.Len() != 0 {
+			t.Fatalf("valid control exit=%d err=%q", code, stderr.String())
+		}
+	}
+	if runner.calls != 0 {
+		t.Fatal("registry command launched a child")
+	}
+}

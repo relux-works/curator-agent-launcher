@@ -794,21 +794,31 @@ is not wired to the registry in this slice.
 ```sh
 curator-run session-manager list [--json]
 curator-run session-manager show <id> [--json]
-curator-run session-manager register --manifest <path|-> [--select | --no-select]
-curator-run session-manager select <id>
-curator-run session-manager unregister <id>
+curator-run session-manager register --manifest <path|-> [--select | --no-select] [--scope user|system]
+curator-run session-manager use <id> [--scope user|system]
+curator-run session-manager unregister <id> [--scope user|system]
 ```
 
-`list --json` prints the registry object; `show --json` prints the entry plus
-its `id`. Human listing sorts by id and marks the selected manager with `*`.
+`list --json` prints the registry object plus `layer`; `show --json` prints
+the entry plus `id` and `layer`. The CLI-only layer is `system`, `user` or
+`none` (list when no file exists), including legacy fallback. Text starts with
+`layer: <layer>`, then listing sorts by id and marks the selected manager with
+`*`. The registry file schema remains unchanged.
 The registration manifest is an entry plus `id`, without `registered_at`;
 registration resolves executable symlinks, validates a regular executable,
 and stamps UTC. All mutations write the system layer if writable, otherwise
 the user layer; a system registry makes a user mutation refuse as shadowed.
+Explicit `--scope system` refuses if unwritable (`session_manager_registry_invalid`,
+exit 2, `reason="unreadable"`), before locking or writing, without falling back.
+Explicit `--scope user` writes user only and still refuses when a system
+registry exists. Missing, invalid or duplicate scope is `usage` (exit 2) with
+no effect. Omitted scope preserves the existing layer policy. `select` remains
+a deprecated alias for `use`: identical stdout and effect, one stderr warning;
+deprecated in 0.6.0, removed no earlier than 0.8.0 (two releases).
 A newly created system registry starts empty. Explicit flags decide selection;
 otherwise an existing id keeps it, the first manager is selected, and adding
 a peer asks once on a terminal (default: keep). Without a terminal the peer
-is registered without selecting and the command prints the explicit `select`
+is registered without selecting and the command prints the explicit `use`
 command. Unregister never selects a replacement. Writes use a same-directory
 temp file, file fsync, rename, and directory fsync. Each mutation holds an
 OS advisory `session-managers.json.lock` in its target directory across reading,
@@ -978,7 +988,7 @@ runs need their own explicit timeout budget, for example
 
 | Tool | Purpose | Entry point | Output |
 |---|---|---|---|
-| `curator-run session-manager` | inspect and atomically update the manager registry | `curator-run session-manager list/show/register/select/unregister` (forms above) | stdout or JSON; `session-managers.json` in the effective target config home |
+| `curator-run session-manager` | inspect and atomically update the manager registry | `curator-run session-manager list/show/register/use/unregister (deprecated alias: select)` (forms above) | stdout or JSON; `session-managers.json` in the effective target config home |
 | `curator-run werkstatt` | hosted station lifecycle and separate manager/a2a status | commands above; `go test ./cmd/curator-run -run TestWerkstattBinary -count=1 -v` | liveness and journal in the XDG state home; bounded test children in `t.TempDir` |
 | `.scripts/werkstatt-mutants.py` | owner, workspace, admission, CAS, stale output, evidence and dispatch negative controls | `python3 .scripts/werkstatt-mutants.py [evidence-dir]` | logs and `summary.tsv`, default `.temp/werkstatt-mutants/`; restores exact source bytes; run alone |
 | `.scripts/selector-mutants.py` | bounded selector config, response, transport, precedence and shadow controls | `python3 .scripts/selector-mutants.py [evidence-dir]` | per-probe logs and `summary.tsv`, default `.temp/selector-mutants/`; restores source bytes |

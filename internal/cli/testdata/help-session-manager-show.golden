@@ -1,0 +1,3 @@
+usage: curator-run session-manager show <id> [--json]
+
+Shows one registered manager and the layer read.

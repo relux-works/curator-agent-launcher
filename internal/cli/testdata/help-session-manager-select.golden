@@ -1,0 +1,4 @@
+usage: curator-run session-manager select <id> [--scope user|system]
+
+Deprecated alias for use since 0.6.0; removal no earlier than 0.8.0
+(two releases). Same effect and stdout, with one stderr warning.

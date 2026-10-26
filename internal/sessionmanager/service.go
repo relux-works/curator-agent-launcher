@@ -15,8 +15,8 @@ import (
 )
 
 type Command struct {
-	Operation, ID, Manifest string
-	JSON, Select, NoSelect  bool
+	Operation, ID, Manifest, Scope string
+	JSON, Select, NoSelect         bool
 }
 
 // Service boundaries allow registration policy and failed writes to be tested
@@ -33,10 +33,11 @@ type Service struct {
 }
 
 func (s Service) Run(c Command) error {
-	if c.Select && c.NoSelect {
+	if (c.Scope != "" && c.Scope != "user" && c.Scope != "system") ||
+		(c.Scope != "" && (c.Operation == "list" || c.Operation == "show")) || (c.Select && c.NoSelect) {
 		return &Error{Code: "usage"}
 	}
-	if (c.Operation == "select" || c.Operation == "unregister" || c.Operation == "show") && !ValidID(c.ID) {
+	if (c.Operation == "use" || c.Operation == "select" || c.Operation == "unregister" || c.Operation == "show") && !ValidID(c.ID) {
 		return &Error{Code: "usage"}
 	}
 	if s.Stdin == nil {
@@ -63,7 +64,16 @@ func (s Service) Run(c Command) error {
 	if c.Operation == "list" || c.Operation == "show" {
 		return s.display(c)
 	}
-	layer, path, mode := s.destination()
+	if c.Operation == "select" {
+		if _, err := io.WriteString(s.Stderr, "curator-run: session-manager select is deprecated in 0.6.0; use curator-run session-manager use instead (removal no earlier than 0.8.0)\n"); err != nil {
+			return err
+		}
+		c.Operation = "use"
+	}
+	layer, path, mode, err := s.destination(c.Scope)
+	if err != nil {
+		return err
+	}
 	// Machine authority precedes touching the user home; check again under
 	// the lock in case a system registry appeared while this mutation waited.
 	if layer == configfile.User {
@@ -138,7 +148,7 @@ func (s Service) Run(c Command) error {
 			if current == "" {
 				current = "none"
 			}
-			notice += fmt.Sprintf("registered %s; selection unchanged (%s); run: curator run session-manager select %s\n", id, current, id)
+			notice += fmt.Sprintf("registered %s; selection unchanged (%s); run: curator-run session-manager use %s\n", id, current, id)
 		}
 		registry.Managers[id] = entry
 		// Report output errors before commit, so every failed command preserves
@@ -150,11 +160,11 @@ func (s Service) Run(c Command) error {
 			return invalid(path, "unreadable", err)
 		}
 		return nil
-	case "select", "unregister":
+	case "use", "unregister":
 		if _, ok := registry.Managers[c.ID]; !ok {
 			return &Error{Code: CodeNotRegistered, ID: c.ID}
 		}
-		if c.Operation == "select" {
+		if c.Operation == "use" {
 			registry.Selected = c.ID
 		} else {
 			delete(registry.Managers, c.ID)
@@ -185,13 +195,17 @@ func readManifest(path string, in io.Reader) ([]byte, error) {
 	}
 	return os.ReadFile(path)
 }
-func (s Service) destination() (configfile.Layer, string, os.FileMode) {
+func (s Service) destination(scope string) (configfile.Layer, string, os.FileMode, error) {
 	layer, mode := configfile.User, os.FileMode(0600)
-	if s.CanWriteSystem(s.Resolver.Locations.System) {
+	if scope == "system" || (scope == "" && s.CanWriteSystem(s.Resolver.Locations.System)) {
 		layer, mode = configfile.System, 0644
 	}
 	dir, _ := s.Resolver.Locations.Directories(layer)
-	return layer, filepath.Join(dir, Filename), mode
+	path := filepath.Join(dir, Filename)
+	if scope == "system" && !s.CanWriteSystem(dir) {
+		return layer, path, mode, invalid(path, "unreadable", os.ErrPermission)
+	}
+	return layer, path, mode, nil
 }
 func (s Service) readTarget(layer configfile.Layer) (Registry, error) {
 	if layer == configfile.User {
@@ -223,9 +237,18 @@ func (s Service) checkMachineAuthority() error {
 	return nil
 }
 func (s Service) display(c Command) error {
-	r, _, err := Load(s.Resolver)
+	r, path, err := Load(s.Resolver)
 	if err != nil {
 		return err
+	}
+	layer := "none"
+	if path != "" {
+		layer = "user"
+		for _, dir := range []string{s.Resolver.Locations.System, s.Resolver.Locations.LegacySystem} {
+			if dir != "" && path == filepath.Join(dir, Filename) {
+				layer = "system"
+			}
+		}
 	}
 	if c.Operation == "show" {
 		e, ok := r.Managers[c.ID]
@@ -234,15 +257,22 @@ func (s Service) display(c Command) error {
 		}
 		if c.JSON {
 			return json.NewEncoder(s.Stdout).Encode(struct {
-				ID string `json:"id"`
+				ID    string `json:"id"`
+				Layer string `json:"layer"`
 				Entry
-			}{c.ID, e})
+			}{c.ID, layer, e})
 		}
-		_, err = fmt.Fprintf(s.Stdout, "%s: %s\nprotocol: %s\nargv_prefix: %s\nregistered_at: %s\nregistered_by: %s\n", c.ID, oneLine(e.Executable), e.Protocol, strings.Join(e.ArgvPrefix, " "), e.RegisteredAt, oneLine(e.RegisteredBy))
+		_, err = fmt.Fprintf(s.Stdout, "layer: %s\n%s: %s\nprotocol: %s\nargv_prefix: %s\nregistered_at: %s\nregistered_by: %s\n", layer, c.ID, oneLine(e.Executable), e.Protocol, strings.Join(e.ArgvPrefix, " "), e.RegisteredAt, oneLine(e.RegisteredBy))
 		return err
 	}
 	if c.JSON {
-		return json.NewEncoder(s.Stdout).Encode(r)
+		return json.NewEncoder(s.Stdout).Encode(struct {
+			Registry
+			Layer string `json:"layer"`
+		}{r, layer})
+	}
+	if _, err := fmt.Fprintf(s.Stdout, "layer: %s\n", layer); err != nil {
+		return err
 	}
 	ids := make([]string, 0, len(r.Managers))
 	for id := range r.Managers {

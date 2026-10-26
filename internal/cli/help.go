@@ -70,26 +70,30 @@ Reports every Werkstatt in the status row shape.
 `,
 }
 
-const sessionManagerHelp = `usage: curator run session-manager list [--json]
-       curator run session-manager show <id> [--json]
-       curator run session-manager register --manifest <path|-> [--select | --no-select]
-       curator run session-manager select <id>
-       curator run session-manager unregister <id>
+const sessionManagerHelp = `usage: curator-run session-manager list [--json]
+       curator-run session-manager show <id> [--json]
+       curator-run session-manager register --manifest <path|-> [--select | --no-select] [--scope user|system]
+       curator-run session-manager use <id> [--scope user|system]
+       curator-run session-manager select <id> [--scope user|system] (deprecated)
+       curator-run session-manager unregister <id> [--scope user|system]
 
 Manages the machine's session-manager registry. These commands never launch
-or contact a manager.
+or contact a manager. list/show report the layer read (system, user or none).
+--scope chooses one write layer with no fallback. Without it, the writable
+system layer wins; otherwise user. A system registry shadows user mutations.
+select is deprecated in 0.6.0; removal no earlier than 0.8.0 (two releases).
 `
 
 var sessionManagerVerbHelp = map[string]string{
-	"list": `usage: curator run session-manager list [--json]
+	"list": `usage: curator-run session-manager list [--json]
 
-Lists the registered managers and marks the selected one.
+Lists the layer read and registered managers, marking the selected one.
 `,
-	"show": `usage: curator run session-manager show <id> [--json]
+	"show": `usage: curator-run session-manager show <id> [--json]
 
-Shows one registered manager.
+Shows one registered manager and the layer read.
 `,
-	"register": `usage: curator run session-manager register --manifest <path|-> [--select | --no-select]
+	"register": `usage: curator-run session-manager register --manifest <path|-> [--select | --no-select] [--scope user|system]
 
 Validates a manager manifest (a file, or - for stdin) and adds it to the
 registry, or updates the entry with the same id. --select selects it and
@@ -97,15 +101,24 @@ registry, or updates the entry with the same id. --select selects it and
 keeps the selection, a manager registered into an empty registry is
 selected, and otherwise the command asks once on a terminal; without a
 terminal the selection stays unchanged.
+--scope system refuses if unwritable; --scope user refuses under a system
+registry. Without --scope, writable system wins, otherwise user (no shadowed writes).
 `,
-	"select": `usage: curator run session-manager select <id>
+	"use": `usage: curator-run session-manager use <id> [--scope user|system]
 
 Selects the registered manager <id> for hosted launches.
+--scope chooses one layer without fallback; system registries shadow user writes.
 `,
-	"unregister": `usage: curator run session-manager unregister <id>
+	"select": `usage: curator-run session-manager select <id> [--scope user|system]
+
+Deprecated alias for use since 0.6.0; removal no earlier than 0.8.0
+(two releases). Same effect and stdout, with one stderr warning.
+`,
+	"unregister": `usage: curator-run session-manager unregister <id> [--scope user|system]
 
 Removes <id> from the registry. Removing the selected manager leaves no
 selection; no other manager is selected in its place.
+--scope chooses one layer without fallback; system registries shadow user writes.
 `,
 }
 
@@ -155,7 +168,11 @@ func TopicHelp(args []string) (string, bool) {
 
 // helpHint names the smallest help command for a topic and verb.
 func helpHint(topic, verb string) string {
-	parts := []string{"curator run", topic}
+	prefix := "curator run"
+	if topic == "session-manager" {
+		prefix = "curator-run"
+	}
+	parts := []string{prefix, topic}
 	if verb != "" {
 		parts = append(parts, verb)
 	}

@@ -1,0 +1,4 @@
+usage: curator-run session-manager use <id> [--scope user|system]
+
+Selects the registered manager <id> for hosted launches.
+--scope chooses one layer without fallback; system registries shadow user writes.

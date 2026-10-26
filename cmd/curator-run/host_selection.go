@@ -57,9 +57,9 @@ func hostError(code string, details map[string]string) error {
 
 func hostNotice(w io.Writer, count int) {
 	if count == 0 {
-		fmt.Fprintln(w, "curator-run: no session manager registered; launching natively (curator run session-manager list)")
+		fmt.Fprintln(w, "curator-run: no session manager registered; launching natively (curator-run session-manager list)")
 	} else {
-		fmt.Fprintf(w, "curator-run: no session manager selected (%d registered); launching natively (curator run session-manager select <id>)\n", count)
+		fmt.Fprintf(w, "curator-run: no session manager selected (%d registered); launching natively (curator-run session-manager use <id>)\n", count)
 	}
 }
 

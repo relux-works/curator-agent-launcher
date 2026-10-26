@@ -99,7 +99,7 @@ func TestRegistrationRules(t *testing.T) {
 				if current == "" {
 					current = "none"
 				}
-				want := "registered new; selection unchanged (" + current + "); run: curator run session-manager select new\n"
+				want := "registered new; selection unchanged (" + current + "); run: curator-run session-manager use new\n"
 				if out.String() != want {
 					t.Fatal(out.String())
 				}
@@ -357,7 +357,11 @@ func TestListAndShow(t *testing.T) {
 	if err := s.Run(Command{Operation: "list", JSON: true}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := Parse(out.Bytes()); err != nil {
+	var listed struct {
+		Registry
+		Layer string `json:"layer"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &listed); err != nil || listed.Layer != "user" || len(listed.Managers) != 2 {
 		t.Fatal(err)
 	}
 	out.Reset()
@@ -375,7 +379,7 @@ func TestListAndShow(t *testing.T) {
 	if err := s.Run(Command{Operation: "list"}); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.HasPrefix(out.String(), "  a ") || !strings.Contains(out.String(), "\n* z ") {
+	if !strings.HasPrefix(out.String(), "layer: user\n  a ") || !strings.Contains(out.String(), "\n* z ") {
 		t.Fatal(out.String())
 	}
 }

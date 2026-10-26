@@ -1,0 +1,5 @@
+usage: curator-run session-manager unregister <id> [--scope user|system]
+
+Removes <id> from the registry. Removing the selected manager leaves no
+selection; no other manager is selected in its place.
+--scope chooses one layer without fallback; system registries shadow user writes.

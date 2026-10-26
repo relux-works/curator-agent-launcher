@@ -291,10 +291,13 @@ func TestFrontDoorBinary(t *testing.T) {
 						return
 					}
 					detail := "no manager selected"
-					notice := "curator-run: no session manager selected (1 registered); launching natively (curator run session-manager select <id>)"
+					notice := "curator-run: no session manager selected (1 registered); launching natively (curator-run session-manager use <id>)"
+					if strings.Contains(stderr, "session-manager select") || strings.Contains(stderr, "curator run session-manager") {
+						t.Fatalf("notice recommends obsolete command: %q", stderr)
+					}
 					if kind == "empty" {
 						detail = "no manager registered"
-						notice = "curator-run: no session manager registered; launching natively (curator run session-manager list)"
+						notice = "curator-run: no session manager registered; launching natively (curator-run session-manager list)"
 					}
 					if flag == "--hosted" {
 						f.require(t, code, 1, stderr, detail, nil, 0, false)
