@@ -808,10 +808,14 @@ The registration manifest is an entry plus `id`, without `registered_at`;
 registration resolves executable symlinks, validates a regular executable,
 and stamps UTC. All mutations write the system layer if writable, otherwise
 the user layer; a system registry makes a user mutation refuse as shadowed.
-Explicit `--scope system` refuses if unwritable (`session_manager_registry_invalid`,
-exit 2, `reason="unreadable"`), before locking or writing, without falling back.
+Explicit `--scope system` refuses if unwritable (`session_manager_registry_unwritable`,
+exit 2, `path` = registry directory, `scope=system`), before locking or writing,
+without falling back.
 Explicit `--scope user` writes user only and still refuses when a system
-registry exists. Missing, invalid or duplicate scope is `usage` (exit 2) with
+registry exists. An unshadowed, unwritable explicit user target likewise refuses
+`session_manager_registry_unwritable` before locking or writing, `scope=user`.
+This diagnoses directory write authority separately from invalid/unreadable
+registry content. Missing, invalid or duplicate scope is `usage` (exit 2) with
 no effect. Omitted scope preserves the existing layer policy. `select` remains
 a deprecated alias for `use`: identical stdout and effect, one stderr warning;
 deprecated in 0.6.0, removed no earlier than 0.8.0 (two releases).
@@ -928,7 +932,7 @@ on stderr. Foreign Curator/provider/ax output is forwarded unchanged.
 | Help/version, successful direct execution, or ax handoff | 0 |
 | `usage` (invalid arguments, locked-member override, host-request repeat, native resume selectors, or visible `yolo` under Curator's force-native lock) | 2 |
 | `session_manager_registry_busy` (lock contention after 10 seconds) | 1 |
-| `host_configuration_conflict`, `session_resume_invalid`, `launch_plan_invalid`, `host_member_withdrawn`, `migrate_destination_exists`, `session_manager_registry_invalid`, `session_manager_registry_shadowed`, `session_manager_not_registered` | 2 |
+| `host_configuration_conflict`, `session_resume_invalid`, `launch_plan_invalid`, `host_member_withdrawn`, `migrate_destination_exists`, `session_manager_registry_invalid`, `session_manager_registry_unwritable`, `session_manager_registry_shadowed`, `session_manager_not_registered` | 2 |
 | `resolve_invocation_failed`, `resolve_environment_unknown`, `resolve_profile_unknown`, `resolve_repair_failed`, `resolve_lock_unavailable`, `resolve_fragment_invalid` | 1 |
 | `defaults_config_invalid`, `defaults_unresolvable` | 1 |
 | `permission_policy_unsupported`, `permission_mode_tracked_unsupported`, `permission_mode_unsupported` | 1 |

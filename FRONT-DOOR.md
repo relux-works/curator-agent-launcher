@@ -33,7 +33,9 @@ replaces `select`; the alias warns once on stderr, deprecated in 0.6.0 and
 removed no earlier than 0.8.0 (two releases). Mutations accept explicit
 `--scope user|system` without fallback; omitted scope retains the existing
 layer policy. This applies the owner's CLI grammar decision to expose write
-authority (§§3.2, 4.2–4.3).
+authority (§§3.2, 4.2–4.3). Explicit write-authority refusal is
+`session_manager_registry_unwritable` (exit 2), distinct from invalid registry
+content or read access (§11).
 
 **2026-10-27 amendment (owner-approved):** dispatch edits move to
 `werkstatt update`, and explicit recovery overrides to `werkstatt recover`
@@ -465,10 +467,13 @@ Rules, closed, applied in order:
    refuses `session_manager_registry_shadowed` (2): the registration would
    be ignored. A privileged installer must register in that case.
    Explicit `--scope system` chooses only system: an unwritable system target
-   refuses `session_manager_registry_invalid` (2), `reason="unreadable"`,
+   refuses `session_manager_registry_unwritable` (2), with the target directory
+   `path` and `scope=system`,
    before locking or writing either layer, with no fallback. `--scope user`
    chooses only user and retains the shadowing refusal even when system is
-   writable. Invalid, missing or duplicate scope is `usage` (2) with no effect.
+   writable. If unshadowed, an unwritable explicit user target similarly refuses
+   `session_manager_registry_unwritable`, `scope=user`, before any lock or write.
+   Invalid, missing or duplicate scope is `usage` (2) with no effect.
 2. **Explicit flags win.**
    - `--select` registers and selects.
    - `--no-select` registers without changing `selected`, even when this is
@@ -2058,12 +2063,14 @@ Detail vocabularies are closed (§5.6). Grammar names:
 | `<id>` | the manager or Werkstatt id grammars of §§4.2, 6.1 |
 | `<cap>` | a §5.2 capability token, or one of `launch-exact-detached`, `launch-exact-doorbell`, `weights-pin` |
 | `<env>` | a §4.2 SPEC env-id |
+| `<scope>` | `system`, `user` (explicit registry write authority) |
 | `<path>`, `<field>` | sourced only by the launcher from its own configuration or validated record, never from a plugin |
 
 | Code | Exit | When | Details (field: vocabulary) |
 | --- | ---: | --- | --- |
 | `host_member_withdrawn` | 2 | `defaults.json` has `host` (§3.1), or `migrate` meets mixed values | `path`; `reason`: `present`, `mixed_values` |
-| `session_manager_registry_invalid` | 2 | registry unreadable, failing the checks (§4.2), or explicit system write target unwritable (§4.3) | `path`; `reason`: `unreadable`, `parse`, `schema`, `symlink`, `owner`, `mode` |
+| `session_manager_registry_invalid` | 2 | registry unreadable or failing the checks (§4.2) | `path`; `reason`: `unreadable`, `parse`, `schema`, `symlink`, `owner`, `mode` |
+| `session_manager_registry_unwritable` | 2 | explicit-scope target directory not writable (§4.3), before any lock/write, with no fallback | `path`: launcher-sourced registry directory; `scope`: `<scope>` |
 | `session_manager_registry_shadowed` | 2 | user mutation while a system registry exists | `path` |
 | `session_manager_not_registered` | 2 | `use` (or deprecated `select`)/`unregister` of an unknown id | `id`: `<id>` |
 | `session_manager_registry_busy` | 1 | another registry mutation holds the lock (§4.3 rule 8) | none |

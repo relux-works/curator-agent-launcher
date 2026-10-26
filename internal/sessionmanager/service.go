@@ -70,15 +70,24 @@ func (s Service) Run(c Command) error {
 		}
 		c.Operation = "use"
 	}
-	layer, path, mode, err := s.destination(c.Scope)
-	if err != nil {
-		return err
-	}
+	layer, path, mode := s.destination(c.Scope)
 	// Machine authority precedes touching the user home; check again under
 	// the lock in case a system registry appeared while this mutation waited.
 	if layer == configfile.User {
 		if err := s.checkMachineAuthority(); err != nil {
 			return err
+		}
+	}
+	// Explicit write authority is checked before creating directories or locks.
+	// Keep machine shadowing ahead of inspecting a user destination.
+	if c.Scope != "" {
+		dir := filepath.Dir(path)
+		canWrite := writableDirectory
+		if layer == configfile.System {
+			canWrite = s.CanWriteSystem
+		}
+		if !canWrite(dir) {
+			return &Error{Code: CodeUnwritable, Path: dir, Scope: c.Scope, Err: os.ErrPermission}
 		}
 	}
 	lock, err := acquireRegistryLock(path, mode)
@@ -195,17 +204,13 @@ func readManifest(path string, in io.Reader) ([]byte, error) {
 	}
 	return os.ReadFile(path)
 }
-func (s Service) destination(scope string) (configfile.Layer, string, os.FileMode, error) {
+func (s Service) destination(scope string) (configfile.Layer, string, os.FileMode) {
 	layer, mode := configfile.User, os.FileMode(0600)
 	if scope == "system" || (scope == "" && s.CanWriteSystem(s.Resolver.Locations.System)) {
 		layer, mode = configfile.System, 0644
 	}
 	dir, _ := s.Resolver.Locations.Directories(layer)
-	path := filepath.Join(dir, Filename)
-	if scope == "system" && !s.CanWriteSystem(dir) {
-		return layer, path, mode, invalid(path, "unreadable", os.ErrPermission)
-	}
-	return layer, path, mode, nil
+	return layer, filepath.Join(dir, Filename), mode
 }
 func (s Service) readTarget(layer configfile.Layer) (Registry, error) {
 	if layer == configfile.User {

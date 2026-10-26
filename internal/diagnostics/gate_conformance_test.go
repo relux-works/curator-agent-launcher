@@ -465,10 +465,10 @@ func TestGateOwnerFormNil(t *testing.T) {
 }
 
 // TestGateCoverageCounts pins the complete coverage arithmetic derived from
-// the single registry: 5 owners, 3 forms, 91 normative codes; mutable-Code
-// families resolve 6 / layer 2 / refusal 2 with foreign sets 85 / 89 / 89
-// (263 normative rejection pairs); 4 extra strangers per family add 12
-// pairs, for 275 owner/code pairs x 3 forms = 825 rejection cases; 12 owned
+// the single registry: 5 owners, 3 forms, 92 normative codes; mutable-Code
+// families resolve 6 / layer 2 / refusal 2 with foreign sets 86 / 90 / 90
+// (266 normative rejection pairs); 4 extra strangers per family add 12
+// pairs, for 278 owner/code pairs x 3 forms = 834 rejection cases; 12 owned
 // slots (10 mutable + 2 fixed) x 3 forms =
 // 36 positive cases (30 mutable + 6 fixed); 5 owners x 4 nil forms + 3
 // absence extras = 23 nil cases. Fixed-code owners (usage, axconfig) carry
@@ -479,8 +479,8 @@ func TestGateOwnerFormNil(t *testing.T) {
 // as Codes() members and rejected foreign values elsewhere here.
 func TestGateCoverageCounts(t *testing.T) {
 	normative := gateSpecSection6Codes(t)
-	if len(normative) != 91 {
-		t.Fatalf("normative codes = %d, want 91: %q", len(normative), normative)
+	if len(normative) != 92 {
+		t.Fatalf("normative codes = %d, want 92: %q", len(normative), normative)
 	}
 	if len(gateOwnerRegistry) != 5 {
 		t.Fatalf("owner registry rows = %d, want 5 (usage, resolve, layer, refusal, axconfig)", len(gateOwnerRegistry))
@@ -568,18 +568,18 @@ func TestGateCoverageCounts(t *testing.T) {
 			t.Fatalf("%s owned = %d, want %d", f.name, f.own, f.want)
 		}
 		foreign := gateForeign(normative, gateOwnedByName(f.name))
-		wantForeign := 91 - f.want + len(gateExtraStrangers())
+		wantForeign := 92 - f.want + len(gateExtraStrangers())
 		if len(foreign) != wantForeign {
 			t.Fatalf("%s foreign+extras = %d, want %d: %q", f.name, len(foreign), wantForeign, foreign)
 		}
 	}
-	normPairs := 85 + 89 + 89
-	if normPairs != 263 {
-		t.Fatalf("normative rejection pairs = %d, want 263", normPairs)
+	normPairs := 86 + 90 + 90
+	if normPairs != 266 {
+		t.Fatalf("normative rejection pairs = %d, want 266", normPairs)
 	}
-	withExtras := (85 + 4) + (89 + 4) + (89 + 4)
-	if withExtras*3 != 825 {
-		t.Fatalf("rejection cases with extras x forms = %d, want 825", withExtras*3)
+	withExtras := (86 + 4) + (90 + 4) + (90 + 4)
+	if withExtras*3 != 834 {
+		t.Fatalf("rejection cases with extras x forms = %d, want 834", withExtras*3)
 	}
 }
 

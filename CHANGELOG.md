@@ -4,6 +4,10 @@
 
 ### Changed
 
+- Diagnose unwritable explicit registry scopes as
+  `session_manager_registry_unwritable` (exit 2, directory `path` and `scope`),
+  separately from invalid/unreadable registry content, before any lock or write.
+
 - Add `session-manager use` and explicit mutation `--scope user|system` with
   no fallback. Omitted scope preserves layer selection; list/show report the
   layer read in text and CLI JSON, without changing the registry file schema.

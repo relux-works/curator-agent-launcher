@@ -140,6 +140,7 @@ func TestOwnedCodesMatchOwners(t *testing.T) {
 		{diagnostics.CodeSelectorUnavailable, selector.CodeUnavailable},
 		{diagnostics.CodeSelectorAbstained, selector.CodeAbstained},
 		{diagnostics.CodeSessionManagerRegistryInvalid, sessionmanager.CodeInvalid},
+		{diagnostics.CodeSessionManagerRegistryUnwritable, sessionmanager.CodeUnwritable},
 		{diagnostics.CodeSessionManagerRegistryShadowed, sessionmanager.CodeShadowed},
 		{diagnostics.CodeSessionManagerNotRegistered, sessionmanager.CodeNotRegistered},
 		{diagnostics.CodeSessionManagerRegistryBusy, sessionmanager.CodeBusy},
@@ -191,7 +192,7 @@ func TestExitForCode(t *testing.T) {
 		want := diagnostics.ExitOperational
 		switch c {
 		case diagnostics.CodeUsage, diagnostics.CodeHostConflict,
-			diagnostics.CodeSessionResumeInvalid, diagnostics.CodeLaunchPlanInvalid, diagnostics.CodeHostWithdrawn, diagnostics.CodeMigrateDestinationExists, diagnostics.CodeSessionManagerRegistryInvalid, diagnostics.CodeSessionManagerRegistryShadowed, diagnostics.CodeSessionManagerNotRegistered:
+			diagnostics.CodeSessionResumeInvalid, diagnostics.CodeLaunchPlanInvalid, diagnostics.CodeHostWithdrawn, diagnostics.CodeMigrateDestinationExists, diagnostics.CodeSessionManagerRegistryInvalid, diagnostics.CodeSessionManagerRegistryUnwritable, diagnostics.CodeSessionManagerRegistryShadowed, diagnostics.CodeSessionManagerNotRegistered:
 			want = diagnostics.ExitUsage
 		case diagnostics.CodeSessionHostProtocolUnsupported, diagnostics.CodeSessionHostProviderUnsupported,
 			diagnostics.CodeSessionHostScopeUnsupported, diagnostics.CodeSessionHostExecutionProfileUnsupported,

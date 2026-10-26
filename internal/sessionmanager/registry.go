@@ -21,6 +21,7 @@ const (
 	Protocol          = "curator-session-manager/1"
 	CodeBusy          = "session_manager_registry_busy"
 	CodeInvalid       = "session_manager_registry_invalid"
+	CodeUnwritable    = "session_manager_registry_unwritable"
 	CodeShadowed      = "session_manager_registry_shadowed"
 	CodeNotRegistered = "session_manager_not_registered"
 	CodeHostMissing   = "session_host_missing"
@@ -34,12 +35,12 @@ var argumentPattern = regexp.MustCompile(`^[a-z0-9-]{1,32}$`)
 func ValidID(id string) bool { return idPattern.MatchString(id) }
 
 type Error struct {
-	Code, Path, Reason, ID string
-	Err                    error
+	Code, Path, Reason, ID, Scope string
+	Err                           error
 }
 
 func (e *Error) Error() string {
-	message := map[string]string{CodeBusy: "session-manager registry is busy", CodeInvalid: "invalid session-manager registry", CodeShadowed: "session-manager registry is shadowed", CodeNotRegistered: "session manager is not registered", CodeHostMissing: "session host missing"}[e.Code]
+	message := map[string]string{CodeBusy: "session-manager registry is busy", CodeInvalid: "invalid session-manager registry", CodeUnwritable: "session-manager registry directory is not writable", CodeShadowed: "session-manager registry is shadowed", CodeNotRegistered: "session manager is not registered", CodeHostMissing: "session host missing"}[e.Code]
 	if message == "" {
 		message = "session-manager command failed"
 	}
@@ -48,6 +49,9 @@ func (e *Error) Error() string {
 	}
 	if e.Reason != "" {
 		message += fmt.Sprintf(" reason=%q", e.Reason)
+	}
+	if e.Scope != "" {
+		message += fmt.Sprintf(" scope=%s", e.Scope)
 	}
 	if e.ID != "" {
 		message += fmt.Sprintf(" id=%s", e.ID)

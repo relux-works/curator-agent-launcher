@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -132,5 +133,24 @@ func TestSessionManagerScopeUsageNoEffects(t *testing.T) {
 	}
 	if runner.calls != 0 {
 		t.Fatal("registry command launched a child")
+	}
+}
+
+// The explicit-scope write-authority error is a closed exit-2 diagnostic with
+// a directory path and scope, distinguishable from a corrupt registry's error.
+func TestSessionManagerUnwritableDiagnostic(t *testing.T) {
+	for _, scope := range []string{"system", "user"} {
+		var stderr strings.Builder
+		path := filepath.Join(t.TempDir(), "registry-directory")
+		err := &sessionmanager.Error{Code: sessionmanager.CodeUnwritable, Path: path, Scope: scope}
+		want := "curator-run: session_manager_registry_unwritable: session-manager registry directory is not writable path=" + strconv.Quote(path) + " scope=" + scope + "\n"
+		if exit := emitFailure(&stderr, err.Code, err); exit != 2 || stderr.String() != want {
+			t.Fatalf("exit=%d stderr=%q", exit, stderr.String())
+		}
+	}
+	var stderr strings.Builder
+	err := &sessionmanager.Error{Code: sessionmanager.CodeInvalid, Reason: "parse"}
+	if exit := emitFailure(&stderr, err.Code, err); exit != 2 || stderr.String() != "curator-run: session_manager_registry_invalid: invalid session-manager registry reason=\"parse\"\n" {
+		t.Fatalf("corrupt-registry exit=%d stderr=%q", exit, stderr.String())
 	}
 }

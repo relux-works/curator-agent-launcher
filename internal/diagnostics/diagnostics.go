@@ -119,16 +119,17 @@ const (
 	CodeResolveLockUnavailable    = "resolve_lock_unavailable"
 	CodeResolveFragmentInvalid    = "resolve_fragment_invalid"
 
-	CodeDefaultsInvalid                = "defaults_config_invalid"
-	CodeDefaultsUnresolvable           = "defaults_unresolvable"
-	CodeSelectorUnavailable            = "selector_unavailable"
-	CodeSelectorAbstained              = "selector_abstained"
-	CodeHostWithdrawn                  = "host_member_withdrawn"
-	CodeMigrateDestinationExists       = "migrate_destination_exists"
-	CodeSessionManagerRegistryBusy     = "session_manager_registry_busy"
-	CodeSessionManagerRegistryInvalid  = "session_manager_registry_invalid"
-	CodeSessionManagerRegistryShadowed = "session_manager_registry_shadowed"
-	CodeSessionManagerNotRegistered    = "session_manager_not_registered"
+	CodeDefaultsInvalid                  = "defaults_config_invalid"
+	CodeDefaultsUnresolvable             = "defaults_unresolvable"
+	CodeSelectorUnavailable              = "selector_unavailable"
+	CodeSelectorAbstained                = "selector_abstained"
+	CodeHostWithdrawn                    = "host_member_withdrawn"
+	CodeMigrateDestinationExists         = "migrate_destination_exists"
+	CodeSessionManagerRegistryBusy       = "session_manager_registry_busy"
+	CodeSessionManagerRegistryInvalid    = "session_manager_registry_invalid"
+	CodeSessionManagerRegistryUnwritable = "session_manager_registry_unwritable"
+	CodeSessionManagerRegistryShadowed   = "session_manager_registry_shadowed"
+	CodeSessionManagerNotRegistered      = "session_manager_not_registered"
 
 	CodePlanRefused         = "plan_refused"
 	CodePlanProviderLimited = "plan_provider_limited"
@@ -192,6 +193,7 @@ func Codes() []string {
 		CodeSelectorUnavailable,
 		CodeSelectorAbstained,
 		CodeSessionManagerRegistryInvalid,
+		CodeSessionManagerRegistryUnwritable,
 		CodeSessionManagerRegistryShadowed,
 		CodeSessionManagerNotRegistered,
 		CodeSessionManagerRegistryBusy,
@@ -259,7 +261,7 @@ func ExitForCode(code string) int {
 		return row.Exit
 	}
 	switch code {
-	case CodeUsage, CodeHostConflict, CodeSessionResumeInvalid, CodeLaunchPlanInvalid, CodeHostWithdrawn, CodeMigrateDestinationExists, CodeSessionManagerRegistryInvalid, CodeSessionManagerRegistryShadowed, CodeSessionManagerNotRegistered:
+	case CodeUsage, CodeHostConflict, CodeSessionResumeInvalid, CodeLaunchPlanInvalid, CodeHostWithdrawn, CodeMigrateDestinationExists, CodeSessionManagerRegistryInvalid, CodeSessionManagerRegistryUnwritable, CodeSessionManagerRegistryShadowed, CodeSessionManagerNotRegistered:
 		return ExitUsage
 	case CodeSessionHostProtocolUnsupported, CodeSessionHostProviderUnsupported,
 		CodeSessionHostScopeUnsupported, CodeSessionHostExecutionProfileUnsupported,

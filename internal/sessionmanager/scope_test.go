@@ -126,8 +126,8 @@ func TestMutationScopeRefusals(t *testing.T) {
 			present     bool
 			code        string
 		}{
-			{"system-absent", "system", false, CodeInvalid},
-			{"system-present-readonly", "system", true, CodeInvalid},
+			{"system-absent", "system", false, CodeUnwritable},
+			{"system-present-readonly", "system", true, CodeUnwritable},
 			{"user-shadowed", "user", true, CodeShadowed},
 			{"default-present-readonly", "", true, CodeShadowed},
 		} {
@@ -146,14 +146,10 @@ func TestMutationScopeRefusals(t *testing.T) {
 				}
 				c := Command{Operation: op, Scope: tc.scope, ID: "board", Manifest: manifest(t, "board", r.Managers["board"])}
 				err := s.Run(c)
-				reason := ""
-				if tc.code == CodeInvalid {
-					reason = "unreadable"
-				}
-				requireCode(t, err, tc.code, reason)
-				if tc.code == CodeInvalid {
+				requireCode(t, err, tc.code, "")
+				if tc.code == CodeUnwritable {
 					e := err.(*Error)
-					if e.Reason != "unreadable" || e.Path != filepath.Join(s.Resolver.Locations.System, Filename) {
+					if e.Scope != "system" || e.Path != s.Resolver.Locations.System {
 						t.Fatal(e)
 					}
 				}
