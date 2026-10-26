@@ -606,11 +606,12 @@ Alternatively, hosts without Go can download GitHub release artifacts.
 Curator's distribution remains the canonical host channel; Curator's bundle
 may also consume these artifacts if `curator_orch` chooses. Archives contain
 `curator-run`, LICENSE, NOTICE and this README. The release matrix is Darwin
-and Linux, each for arm64 and amd64. For example, on an Apple Silicon Mac:
+and Linux, each for arm64 and amd64. On an Apple Silicon Mac, choose a release
+with downloadable artifacts and substitute its version for `X.Y.Z` below:
 
 ```bash
 set -e
-version=0.5.0
+version=X.Y.Z
 artifact="curator-run_${version}_darwin_arm64.tar.gz"
 base="https://github.com/relux-works/curator-agent-launcher/releases/download/v${version}"
 curl --fail --location --remote-name "$base/$artifact"
