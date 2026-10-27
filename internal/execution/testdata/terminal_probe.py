@@ -1,8 +1,8 @@
-"""Real controlling-terminal regression; only synthetic fake ax/provider."""
+"""Real controlling-terminal regression; only synthetic fake provider."""
 import os, sys, pty, signal, select, time, tempfile, pathlib, re
 
 with tempfile.TemporaryDirectory(prefix='execution-pty-') as directory:
-    helper = pathlib.Path(directory) / 'fake-ax'
+    helper = pathlib.Path(directory) / 'fake-provider'
     helper.write_text('#!' + sys.executable + '\n' + '''import os, select, signal, sys
 count = 0
 # Buffered readline may restart a canonical read while a Python signal handler
@@ -15,8 +15,7 @@ def hit(sig, frame):
  count += 1
 signal.signal(signal.SIGINT, hit)
 signal.signal(signal.SIGTSTP, signal.SIG_DFL)
-# Ax stdin is a document; terminal interaction uses its controlling tty.
-tty = open('/dev/tty', 'r') if len(sys.argv) > 1 else sys.stdin
+tty = sys.stdin
 os.write(1, ('READY child=%d\\n' % os.getpid()).encode())
 while True:
  ready, _, _ = select.select([tty, signal_read], [], [])
@@ -34,7 +33,7 @@ while True:
     for trial in range(5):
         pid, fd = pty.fork()
         if pid == 0:
-            os.execve(sys.argv[1], [sys.argv[1], str(helper), directory, sys.argv[2], 'pty'], {'PATH': '/usr/bin:/bin'})
+            os.execve(sys.argv[1], [sys.argv[1], str(helper), directory, 'pty'], {'PATH': '/usr/bin:/bin'})
         data = b''
         reaped = False
         helper_group = None

@@ -326,7 +326,7 @@ func TestCompleteMappingRefusal(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, env := range []string{"opencode", "future"} {
-		if _, err := files.Complete(env, defaults.Pair{}, reg); err == nil || !strings.Contains(err.Error(), "no supported system/provider pair") {
+		if _, err := files.Complete(env, defaults.Pair{}, reg); err == nil || !strings.Contains(err.Error(), "no supported system mapping") {
 			t.Fatalf("%s: err = %v, want the mapping refusal", env, err)
 		}
 	}

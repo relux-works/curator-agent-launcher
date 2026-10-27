@@ -1,5 +1,5 @@
 @startuml
-' Revision: v0.4.0 release alignment (2026-10-22).
+' Revision: ax removal (2026-10-27).
 title Launcher components and process authority
 skinparam componentStyle rectangle
 
@@ -14,13 +14,10 @@ package "CURRENT interactive API - SPEC 0.5.1-draft" {
     component "Network selection\nin-process network / adapter libraries\noptional direct scope only" as network
     component "Composition / late checks\nno provider argv rebuilding" as compose
     component "Direct child executor\nwait / terminal restoration\nsignal forwarding, stop/continue" as executor
-    component "ax document exporter" as exporter
   }
   component "Native provider child\ncaller-side identity" as child
-  component "ax start subprocess\nprocess / terminal / session owner" as ax
   component "Selected session-manager plugin\nlaunch-delegated/1 for Claude/Codex\nFRONT-DOOR 3-5 / 5.8" as receiver
   database "Managed profile / home\npersistent: Curator owns\nlauncher never writes" as home
-  database "Session Record\npersistent: ax owns" as record
   operator --> umbrella : curator run ...
   umbrella --> config : trust-root dispatch (SPEC 2)
   operator --> config : direct curator-run ...
@@ -33,21 +30,18 @@ package "CURRENT interactive API - SPEC 0.5.1-draft" {
   network --> compose : optional admitted patch
   compose --> executor : direct composed value
   executor --> child : starts and waits; no PTY
-  compose --> exporter : destination contract
-  exporter --> ax : launch-plan on stdin
-  ax --> record : records Curator extensions
   compose --> receiver : delegated request; manager composes / owns session
   note right of config
     [[../SPEC.md#2-discovery-and-naming SPEC 2]]: trust roots belong to Curator;
     revision A warns, revision B refuses outside roots.
     Launcher reports its resolved executable path.
-    [[../SPEC.md#47-the-launchers-configuration-file-family SPEC 4.7]]: config read failure is refusal, never absence.
+    [[../SPEC.md#47-the-launchers-configuration-file-family SPEC 4.7]]: retired ax.json entry or config read failure refuses before resolve.
   end note
   note bottom of compose
     [[../SPEC.md#4-composition-algorithm SPEC 4]] / [[../SPEC.md#6-errors-and-diagnostics SPEC 6]]:
     unsupported mode / mapping, permission, provider-limit,
     context collision, network or late-check failure is terminal.
-    ax / hosted refusal never falls back to a direct child.
+    Hosted refusal never falls back to a direct child.
     Deliberate retry re-runs Curator repair; no automatic downgrade.
   end note
   note bottom of receiver
@@ -55,7 +49,7 @@ package "CURRENT interactive API - SPEC 0.5.1-draft" {
     Selected conforming manager: delegated; native paths do not contact it.
     Auto with no registered/selected manager: native + one-line notice.
     Explicit hosted: session_host_missing with reason; no native fallback.
-    Native paths keep direct / ax behavior; manager owns hosted sessions.
+    Native paths execute the child directly; manager owns hosted sessions.
     Direct child status propagates; signal exit 128 + signal.
     [[../README.md#environment-and-transport README Environment and transport]].
   end note

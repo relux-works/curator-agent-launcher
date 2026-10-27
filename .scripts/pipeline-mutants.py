@@ -1,24 +1,30 @@
 #!/usr/bin/env python3
-"""Narrow production gates; require named run-entry failures and restore bytes."""
+"""Narrow native production gates in an isolated copy; require named failures."""
 import pathlib
 import subprocess
 import sys
+import tempfile
 
-root = pathlib.Path(__file__).resolve().parents[1]
+source = pathlib.Path(__file__).resolve().parents[1]
+root = source
 out = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else root / '.temp/pipeline-mutants').resolve()
 out.mkdir(parents=True, exist_ok=True)
+scratch = tempfile.TemporaryDirectory(prefix='candidate-', dir=out)
+root = pathlib.Path(scratch.name) / 'tree'
+root.mkdir()
+for entry in source.iterdir():
+ if entry.name not in ('.git', '.temp'):
+  subprocess.run(['cp', '-R', str(entry), str(root)], check=True)
+
 execution = root / 'internal/execution/execution.go'
 main = root / 'cmd/curator-run/main.go'
 mutants = [
- ('E1', execution, 'if err := opts.Boundary(); err != nil {', 'if err := opts.Boundary(); err != nil && !l.tracked {', 'TestProductionLateChecks/prompt-directory/tracked=true', 'prompt refusal only in direct mode'),
- ('E2', execution, 'if err != nil {\n\t\treturn fail(fmt.Errorf("exec_provider_missing:', 'if err != nil && !l.tracked {\n\t\treturn fail(fmt.Errorf("exec_provider_missing:', 'TestProductionLateChecks/binary-not-executable/tracked=true', 'binary refusal only in direct mode'),
- ('E3', execution, 'if err := l.value.CheckLaunchBoundary(); err != nil {', 'if err := l.value.CheckLaunchBoundary(); err != nil && !l.tracked {', 'TestProductionLateChecks/mcp-directory/tracked=true', 'MCP refusal only in direct mode'),
- ('E4', root/'internal/composition/probe.go', 'if !info.Mode().IsRegular() {', 'if !info.Mode().IsRegular() && !info.IsDir() {', 'TestProductionLateChecks/mcp-directory/tracked=false', 'admit directories while refusing other nonregular MCP objects'),
- ('E5', root/'internal/systemprompt/systemprompt.go', 'if !info.Mode().IsRegular() {', 'if !info.Mode().IsRegular() && !info.IsDir() {', 'TestProductionLateChecks/discovery-directory/tracked=false', 'admit directories while refusing other nonregular prompt objects'),
- ('E6', execution, '!info.Mode().IsRegular() || info.Mode().Perm()&0111 == 0', '!info.Mode().IsRegular()', 'TestProductionLateChecks/binary-not-executable/tracked=true', 'admit regular nonexecutable provider files'),
- ('M1', main, 'opts := cli.Options{AxConfigured: configured}', 'opts := cli.Options{AxConfigured: configured && len(args) > 0 && args[0] != "pi"}', 'TestProductionModeSelection/operator-enabled', 'ignore enabled ax only for Pi'),
- ('M2', root/'internal/axconfig/config.go', 'return enabled, nil', 'if !enabled { continue }; return enabled, nil', 'TestProductionModeSelection/machine-disabled', 'ignore machine false only'),
- ('M3', main, 'if err != nil {\n\t\treturn emitFailure(stderr, diagnostics.CodeDefaultsInvalid, err)\n\t}\n\topts', 'if err != nil && len(args) == 0 {\n\t\treturn emitFailure(stderr, diagnostics.CodeDefaultsInvalid, err)\n\t}\n\topts', 'TestProductionModeSelection/malformed', 'ignore malformed ax when argv is nonempty'),
+ ('E1', execution, 'if err := opts.Boundary(); err != nil {', 'if err := opts.Boundary(); err != nil && false {', 'TestProductionLateChecks/prompt-directory/native', 'omit prompt refusal'),
+ ('E2', execution, 'if err != nil {\n\t\treturn fail(fmt.Errorf("exec_provider_missing:', 'if err != nil && false {\n\t\treturn fail(fmt.Errorf("exec_provider_missing:', 'TestProductionLateChecks/binary-not-executable/native', 'omit binary refusal'),
+ ('E3', execution, 'if err := l.value.CheckLaunchBoundary(); err != nil {', 'if err := l.value.CheckLaunchBoundary(); err != nil && false {', 'TestProductionLateChecks/mcp-directory/native', 'omit MCP refusal'),
+ ('E4', root/'internal/composition/probe.go', 'if !info.Mode().IsRegular() {', 'if !info.Mode().IsRegular() && !info.IsDir() {', 'TestProductionLateChecks/mcp-directory/native', 'admit directories while refusing other nonregular MCP objects'),
+ ('E5', root/'internal/systemprompt/systemprompt.go', 'if !info.Mode().IsRegular() {', 'if !info.Mode().IsRegular() && !info.IsDir() {', 'TestProductionLateChecks/discovery-directory/native', 'admit directories while refusing other nonregular prompt objects'),
+ ('E6', execution, '!info.Mode().IsRegular() || info.Mode().Perm()&0111 == 0', '!info.Mode().IsRegular()', 'TestProductionLateChecks/binary-not-executable/native', 'admit regular nonexecutable provider files'),
 ]
 rows = ['mutant\tbound\ttest\texit\tverdict']
 failed = False
@@ -44,4 +50,5 @@ for ident, path, old, new, test, bound in mutants:
         if path.read_bytes() != original:
             raise RuntimeError(f'{ident}: restore mismatch')
 (out / 'summary.tsv').write_text('\n'.join(rows) + '\n')
+scratch.cleanup()
 sys.exit(1 if failed else 0)

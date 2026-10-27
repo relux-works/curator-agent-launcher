@@ -11,21 +11,21 @@ import (
 // launch flags, duplicate flags and extra/native tails cannot change it.
 func TestSessionManagerGrammar(t *testing.T) {
 	for _, args := range [][]string{{"list"}, {"list", "--json"}, {"show", "board"}, {"show", "board", "--json"}, {"select", "board"}, {"unregister", "board"}, {"register", "--manifest", "-"}, {"register", "--select", "--manifest", "file"}, {"register", "--manifest", "file", "--no-select"}} {
-		got, err := Parse(append([]string{"session-manager"}, args...), Options{AxConfigured: true})
-		if err != nil || got.SessionManager == nil || got.SessionManager.Operation != args[0] || got.EnvID != "" || got.Tracked {
+		got, err := Parse(append([]string{"session-manager"}, args...))
+		if err != nil || got.SessionManager == nil || got.SessionManager.Operation != args[0] || got.EnvID != "" {
 			t.Fatal(args, got, err)
 		}
 	}
 	for _, args := range [][]string{{}, {"unknown"}, {"list", "other"}, {"list", "--json", "--json"}, {"show"}, {"show", "Bad"}, {"show", "id", "extra"}, {"select", "id", "--json"}, {"unregister", "id", "--"}, {"register"}, {"register", "--manifest"}, {"register", "--manifest", "--select"}, {"register", "--manifest", "--scope", "user", "file"}, {"register", "--manifest", "-", "--select", "--no-select"}, {"register", "--manifest", "-", "--manifest", "file"}, {"register", "--manifest", "-", "--select", "--select"}, {"register", "--manifest", "-", "--json"}} {
-		got, err := Parse(append([]string{"session-manager"}, args...), Options{})
+		got, err := Parse(append([]string{"session-manager"}, args...))
 		if !IsUsage(err) || got.SessionManager != nil {
 			t.Fatal(args, got, err)
 		}
 	}
-	if _, err := Parse([]string{"--model", "m", "session-manager", "list"}, Options{}); !IsUsage(err) {
+	if _, err := Parse([]string{"--model", "m", "session-manager", "list"}); !IsUsage(err) {
 		t.Fatal(err)
 	}
-	got, err := Parse([]string{"pi", "--", "session-manager"}, Options{})
+	got, err := Parse([]string{"pi", "--", "session-manager"})
 	if err != nil || got.SessionManager != nil || len(got.Native) != 1 {
 		t.Fatal(got, err)
 	}
@@ -33,16 +33,16 @@ func TestSessionManagerGrammar(t *testing.T) {
 
 // Hosted switches have a closed boolean grammar and remain opaque after --.
 func TestHostedSwitches(t *testing.T) {
-	inv, err := Parse([]string{"claude_code", "--hosted", "--board-goal", "--detach"}, Options{})
+	inv, err := Parse([]string{"claude_code", "--hosted", "--board-goal", "--detach"})
 	if err != nil || !inv.BoardGoal || !inv.Detach {
 		t.Fatalf("%+v %v", inv, err)
 	}
 	for _, args := range [][]string{{"claude_code", "--board-goal=true"}, {"claude_code", "--detach=false"}, {"claude_code", "--board-goal", "--board-goal"}, {"claude_code", "--detach", "--detach"}} {
-		if _, err := Parse(args, Options{}); !IsUsage(err) {
+		if _, err := Parse(args); !IsUsage(err) {
 			t.Fatalf("invalid switches admitted: %v %v", args, err)
 		}
 	}
-	inv, err = Parse([]string{"claude_code", "--", "--board-goal", "--detach"}, Options{})
+	inv, err = Parse([]string{"claude_code", "--", "--board-goal", "--detach"})
 	if err != nil || inv.BoardGoal || inv.Detach || len(inv.Native) != 2 {
 		t.Fatalf("native tail changed: %+v %v", inv, err)
 	}
@@ -66,7 +66,7 @@ func TestSessionManagerDiagnostics(t *testing.T) {
 		{[]string{"session-manager", "register", "--manifest", "-", "--select", "--select"}, []string{"--select given twice"}},
 		{[]string{"session-manager", "register", "--manifest", "-", "--force"}, []string{"unknown argument"}},
 	} {
-		_, err := Parse(tc.args, Options{})
+		_, err := Parse(tc.args)
 		if err == nil || !IsUsage(err) {
 			t.Fatalf("%v: %v", tc.args, err)
 		}
@@ -77,7 +77,7 @@ func TestSessionManagerDiagnostics(t *testing.T) {
 		}
 	}
 	for _, args := range [][]string{{"session-manager", "list", "--json"}, {"session-manager", "register", "--manifest", "-", "--no-select"}, {"session-manager", "select", "task-board"}} {
-		if _, err := Parse(args, Options{}); err != nil {
+		if _, err := Parse(args); err != nil {
 			t.Fatal(args, err)
 		}
 	}
@@ -95,7 +95,7 @@ func TestSessionManagerDiagnosticsDiscloseNoInput(t *testing.T) {
 		{"session-manager", "register", "--manifest", "-", "--token=" + secret},
 		{"session-manager", "register", "--manifest", "-", "--token=" + secret, "--token=" + secret},
 	} {
-		_, err := Parse(args, Options{})
+		_, err := Parse(args)
 		if err == nil || !IsUsage(err) {
 			t.Fatalf("%v: %v", args, err)
 		}
@@ -104,7 +104,7 @@ func TestSessionManagerDiagnosticsDiscloseNoInput(t *testing.T) {
 		}
 	}
 	for _, args := range [][]string{{"session-manager", "show", "board"}, {"session-manager", "register", "--manifest", "-"}} {
-		if _, err := Parse(args, Options{}); err != nil {
+		if _, err := Parse(args); err != nil {
 			t.Fatal(args, err)
 		}
 	}
@@ -179,7 +179,7 @@ func TestSessionManagerScopeGrammar(t *testing.T) {
 				} else {
 					args = append(args, "--scope", scope)
 				}
-				got, err := Parse(append([]string{"session-manager"}, args...), Options{})
+				got, err := Parse(append([]string{"session-manager"}, args...))
 				if err != nil || got.SessionManager.Scope != scope {
 					t.Fatalf("%v: %+v %v", args, got, err)
 				}
@@ -187,14 +187,14 @@ func TestSessionManagerScopeGrammar(t *testing.T) {
 		}
 		for _, tail := range [][]string{{"--scope"}, {"--scope", "SENTINEL_SECRET_SCOPE"}, {"--scope", "user", "--scope", "system"}, {"--scope=user"}} {
 			args := append(append([]string{"session-manager"}, base...), tail...)
-			got, err := Parse(args, Options{})
+			got, err := Parse(args)
 			if !IsUsage(err) || got.SessionManager != nil || strings.Contains(err.Error(), "SENTINEL") {
 				t.Fatalf("%v: %+v %v", args, got, err)
 			}
 		}
 	}
 	for _, args := range [][]string{{"list", "--scope", "user"}, {"show", "board", "--scope", "system"}} {
-		if _, err := Parse(append([]string{"session-manager"}, args...), Options{}); !IsUsage(err) {
+		if _, err := Parse(append([]string{"session-manager"}, args...)); !IsUsage(err) {
 			t.Fatal(args, err)
 		}
 	}

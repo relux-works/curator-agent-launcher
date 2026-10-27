@@ -29,45 +29,45 @@ func TestReviewerContextSelectorSpellings(t *testing.T) {
 		{"codex_cli", "system-prompt", []string{"--config", " model_instructions_file = \"other.md\""}},
 	}
 	for i, row := range rows {
-		for _, tracked := range []bool{false, true} {
-			t.Run(fmt.Sprintf("%d/%s/%v", i, row.env, tracked), func(t *testing.T) {
-				f := entryFixture(t, row.env, tracked)
-				f.args = append(f.args[:8], row.native...)
-				insertLauncherArgs(f, "--permissions", "native")
-				real := f.deps.build
-				var seen error
-				f.deps.build = func(ctx context.Context, r *vendorplugin.Registry, req vendorplugin.SpawnRequest, mode agentic.LaunchMode) (agentic.PlanWithEnvironment, error) {
-					p, e := real(ctx, r, req, mode)
-					seen = e
-					return p, e
-				}
-				code, out, stderr := f.run()
-				var conflict *agentic.ContextDescriptorConflictError
-				if code != 1 || len(out) != 0 || !errors.As(seen, &conflict) || string(conflict.Channel) != row.channel || !bytes.Contains(stderr, []byte(row.channel)) {
-					t.Fatalf("exit=%d typed=%T stderr=%s", code, seen, stderr)
-				}
-				f.assertNoChild(t)
-			})
-		}
+
+		t.Run(fmt.Sprintf("%d/%s/%v", i, row.env, false), func(t *testing.T) {
+			f := entryFixture(t, row.env)
+			f.args = append(f.args[:8], row.native...)
+			insertLauncherArgs(f, "--permissions", "native")
+			real := f.deps.build
+			var seen error
+			f.deps.build = func(ctx context.Context, r *vendorplugin.Registry, req vendorplugin.SpawnRequest, mode agentic.LaunchMode) (agentic.PlanWithEnvironment, error) {
+				p, e := real(ctx, r, req, mode)
+				seen = e
+				return p, e
+			}
+			code, out, stderr := f.run()
+			var conflict *agentic.ContextDescriptorConflictError
+			if code != 1 || len(out) != 0 || !errors.As(seen, &conflict) || string(conflict.Channel) != row.channel || !bytes.Contains(stderr, []byte(row.channel)) {
+				t.Fatalf("exit=%d typed=%T stderr=%s", code, seen, stderr)
+			}
+			f.assertNoChild(t)
+		})
+
 	}
 }
 func TestReviewerContextSeparatorPassThrough(t *testing.T) {
 	for _, env := range []string{"claude_code", "codex_cli"} {
-		for _, tracked := range []bool{false, true} {
-			t.Run(fmt.Sprintf("%s/%v", env, tracked), func(t *testing.T) {
-				f := entryFixture(t, env, tracked)
-				native := []string{"--", "--mcp-config=prompt-text", "-pother", "--system-prompt-file=prompt-text", ""}
-				f.args = append(f.args[:8], native...)
-				insertLauncherArgs(f, "--permissions", "native")
-				code, out, stderr := f.run()
-				if code != 0 {
-					t.Fatalf("exit=%d stderr=%s", code, stderr)
-				}
-				argv, _, _ := capturedLaunch(t, out, tracked)
-				if !reflect.DeepEqual(argv[len(argv)-len(native):], native) {
-					t.Fatalf("argv=%q", argv)
-				}
-			})
-		}
+
+		t.Run(fmt.Sprintf("%s/%v", env, false), func(t *testing.T) {
+			f := entryFixture(t, env)
+			native := []string{"--", "--mcp-config=prompt-text", "-pother", "--system-prompt-file=prompt-text", ""}
+			f.args = append(f.args[:8], native...)
+			insertLauncherArgs(f, "--permissions", "native")
+			code, out, stderr := f.run()
+			if code != 0 {
+				t.Fatalf("exit=%d stderr=%s", code, stderr)
+			}
+			argv, _, _ := capturedLaunch(t, out)
+			if !reflect.DeepEqual(argv[len(argv)-len(native):], native) {
+				t.Fatalf("argv=%q", argv)
+			}
+		})
+
 	}
 }

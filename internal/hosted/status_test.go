@@ -10,18 +10,18 @@ import (
 )
 
 // TestStatusRegistryCompleteness pins the receiving registry against
-// Appendix V-ERR: the exact member count (no dropped or duplicated
+// Appendix V-ERR after removing retired ax-only rows: the exact member count (no dropped or duplicated
 // code), exits inside {1,2,6,16}, literal constant messages (ASCII,
 // final period, at most 512 bytes), and the synthesized normalization
 // outcome.
 func TestStatusRegistryCompleteness(t *testing.T) {
-	if got := hosted.StatusRegistrySize(); got != 135 {
-		t.Fatalf("registry size = %d, want 135 Appendix V-ERR members", got)
+	if got := hosted.StatusRegistrySize(); got != 133 {
+		t.Fatalf("registry size = %d, want 133 Appendix V-ERR members", got)
 	}
 	// Membership hash over the sorted codes: any dropped, added, or
 	// renamed member changes it. Verified against Appendix V-ERR.
 	sum := sha256.Sum256([]byte(strings.Join(hosted.StatusRegistryCodes(), "\n")))
-	if got := fmt.Sprintf("%x", sum); got != "2b6cd35f7b0caa6df6bc11e2548e1afb259228b568b664915dafe2bfa117185e" {
+	if got := fmt.Sprintf("%x", sum); got != "0c8aa39b63fbcdc158b42acc54e34084c955f516d8f1e74294d30e0535084e65" {
 		t.Fatalf("registry membership hash = %s", got)
 	}
 	for _, code := range hosted.StatusRegistryCodes() {
@@ -56,7 +56,7 @@ func TestStatusRegistryCompleteness(t *testing.T) {
 	// Spot rows across every exit class and detail vocabulary.
 	for code, exit := range map[string]int{
 		"usage": 2, "launch_plan_invalid": 2, "session_resume_invalid": 2,
-		"host_configuration_conflict": 2, "session_host_missing": 1,
+		"session_host_missing":     1,
 		"session_host_unavailable": 1, "session_host_protocol_unsupported": 6,
 		"session_host_capability_missing": 6, "session_host_provider_unsupported": 6,
 		"secret_policy_violation": 16, "policy_refused": 16,
@@ -64,7 +64,7 @@ func TestStatusRegistryCompleteness(t *testing.T) {
 		"session_host_default_not_ready": 16, "session_resume_not_found": 1,
 		"session_adoption_conflict": 1, "session_liveness_unknown": 1,
 		"session_live_detached": 1, "defaults_config_invalid": 1,
-		"permission_mode_tracked_unsupported": 1, "plan_refused": 1,
+		"plan_refused":            1,
 		"claude_goal_unavailable": 1, "claude_context_base_not_forkable": 1,
 		"context_fork_preflight_failed": 1, "owner_activation_in_progress": 1,
 		"session_reservation_stale": 1, "session_takeover_not_applicable": 1,
@@ -75,6 +75,11 @@ func TestStatusRegistryCompleteness(t *testing.T) {
 	} {
 		if got, ok := hosted.StatusExitForCode(code); !ok || got != exit {
 			t.Fatalf("%s: exit = %d/%v, want %d/true", code, got, ok, exit)
+		}
+	}
+	for _, retired := range []string{"host_configuration_conflict", "permission_mode_tracked_unsupported"} {
+		if _, ok := hosted.StatusExitForCode(retired); ok {
+			t.Fatalf("retired row accepted: %s", retired)
 		}
 	}
 	if _, ok := hosted.StatusExitForCode("session_host_future_x"); ok {

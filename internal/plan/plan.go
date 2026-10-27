@@ -7,7 +7,7 @@
 // Inputs are explicitly resolved; this package owns no defaults engine
 // (defaults are TASK-260909-2vy977). The request it builds carries the
 // managed fragment home, the current working directory, and the inherited
-// environment in both tracked and untracked modes, with an empty
+// environment for native and hosted composition, with an empty
 // Composition, a zero Run, and goal/budget/service-tier/assignment unset.
 // The mode is requested by name (agentic.LaunchModeInteractive); no
 // permission bypass or yolo is spelled, and plan building starts no child.
@@ -62,7 +62,7 @@ import (
 
 // Stable diagnostic codes of SPEC §6 owned here. Main chooses them at the
 // plan call site; diagnostics.CodeOf does not classify them (they are
-// call-site-selected, like env_unsupported and the exec/ax sentinels).
+// call-site-selected, like env_unsupported and the exec sentinel).
 const (
 	CodeRefused = "plan_refused"
 	CodeLimited = "plan_provider_limited"

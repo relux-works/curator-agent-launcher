@@ -11,7 +11,7 @@ composer = root / 'internal/composition/composition.go'
 probe = root / 'internal/composition/probe.go'
 netstage = root / 'internal/network/network.go'
 mutants = [
- ('M1', composer, 'literals := maps.Clone(own)', 'literals := maps.Clone(own); literals["SECRET"] = env["SECRET"]', 'TestComposeEnvironmentBoundary', 'admit exactly inherited SECRET as a tracked literal'),
+ ('M1', composer, 'literals := maps.Clone(own)', 'literals := maps.Clone(own); literals["SECRET"] = env["SECRET"]', 'TestComposeEnvironmentBoundary', 'admit exactly inherited SECRET as a hosted literal'),
  ('M2', composer, 'if _, collision := literals[name]; collision {', 'if _, collision := literals[name]; collision && name != "OWN" {', 'TestComposeEnvironmentBoundary', 'admit OWN as both literal and lookup'),
  ('M3', composer, 'env := envMap(plan.Env)', 'env := envMap(plan.Env); env["REMOVED"] = "must-not-return"', 'TestComposeEnvironmentBoundary', 're-admit exactly plugin-removed REMOVED'),
  ('M4', composer, 'own := envMap(ownEnv)', 'own := envMap(ownEnv); delete(own, "OWN")', 'TestComposeEnvironmentBoundary', 'drop one owned snapshot name'),

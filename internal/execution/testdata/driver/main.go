@@ -3,29 +3,22 @@ package main
 
 import (
 	"fmt"
-	"github.com/relux-works/curator-agent-launcher/internal/cli"
 	"github.com/relux-works/curator-agent-launcher/internal/composition"
 	"github.com/relux-works/curator-agent-launcher/internal/execution"
-	"github.com/relux-works/curator-agent-launcher/internal/fragment"
-	"github.com/relux-works/curator-agent-launcher/internal/mapping"
 	"github.com/relux-works/skill-agents-management/pkg/agentic"
 	"os"
 	"syscall"
-	"time"
 	"unsafe"
 )
 
 func main() {
 	value := composition.Value{Binary: os.Args[1], WorkDir: os.Args[2], Env: []string{}, RawStdin: agentic.StdinPayload{Attached: true}}
-	if len(os.Args) > 4 {
+	if len(os.Args) > 3 {
 		value.RawStdin.Attached = false
 	}
-	launch, err := execution.Prepare(value, fragment.Fragment{}, cli.Invocation{EnvID: "pi", Tracked: os.Args[3] == "true"}, mapping.Target{System: "pi-native", Provider: "pi"}, time.Now())
-	if err != nil {
-		panic(err)
-	}
-	code := launch.Run(execution.Options{AxBinary: os.Args[1], Boundary: func() error { return nil }})
-	if len(os.Args) > 4 {
+	launch := execution.Prepare(value)
+	code := launch.Run(execution.Options{Boundary: func() error { return nil }})
+	if len(os.Args) > 3 {
 		tty, err := os.Open("/dev/tty")
 		if err != nil {
 			panic(err)

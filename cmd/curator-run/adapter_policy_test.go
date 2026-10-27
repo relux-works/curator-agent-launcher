@@ -25,9 +25,9 @@ import (
 // replace dependencies at existing seams, never source text. Baseline calls the
 // real library and emitter; only a subprocess with OPTION_C_MUTANT weakens one
 // member of a rejected class.
-func optionCFixture(t *testing.T, tracked bool) *pipelineFixture {
+func optionCFixture(t *testing.T) *pipelineFixture {
 	t.Helper()
-	f := printNetworkFixture(t, tracked)
+	f := printNetworkFixture(t)
 	writeDirectNetworkCatalog(t, f.dir, true)
 	f.args = withNetworkFlag(f.args, "direct-a")
 	f.deps.prober = forbiddenNetworkProber{t}
@@ -91,8 +91,6 @@ func optionCFixture(t *testing.T, tracked bool) *pipelineFixture {
 		f.deps.networkScopeCheck = func(id adapterprobe.Identity) bool {
 			return network.ScopeAllowed(id) || id == (adapterprobe.Identity{Adapter: "generic-env-v1", Harness: "codex-cli", Entrypoint: "exec"})
 		}
-	case "tracked-session-admitted":
-		f.deps.networkSessionAllowed = func(tracked, hosted bool) bool { return !hosted }
 	}
 	return f
 }
@@ -117,7 +115,7 @@ func adapterRecord(t *testing.T, stderr []byte) adapterprobe.Provenance {
 }
 
 func TestOptionCOperatorTextVerbatim(t *testing.T) {
-	f := optionCFixture(t, false)
+	f := optionCFixture(t)
 	code, _, stderr := f.run()
 	if code != 0 {
 		t.Fatalf("launch exit=%d", code)
@@ -129,7 +127,7 @@ func TestOptionCOperatorTextVerbatim(t *testing.T) {
 }
 
 func TestOptionCProvenanceRecordForSessionWrapper(t *testing.T) {
-	f := optionCFixture(t, false)
+	f := optionCFixture(t)
 	code, _, stderr := f.run()
 	if code != 0 {
 		t.Fatalf("launch exit=%d", code)
@@ -151,9 +149,9 @@ func TestOptionCProvenanceRecordForSessionWrapper(t *testing.T) {
 }
 
 func TestOptionCSessionRecordGuard(t *testing.T) {
-	for _, path := range []string{"tracked", "hosted"} {
+	for _, path := range []string{"hosted"} {
 		t.Run(path, func(t *testing.T) {
-			f := optionCFixture(t, path == "tracked")
+			f := optionCFixture(t)
 			if path == "hosted" {
 				insertLauncherArgs(f, "--hosted")
 			}
@@ -175,7 +173,7 @@ func TestOptionCProvenanceCannotBeSuppressed(t *testing.T) {
 	// launches with both lines on stderr regardless of the child output channel.
 	for _, flags := range [][]string{{"--quiet"}, {"--silent"}, {"--output-format", "json"}, {"--json-only"}} {
 		t.Run(strings.Join(flags, "-"), func(t *testing.T) {
-			f := optionCFixture(t, false)
+			f := optionCFixture(t)
 			f.args = append(f.args, flags...)
 			code, _, stderr := f.run()
 			if code != 0 {
@@ -212,7 +210,7 @@ func expectPolicyRefusal(t *testing.T, f *pipelineFixture, reason string) {
 func TestOptionCSensitiveEgressCannotDowngrade(t *testing.T) {
 	for _, mode := range []string{"optimistic", "pinned"} {
 		t.Run(mode, func(t *testing.T) {
-			f := optionCFixture(t, false)
+			f := optionCFixture(t)
 			setSensitiveProfile(t, f)
 			flag := mode
 			if mode == "pinned" {
@@ -226,7 +224,7 @@ func TestOptionCSensitiveEgressCannotDowngrade(t *testing.T) {
 func TestOptionCEmptyAllowlistReason(t *testing.T) {
 	for _, sensitive := range []bool{false, true} {
 		t.Run(map[bool]string{false: "strict", true: "sensitive"}[sensitive], func(t *testing.T) {
-			f := optionCFixture(t, false)
+			f := optionCFixture(t)
 			if sensitive {
 				setSensitiveProfile(t, f)
 			} else {
@@ -239,14 +237,14 @@ func TestOptionCEmptyAllowlistReason(t *testing.T) {
 func TestOptionCLegacyLabelsRetired(t *testing.T) {
 	for _, release := range []string{"2.1.287", "2.1.288"} {
 		t.Run(release, func(t *testing.T) {
-			f := optionCFixture(t, false)
+			f := optionCFixture(t)
 			withTestRelease(f, release)
 			code, _, stderr := f.run()
 			if code != 0 {
 				t.Fatalf("launch exit=%d", code)
 			}
 			adapterRecord(t, stderr)
-			strict := optionCFixture(t, false)
+			strict := optionCFixture(t)
 			withTestRelease(strict, release)
 			insertLauncherArgs(strict, "--network-policy", "strict")
 			expectPolicyRefusal(t, strict, "strict_miss")
@@ -254,7 +252,7 @@ func TestOptionCLegacyLabelsRetired(t *testing.T) {
 	}
 }
 func TestOptionCPinnedUnprovenBuild(t *testing.T) {
-	f := optionCFixture(t, false)
+	f := optionCFixture(t)
 	insertLauncherArgs(f, "--network-policy", "pinned:"+strings.TrimPrefix(artifactBuild(t, f), "sha256-"))
 	code, _, stderr := f.run()
 	if code != 0 {
@@ -263,18 +261,18 @@ func TestOptionCPinnedUnprovenBuild(t *testing.T) {
 	adapterRecord(t, stderr)
 }
 func TestOptionCPinnedMismatch(t *testing.T) {
-	f := optionCFixture(t, false)
+	f := optionCFixture(t)
 	insertLauncherArgs(f, "--network-policy", "pinned:"+strings.Repeat("a", 64))
 	expectPolicyRefusal(t, f, "pinned_miss")
 }
 func TestOptionCKnownBadBuild(t *testing.T) {
-	f := optionCFixture(t, false)
+	f := optionCFixture(t)
 	data, _ := json.Marshal(map[string]any{"schema": adapterprobe.KnownBadSchema, "sha256": []string{strings.TrimPrefix(artifactBuild(t, f), "sha256-")}})
 	writeFixture(t, filepath.Join(f.dir, ".curator", adapterprobe.KnownBadFileName), data, 0600)
 	expectPolicyRefusal(t, f, "known_bad_build")
 }
 func TestOptionCKnownBadUnreadable(t *testing.T) {
-	f := optionCFixture(t, false)
+	f := optionCFixture(t)
 	// A directory is a present-but-unreadable file even under privileged tests.
 	if err := os.Mkdir(filepath.Join(f.dir, ".curator", adapterprobe.KnownBadFileName), 0700); err != nil {
 		t.Fatal(err)
@@ -282,18 +280,18 @@ func TestOptionCKnownBadUnreadable(t *testing.T) {
 	expectPolicyRefusal(t, f, "knownbad_unreadable")
 }
 func TestOptionCExplicitKnownBadMissing(t *testing.T) {
-	f := optionCFixture(t, false)
+	f := optionCFixture(t)
 	insertLauncherArgs(f, "--network-known-bad", filepath.Join(f.dir, "missing.json"))
 	expectPolicyRefusal(t, f, "knownbad_unreadable")
 }
 func TestOptionCUnknownVendor(t *testing.T) {
-	f := entryFixture(t, "pi", false)
+	f := entryFixture(t, "pi")
 	writeDirectNetworkCatalog(t, f.dir, true)
 	f.args = withNetworkFlag(f.args, "direct-a")
 	expectPolicyRefusal(t, f, "vendor_line_unsupported")
 }
 func TestOptionCUnknownAdapter(t *testing.T) {
-	f := optionCFixture(t, false)
+	f := optionCFixture(t)
 	f.deps.networkEvaluate = func(c context.Context, r adapterprobe.Request, p adapterprobe.Policy) (adapterprobe.Decision, error) {
 		r.Adapter.Adapter = "unknown-adapter"
 		return adapterprobe.Evaluate(c, r, p)
@@ -302,7 +300,7 @@ func TestOptionCUnknownAdapter(t *testing.T) {
 }
 func TestOptionCQualifiedDecision(t *testing.T) {
 	// Future qualification input at the API seam; production has no AllowedBuild.
-	f := optionCFixture(t, false)
+	f := optionCFixture(t)
 	f.deps.networkEvaluate = func(c context.Context, r adapterprobe.Request, p adapterprobe.Policy) (adapterprobe.Decision, error) {
 		p.Allowlist = []adapterprobe.AllowedBuild{{Adapter: r.Adapter, BuildID: artifactBuild(t, f), Recipe: r.Recipe, Platform: runtime.GOOS, Scope: adapterprobe.TransportScope}}
 		return adapterprobe.Evaluate(c, r, p)
@@ -313,7 +311,7 @@ func TestOptionCQualifiedDecision(t *testing.T) {
 	}
 }
 func TestOptionCScopeGate(t *testing.T) {
-	f := optionCFixture(t, false)
+	f := optionCFixture(t)
 	// Exercise a real known line and registered exec recipe outside the host's
 	// child-scope ceiling, through Prepare. No unknown recipe masks this gate.
 	data, e := os.ReadFile(f.binary)
@@ -341,7 +339,6 @@ func TestOptionCMutants(t *testing.T) {
 		{"sensitive-egress-downgrade", "TestOptionCSensitiveEgressCannotDowngrade"},
 		{"KnownBadErr-dropped", "TestOptionCKnownBadUnreadable"},
 		{"scope-gate-removed", "TestOptionCScopeGate"},
-		{"tracked-session-admitted", "TestOptionCSessionRecordGuard"},
 	}
 	for _, m := range mutants {
 		t.Run(m.id, func(t *testing.T) {
@@ -370,7 +367,7 @@ func TestOptionCMutants(t *testing.T) {
 }
 
 func TestOptionCHostIdentityMismatch(t *testing.T) {
-	f := optionCFixture(t, false)
+	f := optionCFixture(t)
 	f.deps.networkEvaluate = func(c context.Context, r adapterprobe.Request, p adapterprobe.Policy) (adapterprobe.Decision, error) {
 		d, e := adapterprobe.Evaluate(c, r, p)
 		d.BinarySHA256 = strings.Repeat("a", 64)
@@ -391,7 +388,7 @@ func (failAdapterWriter) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 func TestOptionCProvenanceWriteFailureRefuses(t *testing.T) {
-	f := optionCFixture(t, false)
+	f := optionCFixture(t)
 	var out bytes.Buffer
 	code := run(context.Background(), f.args, &out, failAdapterWriter{}, f.deps)
 	if code != 1 || out.Len() != 0 {
@@ -401,7 +398,7 @@ func TestOptionCProvenanceWriteFailureRefuses(t *testing.T) {
 }
 func TestOptionCSuppressionFlagsAreNotLauncherFlags(t *testing.T) {
 	for _, flag := range []string{"--quiet", "--silent", "--json-only"} {
-		f := optionCFixture(t, false)
+		f := optionCFixture(t)
 		insertLauncherArgs(f, flag)
 		code, out, _ := f.run()
 		if code != 2 || len(out) != 0 || f.builds != 0 {
@@ -416,7 +413,7 @@ func (fn networkProbeFunc) Probe(c context.Context, r probe.Request) (probe.Resu
 	return fn(c, r)
 }
 func TestOptionCSnapshotExecutesAdmittedBytes(t *testing.T) {
-	f := optionCFixture(t, false)
+	f := optionCFixture(t)
 	endpoint, _ := writeNetworkCatalog(t, f.dir, true)
 	for i, a := range f.args {
 		if a == "direct-a" {
@@ -434,7 +431,7 @@ func TestOptionCSnapshotExecutesAdmittedBytes(t *testing.T) {
 	}
 }
 func TestOptionCScriptsRefuse(t *testing.T) {
-	f := optionCFixture(t, false)
+	f := optionCFixture(t)
 	inner := f.deps.networkEvaluate
 	f.deps.networkEvaluate = func(c context.Context, r adapterprobe.Request, p adapterprobe.Policy) (adapterprobe.Decision, error) {
 		r.Artifact = []byte("#!/bin/sh\nexit 0\n")

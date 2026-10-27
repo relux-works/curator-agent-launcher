@@ -19,7 +19,7 @@ const authorizedUnmanagedDelta = `      "--disallowedTools=AskUserQuestion",`
 // default YOLO on every stdio shape, so the pipeline fixtures that must
 // keep launching natively state `--permissions native` and their
 // permissions line reports its real source. That is the one authorized
-// change to the untracked goldens' stderr: the line below, in the
+// change to the native goldens' stderr: the line below, in the
 // baseline spelling, is what the current golden is normalized back to
 // before the byte comparison, so any other drift still fails.
 const (
@@ -29,7 +29,7 @@ const (
 
 // normalizeAuthorizedPermissionsLine rewrites exactly one occurrence of the
 // Q-D3 spelling to the baseline spelling and fails when the golden does not
-// carry it exactly once: an untracked golden without the line, or with it
+// carry it exactly once: a native golden without the line, or with it
 // twice, is itself drift.
 func normalizeAuthorizedPermissionsLine(t *testing.T, name string, current []byte) []byte {
 	t.Helper()
@@ -40,10 +40,10 @@ func normalizeAuthorizedPermissionsLine(t *testing.T, name string, current []byt
 }
 
 // TestUnmanagedGoldensMatchBaselineFbcdbaf0 pins row-5 parity: every
-// unmanaged launch shape the suite goldens — six direct/tracked
+// unmanaged launch shape the suite goldens — three native
 // pipeline shapes plus three Muse shapes, all launched WITHOUT
-// --network — matches baseline fbcdbaf0, except the two Claude goldens,
-// which carry exactly the one authorized denial line above; Muse carries
+// --network — matches baseline fbcdbaf0, except the Claude golden,
+// which carries exactly the one authorized denial line above; Muse carries
 // exactly the v0.5.62 lineup change from Spark/max to Wonder/xhigh.
 // Baseline bytes live in testdata/baseline-fbcdbaf0/, extracted
 // with `git show fbcdbaf0:cmd/curator-run/testdata/<name>.golden`
@@ -64,8 +64,8 @@ func normalizeAuthorizedPermissionsLine(t *testing.T, name string, current []byt
 // it is enumerated in SPEC §4.4b, not re-checked here.
 func TestUnmanagedGoldensMatchBaselineFbcdbaf0(t *testing.T) {
 	identical := []string{
-		"pipeline-codex_cli-false", "pipeline-codex_cli-true",
-		"pipeline-pi-false", "pipeline-pi-true",
+		"pipeline-codex_cli-false",
+		"pipeline-pi-false",
 		"pipeline-muse-native", "pipeline-muse-yolo", "pipeline-muse-yolo-alias",
 	}
 	for _, name := range identical {
@@ -90,7 +90,7 @@ func TestUnmanagedGoldensMatchBaselineFbcdbaf0(t *testing.T) {
 				name, len(current), len(base))
 		}
 	}
-	for _, name := range []string{"pipeline-claude_code-false", "pipeline-claude_code-true"} {
+	for _, name := range []string{"pipeline-claude_code-false"} {
 		current := readGolden(t, filepath.Join("testdata", name+".golden"))
 		base := readGolden(t, filepath.Join("testdata", "baseline-fbcdbaf0", name+".golden"))
 		if strings.HasSuffix(name, "-false") {

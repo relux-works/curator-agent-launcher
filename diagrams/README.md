@@ -2,7 +2,8 @@
 
 These PlantUML sources illustrate the [launcher specification](../SPEC.md).
 Revision: accepted architecture-review findings (2026-10-13), plus v0.4.0
-release alignment. Review resources are inert exact-C diffs/blobs; discovery-capable
+release alignment and ax removal (2026-10-27). The current panels show
+the all-location retired-policy guard and no ax execution route. Review resources are inert exact-C diffs/blobs; discovery-capable
 candidate-tree entry requires a qualified strict-context adapter (§10.2).
 Host loops require trusted class and local placement; review admission checks
 an explicit role grant and class/placement predicates. Circle membership alone
@@ -11,7 +12,7 @@ open requirement in §9 without selecting its mechanism or changing the transfer
 sequence; optional reviewer policies remain unchosen and off.
 No implementation, qualification or activation of the target one-shot panels is claimed.
 
-Each figure separates the current interactive API (native direct/ax launches
+Each figure separates the current interactive API (native direct launches
 and delegated hosting through a registered and selected conforming manager)
 from the target agent-account one-shot mode (§10). Current hosting follows
 [FRONT-DOOR §§3–5](../FRONT-DOOR.md#3-host-mode-hosted-by-default) and

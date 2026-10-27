@@ -18,16 +18,13 @@
 //	resolve_repair_failed          fragment.ResolveError       fragment.Resolver.Resolve (exit 1)
 //	resolve_lock_unavailable       fragment.ResolveError       fragment.Resolver.Resolve (exit 1)
 //	resolve_fragment_invalid       fragment.ResolveError       fragment.Resolver.Resolve (exit 1)
-//	defaults_config_invalid        axconfig.Error              axconfig.Load (exit 1)
 //	defaults_unresolvable          defaults.Error              defaults.Files.Complete (exit 1)
 //	plan_refused                   plan.Build                 separately owned (exit 1)
 //	plan_provider_limited          plan.Build                 separately owned (exit 1)
 //	env_unsupported                mapping (constant)          mapping.Resolve (exit 1)
 //	permission_policy_unsupported  permission policy          call-site selected (exit 1)
-//	permission_mode_tracked_unsupported permission policy      call-site selected (exit 1)
 //	permission_mode_unsupported    permission policy          call-site selected (exit 1)
 //	exec_provider_missing          execution (sentinel text)   execution.Launch.Run (exit 1)
-//	ax_handoff_failed              execution (sentinel text)   execution.Launch.Run (exit 1)
 //	mcp_layer_missing              composition.LayerError      composition.Value.CheckLaunchBoundary (exit 1)
 //	mcp_layer_unreadable           composition.LayerError      composition.Value.CheckLaunchBoundary (exit 1)
 //	sysprompt_channel_unavailable  systemprompt.Refusal        systemprompt.Select via PrepareLaunch (exit 1)
@@ -40,7 +37,6 @@
 //	network_proxy_auth_failed      refusal.Refusal             network.Prepare, call-site retained (exit 1)
 //	network_profile_invalid        refusal.Refusal             network.Prepare, call-site retained (exit 1)
 //	network_file_unreadable        refusal.Refusal             network.Prepare, call-site retained (exit 1)
-//	host_configuration_conflict    hosted (constant)           run host/ax routing (exit 2)
 //	session_host_missing           hosted (constant)           hosted receiver lookup/spawn (exit 1)
 //	session_host_unavailable       hosted (constant)           hosted status channel (exit 1)
 //	session_host_provider_unsupported hosted (constant)        run provider admission (exit 6)
@@ -71,7 +67,7 @@
 // code line from them so a warning is never mistaken for the contract.
 //
 // Byte rule: Line frames launcher-owned detail (see Line). Forwarded
-// bytes — Curator's stderr, provider verdict evidence, ax Structured
+// bytes — Curator's stderr, provider verdict evidence, foreign Structured
 // Error payloads — are written verbatim by their owners and never pass
 // through Line, so this package transforms no foreign bytes.
 //
@@ -85,7 +81,6 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/relux-works/curator-agent-launcher/internal/axconfig"
 	"github.com/relux-works/curator-agent-launcher/internal/cli"
 	"github.com/relux-works/curator-agent-launcher/internal/composition"
 	"github.com/relux-works/curator-agent-launcher/internal/fragment"
@@ -119,6 +114,7 @@ const (
 	CodeResolveLockUnavailable    = "resolve_lock_unavailable"
 	CodeResolveFragmentInvalid    = "resolve_fragment_invalid"
 
+	CodeAXTrackingRemoved                = "ax_tracking_removed"
 	CodeDefaultsInvalid                  = "defaults_config_invalid"
 	CodeDefaultsUnresolvable             = "defaults_unresolvable"
 	CodeSelectorUnavailable              = "selector_unavailable"
@@ -136,13 +132,10 @@ const (
 
 	CodeEnvUnsupported = "env_unsupported"
 
-	CodePermissionPolicyUnsupported      = "permission_policy_unsupported"
-	CodePermissionModeTrackedUnsupported = "permission_mode_tracked_unsupported"
-	CodePermissionModeUnsupported        = "permission_mode_unsupported"
+	CodePermissionPolicyUnsupported = "permission_policy_unsupported"
+	CodePermissionModeUnsupported   = "permission_mode_unsupported"
 
 	CodeExecMissing = "exec_provider_missing"
-
-	CodeAxHandoffFailed = "ax_handoff_failed"
 
 	CodeMCPLayerMissing    = "mcp_layer_missing"
 	CodeMCPLayerUnreadable = "mcp_layer_unreadable"
@@ -158,8 +151,6 @@ const (
 	CodeNetworkProxyAuthFailed       = "network_proxy_auth_failed"
 	CodeNetworkProfileInvalid        = "network_profile_invalid"
 	CodeNetworkFileUnreadable        = "network_file_unreadable"
-
-	CodeHostConflict = "host_configuration_conflict"
 
 	CodeSessionHostMissing                     = "session_host_missing"
 	CodeSessionHostUnavailable                 = "session_host_unavailable"
@@ -203,10 +194,8 @@ func Codes() []string {
 		CodePlanProviderLimited,
 		CodeEnvUnsupported,
 		CodePermissionPolicyUnsupported,
-		CodePermissionModeTrackedUnsupported,
 		CodePermissionModeUnsupported,
 		CodeExecMissing,
-		CodeAxHandoffFailed,
 		CodeMCPLayerMissing,
 		CodeMCPLayerUnreadable,
 		CodeSyspromptUnavailable,
@@ -219,7 +208,6 @@ func Codes() []string {
 		CodeNetworkProxyAuthFailed,
 		CodeNetworkProfileInvalid,
 		CodeNetworkFileUnreadable,
-		CodeHostConflict,
 		CodeSessionHostMissing,
 		CodeSessionHostUnavailable,
 		CodeSessionHostProviderUnsupported,
@@ -261,7 +249,7 @@ func ExitForCode(code string) int {
 		return row.Exit
 	}
 	switch code {
-	case CodeUsage, CodeHostConflict, CodeSessionResumeInvalid, CodeLaunchPlanInvalid, CodeHostWithdrawn, CodeMigrateDestinationExists, CodeSessionManagerRegistryInvalid, CodeSessionManagerRegistryUnwritable, CodeSessionManagerRegistryShadowed, CodeSessionManagerNotRegistered:
+	case CodeUsage, CodeSessionResumeInvalid, CodeLaunchPlanInvalid, CodeHostWithdrawn, CodeMigrateDestinationExists, CodeSessionManagerRegistryInvalid, CodeSessionManagerRegistryUnwritable, CodeSessionManagerRegistryShadowed, CodeSessionManagerNotRegistered:
 		return ExitUsage
 	case CodeSessionHostProtocolUnsupported, CodeSessionHostProviderUnsupported,
 		CodeSessionHostScopeUnsupported, CodeSessionHostExecutionProfileUnsupported,
@@ -344,7 +332,6 @@ func nilValue(e error) bool {
 // owning stages at every level of their wrap chains, and accepts only
 // the owner's own closed family. Mapping failures (plain errors under
 // mapping.CodeUnsupported), execution sentinels
-// (exec_provider_missing, ax_handoff_failed), and network refusals
 // (retained via refusal.As at the network call sites) are chosen
 // explicitly at their call sites and are not classified here. An error
 // no owner claims
@@ -366,9 +353,6 @@ func CodeOf(err error) (code string, ok bool) {
 		if sr, ok := e.(*systemprompt.Refusal); ok && sr != nil && refusalFamily[sr.Code] {
 			return sr.Code, true
 		}
-		if ae, ok := e.(*axconfig.Error); ok && ae != nil {
-			return CodeDefaultsInvalid, true
-		}
 		return "", false
 	})
 }
@@ -384,7 +368,7 @@ func CodeOf(err error) (code string, ok bool) {
 // each continuation line starts with whitespace, so IsDiagnosticLine
 // never recognizes it — even when the embedded bytes spell a code line.
 // Only detail is framed: code is chosen by the call site from the closed
-// set, and forwarded child/provider/ax bytes never pass through Line.
+// set, and forwarded child/provider bytes never pass through Line.
 func Line(code, detail string) string {
 	detail = strings.ReplaceAll(detail, "\r\n", "\n")
 	detail = strings.ReplaceAll(detail, "\r", "\n")

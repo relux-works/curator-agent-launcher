@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### Removed
+
+- Remove the ax tracked execution route, `ax.json` policy parsing,
+  `--name`, `--ax-profile`, tracked permission defaults and handoff diagnostics.
+  Any leftover `ax.json` now refuses `ax_tracking_removed` (exit 2) before
+  resolve or launch. Migration lists it, backs up regular files and removes
+  them; non-regular entries require manual removal. `--untracked` remains a
+  deprecated `--native` alias for two releases with one warning.
+
 ### Added
 
 - Enforce one profile per Werkstatt conversation: a known profile change in

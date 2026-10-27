@@ -129,7 +129,6 @@ func TestTransportExitMapping(t *testing.T) {
 		want    int
 	}{
 		{"usage", "Invalid invocation.", `{}`, 2},
-		{"host_configuration_conflict", "Conflicting host configuration.", `{}`, 2},
 		{"launch_plan_invalid", "Invalid launch plan.", `{"field":"process","reason":"shape_invalid"}`, 2},
 		{"session_resume_invalid", "Invalid resume selector.", `{}`, 2},
 		{"session_host_protocol_unsupported", "Session host protocol is unsupported.", `{}`, 6},
@@ -148,7 +147,6 @@ func TestTransportExitMapping(t *testing.T) {
 		{"session_host_missing", "Session host is missing.", `{}`, 1},
 		{"session_host_unavailable", "Session host is unavailable.", `{}`, 1},
 		{"defaults_config_invalid", "Profile resolution refused.", `{}`, 1},
-		{"permission_mode_tracked_unsupported", "Provider launch refused.", `{}`, 1},
 		{"plan_refused", "Provider launch refused.", `{}`, 1},
 		{"session_resume_not_found", "Session resume refused.", `{}`, 1},
 		{"session_adoption_conflict", "Session ownership conflict.", `{}`, 1},

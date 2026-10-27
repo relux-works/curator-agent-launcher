@@ -1,4 +1,4 @@
-// Fake provider and fake ax. Never invokes an installed model or ax.
+// Fake provider. Never invokes an installed model.
 package main
 
 import (

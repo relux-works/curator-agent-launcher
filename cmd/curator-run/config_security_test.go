@@ -14,7 +14,6 @@ import (
 
 const (
 	securityDefaultsJSON = `{"schema":"curator-run-defaults-v1","defaults":{"pi":{"model":"claude-fable-5"}}}`
-	securityAXJSON       = `{"schema":"curator-run-ax-v1","enabled":true}`
 )
 
 type securityFiles struct {
@@ -44,7 +43,7 @@ func securityFixture(t *testing.T) (launchDeps, *scriptedRunner, securityFiles) 
 	deps := testDeps(t, fragment.NewWithRunner("curator", runner))
 	deps.defaults = files.paths
 	deps.configPaths = func() (defaults.Paths, error) { return files.paths, nil }
-	deps.axPaths = func() (defaults.Paths, error) { return files.paths, nil }
+
 	return deps, runner, files
 }
 
@@ -54,19 +53,14 @@ func securityPath(files securityFiles, target string) string {
 		return files.paths.Machine
 	case "operator-defaults":
 		return files.paths.Operator
-	case "machine-ax":
-		return filepath.Join(files.machineDir, "ax.json")
-	case "operator-ax":
-		return filepath.Join(files.operatorDir, "ax.json")
+
 	default:
 		panic("unknown security fixture target: " + target)
 	}
 }
 
 func securityContents(target string) string {
-	if strings.HasSuffix(target, "-ax") {
-		return securityAXJSON
-	}
+
 	return securityDefaultsJSON
 }
 
@@ -147,20 +141,12 @@ func TestRunConfigSecurityRefusalRows(t *testing.T) {
 	}{
 		{"machine-defaults", "symlink", 1},
 		{"operator-defaults", "symlink", 1},
-		{"machine-ax", "symlink", 0},
-		{"operator-ax", "symlink", 0},
 		{"machine-defaults", "group-write", 1},
 		{"operator-defaults", "group-write", 1},
-		{"machine-ax", "group-write", 0},
-		{"operator-ax", "group-write", 0},
 		{"machine-defaults", "world-write", 1},
 		{"operator-defaults", "world-write", 1},
-		{"machine-ax", "world-write", 0},
-		{"operator-ax", "world-write", 0},
 		{"machine-defaults", "unreadable", 1},
 		{"operator-defaults", "unreadable", 1},
-		{"machine-ax", "unreadable", 0},
-		{"operator-ax", "unreadable", 0},
 	}
 	for _, tc := range cases {
 		t.Run(tc.target+"/"+tc.kind, func(t *testing.T) {
@@ -235,11 +221,10 @@ func TestRunConfigSecurityRejectsDifferentDirectoryOwner(t *testing.T) {
 }
 
 func TestRunConfigSecurityHappyPath(t *testing.T) {
-	f := entryFixture(t, "pi", true)
+	f := entryFixture(t, "pi")
 	f.writeDefaults(t, f.deps.defaults.Machine, `{"schema":"curator-run-defaults-v1","defaults":{"pi":{"model":"claude-opus-5","effort":"high"}}}`)
 	f.writeDefaults(t, f.deps.defaults.Operator, `{"schema":"curator-run-defaults-v1","defaults":{"pi":{"model":"claude-fable-5"}}}`)
-	f.writeDefaults(t, filepath.Join(filepath.Dir(f.deps.defaults.Machine), "ax.json"), securityAXJSON)
-	f.args = []string{"pi"}
+	f.args = []string{"pi", "--permissions", "native"}
 	code, out, stderr := f.run()
 	if code != 0 || len(out) == 0 || f.resolver.calls != 1 || f.builds != 1 {
 		t.Fatalf("exit=%d resolver=%d builds=%d stdout=%s stderr=%s", code, f.resolver.calls, f.builds, out, stderr)

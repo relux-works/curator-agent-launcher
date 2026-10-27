@@ -21,7 +21,7 @@ import (
 
 func museFixture(t *testing.T) (*pipelineFixture, *fragment.Fragment) {
 	t.Helper()
-	f := entryFixture(t, "pi", false)
+	f := entryFixture(t, "pi")
 	f.deps.moduleVersion = func() string { return "v0.5.68" }
 	data, err := os.ReadFile("../../internal/fragment/testdata/v3/muse.json")
 	if err != nil {
@@ -181,7 +181,7 @@ func TestMuseV4CompositionPreservesHOME(t *testing.T) {
 		t.Fatalf("XDG-only overrides (no HOME): %+v", v)
 	}
 	target, err := mapping.Resolve(frag.Environment)
-	if err != nil || target.System != "muse" || target.Provider != "muse" {
+	if err != nil || target.System != "muse" {
 		t.Fatalf("Muse mapping=%+v err=%v", target, err)
 	}
 }

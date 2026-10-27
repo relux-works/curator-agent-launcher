@@ -24,7 +24,7 @@ func configHomeFixture(t *testing.T) (launchDeps, *scriptedRunner, configfile.Lo
 	deps := testDeps(t, fragment.NewWithRunner("curator", runner))
 	deps.configLocations = func() (configfile.Locations, error) { return loc, nil }
 	deps.configPaths = nil
-	deps.axPaths = nil
+
 	return deps, runner, loc
 }
 func writeConfig(t *testing.T, dir, name, data string) {
@@ -43,10 +43,9 @@ func TestRunSharedConfigHome(t *testing.T) {
 				machine, user = loc.LegacySystem, loc.LegacyUser
 			}
 			writeConfig(t, machine, "launcher.json", `{"schema":"curator-run-launcher-v1","host_mode":"native"}`)
-			writeConfig(t, user, "ax.json", `{"schema":"curator-run-ax-v1","enabled":false}`)
 			writeConfig(t, user, "defaults.json", `{"schema":"curator-run-defaults-v3","defaults":{"pi":{"model":"claude-fable-5","effort":"high","permissions":"native"}}}`)
 			if shape == "both" {
-				for _, row := range []struct{ dir, name string }{{loc.LegacySystem, "launcher.json"}, {loc.LegacyUser, "ax.json"}, {loc.LegacyUser, "defaults.json"}} {
+				for _, row := range []struct{ dir, name string }{{loc.LegacySystem, "launcher.json"}, {loc.LegacyUser, "defaults.json"}} {
 					if err := os.Symlink(filepath.Join(row.dir, "missing"), filepath.Join(row.dir, row.name)); err != nil {
 						t.Fatal(err)
 					}
@@ -59,7 +58,7 @@ func TestRunSharedConfigHome(t *testing.T) {
 			}
 			want := 0
 			if shape == "fallback" {
-				want = 3
+				want = 2
 			}
 			if strings.Count(stderr.String(), "deprecated config path") != want {
 				t.Fatal(stderr.String())

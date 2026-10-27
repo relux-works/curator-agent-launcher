@@ -561,8 +561,8 @@ func isAbsolutePath(path string) bool {
 	return len(path) > 0 && path[0] == '/' && strings.IndexByte(path, 0) < 0
 }
 
-// validSessionName is the contract's host-name grammar, shared with the CLI
-// --name rule: [A-Za-z0-9][A-Za-z0-9._-]{0,63}.
+// validSessionName is the contract's host-name grammar:
+// [A-Za-z0-9][A-Za-z0-9._-]{0,63}.
 func validSessionName(name string) bool {
 	if len(name) == 0 || len(name) > 64 {
 		return false

@@ -19,7 +19,7 @@ import (
 // ambient environment, and keeps launch-only values out of a resume request.
 func TestDelegatedProjection(t *testing.T) {
 	frag := &fragment.Fragment{Environment: "claude_code", Profile: fragment.Profile{Name: "sample", LockSHA256: strings.Repeat("1", 64)}, Digest: fragment.DigestPrefix + strings.Repeat("2", 64)}
-	inv := cli.Invocation{EnvID: "claude_code", BoardGoal: true, SystemPrompt: cli.SystemPromptAppend, Name: "example", NameSet: true}
+	inv := cli.Invocation{EnvID: "claude_code", BoardGoal: true, SystemPrompt: cli.SystemPromptAppend, SessionLabel: "example"}
 	resolved := defaults.Resolved{SelectorDecisionID: "decision/@+1", Model: defaults.ResolvedMember{Member: defaults.Member{Value: "claude-opus-5"}}, Effort: defaults.ResolvedMember{Member: defaults.Member{Value: "medium"}}}
 	permission := execution.PermissionDecision{Mode: agentic.PermissionModeYolo, Source: "flag"}
 	at := time.Date(2026, 1, 2, 3, 4, 5, 123456789, time.FixedZone("offset", 3600))

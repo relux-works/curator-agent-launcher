@@ -3,13 +3,11 @@
 package composition
 
 import (
-	"encoding/base64"
 	"fmt"
 	"maps"
 	"slices"
 	"sort"
 	"strings"
-	"unicode/utf8"
 
 	"github.com/relux-works/curator-agent-launcher/internal/fragment"
 	"github.com/relux-works/curator-agent-launcher/internal/network"
@@ -26,17 +24,9 @@ type PromptApplication struct {
 	Env  map[string]string
 }
 
-// Stdin is the D4 wire representation. A nil pointer means unattached.
-type Stdin struct {
-	Encoding string `json:"encoding"`
-	Bytes    string `json:"bytes"`
-}
-
-// Value carries direct execution data and tracked transport data separately.
-// JSON contains only the composition-owned subset of a tracked document; the
-// execution layer must add schema_version and extensions before handing to ax.
-// Binary is never an argv element. Env is the FULL direct-execution environment
-// and must never be serialized into a tracked request.
+// Value carries native execution inputs and the owned environment projection
+// required by hosted transport. Binary is never an argv element; Env contains
+// the full inherited environment and is never serialized into a hosted request.
 type Value struct {
 	Binary      string               `json:"-"`
 	WorkDir     string               `json:"-"`
@@ -45,7 +35,6 @@ type Value struct {
 	RawStdin    agentic.StdinPayload `json:"-"`
 	EnvLiterals map[string]string    `json:"env_literals"`
 	EnvNames    []string             `json:"env_names"`
-	Stdin       *Stdin               `json:"stdin"`
 	// Warnings are mode-independent and name variables only. Both execution
 	// paths must print them to stderr before launch.
 	Warnings []string `json:"-"`
@@ -177,13 +166,7 @@ func ComposeWithNetwork(plan agentic.Plan, ownEnv []string, frag fragment.Fragme
 	if v.Env == nil {
 		v.Env = []string{}
 	}
-	if plan.Stdin.Attached {
-		v.Stdin = &Stdin{Encoding: "utf-8", Bytes: string(plan.Stdin.Bytes)}
-		if !utf8.Valid(plan.Stdin.Bytes) {
-			v.Stdin.Encoding = "base64url"
-			v.Stdin.Bytes = base64.RawURLEncoding.EncodeToString(plan.Stdin.Bytes)
-		}
-	}
+
 	return v, nil
 }
 

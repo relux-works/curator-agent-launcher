@@ -1,18 +1,18 @@
-// Package mapping implements the closed SPEC §4.2 system/provider mapping.
+// Package mapping implements the closed SPEC §4.2 system mapping.
 // Adapter identity remains owned by fragment; launch support is separate.
 package mapping
 
 import (
 	"fmt"
+
 	"github.com/relux-works/curator-agent-launcher/internal/fragment"
 )
 
 const CodeUnsupported = "env_unsupported"
 
-// Target names both consumers. A partial mapping is never launchable.
+// Target names the spawn-plane system. Unsupported environments refuse.
 type Target struct {
-	System   string
-	Provider string
+	System string
 }
 
 // Resolve maps only explicitly supported environment identifiers. It neither
@@ -22,14 +22,14 @@ type Target struct {
 func Resolve(environment string) (Target, error) {
 	switch environment {
 	case fragment.EnvClaudeCode:
-		return Target{System: "claude-code", Provider: "claude"}, nil
+		return Target{System: "claude-code"}, nil
 	case fragment.EnvCodexCLI:
-		return Target{System: "codex", Provider: "codex"}, nil
+		return Target{System: "codex"}, nil
 	case fragment.EnvMuse:
-		return Target{System: "muse", Provider: "muse"}, nil
+		return Target{System: "muse"}, nil
 	case fragment.EnvPi:
-		return Target{System: "pi-native", Provider: "pi"}, nil
+		return Target{System: "pi-native"}, nil
 	default:
-		return Target{}, fmt.Errorf("environment %q has no supported system/provider pair", environment)
+		return Target{}, fmt.Errorf("environment %q has no supported system mapping", environment)
 	}
 }

@@ -16,73 +16,60 @@ var update = flag.Bool("update", false, "rewrite testdata/cases.golden from the 
 type shape struct {
 	name string
 	args []string
-	ax   bool
 }
-
-var untracked = Options{AxConfigured: false}
-var tracked = Options{AxConfigured: true}
 
 // accepted shapes; each is checked for a nil error and rendered to the golden.
 var acceptedShapes = []shape{
-	{"env only", []string{"codex_cli"}, false},
-	{"env with empty native tail", []string{"codex_cli", "--"}, false},
-	{"native tail verbatim", []string{"codex_cli", "--profile", "companyA", "--", "resume", "--last"}, false},
-	{"native tail keeps empty operand", []string{"pi", "--", "", "hello", ""}, false},
-	{"native tail keeps colliding launcher flags", []string{"claude_code", "--", "--profile", "x", "--model", "m", "--help", "-h", "--version"}, false},
-	{"native tail keeps second double dash", []string{"claude_code", "--", "--", "a", "--"}, false},
-	{"native tail keeps stray operands", []string{"codex_cli", "--", "one", "two", "three"}, false},
-	{"native tail keeps unknown flags", []string{"codex_cli", "--", "--no-such-flag", "--dangerously-bypass"}, false},
-	{"flags before env", []string{"--profile", "companyA", "--model", "gpt-5.3-codex", "codex_cli"}, false},
-	{"flags after env", []string{"codex_cli", "--model", "gpt-5.3-codex", "--effort", "high"}, false},
-	{"equals form", []string{"codex_cli", "--profile=companyA", "--effort=medium"}, false},
-	{"equals form value containing equals", []string{"codex_cli", "--profile=a=b"}, false},
-	{"permissions native separate", []string{"codex_cli", "--permissions", "native"}, false},
-	{"permissions yolo separate", []string{"codex_cli", "--permissions", "yolo"}, false},
-	{"permissions native equals", []string{"--permissions=native", "codex_cli"}, false},
-	{"permissions yolo equals", []string{"--permissions=yolo", "codex_cli"}, false},
-	{"yolo alias", []string{"--yolo", "codex_cli"}, false},
-	{"native tail keeps permission spellings", []string{"pi", "--", "--permissions", "yolo", "--yolo", "-d", "--danger"}, false},
-	{"system prompt append", []string{"pi", "--system-prompt", "append"}, false},
-	{"system prompt replace", []string{"pi", "--system-prompt", "replace"}, false},
-	{"name on tracked machine", []string{"codex_cli", "--name", "work.1_a-b"}, true},
-	{"name 64 chars on tracked machine", []string{"codex_cli", "--name", "a" + strings.Repeat("b", 63)}, true},
-	{"name single char", []string{"codex_cli", "--name", "7"}, true},
-	{"name on untracked machine accepted no effect", []string{"codex_cli", "--name", "ineffective"}, false},
-	{"ax profile standard tracked", []string{"codex_cli", "--ax-profile", "standard"}, true},
-	{"ax profile yolo tracked", []string{"codex_cli", "--ax-profile", "yolo"}, true},
-	{"network separated", []string{"codex_cli", "--network", "egress-a"}, false},
-	{"network equals", []string{"codex_cli", "--network=egress-a"}, false},
-	{"network before env", []string{"--network", "egress-a", "codex_cli"}, false},
-	{"network on tracked machine parses", []string{"codex_cli", "--network", "egress-a"}, true},
-	{"native tail keeps network flag", []string{"codex_cli", "--", "--network", "egress-a"}, false},
-	{"every flag tracked", []string{"claude_code", "--profile", "p", "--system-prompt", "append", "--model", "claude-opus-5", "--effort", "high", "--name", "s1", "--ax-profile", "standard", "--", "-p", "x"}, true},
-	{"help alone", []string{"--help"}, false},
-	{"short help alone", []string{"-h"}, false},
-	{"version alone", []string{"--version"}, false},
-	{"help after valid flags wins", []string{"codex_cli", "--profile", "p", "--help"}, false},
-	{"version after env wins", []string{"codex_cli", "--version", "--unknown-never-read"}, false},
-	{"help before version: first wins", []string{"--help", "--version"}, false},
-	{"version before help: first wins", []string{"--version", "--help"}, false},
-	{"help without env-id", []string{"--model", "m", "-h"}, false},
-	{"env-id lookalike is not validated here", []string{"not_registered"}, false},
-	{"alias claude normalizes to claude_code", []string{"claude"}, false},
-	{"alias codex normalizes to codex_cli", []string{"codex"}, false},
-	{"alias claude with flags and native tail", []string{"claude", "--profile", "p", "--", "resume", "--last"}, false},
-	{"alias codex with flags before env", []string{"--model", "m", "codex"}, false},
-	{"native tail alias spellings untouched", []string{"pi", "--", "claude", "codex"}, false},
-	{"hosted flag", []string{"claude_code", "--hosted"}, false},
-	{"native flag", []string{"claude_code", "--native"}, false},
-	{"untracked flag", []string{"claude_code", "--untracked"}, false},
-	{"host flag before env", []string{"--hosted", "claude_code", "--", "x"}, false},
-	{"resume latest selector", []string{"claude_code", "resume"}, false},
-	{"resume handle selector", []string{"claude_code", "resume", "SES-abc123"}, false},
-	{"resume selector with flags interleaved", []string{"claude_code", "--hosted", "resume", "--model", "m", "SES-1", "--", "x"}, false},
-	{"resume flag", []string{"claude_code", "--hosted", "--resume", "01234567-89ab-cdef-0123-456789abcdef"}, false},
-	{"resume flag equals form", []string{"claude_code", "--resume=abc"}, false},
-	{"network flag", []string{"claude_code", "--network", "office"}, false},
-	{"network flag equals form", []string{"claude_code", "--network=office"}, false},
-	{"native tail keeps host and resume spellings", []string{"pi", "--", "--hosted", "--native", "--untracked", "resume", "--resume", "x", "--network", "y"}, false},
-	{"ax profile with hosted flag stays admitted", []string{"codex_cli", "--hosted", "--ax-profile", "yolo"}, true},
+	{"env only", []string{"codex_cli"}},
+	{"env with empty native tail", []string{"codex_cli", "--"}},
+	{"native tail verbatim", []string{"codex_cli", "--profile", "companyA", "--", "resume", "--last"}},
+	{"native tail keeps empty operand", []string{"pi", "--", "", "hello", ""}},
+	{"native tail keeps colliding launcher flags", []string{"claude_code", "--", "--profile", "x", "--model", "m", "--help", "-h", "--version"}},
+	{"native tail keeps second double dash", []string{"claude_code", "--", "--", "a", "--"}},
+	{"native tail keeps stray operands", []string{"codex_cli", "--", "one", "two", "three"}},
+	{"native tail keeps unknown flags", []string{"codex_cli", "--", "--no-such-flag", "--dangerously-bypass"}},
+	{"flags before env", []string{"--profile", "companyA", "--model", "gpt-5.3-codex", "codex_cli"}},
+	{"flags after env", []string{"codex_cli", "--model", "gpt-5.3-codex", "--effort", "high"}},
+	{"equals form", []string{"codex_cli", "--profile=companyA", "--effort=medium"}},
+	{"equals form value containing equals", []string{"codex_cli", "--profile=a=b"}},
+	{"permissions native separate", []string{"codex_cli", "--permissions", "native"}},
+	{"permissions yolo separate", []string{"codex_cli", "--permissions", "yolo"}},
+	{"permissions native equals", []string{"--permissions=native", "codex_cli"}},
+	{"permissions yolo equals", []string{"--permissions=yolo", "codex_cli"}},
+	{"yolo alias", []string{"--yolo", "codex_cli"}},
+	{"native tail keeps permission spellings", []string{"pi", "--", "--permissions", "yolo", "--yolo", "-d", "--danger"}},
+	{"system prompt append", []string{"pi", "--system-prompt", "append"}},
+	{"system prompt replace", []string{"pi", "--system-prompt", "replace"}},
+	{"network separated", []string{"codex_cli", "--network", "egress-a"}},
+	{"network equals", []string{"codex_cli", "--network=egress-a"}},
+	{"network before env", []string{"--network", "egress-a", "codex_cli"}},
+	{"native tail keeps network flag", []string{"codex_cli", "--", "--network", "egress-a"}},
+	{"help alone", []string{"--help"}},
+	{"short help alone", []string{"-h"}},
+	{"version alone", []string{"--version"}},
+	{"help after valid flags wins", []string{"codex_cli", "--profile", "p", "--help"}},
+	{"version after env wins", []string{"codex_cli", "--version", "--unknown-never-read"}},
+	{"help before version: first wins", []string{"--help", "--version"}},
+	{"version before help: first wins", []string{"--version", "--help"}},
+	{"help without env-id", []string{"--model", "m", "-h"}},
+	{"env-id lookalike is not validated here", []string{"not_registered"}},
+	{"alias claude normalizes to claude_code", []string{"claude"}},
+	{"alias codex normalizes to codex_cli", []string{"codex"}},
+	{"alias claude with flags and native tail", []string{"claude", "--profile", "p", "--", "resume", "--last"}},
+	{"alias codex with flags before env", []string{"--model", "m", "codex"}},
+	{"native tail alias spellings untouched", []string{"pi", "--", "claude", "codex"}},
+	{"hosted flag", []string{"claude_code", "--hosted"}},
+	{"native flag", []string{"claude_code", "--native"}},
+	{"untracked flag", []string{"claude_code", "--untracked"}},
+	{"host flag before env", []string{"--hosted", "claude_code", "--", "x"}},
+	{"resume latest selector", []string{"claude_code", "resume"}},
+	{"resume handle selector", []string{"claude_code", "resume", "SES-abc123"}},
+	{"resume selector with flags interleaved", []string{"claude_code", "--hosted", "resume", "--model", "m", "SES-1", "--", "x"}},
+	{"resume flag", []string{"claude_code", "--hosted", "--resume", "01234567-89ab-cdef-0123-456789abcdef"}},
+	{"resume flag equals form", []string{"claude_code", "--resume=abc"}},
+	{"network flag", []string{"claude_code", "--network", "office"}},
+	{"network flag equals form", []string{"claude_code", "--network=office"}},
+	{"native tail keeps host and resume spellings", []string{"pi", "--", "--hosted", "--native", "--untracked", "resume", "--resume", "x", "--network", "y"}},
 }
 
 // rejected shapes; each must yield a *UsageError. want is a substring of
@@ -91,99 +78,98 @@ var rejectedShapes = []struct {
 	shape
 	want string
 }{
-	{shape{"no arguments", []string{}, false}, "missing <env-id>"},
-	{shape{"only double dash", []string{"--"}, false}, "missing <env-id>"},
-	{shape{"flags only no env", []string{"--profile", "p"}, false}, "missing <env-id>"},
-	{shape{"native tail no env", []string{"--", "codex_cli"}, false}, "missing <env-id>"},
-	{shape{"empty env operand", []string{""}, false}, "empty operand"},
-	{shape{"stray operand", []string{"codex_cli", "frobnicate"}, false}, `stray operand "frobnicate"`},
-	{shape{"stray operand then double dash", []string{"codex_cli", "frobnicate", "--", "x"}, false}, `stray operand "frobnicate"`},
-	{shape{"second operand after resume handle", []string{"codex_cli", "resume", "SES-1", "extra"}, false}, `stray operand "extra"`},
-	{shape{"second resume token is a handle", []string{"codex_cli", "resume", "resume", "extra"}, false}, `stray operand "extra"`},
-	{shape{"unknown flag", []string{"codex_cli", "--nope"}, false}, `unknown flag "--nope"`},
-	{shape{"unknown flag equals form", []string{"codex_cli", "--nope=1"}, false}, `unknown flag "--nope=1"`},
-	{shape{"unknown single dash flag", []string{"codex_cli", "-p", "x"}, false}, `unknown flag "-p"`},
-	{shape{"lone dash", []string{"codex_cli", "-"}, false}, `unknown flag "-"`},
-	{shape{"unknown flag before help", []string{"--nope", "--help"}, false}, `unknown flag "--nope"`},
-	{shape{"triple dash", []string{"codex_cli", "---"}, false}, `unknown flag "---"`},
-	{shape{"repeated profile", []string{"codex_cli", "--profile", "a", "--profile", "b"}, false}, "--profile given more than once"},
-	{shape{"repeated model mixed forms", []string{"codex_cli", "--model=a", "--model", "b"}, false}, "--model given more than once"},
-	{shape{"repeated effort", []string{"codex_cli", "--effort", "a", "--effort", "a"}, false}, "--effort given more than once"},
-	{shape{"repeated permissions", []string{"codex_cli", "--permissions=native", "--permissions", "yolo"}, false}, "cannot be repeated or combined"},
-	{shape{"permissions and yolo alias", []string{"codex_cli", "--permissions", "native", "--yolo"}, false}, "cannot be repeated or combined"},
-	{shape{"yolo alias and permissions", []string{"codex_cli", "--yolo", "--permissions=yolo"}, false}, "cannot be repeated or combined"},
-	{shape{"yolo alias equals value", []string{"codex_cli", "--yolo=true"}, false}, "alias without a value"},
-	{shape{"unknown permissions mode", []string{"codex_cli", "--permissions=automatic"}, false}, "accepts native or yolo"},
-	{shape{"unknown permissions mode separate", []string{"codex_cli", "--permissions", "auto"}, false}, "accepts native or yolo"},
-	{shape{"legacy short danger", []string{"codex_cli", "-d"}, false}, "is rejected"},
-	{shape{"legacy short danger equals", []string{"codex_cli", "-d=true"}, false}, "is rejected"},
-	{shape{"legacy danger", []string{"codex_cli", "--danger"}, false}, "is rejected"},
-	{shape{"legacy danger equals", []string{"codex_cli", "--danger=true"}, false}, "is rejected"},
-	{shape{"repeated system prompt", []string{"pi", "--system-prompt", "append", "--system-prompt", "replace"}, false}, "--system-prompt given more than once"},
-	{shape{"repeated name", []string{"codex_cli", "--name", "a", "--name", "b"}, true}, "--name given more than once"},
-	{shape{"repeated ax profile", []string{"codex_cli", "--ax-profile", "yolo", "--ax-profile", "standard"}, true}, "--ax-profile given more than once"},
-	{shape{"repeated network", []string{"codex_cli", "--network", "a", "--network", "b"}, false}, "--network given more than once"},
-	{shape{"repeated network mixed forms", []string{"codex_cli", "--network=a", "--network", "b"}, false}, "--network given more than once"},
-	{shape{"network missing value at end", []string{"codex_cli", "--network"}, false}, "--network requires a value"},
-	{shape{"network missing value before double dash", []string{"codex_cli", "--network", "--", "x"}, false}, "--network requires a value"},
-	{shape{"network missing value equals empty", []string{"codex_cli", "--network="}, false}, "--network requires a value"},
-	{shape{"network value spelled as flag", []string{"codex_cli", "--network", "--model", "m"}, false}, "--network requires a value"},
-	{shape{"missing value at end", []string{"codex_cli", "--profile"}, false}, "--profile requires a value"},
-	{shape{"missing value before double dash", []string{"codex_cli", "--model", "--", "x"}, false}, "--model requires a value"},
-	{shape{"missing value equals empty", []string{"codex_cli", "--profile="}, false}, "--profile requires a value"},
-	{shape{"missing value empty string", []string{"codex_cli", "--effort", ""}, false}, "--effort requires a value"},
-	{shape{"value spelled as flag", []string{"codex_cli", "--profile", "--model", "m"}, false}, "--profile requires a value"},
-	{shape{"value is help flag", []string{"codex_cli", "--name", "--help"}, false}, "--name requires a value"},
-	{shape{"system prompt bad value", []string{"pi", "--system-prompt", "prepend"}, false}, "--system-prompt accepts append or replace"},
-	{shape{"system prompt case sensitive", []string{"pi", "--system-prompt", "Append"}, false}, "--system-prompt accepts append or replace"},
-	{shape{"system prompt without value", []string{"pi", "--system-prompt"}, false}, "--system-prompt requires a value"},
-	{shape{"ax profile bad value tracked", []string{"codex_cli", "--ax-profile", "unsafe"}, true}, "--ax-profile accepts standard or yolo"},
-	{shape{"ax profile bad value untracked", []string{"codex_cli", "--ax-profile", "unsafe"}, false}, "--ax-profile accepts standard or yolo"},
-	{shape{"ax profile case sensitive", []string{"codex_cli", "--ax-profile", "YOLO"}, true}, "--ax-profile accepts standard or yolo"},
-	{shape{"ax profile on untracked machine", []string{"codex_cli", "--ax-profile", "standard"}, false}, "ax integration is not configured"},
-	{shape{"ax profile yolo on untracked machine", []string{"codex_cli", "--ax-profile", "yolo"}, false}, "ax integration is not configured"},
-	{shape{"name 65 chars", []string{"codex_cli", "--name", "a" + strings.Repeat("b", 64)}, true}, "not a valid ax session name"},
-	{shape{"name leading dot", []string{"codex_cli", "--name", ".hidden"}, true}, "not a valid ax session name"},
-	{shape{"name leading underscore", []string{"codex_cli", "--name", "_x"}, true}, "not a valid ax session name"},
-	{shape{"name with slash", []string{"codex_cli", "--name", "a/b"}, true}, "not a valid ax session name"},
-	{shape{"name with space", []string{"codex_cli", "--name", "a b"}, true}, "not a valid ax session name"},
-	{shape{"name with unicode", []string{"codex_cli", "--name", "сессия"}, true}, "not a valid ax session name"},
-	{shape{"name with newline", []string{"codex_cli", "--name", "a\nb"}, true}, "not a valid ax session name"},
-	{shape{"name invalid on untracked machine still rejected", []string{"codex_cli", "--name", "bad/name"}, false}, "not a valid ax session name"},
-	{shape{"repeated hosted flag", []string{"claude_code", "--hosted", "--hosted"}, false}, "one host request and cannot be repeated or combined"},
-	{shape{"repeated native flag", []string{"claude_code", "--native", "--native"}, false}, "one host request and cannot be repeated or combined"},
-	{shape{"hosted native combination", []string{"claude_code", "--hosted", "--native"}, false}, "one host request and cannot be repeated or combined"},
-	{shape{"native untracked combination", []string{"claude_code", "--native", "--untracked"}, false}, "one host request and cannot be repeated or combined"},
-	{shape{"untracked hosted combination", []string{"claude_code", "--untracked", "--hosted"}, false}, "one host request and cannot be repeated or combined"},
-	{shape{"hosted flag with value", []string{"claude_code", "--hosted=yes"}, false}, "--hosted takes no value"},
-	{shape{"native flag with value", []string{"claude_code", "--native=no"}, false}, "--native takes no value"},
-	{shape{"repeated resume flag", []string{"claude_code", "--resume", "a", "--resume", "b"}, false}, "--resume given more than once"},
-	{shape{"resume flag missing value", []string{"claude_code", "--resume"}, false}, "--resume requires a value"},
-	{shape{"resume flag empty value", []string{"claude_code", "--resume", ""}, false}, "--resume requires a value"},
-	{shape{"repeated network flag", []string{"claude_code", "--network", "a", "--network", "b"}, false}, "--network given more than once"},
-	{shape{"network flag missing value", []string{"claude_code", "--network"}, false}, "--network requires a value"},
-	{shape{"ax profile with native flag", []string{"codex_cli", "--ax-profile", "standard", "--native"}, true}, "would be discarded"},
-	{shape{"ax profile with untracked flag", []string{"codex_cli", "--untracked", "--ax-profile", "yolo"}, true}, "would be discarded"},
-	{shape{"ax profile with native flag untracked", []string{"codex_cli", "--native", "--ax-profile", "standard"}, false}, "ax integration is not configured"},
+	{shape{"no arguments", []string{}}, "missing <env-id>"},
+	{shape{"only double dash", []string{"--"}}, "missing <env-id>"},
+	{shape{"flags only no env", []string{"--profile", "p"}}, "missing <env-id>"},
+	{shape{"native tail no env", []string{"--", "codex_cli"}}, "missing <env-id>"},
+	{shape{"empty env operand", []string{""}}, "empty operand"},
+	{shape{"stray operand", []string{"codex_cli", "frobnicate"}}, `stray operand "frobnicate"`},
+	{shape{"stray operand then double dash", []string{"codex_cli", "frobnicate", "--", "x"}}, `stray operand "frobnicate"`},
+	{shape{"second operand after resume handle", []string{"codex_cli", "resume", "SES-1", "extra"}}, `stray operand "extra"`},
+	{shape{"second resume token is a handle", []string{"codex_cli", "resume", "resume", "extra"}}, `stray operand "extra"`},
+	{shape{"unknown flag", []string{"codex_cli", "--nope"}}, `unknown flag "--nope"`},
+	{shape{"unknown flag equals form", []string{"codex_cli", "--nope=1"}}, `unknown flag "--nope=1"`},
+	{shape{"unknown single dash flag", []string{"codex_cli", "-p", "x"}}, `unknown flag "-p"`},
+	{shape{"lone dash", []string{"codex_cli", "-"}}, `unknown flag "-"`},
+	{shape{"unknown flag before help", []string{"--nope", "--help"}}, `unknown flag "--nope"`},
+	{shape{"triple dash", []string{"codex_cli", "---"}}, `unknown flag "---"`},
+	{shape{"repeated profile", []string{"codex_cli", "--profile", "a", "--profile", "b"}}, "--profile given more than once"},
+	{shape{"repeated model mixed forms", []string{"codex_cli", "--model=a", "--model", "b"}}, "--model given more than once"},
+	{shape{"repeated effort", []string{"codex_cli", "--effort", "a", "--effort", "a"}}, "--effort given more than once"},
+	{shape{"repeated permissions", []string{"codex_cli", "--permissions=native", "--permissions", "yolo"}}, "cannot be repeated or combined"},
+	{shape{"permissions and yolo alias", []string{"codex_cli", "--permissions", "native", "--yolo"}}, "cannot be repeated or combined"},
+	{shape{"yolo alias and permissions", []string{"codex_cli", "--yolo", "--permissions=yolo"}}, "cannot be repeated or combined"},
+	{shape{"yolo alias equals value", []string{"codex_cli", "--yolo=true"}}, "alias without a value"},
+	{shape{"unknown permissions mode", []string{"codex_cli", "--permissions=automatic"}}, "accepts native or yolo"},
+	{shape{"unknown permissions mode separate", []string{"codex_cli", "--permissions", "auto"}}, "accepts native or yolo"},
+	{shape{"legacy short danger", []string{"codex_cli", "-d"}}, "is rejected"},
+	{shape{"legacy short danger equals", []string{"codex_cli", "-d=true"}}, "is rejected"},
+	{shape{"legacy danger", []string{"codex_cli", "--danger"}}, "is rejected"},
+	{shape{"legacy danger equals", []string{"codex_cli", "--danger=true"}}, "is rejected"},
+	{shape{"repeated system prompt", []string{"pi", "--system-prompt", "append", "--system-prompt", "replace"}}, "--system-prompt given more than once"},
+	{shape{"repeated name", []string{"codex_cli", "--name", "a", "--name", "b"}}, "was removed in 0.6.0"},
+	{shape{"repeated ax profile", []string{"codex_cli", "--ax-profile", "yolo", "--ax-profile", "standard"}}, "was removed in 0.6.0"},
+	{shape{"repeated network", []string{"codex_cli", "--network", "a", "--network", "b"}}, "--network given more than once"},
+	{shape{"repeated network mixed forms", []string{"codex_cli", "--network=a", "--network", "b"}}, "--network given more than once"},
+	{shape{"network missing value at end", []string{"codex_cli", "--network"}}, "--network requires a value"},
+	{shape{"network missing value before double dash", []string{"codex_cli", "--network", "--", "x"}}, "--network requires a value"},
+	{shape{"network missing value equals empty", []string{"codex_cli", "--network="}}, "--network requires a value"},
+	{shape{"network value spelled as flag", []string{"codex_cli", "--network", "--model", "m"}}, "--network requires a value"},
+	{shape{"missing value at end", []string{"codex_cli", "--profile"}}, "--profile requires a value"},
+	{shape{"missing value before double dash", []string{"codex_cli", "--model", "--", "x"}}, "--model requires a value"},
+	{shape{"missing value equals empty", []string{"codex_cli", "--profile="}}, "--profile requires a value"},
+	{shape{"missing value empty string", []string{"codex_cli", "--effort", ""}}, "--effort requires a value"},
+	{shape{"value spelled as flag", []string{"codex_cli", "--profile", "--model", "m"}}, "--profile requires a value"},
+	{shape{"value is help flag", []string{"codex_cli", "--name", "--help"}}, "was removed in 0.6.0"},
+	{shape{"system prompt bad value", []string{"pi", "--system-prompt", "prepend"}}, "--system-prompt accepts append or replace"},
+	{shape{"system prompt case sensitive", []string{"pi", "--system-prompt", "Append"}}, "--system-prompt accepts append or replace"},
+	{shape{"system prompt without value", []string{"pi", "--system-prompt"}}, "--system-prompt requires a value"},
+	{shape{"ax profile bad value tracked", []string{"codex_cli", "--ax-profile", "unsafe"}}, "was removed in 0.6.0"},
+	{shape{"ax profile bad value untracked", []string{"codex_cli", "--ax-profile", "unsafe"}}, "was removed in 0.6.0"},
+	{shape{"ax profile case sensitive", []string{"codex_cli", "--ax-profile", "YOLO"}}, "was removed in 0.6.0"},
+	{shape{"ax profile on untracked machine", []string{"codex_cli", "--ax-profile", "standard"}}, "was removed in 0.6.0"},
+	{shape{"ax profile yolo on untracked machine", []string{"codex_cli", "--ax-profile", "yolo"}}, "was removed in 0.6.0"},
+	{shape{"name 65 chars", []string{"codex_cli", "--name", "a" + strings.Repeat("b", 64)}}, "was removed in 0.6.0"},
+	{shape{"name leading dot", []string{"codex_cli", "--name", ".hidden"}}, "was removed in 0.6.0"},
+	{shape{"name leading underscore", []string{"codex_cli", "--name", "_x"}}, "was removed in 0.6.0"},
+	{shape{"name with slash", []string{"codex_cli", "--name", "a/b"}}, "was removed in 0.6.0"},
+	{shape{"name with space", []string{"codex_cli", "--name", "a b"}}, "was removed in 0.6.0"},
+	{shape{"name with unicode", []string{"codex_cli", "--name", "сессия"}}, "was removed in 0.6.0"},
+	{shape{"name with newline", []string{"codex_cli", "--name", "a\nb"}}, "was removed in 0.6.0"},
+	{shape{"name invalid on untracked machine still rejected", []string{"codex_cli", "--name", "bad/name"}}, "was removed in 0.6.0"},
+	{shape{"repeated hosted flag", []string{"claude_code", "--hosted", "--hosted"}}, "one host request and cannot be repeated or combined"},
+	{shape{"repeated native flag", []string{"claude_code", "--native", "--native"}}, "one host request and cannot be repeated or combined"},
+	{shape{"hosted native combination", []string{"claude_code", "--hosted", "--native"}}, "one host request and cannot be repeated or combined"},
+	{shape{"native untracked combination", []string{"claude_code", "--native", "--untracked"}}, "one host request and cannot be repeated or combined"},
+	{shape{"untracked hosted combination", []string{"claude_code", "--untracked", "--hosted"}}, "one host request and cannot be repeated or combined"},
+	{shape{"hosted flag with value", []string{"claude_code", "--hosted=yes"}}, "--hosted takes no value"},
+	{shape{"native flag with value", []string{"claude_code", "--native=no"}}, "--native takes no value"},
+	{shape{"repeated resume flag", []string{"claude_code", "--resume", "a", "--resume", "b"}}, "--resume given more than once"},
+	{shape{"resume flag missing value", []string{"claude_code", "--resume"}}, "--resume requires a value"},
+	{shape{"resume flag empty value", []string{"claude_code", "--resume", ""}}, "--resume requires a value"},
+	{shape{"repeated network flag", []string{"claude_code", "--network", "a", "--network", "b"}}, "--network given more than once"},
+	{shape{"network flag missing value", []string{"claude_code", "--network"}}, "--network requires a value"},
+	{shape{"ax profile with native flag", []string{"codex_cli", "--ax-profile", "standard", "--native"}}, "was removed in 0.6.0"},
+	{shape{"ax profile with untracked flag", []string{"codex_cli", "--untracked", "--ax-profile", "yolo"}}, "was removed in 0.6.0"},
+	{shape{"ax profile with native flag untracked", []string{"codex_cli", "--native", "--ax-profile", "standard"}}, "was removed in 0.6.0"},
 }
 
+// Each accepted command shape parses successfully with its exact native tail.
 func TestParseAccepted(t *testing.T) {
 	for _, s := range acceptedShapes {
 		t.Run(s.name, func(t *testing.T) {
-			inv, err := Parse(s.args, Options{AxConfigured: s.ax})
+			inv, err := Parse(s.args)
 			if err != nil {
 				t.Fatalf("Parse(%q) error = %v, want nil", s.args, err)
 			}
 			if inv.Info == InfoNone && inv.Native == nil {
 				t.Fatalf("Parse(%q).Native is nil on a launch invocation", s.args)
 			}
-			if inv.Tracked != s.ax && inv.Info == InfoNone {
-				t.Fatalf("Parse(%q).Tracked = %v, want %v", s.args, inv.Tracked, s.ax)
-			}
 		})
 	}
 }
 
+// Accepted permission spellings resolve to one explicit mode member.
 func TestPermissionModeFormsResolveToOneMember(t *testing.T) {
 	for _, tc := range []struct {
 		name string
@@ -197,7 +183,7 @@ func TestPermissionModeFormsResolveToOneMember(t *testing.T) {
 		{"alias", []string{"--yolo", "pi"}, PermissionYolo},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			inv, err := Parse(tc.args, untracked)
+			inv, err := Parse(tc.args)
 			if err != nil || !inv.PermissionSet || inv.PermissionMode != tc.want {
 				t.Fatalf("Parse(%q) = %+v, %v; want permission %q", tc.args, inv, err, tc.want)
 			}
@@ -205,10 +191,11 @@ func TestPermissionModeFormsResolveToOneMember(t *testing.T) {
 	}
 }
 
+// Invalid command shapes produce typed usage errors naming the intended fault.
 func TestParseRejected(t *testing.T) {
 	for _, s := range rejectedShapes {
 		t.Run(s.name, func(t *testing.T) {
-			inv, err := Parse(s.args, Options{AxConfigured: s.ax})
+			inv, err := Parse(s.args)
 			if err == nil {
 				t.Fatalf("Parse(%q) accepted %+v, want usage error containing %q", s.args, inv, s.want)
 			}
@@ -271,7 +258,7 @@ func TestParseNormalizesAliases(t *testing.T) {
 		{[]string{"pi", "--", "claude", "codex"}, "pi", []string{"claude", "codex"}},
 		{[]string{"claude", "--", "claude", "codex"}, "claude_code", []string{"claude", "codex"}},
 	} {
-		inv, err := Parse(tc.args, untracked)
+		inv, err := Parse(tc.args)
 		if err != nil {
 			t.Errorf("Parse(%q) error = %v", tc.args, err)
 			continue
@@ -286,7 +273,7 @@ func TestParseNormalizesAliases(t *testing.T) {
 	// Near-miss spellings are not aliases: they pass through for the later
 	// stages to refuse, and never normalize to a canonical id.
 	for _, alias := range []string{"Claude", "CODEX", "claudes", "codexx"} {
-		inv, err := Parse([]string{alias}, untracked)
+		inv, err := Parse([]string{alias})
 		if err != nil {
 			t.Errorf("Parse(%q) error = %v, want nil (refusal is later)", alias, err)
 			continue
@@ -302,7 +289,7 @@ func TestParseNormalizesAliases(t *testing.T) {
 func TestNativeTailVerbatim(t *testing.T) {
 	tail := []string{"", "--", "--help", "-h", "--version", "--profile", "", "--ax-profile", "yolo", "--network", "egress-a", "resume", "--last"}
 	args := append([]string{"codex_cli", "--profile", "p", "--"}, tail...)
-	inv, err := Parse(args, untracked)
+	inv, err := Parse(args)
 	if err != nil {
 		t.Fatalf("Parse error = %v", err)
 	}
@@ -314,7 +301,7 @@ func TestNativeTailVerbatim(t *testing.T) {
 			t.Fatalf("Native[%d] = %q, want %q", i, inv.Native[i], tail[i])
 		}
 	}
-	if inv.Info != InfoNone || inv.AxProfile != AxProfileNone || inv.NetworkSet {
+	if inv.Info != InfoNone || inv.NetworkSet {
 		t.Fatalf("post-- tokens were interpreted: %+v", inv)
 	}
 	args[len(args)-1] = "mutated"
@@ -323,27 +310,11 @@ func TestNativeTailVerbatim(t *testing.T) {
 	}
 }
 
-// TestNameIneffectiveUntracked: --name is accepted on an untracked machine,
-// validated, stored, and marked ineffective through Tracked=false (SPEC §3).
-func TestNameIneffectiveUntracked(t *testing.T) {
-	inv, err := Parse([]string{"codex_cli", "--name", "s1"}, untracked)
-	if err != nil {
-		t.Fatalf("Parse error = %v", err)
-	}
-	if !inv.NameSet || inv.Name != "s1" || inv.Tracked {
-		t.Fatalf("got %+v, want NameSet, Name=s1, Tracked=false", inv)
-	}
-	inv, err = Parse([]string{"codex_cli", "--name", "s1"}, tracked)
-	if err != nil || !inv.Tracked {
-		t.Fatalf("tracked parse: %+v, %v", inv, err)
-	}
-}
-
 // TestInformationalCarriesNothingElse: an informational result is only the
 // Info member, so no caller can mistake it for a launch.
 func TestInformationalCarriesNothingElse(t *testing.T) {
 	for _, args := range [][]string{{"codex_cli", "--profile", "p", "--help"}, {"--version"}, {"-h", "--", "x"}} {
-		inv, err := Parse(args, tracked)
+		inv, err := Parse(args)
 		if err != nil {
 			t.Fatalf("Parse(%q) error = %v", args, err)
 		}
@@ -370,7 +341,7 @@ func TestExplicitNative(t *testing.T) {
 }
 
 func TestUsageErrorShape(t *testing.T) {
-	_, err := Parse(nil, untracked)
+	_, err := Parse(nil)
 	var u *UsageError
 	if !IsUsage(err) {
 		t.Fatalf("err %T is not usage", err)
@@ -387,8 +358,8 @@ func TestUsageErrorShape(t *testing.T) {
 func TestGolden(t *testing.T) {
 	var b strings.Builder
 	render := func(s shape) {
-		fmt.Fprintf(&b, "# %s\nargs: %q\nax: %v\n", s.name, s.args, s.ax)
-		inv, err := Parse(s.args, Options{AxConfigured: s.ax})
+		fmt.Fprintf(&b, "# %s\nargs: %q\n", s.name, s.args)
+		inv, err := Parse(s.args)
 		if err != nil {
 			fmt.Fprintf(&b, "error: %s\n\n", err.Error())
 			return
@@ -424,7 +395,7 @@ func renderInvocation(inv Invocation) string {
 	case InfoVersion:
 		return "info=version"
 	}
-	parts := []string{fmt.Sprintf("env=%q", inv.EnvID), fmt.Sprintf("tracked=%v", inv.Tracked)}
+	parts := []string{fmt.Sprintf("env=%q", inv.EnvID)}
 	if inv.HostFlag != "" {
 		parts = append(parts, fmt.Sprintf("host=%s", inv.HostFlag))
 	}
@@ -451,12 +422,6 @@ func renderInvocation(inv Invocation) string {
 	}
 	if inv.PermissionSet {
 		parts = append(parts, fmt.Sprintf("permissions=%q", inv.PermissionMode))
-	}
-	if inv.NameSet {
-		parts = append(parts, fmt.Sprintf("name=%q", inv.Name))
-	}
-	if inv.AxProfile != AxProfileNone {
-		parts = append(parts, fmt.Sprintf("ax-profile=%s", inv.AxProfile))
 	}
 	if inv.NetworkSet {
 		parts = append(parts, fmt.Sprintf("network=%q", inv.Network))

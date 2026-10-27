@@ -902,3 +902,26 @@ func TestWerkstattBinary(t *testing.T) {
 		}
 	})
 }
+
+// Werkstatt up/recycle refuses a retired entry before contact, lifecycle writes
+// or native execution; existing up/recycle round trips are the positive controls.
+func TestWerkstattRemovedAX(t *testing.T) {
+	bin := frontBuild(t)
+	for _, action := range []string{"up", "recycle"} {
+		t.Run(action, func(t *testing.T) {
+			w := newWS(t, bin)
+			writeConfig(t, w.config, "ax.json", "not parsed")
+			code, out, stderr := w.invokeWS(action)
+			w.require(t, code, 2, stderr, "ax_tracking_removed", nil, 0, false)
+			if out != "" {
+				t.Fatal("retired policy emitted output", out)
+			}
+			if _, err := os.Lstat(w.path(".json")); !os.IsNotExist(err) {
+				t.Fatal("liveness created", err)
+			}
+			if _, err := os.Lstat(w.path(".op.json")); !os.IsNotExist(err) {
+				t.Fatal("operation created", err)
+			}
+		})
+	}
+}

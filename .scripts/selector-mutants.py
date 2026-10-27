@@ -44,7 +44,7 @@ mutants = [
  ('S19', append, 'os.O_APPEND', 'os.O_TRUNC', selectors, 'TestObservations'),
  ('S20', selection, '!flags.Model.Present && selected.Model.Present', 'selected.Model.Present', defaults, 'TestSelectionPrecedence/model-flag'),
  ('S21', selection, '!flags.Effort.Present && selected.Effort.Present', 'selected.Effort.Present', defaults, 'TestSelectionPrecedence/effort-flag'),
- ('S22', main, 'if deps.selectorConfig.Mode == "enforce" {\n\t\t\tdecision, selectionError := selector.Enforce', 'if deps.selectorConfig.Mode == "enforce" || deps.selectorConfig.Mode == "shadow" {\n\t\t\tdecision, selectionError := selector.Enforce', entry, 'TestProductionPipelineGoldens/codex_cli/tracked=false/shadow'),
+ ('S22', main, 'if deps.selectorConfig.Mode == "enforce" {\n\t\t\tdecision, selectionError := selector.Enforce', 'if deps.selectorConfig.Mode == "enforce" || deps.selectorConfig.Mode == "shadow" {\n\t\t\tdecision, selectionError := selector.Enforce', entry, 'TestProductionPipelineGoldens/codex_cli/native/shadow'),
  ('S23', main, 'resolved.SelectorRuntime = decision.Runtime', 'resolved.SelectorRuntime = decision.Runtime; resolved.Runtime = decision.Runtime', entry, 'TestRunSelectorRuntimeRecordedOnly'),
  ('S24', protocol, '!validRequestUTF8(r)', 'false', selectors, 'TestRequestEnrichment'),
 ]

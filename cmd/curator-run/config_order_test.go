@@ -6,10 +6,8 @@ import (
 	"testing"
 )
 
-// FRONT-DOOR §3.2 parses the flags before reading ax.json and launcher.json.
-// With a malformed machine ax.json, a usage error reports usage (2) first, and
-// a well-formed launch reports defaults_config_invalid (1) before any resolver
-// contact. Both broken files are covered, with a valid-config control.
+// Grammar errors win over leftovers and broken active policy; a valid launch
+// refuses retired entries by existence, or malformed active policy by parsing.
 func TestFlagsParseBeforeConfigRead(t *testing.T) {
 	for _, file := range []string{"ax.json", "launcher.json"} {
 		t.Run(file, func(t *testing.T) {
@@ -20,7 +18,11 @@ func TestFlagsParseBeforeConfigRead(t *testing.T) {
 				t.Fatalf("usage error with broken %s: exit=%d stderr=%q", file, code, stderr.String())
 			}
 			stderr.Reset()
-			if code := run(context.Background(), []string{"pi"}, &out, &stderr, deps); code != 1 || !strings.Contains(stderr.String(), "defaults_config_invalid") || runner.calls != 0 {
+			want, diagnostic := 1, "defaults_config_invalid"
+			if file == "ax.json" {
+				want, diagnostic = 2, "ax_tracking_removed"
+			}
+			if code := run(context.Background(), []string{"pi"}, &out, &stderr, deps); code != want || !strings.Contains(stderr.String(), diagnostic) || runner.calls != 0 {
 				t.Fatalf("launch with broken %s: exit=%d stderr=%q", file, code, stderr.String())
 			}
 		})

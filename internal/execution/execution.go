@@ -4,7 +4,6 @@ package execution
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -12,13 +11,9 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"time"
 
-	"github.com/relux-works/curator-agent-launcher/internal/cli"
 	"github.com/relux-works/curator-agent-launcher/internal/composition"
 	"github.com/relux-works/curator-agent-launcher/internal/diagnostics"
-	"github.com/relux-works/curator-agent-launcher/internal/fragment"
-	"github.com/relux-works/curator-agent-launcher/internal/mapping"
 )
 
 // Boundary is REQUIRED on every Run, including launches without an engaged
@@ -31,80 +26,22 @@ type IO struct {
 	Stdout, Stderr io.Writer
 }
 
-// Options controls transport, not admission. AxBinary is an optional explicit
-// executable path; empty resolves ax on the launcher's PATH. Tests always set
-// it to a fake helper. Ax inherits the launcher environment, never Value.Env.
+// Options controls the native child streams and late validation boundary.
 type Options struct {
 	IO       IO
-	AxBinary string
 	Boundary Boundary
 }
 
-type document struct {
-	Schema        string             `json:"schema"`
-	SchemaVersion string             `json:"schema_version"`
-	Argv          []string           `json:"argv_suffix"`
-	EnvNames      []string           `json:"env_names"`
-	EnvLiterals   map[string]string  `json:"env_literals"`
-	Stdin         *composition.Stdin `json:"stdin"`
-	Extensions    extensions         `json:"extensions"`
-}
-type extensions struct {
-	ProfileName           string                 `json:"works.relux.curator.profile-name"`
-	ProfilePin            string                 `json:"works.relux.curator.profile-pin"`
-	FragmentDigest        string                 `json:"works.relux.curator.fragment-digest"`
-	SystemModules         bool                   `json:"works.relux.curator.system-modules"`
-	EffectiveNativePolicy *EffectiveNativePolicy `json:"works.relux.curator.effective-native-policy,omitempty"`
-}
+// Launch is a prepared native execution snapshot. Run rechecks files.
+type Launch struct{ value composition.Value }
 
-// EffectiveNativePolicy is the launcher-SPEC tracked record of inspected
-// relaxations. Source contains only paths whose policy contents were read.
-type EffectiveNativePolicy struct {
-	Relaxations []string `json:"relaxations"`
-	Source      string   `json:"source"`
-}
-
-// Launch is a prepared snapshot. Prepare belongs at composition time, so the
-// default UTC name does not drift while the launch waits. Run rechecks files.
-type Launch struct {
-	value    composition.Value
-	tracked  bool
-	argv     []string
-	document []byte
-}
-
-// Prepare consumes the actual Compose result, validated fragment and parsed
-// invocation with its mapped target. These are trusted typed pipeline inputs;
-// this layer does not reimplement fragment/CLI/admission validation.
-func Prepare(v composition.Value, f fragment.Fragment, inv cli.Invocation, target mapping.Target, at time.Time) (Launch, error) {
-	return PrepareWithNativePolicy(v, f, inv, target, at, nil)
-}
-
-// PrepareWithNativePolicy snapshots the effective-native-policy result into
-// the optional tracked extension. Direct launches retain it only as stderr
-// provenance, as required by SPEC §4.6.
-func PrepareWithNativePolicy(v composition.Value, f fragment.Fragment, inv cli.Invocation, target mapping.Target, at time.Time, policy *EffectiveNativePolicy) (Launch, error) {
-	// Marshal now both snapshots the tracked transport and prevents later input
-	// mutations changing it. Copy direct slices separately for the same reason.
-	doc, err := json.Marshal(document{"urn:ax:schema:launch-plan-request", "1.0.0", v.Argv, v.EnvNames, v.EnvLiterals, v.Stdin,
-		extensions{f.Profile.Name, "sha256:" + f.Profile.LockSHA256, f.Digest, f.SystemPrompt != nil, policy}})
-	if err != nil {
-		return Launch{}, err
-	}
+// Prepare snapshots the admitted composition, retaining no mutable execution inputs.
+func Prepare(v composition.Value) Launch {
 	v.Argv = append([]string{}, v.Argv...)
 	v.Env = append([]string{}, v.Env...)
 	v.RawStdin.Bytes = bytes.Clone(v.RawStdin.Bytes)
 	v.Warnings = append([]string{}, v.Warnings...)
-	name := inv.Name
-	if !inv.NameSet {
-		name = inv.EnvID + "-" + at.UTC().Format("20060102T150405Z")
-	}
-	argv := []string{"start", name, "--provider", target.Provider, "--launch-plan", "-"}
-	if inv.AxProfile != cli.AxProfileNone {
-		argv = append(argv, "--profile", string(inv.AxProfile))
-	}
-	argv = append(argv, "--workspace", v.WorkDir)
-	return Launch{v, inv.Tracked, argv, doc}, nil
+	return Launch{value: v}
 }
 
 // Run waits for the actual child. Direct mode shares supplied terminal file
@@ -140,21 +77,9 @@ func (l Launch) Run(opts Options) int {
 		return fail(errors.New("launch_boundary_required: §5 boundary callback is required"))
 	}
 	// Build transport before the late checks to minimize the pathname race.
-	var cmd *exec.Cmd
-	var axStderr bytes.Buffer
-	if l.tracked {
-		binary := opts.AxBinary
-		if binary == "" {
-			binary = "ax"
-		}
-		cmd = exec.Command(binary, l.argv...)
-		cmd.Stdin = bytes.NewReader(l.document)
-		cmd.Stderr = &axStderr
-	} else {
-		cmd = &exec.Cmd{Args: append([]string{l.value.Binary}, l.value.Argv...), Env: append([]string{}, l.value.Env...), Stdin: streams.Stdin, Stderr: streams.Stderr}
-		if l.value.RawStdin.Attached {
-			cmd.Stdin = bytes.NewReader(l.value.RawStdin.Bytes)
-		}
+	cmd := &exec.Cmd{Args: append([]string{l.value.Binary}, l.value.Argv...), Env: append([]string{}, l.value.Env...), Stdin: streams.Stdin, Stderr: streams.Stderr}
+	if l.value.RawStdin.Attached {
+		cmd.Stdin = bytes.NewReader(l.value.RawStdin.Bytes)
 	}
 	cmd.Dir = l.value.WorkDir
 	cmd.Stdout = streams.Stdout
@@ -171,19 +96,8 @@ func (l Launch) Run(opts Options) int {
 	if err := opts.Boundary(); err != nil {
 		return fail(err)
 	}
-	if !l.tracked {
-		cmd.Path = binary
-	}
+	cmd.Path = binary
 	err = run(cmd)
-	if l.tracked {
-		if err != nil {
-			fail(errors.New("ax_handoff_failed: ax could not take the launch"))
-			_, _ = streams.Stderr.Write(axStderr.Bytes())
-			return 1
-		}
-		_, _ = streams.Stderr.Write(axStderr.Bytes())
-		return 0
-	}
 	if err == nil {
 		return 0
 	}

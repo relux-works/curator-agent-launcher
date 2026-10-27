@@ -11,7 +11,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/relux-works/curator-agent-launcher/internal/axconfig"
 	"github.com/relux-works/curator-agent-launcher/internal/cli"
 	"github.com/relux-works/curator-agent-launcher/internal/composition"
 	"github.com/relux-works/curator-agent-launcher/internal/defaults"
@@ -133,7 +132,6 @@ func TestOwnedCodesMatchOwners(t *testing.T) {
 		{diagnostics.CodeResolveRepairFailed, fragment.CodeRepairFailed},
 		{diagnostics.CodeResolveLockUnavailable, fragment.CodeLockUnavailable},
 		{diagnostics.CodeResolveFragmentInvalid, fragment.CodeFragmentInvalid},
-		{diagnostics.CodeDefaultsInvalid, axconfig.CodeInvalid},
 		{diagnostics.CodeDefaultsUnresolvable, defaults.CodeUnresolvable},
 		{diagnostics.CodeHostWithdrawn, defaults.CodeHostWithdrawn},
 		{diagnostics.CodeMigrateDestinationExists, migrate.CodeDestinationExists},
@@ -157,7 +155,6 @@ func TestOwnedCodesMatchOwners(t *testing.T) {
 		{diagnostics.CodeNetworkProxyAuthFailed, refusal.CodeProxyAuthFailed},
 		{diagnostics.CodeNetworkProfileInvalid, refusal.CodeProfileInvalid},
 		{diagnostics.CodeNetworkFileUnreadable, refusal.CodeFileUnreadable},
-		{diagnostics.CodeHostConflict, hosted.CodeHostConflict},
 		{diagnostics.CodeSessionHostMissing, hosted.CodeSessionHostMissing},
 		{diagnostics.CodeSessionHostUnavailable, hosted.CodeSessionHostUnavailable},
 		{diagnostics.CodeSessionHostProviderUnsupported, hosted.CodeSessionHostProviderUnsupported},
@@ -191,7 +188,7 @@ func TestExitForCode(t *testing.T) {
 	for _, c := range diagnostics.Codes() {
 		want := diagnostics.ExitOperational
 		switch c {
-		case diagnostics.CodeUsage, diagnostics.CodeHostConflict,
+		case diagnostics.CodeUsage, diagnostics.CodeAXTrackingRemoved,
 			diagnostics.CodeSessionResumeInvalid, diagnostics.CodeLaunchPlanInvalid, diagnostics.CodeHostWithdrawn, diagnostics.CodeMigrateDestinationExists, diagnostics.CodeSessionManagerRegistryInvalid, diagnostics.CodeSessionManagerRegistryUnwritable, diagnostics.CodeSessionManagerRegistryShadowed, diagnostics.CodeSessionManagerNotRegistered:
 			want = diagnostics.ExitUsage
 		case diagnostics.CodeSessionHostProtocolUnsupported, diagnostics.CodeSessionHostProviderUnsupported,
@@ -226,13 +223,13 @@ func TestExitForCode(t *testing.T) {
 
 // TestCodeOfProductionTypes drives CodeOf through the real concrete error
 // types of each owning stage, including errors produced by real production
-// calls (axconfig.Load against temp dirs, composition boundary probes and
+// calls (composition boundary probes and
 // systemprompt selection against temp homes).
 func TestCodeOfProductionTypes(t *testing.T) {
 	if code, ok := diagnostics.CodeOf(&cli.UsageError{Detail: "missing <env-id>"}); !ok || code != "usage" {
 		t.Fatalf("usage error: %q %v", code, ok)
 	}
-	if _, err := cli.Parse(nil, cli.Options{}); err != nil {
+	if _, err := cli.Parse(nil); err != nil {
 		if code, ok := diagnostics.CodeOf(err); !ok || code != "usage" {
 			t.Fatalf("real cli.Parse error: %q %v (%v)", code, ok, err)
 		}
@@ -259,9 +256,6 @@ func TestCodeOfProductionTypes(t *testing.T) {
 	}
 	if code, ok := diagnostics.CodeOf(syspromptProbe(t)); !ok || code != "sysprompt_file_unreadable" {
 		t.Fatalf("sysprompt probe: %q %v", code, ok)
-	}
-	if code, ok := diagnostics.CodeOf(axconfigFailure(t)); !ok || code != "defaults_config_invalid" {
-		t.Fatalf("axconfig failure: %q %v", code, ok)
 	}
 }
 
@@ -380,13 +374,11 @@ func TestCodeOfTypedNil(t *testing.T) {
 	var re *fragment.ResolveError
 	var le *composition.LayerError
 	var sr *sp.Refusal
-	var ae *axconfig.Error
 	cands := map[string]error{
 		"usage":   ue,
 		"resolve": re,
 		"layer":   le,
 		"refusal": sr,
-		"ax":      ae,
 	}
 	for name, err := range cands {
 		if got, ok := diagnostics.CodeOf(err); ok || got != "" {

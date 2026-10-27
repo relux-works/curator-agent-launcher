@@ -1,5 +1,5 @@
 // Package migrate plans and transactionally copies the legacy configuration
-// home. It never moves, removes or rewrites the legacy inputs.
+// home. Retired ax policy files alone are backed up and removed in place.
 package migrate
 
 import (
@@ -56,11 +56,13 @@ func conflict(path string) error { return &Error{Code: CodeDestinationExists, Pa
 type Options struct {
 	CanWriteSystem func(string) bool
 	WriteFile      func(string, []byte, os.FileMode) error
+	RemoveFile     func(string) error
 }
 
 type change struct {
 	path         string
 	data, before []byte
+	remove       bool
 	existed      bool
 	mode         os.FileMode
 	dirMode      os.FileMode
@@ -78,10 +80,17 @@ func Run(loc configfile.Locations, dryRun bool, out io.Writer, opts Options) err
 	if opts.CanWriteSystem == nil {
 		opts.CanWriteSystem = writableDirectory
 	}
+	if opts.RemoveFile == nil {
+		opts.RemoveFile = os.Remove
+	}
 	if opts.WriteFile == nil {
 		opts.WriteFile = atomicWrite
 	}
 	p := transaction{names: map[string][]byte{}}
+	manual, err := p.retiredAX(loc, opts.CanWriteSystem)
+	if err != nil {
+		return err
+	}
 	for _, layer := range []configfile.Layer{configfile.System, configfile.User} {
 		dir, old := loc.Directories(layer)
 		p.newMode, p.dirMode = 0600, 0700
@@ -109,6 +118,9 @@ func Run(loc configfile.Locations, dryRun bool, out io.Writer, opts Options) err
 		var skipped []string
 		var systemMode, defaultsPath string
 		for _, entry := range entries {
+			if entry.Name() == "ax.json" || entry.Name() == "ax.json.bak" {
+				continue
+			}
 			src := filepath.Join(old, entry.Name())
 			data, present, err := configfile.Read(src)
 			if err != nil {
@@ -186,18 +198,78 @@ func Run(loc configfile.Locations, dryRun bool, out io.Writer, opts Options) err
 		}
 	}
 	if len(p.changes) == 0 {
+		if manual != "" && !dryRun {
+			return invalid(manual, fmt.Errorf("retired policy is not a regular file; remove it manually"))
+		}
 		_, err := fmt.Fprintln(out, "curator-run: nothing left to do")
 		return err
 	}
 	for _, c := range p.changes {
-		if _, err := fmt.Fprintf(out, "curator-run: write %s\n", oneLine(c.path)); err != nil {
+		if _, err := fmt.Fprintf(out, "curator-run: %s %s\n", map[bool]string{false: "write", true: "remove"}[c.remove], oneLine(c.path)); err != nil {
 			return err
 		}
 	}
 	if dryRun {
 		return nil
 	}
-	return p.apply(opts.WriteFile)
+	if manual != "" {
+		return invalid(manual, fmt.Errorf("retired policy is not a regular file; remove it manually"))
+	}
+	return p.apply(opts.WriteFile, opts.RemoveFile)
+}
+
+// retiredAX deliberately has no per-file fallback or precedence. Non-regular
+// entries are reported for manual removal without opening their contents.
+func (p *transaction) retiredAX(loc configfile.Locations, canWriteSystem func(string) bool) (manual string, err error) {
+	for _, path := range loc.AXPaths() {
+		info, err := os.Lstat(path)
+		if os.IsNotExist(err) {
+			continue
+		}
+		if err != nil {
+			return "", invalid(path, err)
+		}
+		p.lines = append(p.lines, "curator-run: retired ax.json: "+path)
+		if !info.Mode().IsRegular() {
+			p.lines = append(p.lines, "curator-run: remove manually (non-regular file; not followed): "+path)
+			manual = path
+			continue
+		}
+		system := filepath.Dir(path) == loc.System || filepath.Dir(path) == loc.LegacySystem
+		if system && !canWriteSystem(filepath.Dir(path)) {
+			p.lines = append(p.lines, "curator-run: system file not removed (not writable): "+path)
+			continue
+		}
+		p.newMode, p.dirMode = 0600, 0700
+		if system {
+			p.newMode, p.dirMode = 0644, 0755
+		}
+		data, present, err := configfile.Read(path)
+		if err != nil || !present {
+			if err == nil {
+				err = fmt.Errorf("retired policy disappeared while planning")
+			}
+			return "", invalid(path, err)
+		}
+		backup := path + ".bak"
+		b, exists, err := configfile.Read(backup)
+		if err != nil {
+			return "", invalid(backup, err)
+		}
+		if exists && !bytes.Equal(b, data) {
+			return "", conflict(backup)
+		}
+		if !exists {
+			if err := p.add(backup, data); err != nil {
+				return "", err
+			}
+		}
+		if err := p.add(path, data); err != nil {
+			return "", err
+		}
+		p.changes[len(p.changes)-1].remove = true
+	}
+	return manual, nil
 }
 
 // Plan lines stay physical single lines even for unusual legacy filenames.
@@ -358,7 +430,7 @@ func (p *transaction) add(path string, data []byte) error {
 	return nil
 }
 
-func (p *transaction) apply(write func(string, []byte, os.FileMode) error) error {
+func (p *transaction) apply(write func(string, []byte, os.FileMode) error, remove func(string) error) error {
 	var applied []change
 	var dirs []string
 	rollback := func(cause error) error {
@@ -399,7 +471,13 @@ func (p *transaction) apply(write func(string, []byte, os.FileMode) error) error
 			return rollback(invalid(c.path, err))
 		}
 		applied = append(applied, c)
-		if err := write(c.path, c.data, c.mode); err != nil {
+		var applyErr error
+		if c.remove {
+			applyErr = remove(c.path)
+		} else {
+			applyErr = write(c.path, c.data, c.mode)
+		}
+		if err := applyErr; err != nil {
 			return rollback(invalid(c.path, err))
 		}
 	}

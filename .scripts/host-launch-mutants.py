@@ -26,7 +26,6 @@ controls = [
  ('M-H22', host, 'state, err := sessionmanager.Resolve(registry, sessionmanager.ExecutableAvailable)\n\tif err != nil {\n\t\treturn result, err\n\t}', 'state, err := sessionmanager.Resolve(registry, sessionmanager.ExecutableAvailable)\n\tif err != nil { state.Kind = "empty"; err = nil }', './cmd/curator-run', 'TestFrontDoorBinary/no-fallback/missing-executable', 'want=1'),
  ('S4-01', host, 'if explicit {\n\t\tif err = checks();', 'if false {\n\t\tif err = checks();', './cmd/curator-run', 'TestFrontDoorBinary/refusal-order/--hosted/network/invalid', 'want=16'),
  ('S4-02', host, 'if explicit {\n\t\tif err = checks();', 'if true {\n\t\tif err = checks();', './cmd/curator-run', 'TestFrontDoorBinary/refusal-order//network/invalid', 'want=2'),
- ('S4-03', host, 'if inv.Tracked {', 'if inv.Tracked && false {', './cmd/curator-run', 'TestFrontDoorBinary/ax-placement/invalid/--hosted', 'host_configuration_conflict'),
  ('S4-04', host, 'if inv.NetworkSet {', 'if inv.NetworkSet && false {', './cmd/curator-run', 'TestFrontDoorBinary/refusal-order/--hosted/network/invalid', 'want=16'),
  ('S4-05', host, 'if !terminal() {', 'if !terminal() && false {', './cmd/curator-run', 'TestFrontDoorBinary/refusal-order/--hosted/stdin/invalid', 'want=6'),
  ('S4-06', host, '(inv.HostFlag == "" && mode == "native")', '(inv.HostFlag == "" && mode == "native" && false)', './cmd/curator-run', 'TestFrontDoorBinary/activation/native-mode-no-trial', 'calls='),

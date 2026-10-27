@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -40,6 +41,14 @@ func environmentValue(env []string, key string) string {
 	return ""
 }
 func runWerkstatt(ctx context.Context, c werkstatt.Command, stdout, stderr io.Writer, config configfile.Resolver, deps launchDeps) int {
+	if c.Action == "up" || c.Action == "recycle" {
+		if path, err := configfile.RemovedAX(config.Locations); err != nil || path != "" {
+			if path != "" {
+				return emitFailure(stderr, diagnostics.CodeAXTrackingRemoved, fmt.Errorf("delete this file: path=%q", path))
+			}
+			return emitFailure(stderr, diagnostics.CodeDefaultsInvalid, err)
+		}
+	}
 	env := os.Environ()
 	if deps.environ != nil {
 		env = deps.environ()
@@ -240,7 +249,7 @@ func prepareWerkstatt(ctx context.Context, r *werkstatt.Record, c werkstatt.Comm
 			resolved.SelectorDecisionID, resolved.SelectorRuntime = decision.DecisionID, decision.Runtime
 		}
 	}
-	inv := cli.Invocation{EnvID: r.Runtime, Profile: r.Profile, ProfileSet: true, Detach: true, Name: r.ID, NameSet: true}
+	inv := cli.Invocation{EnvID: r.Runtime, Profile: r.Profile, ProfileSet: true, Detach: true, SessionLabel: r.ID}
 	targetMapping, err := mapping.Resolve(r.Runtime)
 	if err != nil {
 		return werkstatt.Prepared{}, err

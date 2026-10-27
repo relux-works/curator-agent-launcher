@@ -1,12 +1,11 @@
 @startuml
-' Revision: v0.4.0 release alignment (2026-10-22).
+' Revision: ax removal (2026-10-27).
 title Current launch routes and target one-shot path
 actor "Caller / operator" as caller
 participant "curator-run\ncaller identity" as launcher
 participant "curator env resolve\ncaller-side subprocess" as curator
 participant "agents-management\nin-process library" as spawn
 participant "Native provider\ncaller-side child" as native
-participant "ax start\nsubprocess / session owner" as ax
 participant "Selected session-manager plugin\nhosted process / session owner" as manager
 participant "swarma-dispatcher\nservice UID unspecified" as dispatcher
 participant "swarma-user-launcher\nroot" as root
@@ -21,8 +20,8 @@ participant "swarma-session-runner\napproved agent-side executor" as targetrunne
 
 == CURRENT interactive API: SPEC 0.5.1-draft ==
 caller -> launcher : curator-run <env-id> ...
-launcher -> launcher : static help / version return first: no config discovery or read\notherwise discover config locations, normalize / validate argv, then machine-first config read
-alt invalid config or usage
+launcher -> launcher : static help / version return first: no config discovery or read\notherwise discover config locations, normalize / validate argv, then all-location retired-policy existence guard and active config read
+alt invalid config, retired ax.json entry or usage
   launcher --> caller : terminal refusal; no resolve / launch
 else accepted invocation
   launcher -> curator : env resolve <canonical env-id> --repair --format json
@@ -54,24 +53,15 @@ else accepted invocation
           manager --> launcher : terminal exchange / result
         end
         launcher --> caller : result or typed refusal; no native fallback
-      else native route (direct or ax)
+      else native route
         launcher -> launcher : immediately before launch: binary check, Codex MCP stat,\nprompt probe / PrepareLaunch; first failure refuses
         alt late check refused
-          launcher --> caller : exec_provider_missing / mcp_layer_* / sysprompt_*\nno provider or ax starts
-        else direct: ax absent / disabled or explicit --native / --untracked
+          launcher --> caller : exec_provider_missing / mcp_layer_* / sysprompt_*\nno provider starts
+        else late checks admitted
           launcher -> native : start composed Binary / argv / full env / cwd / exact stdin
           launcher -> native : terminal foreground / signal forwarding / stop-continue
           native --> launcher : child exit or signal
           launcher --> caller : restore terminal; child exit / 128 + signal
-        else ax enabled without explicit native bypass
-          launcher -> ax : start --provider ... --launch-plan -\nowned literals / lookup names, argv suffix, stdin, extensions
-          alt ax cannot start or refuses / exits nonzero
-            ax --> launcher : foreign Structured Error / stderr
-            launcher --> caller : ax_handoff_failed (1); no direct fallback
-          else ax accepts
-            ax -> ax : owns process, terminal and persistent Session Record
-            launcher --> caller : handoff accepted; launcher launch work ends
-          end
         end
       end
     end
@@ -86,7 +76,7 @@ note over launcher
   FRONT-DOOR 3-5 / 5.8: selected manager takes delegated launch.
   Auto without a registered/selected manager: native + one-line notice.
   Explicit hosted instead refuses session_host_missing with reason (after earlier checks).
-  Exact-plan activation and real Muse hosting remain gated; native keeps direct / ax behavior.
+  Exact-plan activation and real Muse hosting remain gated; native executes the child directly.
   Missing Codex layer: deliberate new invocation lets Curator repair; launcher never repairs it.
 end note
 

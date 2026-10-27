@@ -234,6 +234,29 @@ func (f *frontFixture) require(t *testing.T, code, want int, stderr, diagnostic 
 // columns remain pure client.Required tests.
 func TestFrontDoorBinary(t *testing.T) {
 	bin := frontBuild(t)
+	// Each retired location blocks both native and hosted binary paths before
+	// any manager call or native child; ordinary activation rows below control it.
+	t.Run("removed-ax", func(t *testing.T) {
+		for _, layer := range []string{"system", "user", "legacy-system", "legacy-user"} {
+			for _, host := range []string{"--native", "--hosted"} {
+				t.Run(layer+"/"+host, func(t *testing.T) {
+					f := newFront(t, bin)
+					dir := map[string]string{"system": bin.system, "user": f.config, "legacy-system": filepath.Join(filepath.Dir(bin.system), "legacy-system"), "legacy-user": filepath.Join(f.root, "config", "curator-run")}[layer]
+					if err := os.MkdirAll(dir, 0700); err != nil {
+						t.Fatal(err)
+					}
+					path := filepath.Join(dir, "ax.json")
+					writeFixture(t, path, []byte("not parsed"), 0600)
+					t.Cleanup(func() { _ = os.Remove(path) })
+					code, out, stderr := f.invoke(false, false, host)
+					f.require(t, code, 2, stderr, "ax_tracking_removed", nil, 0, false)
+					if out != "" || !strings.Contains(stderr, "delete this file: path=") {
+						t.Fatalf("wrong retired policy response: %s %s", out, stderr)
+					}
+				})
+			}
+		}
+	})
 	t.Run("activation", func(t *testing.T) {
 		for _, trial := range []bool{false, true} {
 			for _, row := range []struct {
@@ -346,36 +369,7 @@ func TestFrontDoorBinary(t *testing.T) {
 			}
 		}
 	})
-	t.Run("ax-placement", func(t *testing.T) {
-		for _, kind := range []string{"invalid", "empty", "unselected", "selected"} {
-			for _, flag := range []string{"--native", "--hosted", ""} {
-				t.Run(kind+"/"+flag, func(t *testing.T) {
-					f := newFront(t, bin)
-					f.policy("auto", true)
-					f.registry(kind)
-					writeFixture(t, filepath.Join(f.config, "ax.json"), []byte(`{"schema":"curator-run-ax-v1","enabled":true}`), 0600)
-					// The native fixture also acts as ax and records the handoff; no shell.
-					data, _ := os.ReadFile(bin.provider)
-					writeFixture(t, filepath.Join(f.root, "bin", "ax"), data, 0700)
-					args := []string{}
-					if flag != "" {
-						args = append(args, flag)
-					}
-					code, _, stderr := f.invoke(false, false, args...)
-					switch {
-					case flag == "--native":
-						f.require(t, code, 0, stderr, "", nil, 0, true)
-					case flag == "--hosted" || kind == "selected":
-						f.require(t, code, 2, stderr, "host_configuration_conflict", nil, 0, false)
-					case kind == "invalid":
-						f.require(t, code, 2, stderr, "session_manager_registry_invalid", nil, 0, false)
-					default:
-						f.require(t, code, 0, stderr, "no session manager", nil, 0, true)
-					}
-				})
-			}
-		}
-	})
+
 	t.Run("no-fallback", func(t *testing.T) {
 		for _, fault := range []string{"missing-executable", "missing-capability", "unsupported-runtime", "protocol"} {
 			t.Run(fault, func(t *testing.T) {
@@ -426,12 +420,18 @@ func testDelegatedDetails(t *testing.T, bin frontBinaries) {
 	t.Run("request", func(t *testing.T) {
 		f := newFront(t, bin)
 		f.policy("auto", true)
-		code, _, stderr := f.invoke(true, false, "--hosted", "--name", "example-session", "--", "hello")
+		code, _, stderr := f.invoke(true, false, "--hosted", "--", "hello")
 		f.require(t, code, 0, stderr, "ends hosted sessions when it is upgraded", []string{"describe", "launch", "attach"}, 1, false)
 		stored := frontStored(t, f.observe())
 		var request map[string]any
 		json.Unmarshal(stored.Plan, &request)
-		expected := map[string]any{"runtime": "claude_code", "cwd": f.root, "model": "claude-opus-5", "effort": "medium", "service_tier": nil, "weights_id": nil, "permissions": map[string]any{"mode": "native", "source": "flag"}, "system_prompt": nil, "sandbox": map[string]any{"mode": "none", "writable_roots": []any{}}, "harness_memory": false, "session_name": "example-session", "labels": map[string]any{}, "child_env": map[string]any{}, "board_goal": "none", "doorbell": nil, "credential_source": nil, "native_tail": []any{"hello"}, "detach": false, "admission_key": nil}
+		expected := map[string]any{"runtime": "claude_code", "cwd": f.root, "model": "claude-opus-5", "effort": "medium", "service_tier": nil, "weights_id": nil, "permissions": map[string]any{"mode": "native", "source": "flag"}, "system_prompt": nil, "sandbox": map[string]any{"mode": "none", "writable_roots": []any{}}, "harness_memory": false, "labels": map[string]any{}, "child_env": map[string]any{}, "board_goal": "none", "doorbell": nil, "credential_source": nil, "native_tail": []any{"hello"}, "detach": false, "admission_key": nil}
+		// With the removed --name flag absent, the existing canonical label
+		// derivation remains environment plus a UTC timestamp.
+		label, _ := request["session_name"].(string)
+		if _, err := time.Parse("20060102T150405Z", strings.TrimPrefix(label, "claude_code-")); err != nil || !strings.HasPrefix(label, "claude_code-") {
+			t.Fatal("wrong default label", label)
+		}
 		for k, want := range expected {
 			if !reflect.DeepEqual(request[k], want) {
 				t.Errorf("%s=%#v want %#v", k, request[k], want)

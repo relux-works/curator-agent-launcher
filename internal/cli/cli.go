@@ -3,18 +3,8 @@
 // the verbatim native tail after "--".
 //
 // The package parses only. It resolves no fragment, reads no configuration
-// file, requests no plan, and starts no process. Whether the machine's ax
-// integration is configured (SPEC §4.6, ax.json) is a fact the caller
-// establishes before parsing and supplies through Options, so the two
-// usage rules that depend on it — "--ax-profile on an untracked machine is
-// a usage error" and "--name on an untracked machine is accepted and has no
-// effect" — are expressed here without this package owning the file read.
-//
-// Environment identifiers are not validated against a registry here: an
-// unsupported environment is env_unsupported or resolve_environment_unknown
-// in the later stages that own those facts (SPEC §4.1, §4.2). The two CLI
-// aliases (SPEC §3) are normalized here, before any validation or lookup,
-// so every later stage sees only canonical ids.
+// file, requests no plan, and starts no process.
+
 package cli
 
 import (
@@ -36,7 +26,6 @@ const Usage = `usage: curator-run <env-id> [--hosted | --native | --untracked]
                    [--profile <name>] [--system-prompt <append|replace>]
                    [--model <model>] [--effort <effort>]
                    [--permissions <native|yolo> | --yolo]
-                   [--name <session-name>] [--ax-profile <standard|yolo>]
                    [--network <profile>] [--network-policy <policy>]
                    [--network-known-bad <path>]
                    [--] <native args...>
@@ -62,7 +51,8 @@ forwarded to the tool verbatim, in order, uninspected.
 
 options:
   --hosted                          use the selected registered session manager
-  --native, --untracked             run natively; the two spellings are equal
+  --native                         run natively
+  --untracked                      deprecated alias of --native (two releases)
   --board-goal                      bind the workspace board goal (hosted only)
   --a2a <identity>                  request runtime doorbell wiring (hosted only)
   --detach                          launch without attaching (hosted only)
@@ -75,11 +65,9 @@ options:
   --permissions <native|yolo>        permission mode passed to the spawn plane
   --yolo                             alias for --permissions yolo
   -d, --danger                       rejected; use --permissions explicitly
-  --name <session-name>             ax session name (tracked machines only)
-  --ax-profile <standard|yolo>      ax execution profile (tracked machines only)
   --network-policy <policy>        optimistic (default), strict, pinned:<binary SHA-256>
   --network-known-bad <path>        explicit operator known-bad list (failure refuses)
-  --network <profile>               network profile for direct execution (tracked refuses)
+  --network <profile>               network profile for direct execution (hosted refuses)
   --help, -h                        print this usage text and exit 0
   --version                         print the launcher name and version, exit 0
 
@@ -100,20 +88,11 @@ pi-anthropic, pi-openai, pi-google; explicit models bind their own runtime.
 Pi has no MCP channel. Prompt opt-in defaults off; native prompt-file
 candidates can still produce warnings without opt-in.
 
-Tracking: sibling ax.json, schema curator-run-ax-v1, enabled:true.
-An existing machine ax.json wins; otherwise use the operator file.
-Missing files or enabled:false select direct execution. Invalid/unreadable
-configuration refuses launches; --help and --version never read it. No direct
-fallback on ax failure.
---name defaults to <env-id>-<YYYYMMDDTHHMMSSZ> (UTC), accepts
-[A-Za-z0-9][A-Za-z0-9._-]{0,63}, and has no effect when untracked.
---ax-profile is a usage error when untracked; absent uses ax's default.
 Repeated/unknown flags, missing values and extra operands before -- refuse.
 
 Host: --hosted, --native and --untracked share one host request: a repeat
 or a combination refuses. Machine launcher.json selects native, hosted or auto
-(default). Native skips the manager registry; explicit --native also bypasses
-ax. Auto uses the selected registered manager, or launches natively with a notice.
+(default). Native skips the manager registry. Auto uses the selected registered manager, or launches natively with a notice.
 An invalid registry refuses auto; hosted refusals never fall back to native.
 Delegated launches are signed off (Q1): auto and hosted use the selected
 manager, including a delegated-only one. Machine delegated_trial is withdrawn
@@ -127,15 +106,6 @@ propagate unchanged; signal exits are 128 + signal. Hosted refusals use the
 receiver exit mapping (1, 2, 6, 16). Stable diagnostic codes and details go
 to stderr; see README.md and SPEC.md section 6.
 `
-
-// Options carries the facts the parser needs from its caller.
-type Options struct {
-	// AxConfigured is true when the ax integration is configured on this
-	// machine (SPEC §4.6). It decides whether --ax-profile is admitted and
-	// whether --name will have an effect. The caller reads ax.json; this
-	// package never does.
-	AxConfigured bool
-}
 
 // Info names an informational outcome: the invocation asked for text, not a
 // launch.
@@ -162,18 +132,6 @@ const (
 	SystemPromptReplace SystemPrompt = "replace"
 )
 
-// AxProfile is the closed vocabulary of --ax-profile (SPEC §3, §4.6).
-type AxProfile string
-
-const (
-	// AxProfileNone means the flag was absent: ax's own default applies.
-	AxProfileNone AxProfile = ""
-	// AxProfileStandard forwards "--profile standard" to ax start.
-	AxProfileStandard AxProfile = "standard"
-	// AxProfileYolo forwards "--profile yolo" to ax start.
-	AxProfileYolo AxProfile = "yolo"
-)
-
 // PermissionMode is the closed vocabulary of --permissions and its alias.
 type PermissionMode string
 
@@ -181,9 +139,6 @@ const (
 	PermissionNative PermissionMode = "native"
 	PermissionYolo   PermissionMode = "yolo"
 )
-
-// sessionNamePattern is the ax §2.1 session-name grammar, anchored.
-var sessionNamePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`)
 
 // NormalizeEnvID maps the two SPEC §3 CLI aliases to their canonical
 // environment ids: claude -> claude_code, codex -> codex_cli. Every other
@@ -211,7 +166,7 @@ const (
 
 // ExplicitNative reports whether a parsed host flag selects the explicit
 // native path: --native or its --untracked synonym. An explicit native
-// request on an ax-configured machine bypasses ax.
+// request skips the manager registry.
 func ExplicitNative(hostFlag string) bool {
 	return hostFlag == HostFlagNative || hostFlag == HostFlagUntracked
 }
@@ -247,6 +202,8 @@ type Invocation struct {
 
 	// EnvID is the required operand, normalized through NormalizeEnvID.
 	EnvID string
+	// SessionLabel is supplied internally by a Werkstatt record, never by a CLI flag.
+	SessionLabel string
 	// Profile is the --profile value; ProfileSet tells absence from a
 	// value that was never given (an empty value is a usage error, so
 	// ProfileSet implies a non-empty Profile).
@@ -260,14 +217,6 @@ type Invocation struct {
 	// PermissionMode is the explicit §4.3 mode or its --yolo alias.
 	PermissionMode PermissionMode
 	PermissionSet  bool
-	// Name is the --name value, already validated against the ax §2.1
-	// grammar. NameSet reports presence. On an untracked machine
-	// (Tracked false) the value is accepted and has no effect.
-	Name    string
-	NameSet bool
-	// AxProfile is the --ax-profile value or AxProfileNone. It is never set
-	// when Tracked is false: that shape is a usage error.
-	AxProfile AxProfile
 	// Network is the --network value, a network profile identifier selected
 	// explicitly by the operator. NetworkSet reports presence. The value is
 	// stored verbatim and unvalidated here; resolution and validation
@@ -279,9 +228,6 @@ type Invocation struct {
 	NetworkMode     string
 	NetworkPin      string
 	NetworkKnownBad string
-	// Tracked copies Options.AxConfigured so consumers of the invocation
-	// see the fact the parse was made against.
-	Tracked bool
 	// Native is everything after "--", verbatim, in order. It is never nil
 	// on a launch invocation; it is empty when "--" was absent or last.
 	Native []string
@@ -322,8 +268,6 @@ var valueFlags = map[string]bool{
 	"--model":             true,
 	"--effort":            true,
 	"--permissions":       true,
-	"--name":              true,
-	"--ax-profile":        true,
 	"--resume":            true,
 	"--a2a":               true,
 	"--network":           true,
@@ -353,12 +297,8 @@ var valueFlags = map[string]bool{
 //     with "-" is an unknown flag. The operand is normalized through
 //     NormalizeEnvID before it is stored, so an alias never reaches
 //     validation, lookup, or output.
-//   - "--system-prompt" and "--ax-profile" accept only their vocabularies;
-//     "--name" must match the ax §2.1 grammar; "--ax-profile" requires
-//     opts.AxConfigured without an explicit native host flag, since an
-//     explicit native request bypasses ax and would discard the profile.
 //   - <env-id> is required on a launch invocation.
-func Parse(args []string, opts Options) (Invocation, error) {
+func Parse(args []string) (Invocation, error) {
 	if len(args) > 0 && args[0] == "werkstatt" {
 		command, err := werkstattcommand.ParseCommand(args[1:])
 		if err != nil {
@@ -383,7 +323,7 @@ func Parse(args []string, opts Options) (Invocation, error) {
 		return Invocation{}, usageErr("expected migrate [--dry-run]")
 	}
 
-	inv := Invocation{Tracked: opts.AxConfigured}
+	inv := Invocation{}
 	seen := map[string]bool{}
 	envSet := false
 	permissionSeen := false
@@ -435,6 +375,9 @@ func Parse(args []string, opts Options) (Invocation, error) {
 		}
 
 		flag, value, hasEq := strings.Cut(tok, "=")
+		if flag == "--name" || flag == "--ax-profile" {
+			return inv, usageErr("%s was removed in 0.6.0", flag)
+		}
 		if flag == "-d" || flag == "--danger" {
 			return inv, usageErr("%s is rejected; use --permissions native or --permissions yolo", flag)
 		}
@@ -494,21 +437,13 @@ func Parse(args []string, opts Options) (Invocation, error) {
 		if value == "" || (flag != "--a2a" && strings.HasPrefix(value, "-")) {
 			return inv, usageErr("flag %s requires a value, got %q", flag, value)
 		}
-		if err := inv.set(flag, value, opts); err != nil {
+		if err := inv.set(flag, value); err != nil {
 			return inv, err
 		}
 	}
 
 	if !envSet {
 		return inv, usageErr("missing <env-id>")
-	}
-	// An explicit native host flag bypasses ax on any machine, so an
-	// execution profile would be discarded exactly as on an untracked
-	// machine. The check runs after the full line is read, since the host
-	// flag may follow --ax-profile; a --help met during the line still wins
-	// with the informational result above.
-	if inv.AxProfile != AxProfileNone && ExplicitNative(inv.HostFlag) {
-		return inv, usageErr("--ax-profile %s conflicts with %s: explicit native execution bypasses ax, so an execution profile would be discarded", inv.AxProfile, inv.HostFlag)
 	}
 	if inv.A2A != "" && ExplicitNative(inv.HostFlag) {
 		return inv, usageErr("--a2a requires hosted execution")
@@ -518,7 +453,7 @@ func Parse(args []string, opts Options) (Invocation, error) {
 }
 
 // set stores one validated flag value.
-func (inv *Invocation) set(flag, value string, opts Options) error {
+func (inv *Invocation) set(flag, value string) error {
 	switch flag {
 	case "--a2a":
 		if !a2aIdentityPattern.MatchString(value) {
@@ -547,21 +482,6 @@ func (inv *Invocation) set(flag, value string, opts Options) error {
 		}
 	case "--resume":
 		inv.ResumeID, inv.ResumeIDSet = value, true
-	case "--name":
-		if !sessionNamePattern.MatchString(value) {
-			return usageErr("--name %q is not a valid ax session name: [A-Za-z0-9][A-Za-z0-9._-]{0,63}", value)
-		}
-		inv.Name, inv.NameSet = value, true
-	case "--ax-profile":
-		switch AxProfile(value) {
-		case AxProfileStandard, AxProfileYolo:
-		default:
-			return usageErr("--ax-profile accepts standard or yolo, got %q", value)
-		}
-		if !opts.AxConfigured {
-			return usageErr("--ax-profile %s given but the ax integration is not configured on this machine; an execution profile is ax's and would be discarded", value)
-		}
-		inv.AxProfile = AxProfile(value)
 	case "--network-policy":
 		switch value {
 		case "optimistic":

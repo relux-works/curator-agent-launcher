@@ -63,7 +63,7 @@ mutants.extend([
      'preserve permissions except v2 Codex direct yolo'),
     ('G1', main, '\tvar nativePolicy *execution.EffectiveNativePolicy',
      '\tif frag.Environment == fragment.EnvClaudeCode {\n\t\tfor i, entry := range admitted.Plan.Env { if entry == "CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false" { admitted.Plan.Env[i] = "CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=true" } }\n\t}\n\tvar nativePolicy *execution.EffectiveNativePolicy',
-     'TestProductionPipelineGoldens/claude_code/tracked=false',
+     'TestProductionPipelineGoldens/claude_code/native',
      'preserve documented environment except Claude direct prompt suggestion value'),
     ('D1', root / 'go.mod', 'golang.org/x/sys v0.47.0', 'golang.org/x/sys v0.47.0',
      'TestConstructionDependencyReleasePin',

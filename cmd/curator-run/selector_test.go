@@ -61,7 +61,7 @@ func TestRunSelectorEnforce(t *testing.T) {
 		{"selector", "valid", nil, "gpt-5.6-sol", "high"}, {"slow-selector", "slow-valid", nil, "gpt-5.6-sol", "high"}, {"model-flag", "valid", []string{"--model", "gpt-6-astra"}, "gpt-6-astra", "high"}, {"effort-flag", "valid", []string{"--effort", "low"}, "gpt-5.6-sol", "low"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			f := entryFixture(t, "codex_cli", false)
+			f := entryFixture(t, "codex_cli")
 			f.args = append([]string{"codex_cli", "--permissions", "native"}, tc.flags...)
 			selectorPolicy(t, f, binary, "enforce", tc.behavior)
 			selectorResponse(t, binary, selectedResponse)
@@ -109,7 +109,7 @@ func TestRunSelectorRefusals(t *testing.T) {
 		{"timeout", "hang", "", "selector_unavailable: selector unavailable reason=timeout"}, {"exit", "exit", "", "selector_unavailable: selector unavailable reason=exit"}, {"invalid", "invalid", "", "selector_unavailable: selector unavailable reason=invalid"}, {"oversize", "oversize", "", "selector_unavailable: selector unavailable reason=invalid"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			f := entryFixture(t, "codex_cli", false)
+			f := entryFixture(t, "codex_cli")
 			selectorPolicy(t, f, binary, "enforce", tc.behavior)
 			selectorResponse(t, binary, tc.response)
 			cleanupSelectorFake(t, binary)
@@ -185,7 +185,7 @@ func TestRunSelectorShadow(t *testing.T) {
 	for _, behavior := range []string{"hang", "exit", "valid"} {
 		t.Run(behavior, func(t *testing.T) {
 			binary := selectorBinary(t)
-			f := entryFixture(t, "codex_cli", false)
+			f := entryFixture(t, "codex_cli")
 			insertLauncherArgs(f, "--permissions", "native")
 			code, offOut, offErr := f.run()
 			if code != 0 {
@@ -278,7 +278,7 @@ func cleanupSelectorFake(t *testing.T, binary string) {
 // explicit model keeps the existing Pi contributor binding and effort flag.
 func TestRunSelectorRuntimeRecordedOnly(t *testing.T) {
 	binary := selectorBinary(t)
-	f := entryFixture(t, "pi", false)
+	f := entryFixture(t, "pi")
 	insertLauncherArgs(f, "--permissions", "native")
 	selectorPolicy(t, f, binary, "enforce", "valid")
 	selectorResponse(t, binary, strings.Replace(selectedResponse, `"runtime":"codex"`, `"runtime":"pi-openai"`, 1))
@@ -294,7 +294,7 @@ func TestRunSelectorRuntimeRecordedOnly(t *testing.T) {
 func TestRunSelectorShadowRefusal(t *testing.T) {
 	binary := selectorBinary(t)
 	worker := selectorWorker(t)
-	f := entryFixture(t, "codex_cli", false)
+	f := entryFixture(t, "codex_cli")
 	insertLauncherArgs(f, "--permissions", "native")
 	path := shadowFixture(t, f, binary, worker, "valid")
 	if err := os.Remove(f.layer); err != nil {
@@ -330,7 +330,7 @@ func TestRunSelectorShadowRefusal(t *testing.T) {
 // flag, a valid selector still outranks the file default in enforce mode.
 func TestRunSelectorLockedFlag(t *testing.T) {
 	binary := selectorBinary(t)
-	f := entryFixture(t, "codex_cli", false)
+	f := entryFixture(t, "codex_cli")
 	selectorPolicy(t, f, binary, "enforce", "valid")
 	selectorResponse(t, binary, selectedResponse)
 	cleanupSelectorFake(t, binary)
@@ -355,7 +355,7 @@ func TestRunSelectorLockedFlag(t *testing.T) {
 // contention drops precisely that line and increments the best-effort counter.
 func TestRunSelectorObservationContention(t *testing.T) {
 	binary := selectorBinary(t)
-	f := entryFixture(t, "codex_cli", false)
+	f := entryFixture(t, "codex_cli")
 	insertLauncherArgs(f, "--permissions", "native")
 	selectorPolicy(t, f, binary, "shadow", "valid")
 	path := filepath.Join(t.TempDir(), "observations.ndjson")

@@ -1,4 +1,4 @@
-// Fake provider and fake ax. Never invokes an installed model or ax.
+// Fake provider. Never invokes an installed model.
 package main
 
 import (
@@ -61,16 +61,6 @@ func main() {
 		}
 	}
 	env = filtered
-	// Fake ax inherits the real launcher environment. Capture only the harmless
-	// test marker, so a failed refusal test cannot print host credentials.
-	if len(os.Args) > 1 && os.Args[1] == "start" {
-		env = nil
-		for _, entry := range os.Environ() {
-			if strings.HasPrefix(entry, "PARENT=") {
-				env = append(env, entry)
-			}
-		}
-	}
 	if env == nil {
 		env = []string{}
 	}

@@ -73,12 +73,11 @@ func TestRunUsageErrorsExit2(t *testing.T) {
 		{[]string{"codex_cli", "--profile"}, "requires a value"},
 		{[]string{"codex_cli", "--profile", "a", "--profile", "b"}, "more than once"},
 		{[]string{"pi", "--system-prompt", "prepend"}, "accepts append or replace"},
-		{[]string{"codex_cli", "--ax-profile", "bogus"}, "accepts standard or yolo"},
-		// This build reads no ax.json, so the integration is never configured:
-		// --ax-profile is the §3 untracked usage error at the entry point.
-		{[]string{"codex_cli", "--ax-profile", "yolo"}, "not configured"},
-		{[]string{"codex_cli", "--name", "bad/name"}, "not a valid ax session name"},
-		{[]string{"codex_cli", "--name", strings.Repeat("x", 65)}, "not a valid ax session name"},
+		{[]string{"codex_cli", "--ax-profile", "bogus"}, "was removed in 0.6.0"},
+		// Removed flags are usage errors before resolution.
+		{[]string{"codex_cli", "--ax-profile", "yolo"}, "was removed in 0.6.0"},
+		{[]string{"codex_cli", "--name", "bad/name"}, "was removed in 0.6.0"},
+		{[]string{"codex_cli", "--name", strings.Repeat("x", 65)}, "was removed in 0.6.0"},
 		{[]string{"codex_cli", "--network", "a", "--network", "b"}, "more than once"},
 		{[]string{"codex_cli", "--network"}, "requires a value"},
 		{[]string{"--nope", "--help"}, "unknown flag"},
@@ -187,7 +186,7 @@ func TestRunPiResolvesNativeLineup(t *testing.T) {
 	}{
 		{[]string{"pi"}, []string{"env", "resolve", "pi", "--repair", "--format", "json"}},
 		{[]string{"pi", "--profile", "default", "--model", "m", "--effort", "high", "--", "resume", "--last"}, []string{"env", "resolve", "pi", "--profile", "default", "--repair", "--format", "json"}},
-		{[]string{"pi", "--system-prompt", "append", "--name", "ok-name", "--", "--help", "", "--ax-profile", "yolo", "--profile", "x"}, []string{"env", "resolve", "pi", "--repair", "--format", "json"}},
+		{[]string{"pi", "--system-prompt", "append", "--", "--help", "", "--ax-profile", "yolo", "--profile", "x"}, []string{"env", "resolve", "pi", "--repair", "--format", "json"}},
 	}
 	for _, c := range cases {
 		sr := &scriptedRunner{stdout: piFragmentLine, stderr: warn}
@@ -205,7 +204,7 @@ func TestRunPiResolvesNativeLineup(t *testing.T) {
 	// Without flags the preferred native-Pi lineup supplies the pair: the
 	// group prints with lineup origins, then the pending plan stage
 	// refuses.
-	for _, args := range [][]string{{"pi"}, {"pi", "--system-prompt", "append", "--name", "ok-name", "--", "--help", "", "--ax-profile", "yolo", "--profile", "x"}} {
+	for _, args := range [][]string{{"pi"}, {"pi", "--system-prompt", "append", "--", "--help", "", "--ax-profile", "yolo", "--profile", "x"}} {
 		sr := &scriptedRunner{stdout: piFragmentLine, stderr: warn}
 		var out, errOut strings.Builder
 		if got := run(context.Background(), args, &out, &errOut, testDeps(t, fragment.NewWithRunner("curator", sr))); got != 1 {
@@ -572,7 +571,7 @@ func TestRunUnknownFragmentStillRefusesResolution(t *testing.T) {
 // the exit status for the code, exactly one launcher diagnostic code
 // line on stderr carrying that code, Curator's stderr forwarded verbatim
 // ahead of it (never parsed as a launcher diagnostic), and nothing on
-// stdout. The defaults family is produced here; the plan, exec, ax, mcp,
+// stdout. The defaults family is produced here; the plan, exec, mcp,
 // and sysprompt families are covered at their own production APIs in
 // internal/diagnostics, and their main call sites remain stated
 // obligations, not claims.
@@ -600,7 +599,7 @@ func TestRunDiagnosticsContract(t *testing.T) {
 		{"usage missing env", []string{}, "", "", 0, "", "", "usage", 2, false},
 		{"usage stray operand", []string{"codex_cli", "frobnicate"}, "", "", 0, "", "", "usage", 2, false},
 		{"usage unknown flag", []string{"codex_cli", "--unknown"}, "", "", 0, "", "", "usage", 2, false},
-		{"usage ax-profile untracked", []string{"codex_cli", "--ax-profile", "yolo"}, "", "", 0, "", "", "usage", 2, false},
+		{"usage removed ax-profile", []string{"codex_cli", "--ax-profile", "yolo"}, "", "", 0, "", "", "usage", 2, false},
 		{"usage locked flag", []string{"pi", "--model", "flag"}, piFragmentLine, "", 0, lockedMachine, "", "usage", 2, false},
 		{"resolve environment unknown", []string{"pi"}, "", "curator: environment_unknown: unregistered\n", 1, "", "", "resolve_environment_unknown", 1, false},
 		{"resolve profile unknown", []string{"pi"}, "", "curator: profile_unknown: none current\n", 1, "", "", "resolve_profile_unknown", 1, false},

@@ -15,7 +15,6 @@ import (
 	"github.com/relux-works/skill-agents-management/pkg/providerlimits"
 	"github.com/relux-works/skill-agents-management/pkg/vendorplugin"
 
-	"github.com/relux-works/curator-agent-launcher/internal/axconfig"
 	"github.com/relux-works/curator-agent-launcher/internal/cli"
 	"github.com/relux-works/curator-agent-launcher/internal/composition"
 	"github.com/relux-works/curator-agent-launcher/internal/configfile"
@@ -81,7 +80,7 @@ type fragmentResolver interface {
 // Tests inject scripted resolvers, temporary configuration paths, and
 // registries built from the real module; main builds them from process
 // state.
-// Configuration directories are discovered before parsing for ax policy;
+// Configuration directories are discovered before reading launch policy;
 // defaults file contents are read only after a supported fragment is mapped.
 // Configuration roots are fixed for distributed builds. Binary tests relocate
 // only these roots at link time, preserving real parsing, resolution and exec.
@@ -112,13 +111,11 @@ type launchDeps struct {
 	shadowStart     func(selector.ShadowJob) (*selector.Child, error)
 	observationPath func() string
 
-	axPaths       func() (defaults.Paths, error)
 	workdir       func() (string, error)
 	environ       func() []string
 	availability  func() (plan.AvailabilityFunc, error)
 	build         plan.BuildLaunchFunc
 	moduleVersion func() string // Tests supply metadata omitted by Go test binaries.
-	axBinary      string
 	stdin         io.Reader
 	now           func() time.Time
 	// providerPath supplies the §4.3 provider-line path. Production
@@ -136,7 +133,7 @@ type launchDeps struct {
 	networkScopeCheck     func(adapterprobe.Identity) bool
 	networkEvaluate       func(context.Context, adapterprobe.Request, adapterprobe.Policy) (adapterprobe.Decision, error)
 	networkEmit           func(io.Writer, *adapterprobe.Provenance) error
-	networkSessionAllowed func(tracked, hosted bool) bool
+	networkSessionAllowed func(hosted bool) bool
 	networkMatchIdentity  func(binding.AdapterIdentity, binding.AdapterIdentity) bool
 	// networkEngineHosts overrides the §4.4b engine-host set.
 	// Production leaves it nil: no launchable runtime in this revision
@@ -173,7 +170,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, deps laun
 		fmt.Fprint(stdout, text)
 		return 0
 	}
-	if inv, err := cli.Parse(args, cli.Options{AxConfigured: true}); err == nil {
+	if inv, err := cli.Parse(args); err == nil {
 		switch inv.Info {
 		case cli.InfoHelp:
 			fmt.Fprintf(stdout, "%s %s (specification %s)\n\n%s", name, buildVersion, specVersion, cli.Usage)
@@ -184,13 +181,6 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, deps laun
 		}
 	}
 	paths := deps.defaults
-	if deps.configLocations == nil && deps.axPaths != nil {
-		var err error
-		paths, err = deps.axPaths()
-		if err != nil {
-			return emitFailure(stderr, diagnostics.CodeDefaultsInvalid, err)
-		}
-	}
 	var configResolver configfile.Resolver
 	if deps.configLocations != nil {
 		loc, err := deps.configLocations()
@@ -202,7 +192,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, deps laun
 		configResolver = configfile.Resolver{Locations: configfile.Locations{System: filepath.Dir(paths.Machine), User: filepath.Dir(paths.Operator)}, Stderr: stderr}
 	}
 	if len(args) > 0 && args[0] == "werkstatt" {
-		inv, err := cli.Parse(args, cli.Options{})
+		inv, err := cli.Parse(args)
 		if err != nil {
 			return emitFailure(stderr, diagnostics.CodeUsage, err)
 		}
@@ -211,7 +201,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, deps laun
 	// Registry commands are administrative operations, independent of launch
 	// policy, fragments and manager transport. Normal launches do not load it yet.
 	if len(args) > 0 && args[0] == "session-manager" {
-		inv, err := cli.Parse(args, cli.Options{})
+		inv, err := cli.Parse(args)
 		if err != nil {
 			return emitFailure(stderr, diagnostics.CodeUsage, err)
 		}
@@ -251,7 +241,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, deps laun
 	// Migration must remain available when the legacy host member prevents a
 	// normal launch. Parse its closed grammar before loading the configs.
 	if len(args) > 0 && args[0] == "migrate" {
-		inv, err := cli.Parse(args, cli.Options{})
+		inv, err := cli.Parse(args)
 		if err != nil {
 			return emitFailure(stderr, diagnostics.CodeUsage, err)
 		}
@@ -265,9 +255,8 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, deps laun
 		}
 		return 0
 	}
-	// Validate flag grammar before reading launch policy. Ax-dependent authority
-	// is checked again below against the actual configuration.
-	if _, parseErr := cli.Parse(args, cli.Options{AxConfigured: true}); parseErr != nil {
+	// Validate flag grammar before reading launch policy.
+	if _, parseErr := cli.Parse(args); parseErr != nil {
 		detail := parseErr.Error()
 		var usage *cli.UsageError
 		if errors.As(parseErr, &usage) {
@@ -276,6 +265,12 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, deps laun
 		_ = diagnostics.Emit(stderr, diagnostics.CodeUsage, detail)
 		fmt.Fprintf(stderr, "\n%s", cli.Usage)
 		return diagnostics.ExitUsage
+	}
+	if path, err := configfile.RemovedAX(configResolver.Locations); err != nil || path != "" {
+		if path != "" {
+			return emitFailure(stderr, diagnostics.CodeAXTrackingRemoved, fmt.Errorf("delete this file: path=%q", path))
+		}
+		return emitFailure(stderr, diagnostics.CodeDefaultsInvalid, err)
 	}
 	policy, err := launcherconfig.Load(configResolver)
 	if err != nil {
@@ -287,24 +282,10 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, deps laun
 	if err != nil {
 		return emitFailure(stderr, diagnostics.CodeDefaultsInvalid, err)
 	}
-	configured, err := axconfig.LoadResolved(configResolver)
-	if err != nil {
-		return emitFailure(stderr, diagnostics.CodeDefaultsInvalid, err)
-	}
-	opts := cli.Options{AxConfigured: configured}
-	inv, err := cli.Parse(args, opts)
-	if err != nil {
-		if cli.IsUsage(err) {
-			detail := err.Error()
-			var ue *cli.UsageError
-			if errors.As(err, &ue) {
-				detail = ue.Detail
-			}
-			_ = diagnostics.Emit(stderr, diagnostics.CodeUsage, detail)
-			fmt.Fprintf(stderr, "\n%s", cli.Usage)
-			return diagnostics.ExitForCode(diagnostics.CodeUsage)
-		}
-		return emitFailure(stderr, diagnostics.CodeUsage, err)
+
+	inv, _ := cli.Parse(args) // Grammar was checked above.
+	if inv.HostFlag == cli.HostFlagUntracked {
+		fmt.Fprintln(stderr, "curator-run: --untracked is deprecated; use --native (alias retained for two releases)")
 	}
 	switch inv.Info {
 	case cli.InfoHelp:
@@ -316,9 +297,8 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, deps laun
 	}
 
 	// SPEC §3: the operand is already normalized by cli.Parse; normalize
-	// again at this boundary so the resolve argv and the default ax session
-	// name (execution.Prepare) always carry the canonical id even if the
-	// parser is ever bypassed. Aliases never persist beyond this point.
+	// again at this boundary so the resolve argv always carries the canonical
+	// id even if the parser is ever bypassed. Aliases never persist beyond this point.
 	inv.EnvID = cli.NormalizeEnvID(inv.EnvID)
 
 	// SPEC §4.1: obtain the fragment. The subprocess inherits the
@@ -481,9 +461,6 @@ func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, ta
 	}
 	deps.hostedSelection = &selected
 	isHosted := selected.route.Kind != "native"
-	if cli.ExplicitNative(inv.HostFlag) {
-		inv.Tracked = false
-	}
 	if !isHosted && inv.A2A != "" {
 		return emitFailure(stderr, diagnostics.CodeUsage, errors.New("--a2a requires hosted execution"))
 	}
@@ -492,9 +469,6 @@ func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, ta
 	}
 	if !isHosted && (inv.ResumeRequested || inv.ResumeIDSet) {
 		return emitFailure(stderr, diagnostics.CodeUsage, errors.New("resume selectors require hosted execution; use --hosted or a hosted default"))
-	}
-	if isHosted {
-		inv.Tracked = true
 	}
 	wd, err := deps.workdir()
 	if err != nil {
@@ -584,7 +558,7 @@ func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, ta
 	// Muse's no-evidence mapping deliberately refuses yolo queries. Only the
 	// admitted plan can establish the selected binary's bounded help evidence;
 	// report that authority without guessing or parsing a provider flag.
-	if !inv.Tracked && decision.Mode == agentic.PermissionModeYolo && system.ID() == "muse" {
+	if !isHosted && decision.Mode == agentic.PermissionModeYolo && system.ID() == "muse" {
 		fmt.Fprintf(stderr, "curator-run: permissions=%s source=%s mapped=module-attested\n", decision.Mode, decision.Source)
 	}
 	// SPEC §4.4b: resolve and validate the explicit network selection
@@ -619,10 +593,10 @@ func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, ta
 	}
 	sessionAllowed := deps.networkSessionAllowed
 	if sessionAllowed == nil {
-		sessionAllowed = func(tracked, hosted bool) bool { return !tracked && !hosted }
+		sessionAllowed = func(hosted bool) bool { return !hosted }
 	}
 	var snapshot *execution.ArtifactSnapshot
-	if inv.NetworkSet && sessionAllowed(inv.Tracked, isHosted) {
+	if inv.NetworkSet && sessionAllowed(isHosted) {
 		snapshot, err = execution.SnapshotArtifact(admitted.Plan.Binary, admitted.Plan.WorkDir, admitted.Plan.Env)
 		if err != nil {
 			return emitNetworkFailure(stderr, err)
@@ -637,7 +611,7 @@ func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, ta
 	}
 	preparedNet, err := network.Prepare(ctx, network.Request{
 		Explicit: inv.Network, ExplicitSet: inv.NetworkSet,
-		Tracked: !sessionAllowed(inv.Tracked, isHosted), Harness: target.System,
+		Hosted: !sessionAllowed(isHosted), Harness: target.System,
 		Entrypoint: entrypoint,
 		ParentEnv:  parentEnv, Prober: deps.prober,
 		Artifact: artifact, HostIdentity: hostIdentity, Mode: adapterprobe.Mode(inv.NetworkMode),
@@ -695,22 +669,17 @@ func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, ta
 		}
 		return runHosted(inv, frag, target, value, intent, inspection, admitted.Plan, decision, parentEnv, now(), stdout, stderr, deps, boundary, selected.terminal)
 	}
-	return runNative(inv, frag, target, value, decision, inspection, stdout, stderr, deps, boundary, now())
+	return runNative(value, decision, inspection, stdout, stderr, deps, boundary)
 }
 
-// runNative is the existing native tail: report, prepare, and run the
-// composed value directly or through ax. It performs zero manager contact;
-// hosted failures never reach it, which the fallback mutant guards.
-func runNative(inv cli.Invocation, frag *fragment.Fragment, target mapping.Target, value composition.Value, decision execution.PermissionDecision, inspection agentic.StoredPolicyInspection, stdout, stderr io.Writer, deps launchDeps, boundary func() error, at time.Time) int {
-	var nativePolicy *execution.EffectiveNativePolicy
+// runNative reports inspected policy and runs the composed value directly.
+// It performs zero manager contact; hosted failures never reach it.
+func runNative(value composition.Value, decision execution.PermissionDecision, inspection agentic.StoredPolicyInspection, stdout, stderr io.Writer, deps launchDeps, boundary func() error) int {
 	if decision.Mode == agentic.PermissionModeNative {
-		nativePolicy = execution.ReportEffectiveNativePolicy(stderr, inspection, inv.Tracked)
+		execution.ReportEffectiveNativePolicy(stderr, inspection)
 	}
-	prepared, err := execution.PrepareWithNativePolicy(value, *frag, inv, target, at, nativePolicy)
-	if err != nil {
-		return emitFailure(stderr, diagnostics.CodeAxHandoffFailed, err)
-	}
-	return prepared.Run(execution.Options{AxBinary: deps.axBinary, IO: execution.IO{Stdin: deps.stdin, Stdout: stdout, Stderr: stderr}, Boundary: boundary})
+	prepared := execution.Prepare(value)
+	return prepared.Run(execution.Options{IO: execution.IO{Stdin: deps.stdin, Stdout: stdout, Stderr: stderr}, Boundary: boundary})
 }
 
 // runHosted sends the sealed exact plan through the selected plugin. The caller
@@ -745,8 +714,8 @@ func runHosted(inv cli.Invocation, frag *fragment.Fragment, target mapping.Targe
 		}
 		return emitFailure(stderr, diagnostics.CodeLaunchPlanInvalid, err)
 	}
-	hostName := inv.Name
-	if !inv.NameSet {
+	hostName := inv.SessionLabel
+	if inv.SessionLabel == "" {
 		hostName = inv.EnvID + "-" + at.UTC().Format("20060102T150405Z")
 	}
 	// The native session name and RC intent come from Plan.Session of the
@@ -803,13 +772,13 @@ func resolvePermission(ctx context.Context, inv cli.Invocation, frag *fragment.F
 	// selects yolo for silence on every stdio shape. The native-argument
 	// non-interactive classification served only that default, so it is
 	// gone: the tool release probes once below for the mapping check.
-	headless := (inv.Tracked && !hosted) || execution.HasNonInteractiveMarker(parentEnv) || !terminal
+	headless := execution.HasNonInteractiveMarker(parentEnv) || !terminal
 
 	toolRelease := ""
 	var probeErr error
 	decision, err := execution.ResolvePermission(execution.PermissionRequest{
 		Flag: inv.PermissionMode, FlagPresent: inv.PermissionSet, Profile: frag.Permissions,
-		Global: global, Headless: headless, Tracked: inv.Tracked, Hosted: hosted,
+		Global: global, Headless: headless,
 		Transport: frag.Revision == fragment.IdentityV2 || frag.Revision == fragment.IdentityV3 || frag.Revision == fragment.IdentityV4,
 	})
 	if err != nil {
@@ -840,7 +809,7 @@ func resolvePermission(ctx context.Context, inv cli.Invocation, frag *fragment.F
 	if decision.Mode == agentic.PermissionModeYolo && probeErr != nil {
 		return execution.PermissionDecision{}, "", nil, fmt.Errorf("%s: tool release was not established: %v: %w", diagnostics.CodePlanRefused, probeErr, agentic.ErrPermissionModeUnverifiedRelease)
 	}
-	if !inv.Tracked && !deferredMapping {
+	if !hosted && !deferredMapping {
 		mapped := permissionMapping.Flag
 		if mapped == "" {
 			mapped = "none"

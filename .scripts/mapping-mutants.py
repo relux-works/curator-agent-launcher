@@ -10,8 +10,8 @@ out.mkdir(parents=True, exist_ok=True)
 mapping = root / 'internal/mapping/mapping.go'
 main = root / 'cmd/curator-run/main.go'
 mutants = [
-    ('M1', mapping, '\tdefault:', '\tcase fragment.EnvOpenCode:\n\t\treturn Target{System: "opencode", Provider: "opencode"}, nil\n\tdefault:', 'TestRunMapping/opencode', 'admit exactly opencode'),
-    ('M2', mapping, '\tdefault:', '\tcase "future_env":\n\t\treturn Target{System: "future_env", Provider: "future_env"}, nil\n\tdefault:', 'TestRunUnknownResolvedMapping', 'admit exactly future_env'),
+    ('M1', mapping, '\tdefault:', '\tcase fragment.EnvOpenCode:\n\t\treturn Target{System: "opencode"}, nil\n\tdefault:', 'TestRunMapping/opencode', 'admit exactly opencode'),
+    ('M2', mapping, '\tdefault:', '\tcase "future_env":\n\t\treturn Target{System: "future_env"}, nil\n\tdefault:', 'TestRunUnknownResolvedMapping', 'admit exactly future_env'),
     ('M3', main, 'if err != nil {\n\t\tfmt.Fprintf(stderr, "%s: %s: %v\\n", name, mapping.CodeUnsupported, err)', 'if err != nil && frag.Environment != "opencode" {\n\t\tfmt.Fprintf(stderr, "%s: %s: %v\\n", name, mapping.CodeUnsupported, err)', 'TestRunMapping/opencode', 'continue after opencode mapping error only'),
     ('M4', mapping, 'System: "pi-native"', 'System: "pi"', 'TestRunMapping/pi', 'route Pi to legacy wrapper system'),
 ]

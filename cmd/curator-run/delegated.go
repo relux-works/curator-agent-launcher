@@ -69,8 +69,8 @@ func delegatedRequest(inv cli.Invocation, frag *fragment.Fragment, resolved defa
 		}
 		request["selector"], request["scope"] = selector, map[string]any{"cwd": cwd, "labels": map[string]string{}}
 	} else {
-		sessionName := inv.Name
-		if !inv.NameSet {
+		sessionName := inv.SessionLabel
+		if inv.SessionLabel == "" {
 			sessionName = inv.EnvID + "-" + at.UTC().Format("20060102T150405Z")
 		}
 		var prompt any

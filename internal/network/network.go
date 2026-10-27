@@ -5,7 +5,7 @@
 // profile, and the binding's patch is returned for final application in
 // Compose while its Record becomes stderr provenance. A named
 // kind="direct" profile skips every probe step and binds an unset-only
-// patch. Tracked mode refuses: the source host cannot validate a
+// patch. Hosted mode refuses: the source host cannot validate a
 // destination.
 //
 // The independent child-scope ceiling covers Claude print only. The package
@@ -168,7 +168,7 @@ func hasPrintSelector(tail []string) bool {
 type Request struct {
 	Explicit     string
 	ExplicitSet  bool
-	Tracked      bool
+	Hosted       bool
 	Harness      string
 	Entrypoint   string
 	ParentEnv    []string
@@ -202,7 +202,7 @@ type Prepared struct {
 // outcome and touches nothing: no catalog read, no probe. Order, closed:
 //
 //  1. a blank explicit selection refuses without any I/O;
-//  2. a tracked selection refuses without catalog or probe I/O: the
+//  2. a hosted selection refuses without catalog or probe I/O: the
 //     source host cannot validate a destination;
 //  3. the catalog loads through the operator's original parentEnv;
 //  4. the explicit selection resolves (allowed set, existence,
@@ -229,8 +229,8 @@ func Prepare(ctx context.Context, req Request) (Prepared, error) {
 	if strings.TrimSpace(req.Explicit) == "" {
 		return Prepared{}, refusal.New(refusal.CodeProfileInvalid, req.Explicit, "profile name must not be blank")
 	}
-	if req.Tracked {
-		return Prepared{}, refusal.New(refusal.CodeScopeUnsupported, req.Explicit, "tracked launches cannot carry a network profile in this revision; the destination does not enforce it")
+	if req.Hosted {
+		return Prepared{}, refusal.New(refusal.CodeScopeUnsupported, req.Explicit, "hosted launches cannot carry a network profile in this revision; the destination does not enforce it")
 	}
 	cat, err := catalog.Load(req.ParentEnv)
 	if err != nil {

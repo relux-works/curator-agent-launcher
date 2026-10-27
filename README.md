@@ -1,7 +1,7 @@
 # curator-agent-launcher
 
 `curator-run` composes Curator's managed environment, agents-management's
-admitted interactive plan, and optional ax tracking. The contract is
+admitted interactive plan, and native or hosted execution. The contract is
 [SPEC 0.5.1-draft](SPEC.md).
 
 Documentation revision: accepted architecture-review findings (2026-10-13)
@@ -14,7 +14,7 @@ No implementation, qualification or activation is claimed.
 | Entry | Composer | Process/lifetime owner | Status |
 |---|---|---|---|
 | Direct human `curator-run <env-id> …` | Caller-side interactive launcher | Launcher starts and waits for native child | Existing API below. |
-| Hosted or `ax` launch | Validated caller policy; plugin composes delegated launches | Registered session manager or `ax` | Delegated launch is activated for Claude/Codex through a selected conforming manager; refusal never falls back to native. |
+| Hosted launch | Validated caller policy; plugin composes delegated launches | Registered session manager | Delegated launch is activated for Claude/Codex through a selected conforming manager; refusal never falls back to native. |
 | Agent one-shot exec | Caller composes; dispatcher admits/provisions/tracks | `curator-run` under `worker-<label>` verifies and executes; dispatcher/helper own stop and cleanup | **Target amendment (version pending), not implemented**; [SPEC §10](SPEC.md#10-agent-account-one-shot-exec-contract-target-amendment). |
 
 Front-door amendment (partially implemented; delegated activation signed off):
@@ -421,7 +421,7 @@ not evidence of implemented broker intake, isolation, receipts or execution.
 The module figures are PlantUML sources:
 
 - [Components and process authority](diagrams/components.puml) — current interactive planes and target one-shot adapter ([SPEC §§1.1, 4, 10](SPEC.md#11-front-doors-and-execution-authority)).
-- [Launch paths](diagrams/launch-paths.puml) — direct, ax, hosted and target one-shot refusal/stop branches ([SPEC §§4.6, 4.9, 10.1–10.5](SPEC.md#46-hand-off-and-exec)).
+- [Launch paths](diagrams/launch-paths.puml) — native, hosted and target one-shot refusal/stop branches ([SPEC §§4.6, 4.9, 10.1–10.5](SPEC.md#46-hand-off-and-exec)).
 - [Invocation states](diagrams/launch-states.puml) — transient states, terminal refusals and confirmed cleanup boundaries ([SPEC §§4, 6, 10.4](SPEC.md#4-composition-algorithm)).
 - [Artifact layout](diagrams/artifact-layout.puml) — persistent owners, generated payloads, descriptors and metadata versus secret material ([SPEC §§4.1, 4.5–4.7, 4.9, 10](SPEC.md#47-the-launchers-configuration-file-family)).
 
@@ -462,16 +462,15 @@ that state is malformed.
 
 The launch pipeline follows these steps:
 
-1. Parse the flag grammar, then read machine-first `ax.json` (FRONT-DOOR §3.2).
-   Missing configuration or `enabled:false` selects direct execution. Malformed
-   or unreadable configuration refuses the invocation; a command line that is
-   itself a usage error reports `usage` first. Only configuration-location
-   discovery runs before parsing.
+1. Parse the flag grammar, then check all four current/deprecated configuration
+   locations for retired `ax.json` entries, without reading their contents.
+   Any entry refuses `ax_tracking_removed` (exit 2), before policy parsing,
+   resolution or launch. A usage error reports first; static help reads no config.
 2. Normalize the `<env-id>` operand (`claude` → `claude_code`,
    `codex` → `codex_cli`) before validation or lookup, then resolve the
    fragment with `curator env resolve --repair --format json`, forwarding
    Curator stderr unchanged, and map its environment to a supported
-   system/provider pair. Outputs carry the canonical id only; aliases are
+   spawn system. Outputs carry the canonical id only; aliases are
    never persisted.
 3. Resolve model and effort from flags, operator/machine defaults and the tagged
    lineup. Resolve permission mode by flag, Curator profile setting, launcher
@@ -483,7 +482,7 @@ The launch pipeline follows these steps:
    scores are never compared. Explicit models bind their own runtime.
 4. Resolve host mode with [FRONT-DOOR §3.2](FRONT-DOOR.md#32-resolution).
    Explicit native and machine native skip the registry. Explicit hosted checks
-   ax conflicts, network, terminal and stdin before reading the registry; auto
+   network, terminal and stdin before reading the registry; auto
    reads the registry first. An empty or unselected auto registry prints the
    fixed native notice. Selected managers answer `describe` once; capabilities
    and the per-runtime activation matrix decide the route without failure
@@ -509,7 +508,7 @@ The launch pipeline follows these steps:
    arguments pass through. Pi retains its existing prompt/discovery path.
    v2/v3 Claude/Codex fragments project their v1-compatible context subset;
    permission mapping and original fragment transport metadata remain unchanged.
-7. Prepare direct execution, the ax launch-plan document, or a plugin request.
+7. Prepare native execution or a plugin request.
    Native launch retains its existing pre-exec checks and prompt preparation.
    Delegated launch sends the resolved profile hashes, model/effort, permission
    source, prompt semantics and selector-free native tail to `launch`, followed
@@ -546,14 +545,11 @@ a substitute argv mapping.
 
 ## Environment and transport
 
-Direct execution uses the composed full environment, working directory,
-argv and stdin. Tracked transport includes only owned literals, MCP lookup
-names, argv suffix, encoded stdin and the four base Curator extensions. A
-tracked native launch can also include the optional
-`works.relux.curator.effective-native-policy` extension. It never serializes the
-full inherited environment. Ax inherits the launcher environment.
-Attached empty stdin remains distinct from unattached; binary stdin uses D4
-base64url encoding in the ax document and exact bytes for direct execution.
+Native children receive the full composed environment, argv and raw stdin.
+Hosted payloads export only owned literals and declared lookup names, never
+the inherited environment. Attached empty stdin remains distinct from
+unattached; native execution preserves binary stdin bytes exactly. Hosted
+stdin capability checks remain independent.
 
 Pi has no MCP channel. Its selected prompt flag and managed-home
 `APPEND_SYSTEM.md` / `SYSTEM.md` candidates are checked freshly, including when
@@ -561,13 +557,12 @@ no prompt is selected. Warnings distinguish selected flags from conditional
 native discovery. Reserved `path_prepend` remains parsed and hashed without
 changing PATH or claiming managed command-root support. Reserved members are
 marked in the fragment type and excluded from the execution context carrier;
-tracked provenance retains the original fragment digest.
+hosted provenance retains the original fragment digest.
 
 Launcher errors render through `internal/diagnostics`; usage exits 2 and
-operational refusals exit 1. Foreign Curator/provider/ax evidence is forwarded
+operational refusals exit 1. Foreign Curator/provider evidence is forwarded
 without diagnostic framing. Direct child exit codes propagate unchanged and
-signal exits return `128 + signal`. An unsuccessful ax handoff returns 1 with
-`ax_handoff_failed` and forwards its stderr unchanged; it never falls back.
+signal exits return `128 + signal`. Hosted failures never fall back to a native child.
 
 Execution waits for a child without allocating a PTY or replacing the launcher.
 The execution package owns terminal foreground groups, signal forwarding,
@@ -578,13 +573,13 @@ checking and process creation; they are not open-handle guarantees.
 
 `cmd/curator-run/pipeline_test.go` drives production `run(...)` with the real
 fragment parser, tagged admission, a temporary provider-limit store, and compiled
-fake provider/ax executables. Six adapter/mode goldens cover argv, environment,
+fake provider executables. Three native adapter goldens cover argv, environment,
 stdin, warning output and side effects. Negative tests cover configuration order,
 forbidden flags, admission, foreign-byte transport, exit status and late checks
-in both modes. Injected attached stdin tests cover transport of a future admitted
+on the native path. Injected attached stdin tests cover transport of a future admitted
 payload; the shipped interactive plugins currently attach no stdin.
 
-These tests do not install binaries or run real providers/ax. Installed umbrella
+These tests do not install binaries or run real providers. Installed umbrella
 launches, managed-home repair/current status, model/effort output and MCP remain
 the orchestrator's post-landing verification. Independent acceptance and signed
 PR delivery also belong to the orchestrator. No cross-platform runtime claim is
@@ -671,8 +666,7 @@ with `subcommand_provider_untrusted` (environments.md §11).
 
 Install Curator and the desired provider separately and make them available on
 `PATH`; configure the provider's credentials and a Curator profile before launch.
-The launcher installs neither providers nor profiles. When tracking is enabled,
-`ax` must also be available and support the launch-plan contract.
+The launcher installs neither providers nor profiles.
 
 Curator discovers unknown subcommands as `curator-<name>` on trusted `PATH`.
 The two invocation forms pass the same launcher arguments:
@@ -690,7 +684,7 @@ Supported environments are `claude_code` (alias `claude`), `codex_cli`
 `env_unsupported`. The operand normalizes to the canonical id before
 validation or lookup, so `curator-run claude` behaves exactly as
 `curator-run claude_code` (and `codex` as `codex_cli`); provenance lines,
-the default ax session name, and the `curator env resolve` call carry the
+hosted session labels, and the `curator env resolve` call carry the
 canonical id, and any other unknown spelling keeps the existing refusal.
 Without `--profile`, Curator uses the current profile for the applicable
 scope. Resolution always requests repair.
@@ -699,7 +693,7 @@ scope. Resolution always requests repair.
 
 | Option | Meaning |
 |---|---|
-| `--hosted`, `--native`, `--untracked` | Select one host request. Hosted uses the registered manager and activation gate; native skips the registry. `--untracked` equals `--native`; repeats and combinations refuse |
+| `--hosted`, `--native`, `--untracked` | Select one host request. Hosted uses the registered manager and activation gate; native skips the registry. `--untracked` is a deprecated exact alias of `--native`, retained for two releases with one warning; repeats and combinations refuse |
 | `--board-goal` | Hosted workspace goal request; requires `board-goal/1` |
 | `--detach` | Hosted launch without attach |
 | `--a2a <identity>` | Hosted runtime doorbell request; delegated route and per-runtime capability required |
@@ -710,11 +704,9 @@ scope. Resolution always requests repair.
 | `--permissions <native\|yolo>` | Resolve the launcher permission mode |
 | `--yolo` | Exact alias of `--permissions yolo` at the same precedence level |
 | `-d`, `--danger` | Rejected as usage errors before `--`; after `--`, arguments are native input |
-| `--name <session-name>` | Tracked session name; `[A-Za-z0-9][A-Za-z0-9._-]{0,63}`; accepted without effect when untracked |
-| `--ax-profile <standard\|yolo>` | Tracked execution profile; usage error when untracked; absent uses ax's default |
 | `--network-policy <policy>` | `optimistic` (default), `strict`, or `pinned:<binary SHA-256>`; sensitivity cannot be downgraded |
 | `--network-known-bad <path>` | Explicit operator known-bad list; any load error refuses |
-| `--network <profile>` | Network profile for direct execution; resolved after admission, refused when tracked; refused with exit 16 when combined with `--hosted` |
+| `--network <profile>` | Network profile for direct execution; resolved after admission; refused with exit 16 when combined with `--hosted` |
 | `--help`, `-h`, `--version` | Print information and exit, after reading tracking configuration |
 | `--` | End launcher parsing; all following arguments pass through verbatim |
 
@@ -740,9 +732,9 @@ current digest (`curator network confirm <profile>`); any resolve,
 validate, or preflight error ends the launch, never an unmanaged
 fallback. A managed launch prints a `curator-run: network: …`
 provenance line carrying the binding Record; the endpoint never appears
-in it, and a launch that composition refuses prints no Record. Tracked
+in it, and a launch that composition refuses prints no Record. Hosted
 launches refuse `--network` with `network_scope_unsupported`: the
-source host cannot validate the destination. Hosted launches also refuse.
+source host cannot validate the destination.
 
 Adapter admission uses `adapterprobe.Evaluate` from v0.3.1. The default
 `--network-policy optimistic` admits a known vendor build as **unqualified**,
@@ -760,7 +752,7 @@ provenance. `Policy.Allowlist` stays empty until independently qualified
 under optimistic policy and refuses under strict or sensitive-egress policy,
 including the previously listed release. Central qualification (A) is outside
 this revision. Qualification never widens the independent child-scope ceiling;
-interactive, tracked and hosted network launches remain unsupported.
+interactive and hosted network launches remain unsupported.
 
 The operator known-bad list is `~/.curator/adapter-knownbad.json`, or the path
 selected by `--network-known-bad <path>`. The library reads it through
@@ -773,7 +765,7 @@ stderr, followed by exactly one `curator-run: adapter-provenance: <JSON>` line
 carrying the full `relux-adapter-provenance-v1` record. Quiet, silent and
 machine-output native flags cannot suppress either stderr line. A wrapper
 that owns a session can parse and persist the JSON record; direct launches
-have no launcher-owned session record. Tracked/hosted guards refuse network
+have no launcher-owned session record. Hosted guards refuse network
 admission until their session owner stores that provenance. The existing
 network binding line remains separate.
 
@@ -786,7 +778,7 @@ qualified merely because a file has a native executable header. See SPEC
 
 ### Configuration family
 
-The launcher owns `defaults.json`, `ax.json`, `launcher.json`, `session-managers.json` and `selector.json` in the operator directory
+The launcher owns `defaults.json`, `launcher.json`, `session-managers.json` and `selector.json` in the operator directory
 `${XDG_CONFIG_HOME:-~/.config}/swarma/launcher` (default `~/.config/swarma/launcher`) and machine
 directory `/etc/swarma/launcher`. These are separate from Curator's configuration.
 All use closed schemas: unknown members, malformed data and unreadable files
@@ -801,15 +793,15 @@ A user-layer `host_mode` or `delegated_trial` refuses and names the system path.
 `host_member_withdrawn` (exit 2), naming `launcher.json`; see
 [FRONT-DOOR §3.1](FRONT-DOOR.md#31-the-machine-mode).
 
-For one release, missing new files fall back individually to
+For one release, missing active configuration files fall back individually to
 `/etc/curator-run/<name>` or `${XDG_CONFIG_HOME:-~/.config}/curator-run/<name>`.
 Each read prints `curator-run: deprecated config path <old>; move it to <new> (curator-run migrate)`.
 A present new file wins without opening the old one; all selected files keep
 the same file-security checks.
 
 Run `curator-run migrate --dry-run` to print the complete migration plan,
-then `curator-run migrate` to apply it. Sources remain untouched; destinations
-are copied atomically, with `.bak` bytes for rewritten copies, and rollback
+then `curator-run migrate` to apply it. Active legacy sources remain untouched;
+retired ax policy files are handled as described below. Destinations are copied atomically, with `.bak` bytes for rewritten copies, and rollback
 on failure. Destination equality compares the final transformed bytes; a
 different file refuses `migrate_destination_exists` before writing anything.
 An exact raw legacy copy can be transformed in place with its original bytes
@@ -928,21 +920,15 @@ permission values are exactly `native` or `yolo`. A v3 reader accepts v1 and v2 
 readers reject the members they do not know. The permission
 fragment member uses the F-S2 names `permissions.mode`, `permissions.locked`,
 and `permissions.source`; `source=default` means the profile level is silent.
-Untracked silence defaults to `yolo` with `source=default-interactive` on
-every stdio shape (Q-D3 literal: headless signals never change the
-default); tracked native silence defaults to `native` with
-`source=default-headless`. `native` adds no
-launcher override and does not guarantee prompting; untracked native arguments
-after `--` remain verbatim. The closed headless marker set is versioned in SPEC
-§4.6 and mirrored by environments §10.1.
-Curator's force-native lock is above all permission levels: visible `yolo` is a
-`usage` error, silence resolves to `native`. A tracked native `yolo` request
-from any level fails with `permission_mode_tracked_unsupported`; the launcher
-never falls back to untracked execution. Hosted launches are exempt from
-tracked permission semantics (Q-D3): the flag/profile/global ladder applies,
-unconfigured silence defaults to `yolo` on every stdio shape, and the resolved
-posture exports as
-`execution_profile` `standard`/`yolo` in the payload. A piped launcher stdin
+Native and hosted silence default to `yolo` with `source=default-interactive`
+on every stdio shape; headless observations never change that default.
+`native` means no launcher override and does not guarantee prompting; native
+arguments after `--` remain untouched. Curator's `permissions.locked=true`
+force-native lock outranks the ladder: launcher-visible `yolo` is `usage`,
+while silence resolves to native. Without established permission transport,
+a would-be `yolo` refuses `permission_policy_unsupported`.
+
+Hosted posture exports as `execution_profile` `standard`/`yolo` in the payload. A piped launcher stdin
 refuses before the plan build; an attached plan stdin refuses after it. A
 missing or invalid terminal descriptor refuses before the plan build with
 zero receiver lookup, and the launcher marks and validates both private
@@ -957,7 +943,7 @@ member it sets are usage errors. Model and effort origins are printed before
 admission. Native launches use the upstream stored-policy inspector and report
 known relaxations only from files it fully inspected. The report is not a claim
 that a setting won provider precedence or that uninspected managed policy is
-clear. Tracked launches record the same selectors and their inspected source.
+clear.
 Long `permissions.allow` lists are summarized by rule count in stderr.
 
 Pi fallback uses the ordered convention `pi-anthropic`, `pi-openai`,
@@ -965,54 +951,43 @@ Pi fallback uses the ordered convention `pi-anthropic`, `pi-openai`,
 within that runtime. This is an operator convention, not a comparison of vendor
 scores. An explicit/configured model binds its own runtime independently.
 
-### Tracked mode
+### Removed ax tracking
 
-Enable tracking with this `ax.json` document:
+Ax tracking was removed on 2026-10-27. `--name` and `--ax-profile` before
+`--` are usage errors (exit 2), with a message saying removed in 0.6.0.
+`--untracked` remains an exact alias of `--native` for two releases and
+prints exactly one deprecation line.
 
-```json
-{ "schema": "curator-run-ax-v1", "enabled": true }
-```
+Any `ax.json` entry in a current system/user launcher directory or a deprecated
+system/user `curator-run` directory refuses `ax_tracking_removed` (exit 2).
+The diagnostic names only its launcher-sourced path and asks to delete it.
+The guard never reads/parses the contents, applies regardless of host flags,
+and also rejects symlinks, directories and FIFOs. Static help/version remain
+configuration-free.
 
-Here **machine wins**: an existing `/etc/swarma/launcher/ax.json` decides;
-the operator file is read only when the machine file is absent. Absence of
-both files or `enabled: false` leaves native launches untracked. Argument
-parsing precedes configuration reads; help/version read no configuration.
-Invalid configuration on a launch is `defaults_config_invalid`, never an
-untracked fallback. See [FRONT-DOOR §3.2](FRONT-DOOR.md#32-resolution).
-
-Tracked launches call `ax start <name> --provider <id> --launch-plan -
-[--profile <ax-profile>] --workspace <cwd>`. Without `--name`, the name is
-`<env-id>-<YYYYMMDDTHHMMSSZ>` in UTC, with the canonical `<env-id>`: an
-alias launch names the session `claude_code-…` or `codex_cli-…`. An explicit
-`--native` or `--untracked` flag bypasses `ax` on any machine (with
-`--ax-profile` a usage error, since the profile would be discarded); a
-silent native selection keeps the existing `ax` behavior. A hosted flag
-with `ax` enabled refuses `host_configuration_conflict`. Hosted selection
-uses the registered and selected manager under
-[FRONT-DOOR §§3–5](FRONT-DOOR.md#3-host-mode-hosted-by-default), including
-the §5.8 delegated activation. `auto` without a registered or selected manager
-launches natively with a one-line notice; explicit hosted refuses
-`session_host_missing` with the reason detail instead. Withdrawn
-per-environment host defaults refuse before host selection.
-A failed handoff never starts a direct child. Repository tests use **fake ax
-only**; they do not demonstrate an installed ax integration.
+`curator-run migrate --dry-run` lists every leftover. Apply backs up each
+regular file as `.bak` and removes it transactionally. It never copies the
+retired policy or backup into the new layout. Non-regular entries require
+manual removal: they are listed without following them, and apply refuses
+before any writes. Existing system-write authority rules still apply.
 
 ### Diagnostics and exit codes
 
 Launcher failures print a stable code line followed by human-readable detail
-on stderr. Foreign Curator/provider/ax output is forwarded unchanged.
+on stderr. Foreign Curator/provider output is forwarded unchanged.
 
 | Result / diagnostic codes | Exit |
 |---|---|
-| Help/version, successful direct execution, or ax handoff | 0 |
+| Help/version, successful native execution or hosted operation | 0 |
+| `ax_tracking_removed` (retired policy entry; delete the named file) | 2 |
 | `usage` (invalid arguments, locked-member override, host-request repeat, native resume selectors, or visible `yolo` under Curator's force-native lock) | 2 |
 | `session_manager_registry_busy` (lock contention after 10 seconds) | 1 |
-| `host_configuration_conflict`, `session_resume_invalid`, `launch_plan_invalid`, `host_member_withdrawn`, `migrate_destination_exists`, `session_manager_registry_invalid`, `session_manager_registry_unwritable`, `session_manager_registry_shadowed`, `session_manager_not_registered` | 2 |
+| `session_resume_invalid`, `launch_plan_invalid`, `host_member_withdrawn`, `migrate_destination_exists`, `session_manager_registry_invalid`, `session_manager_registry_unwritable`, `session_manager_registry_shadowed`, `session_manager_not_registered` | 2 |
 | `resolve_invocation_failed`, `resolve_environment_unknown`, `resolve_profile_unknown`, `resolve_repair_failed`, `resolve_lock_unavailable`, `resolve_fragment_invalid` | 1 |
 | `defaults_config_invalid`, `defaults_unresolvable` | 1 |
-| `permission_policy_unsupported`, `permission_mode_tracked_unsupported`, `permission_mode_unsupported` | 1 |
+| `permission_policy_unsupported`, `permission_mode_unsupported` | 1 |
 | `plan_refused`, `plan_provider_limited`, `env_unsupported` | 1 |
-| `exec_provider_missing`, `ax_handoff_failed` | 1 |
+| `exec_provider_missing` | 1 |
 | `mcp_layer_missing`, `mcp_layer_unreadable` | 1 |
 | `sysprompt_channel_unavailable`, `sysprompt_file_unreadable` | 1 |
 | `network_profile_unknown`, `network_profile_denied`, `network_scope_unsupported`, `network_configuration_conflict`, `network_proxy_unreachable`, `network_proxy_auth_failed`, `network_profile_invalid`, `network_file_unreadable` | 1 (hosted `--network`: `network_scope_unsupported` exits 16) |
@@ -1106,7 +1081,7 @@ five signing secrets.
 | `scripts/release-repro.sh` | committed-HEAD reproducibility across two checkout paths, checksum and `--version` checks, a different-version control, and crafted-input negatives that must run and write nothing | `make release-repro` | temporary directory, removed on exit; one `OK <sha256>` line |
 | `python3` defaults mutant harness | weaken defaults gates individually and run the behavioral suite; restore exact candidate bytes | `python3 .scripts/defaults-mutants.py [evidence-dir]` | per-mutant logs and `summary.tsv` (default `.temp/defaults-mutants/`) |
 | `.scripts/context-mutants.py` | narrow carrier engagement, reserved-member exclusion, permissions, deprecated-alias refusal, native suffix and release configuration in an isolated candidate copy | `python3 .scripts/context-mutants.py [evidence-dir]` | isolated copy, per-mutant logs and `summary.tsv`, default `.temp/context-mutants/` |
-| production pipeline mutants | narrow the three late checks and ax mode selection at `run(...)`; restore exact candidate bytes | `python3 .scripts/pipeline-mutants.py [evidence-dir]` | per-mutant logs and `summary.tsv`; 9 named narrowing probes |
+| production pipeline mutants | narrow native late checks at `run(...)` in a scratch copy | `python3 .scripts/pipeline-mutants.py [evidence-dir]` | per-mutant logs and `summary.tsv`; 6 named narrowing probes |
 | CLI goldens | frozen accepted/rejected §3 shapes | `go test ./internal/cli -run TestGolden -update` to regenerate, then review the diff | `internal/cli/testdata/cases.golden` |
 | `.scripts/hosted-mutants.sh` / `.scripts/host-launch-mutants.py` | Bounded host resolution, matrix and request controls; each plant requires its passing control and named behavioral assertion. Missing anchors fail closed. | `.scripts/hosted-mutants.sh [evidence-dir]` (`MUTANTS_ONLY=M-H1,M-H2` selects a subset) | isolated source copy, per-control logs and `summary.tsv` under `.temp/hosted-mutants/` by default; working source is untouched |
 | `internal/mutantguard` | committed check that runs required withdrawn-host, no-fallback, native-bypass and missing-registration mutants M-H1, M-H2, M-H3 and M-H22 through the harness in a scratch copy of the tree and requires each to be applied and killed | `go test ./internal/mutantguard` | scratch copy under the test temp dir; the working tree is never mutated |
@@ -1115,10 +1090,10 @@ five signing secrets.
 | `.scripts/mapping-mutants.py` | §4.2 narrowing probes with named production-entry failures; restores candidate bytes after each mutation | `python3 .scripts/mapping-mutants.py [evidence-dir]` | per-mutant logs and `summary.tsv` (default `.temp/mapping-mutants/`) |
 | `.scripts/composition-mutants.py` | §4.5 behavioral narrowing probes for environment ownership, collisions, stdin and launch-boundary file refusal; restores candidate bytes after every mutant | `python3 .scripts/composition-mutants.py [evidence-dir]` | per-mutant logs and `summary.tsv` (default `.temp/composition-mutants/`); permission probe requires a non-root host |
 | `.scripts/systemprompt-mutants.py` | SPEC §5 narrowing probes through exported production APIs; exact source bytes restored after every mutation | `python3 .scripts/systemprompt-mutants.py [evidence-dir]` | per-mutant logs and `summary.tsv` (default `.temp/systemprompt-mutants/`) |
-| `.scripts/execution-mutants.py` | narrowing probes at the shared config reader, tracking-policy Load and execution Launch.Run, using actual fake subprocesses; restores candidate bytes | `python3 .scripts/execution-mutants.py [evidence-dir]` | per-mutant logs and `summary.tsv`, default `.temp/execution-mutants/`; permission tests require non-root |
+| `.scripts/execution-mutants.py` | native execution and terminal-ownership narrowing probes, using disposable fake subprocesses in a scratch copy | `python3 .scripts/execution-mutants.py [evidence-dir]` | per-mutant logs and `summary.tsv`, default `.temp/execution-mutants/`; permission tests require non-root |
 | `.scripts/diagnostics-mutants.sh` | narrowing mutants for the §6 gates (exit mapping, closed membership, no-invention classification, anchored code-line parsing, entry exits, owner/form registry, exact-Detail framing exemption); restores candidate bytes after every mutant | `.scripts/diagnostics-mutants.sh [evidence-dir]` (optional `MUTANT_RUN` for bounded batches) | per-mutant logs and `summary.tsv` (default `.temp/diagnostics-mutants/`) |
 | `.scripts/plan-mutants.py` | SPEC §4.4 behavioral narrowing probes at `plan.Build`, restoring exact candidate bytes | `python3 .scripts/plan-mutants.py [evidence-dir]`; narrow validation: `go test ./internal/plan -count=1 -race`, `go vet ./internal/plan`, `go build ./internal/plan` | per-mutant logs and `summary.tsv`, default `.temp/plan-mutants/` |
-| execution process helpers | exact document/argv/env/stdin/exit and late-check tests; compiles disposable fake provider/ax and API signal driver; Python 3 supplies isolated POSIX PTY regression | `go test ./internal/axconfig ./internal/execution -count=1` | test stdout; helper binaries use temporary directories and are removed |
+| execution process helpers | exact argv/env/stdin/exit and late-check tests; compiles disposable fake provider and API signal driver; Python 3 supplies isolated POSIX PTY regression | `go test ./internal/execution -count=1` | test stdout; helper binaries use temporary directories and are removed |
 | v4 Muse/Codex witnesses | strict reader policy, native Muse argv and environment, typed Codex refusals, Exec/DryRun module boundary and fake-manager routing/digest fences | `go test ./internal/fragment ./cmd/curator-run -run 'TestV4|TestMuseV4|TestCodexV4' -count=1` | stdout; bounded child fixtures under Go test temporary directories; source-pinned v4 schema in `internal/fragment/testdata/v4` |
 | fragment test corpus | `internal/fragment/testdata/schema-cases` is the `launch-env-fragment-v1` slice of curator-spec `conformance/v1/schema-cases` (index rows copied with their verdicts, source commit recorded in `index.json`); `testdata/a0` holds the three fragments and digests the installed Curator printed during A0 verification | `go test ./internal/fragment` | none; 49 indexed names/verdicts and fixture bytes are pinned by an independently upstream-derived manifest hash in `TestConformanceCorpus`; refresh requires reviewing the upstream rows and updating that pin as well as `index.json` |
 

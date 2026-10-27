@@ -121,14 +121,15 @@ func TestComposeUnownedOverrideNoWarning(t *testing.T) {
 	}
 	equal(t, len(v.Warnings), 0)
 }
+
+// Raw stdin attachment and bytes are copied, preserving empty/binary payloads.
 func TestComposeStdin(t *testing.T) {
 	for _, tc := range []struct {
 		name     string
 		attached bool
 		data     []byte
-		wire     string
 	}{
-		{"unattached", false, []byte("ignored"), "null"}, {"empty", true, nil, `{"encoding":"utf-8","bytes":""}`}, {"utf8", true, []byte("hello 日本語\n"), `{"encoding":"utf-8","bytes":"hello 日本語\n"}`}, {"binary", true, []byte{255, 254}, `{"encoding":"base64url","bytes":"__4"}`},
+		{"unattached", false, []byte("ignored")}, {"empty", true, nil}, {"utf8", true, []byte("hello 日本語\n")}, {"binary", true, []byte{255, 254}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			data := append([]byte(nil), tc.data...)
@@ -136,11 +137,6 @@ func TestComposeStdin(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			b, err := json.Marshal(v.Stdin)
-			if err != nil {
-				t.Fatal(err)
-			}
-			equal(t, string(b), tc.wire)
 			equal(t, v.RawStdin, agentic.StdinPayload{Attached: tc.attached, Bytes: tc.data})
 			if len(data) > 0 {
 				data[0] = 0

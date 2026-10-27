@@ -31,7 +31,7 @@ func file(t *testing.T, p, data string) {
 // one warning on a fallback read; a hostile old path is never opened when new exists.
 func TestResolverFallbackPerFileAndLayer(t *testing.T) {
 	for _, layer := range []Layer{System, User} {
-		for _, name := range []string{"defaults.json", "ax.json", "launcher.json", "registry.json", "credentials.json"} {
+		for _, name := range []string{"defaults.json", "launcher.json", "registry.json", "credentials.json"} {
 			t.Run(filepath.Join(map[Layer]string{System: "system", User: "user"}[layer], name), func(t *testing.T) {
 				r := resolverFixture(t)
 				var warning bytes.Buffer

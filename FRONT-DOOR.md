@@ -81,7 +81,7 @@ decided it as Ivan's delegate.
 | C4 | CIP-0016 §2 (explicit `--hosted` with no backend selection means `local-task-board`, stable across upgrades) | The registry replaces the implicit backend. With no registered manager, `--hosted` refuses. task-board's installer registers it, so a machine with task-board installed keeps the meaning. | Proposed here; falls under C1's amendment |
 | C5 | Decision 0021 §4 (board behaviour follows the workspace) | The board goal is bound only on explicit `--board-goal` | Proposed here (mission: no board goal binding) |
 | C6 | SPEC §4.3 (`defaults.json` per-env `host`) | Withdrawn in favour of the machine `host_mode` | Proposed here |
-| C6a | SPEC §4.6 (`ax.json` is read before argument validation, so a config fault outranks a usage error) | §3.2 parses the flags first, then reads `ax.json` and `launcher.json`; a usage error now reports first. Configuration-location discovery still runs first. SPEC §4.6 updated to match (TASK-261021-tn82d5). | Decided with §3.2 |
+| C6a | Historical ax configuration read order | Ax tracking **removed 2026-10-27 (owner decision)**. Grammar precedes the all-location existence-only leftover guard (SPEC §4.6), then active policy parsing. | Removed |
 | C7 | SPEC §§4.3, 4.7 paths (`~/.config/curator-run/`, `/etc/curator-run/`) | Move to `swarma/launcher/`, with one release of fallback | Q3, decided |
 | C8 | environments §11 (no provider-specific version coupling) | Curator's release reports the bundled `curator-run` version (§10) | Proposed; owner `ivmbp_curator_orch` |
 | C9 | Decision 0021 open question 4 (how a non-task-board host learns about boards) | Answered by `board-goal/1` and an explicit request member | Proposed here |
@@ -139,7 +139,8 @@ curator-run migrate [--dry-run]
 - `werkstatt`, `session-manager` and `migrate` are reserved
   operands. They are not environment ids. A future environment id with one
   of these names is a specification conflict.
-- `--untracked` remains an exact synonym of `--native` (SPEC §3).
+- `--untracked` remains a deprecated exact alias of `--native` for two releases,
+  with exactly one warning (SPEC §3).
 - `--board-goal` (new) asks the session manager to bind the workspace
   board's primary goal (§3.3). Without it, no goal is bound.
 - `--a2a <identity>` (new) asks for doorbell wiring for that a2a identity
@@ -204,28 +205,29 @@ notice-unselected: curator-run: no session manager selected (<N> registered); la
 
 **Resolution algorithm.** This is the one order. The first refusal wins.
 
-1. Parse the flags, then read `ax.json` and the system `launcher.json`.
+1. Parse flags, then check for any `ax.json` entry in all four current and
+   deprecated system/user directories. Any entry refuses `ax_tracking_removed`
+   (exit 2), with its path and a delete-file remedy, before reads or effects.
+   Never read/parse/follow the entry. Then read active launcher policy.
+   Ax tracking was **removed 2026-10-27 (owner decision)** (SPEC §4.6).
 2. `--native` (or `--untracked`), or `host_mode: native` with no flag:
    native. No registry read, no hosted checks.
 3. Explicit `--hosted`, or `host_mode: hosted` with no flag:
-   1. if `ax.json` is enabled, `host_configuration_conflict` (2);
-   2. the SPEC §4.8 hosted checks: `network_scope_unsupported` (16),
+   1. the SPEC §4.8 hosted checks: `network_scope_unsupported` (16),
       `session_host_terminal_required` (6), `session_host_stdin_unsupported`
       (6);
-   3. the registry: invalid is `session_manager_registry_invalid` (2);
+   2. the registry: invalid is `session_manager_registry_invalid` (2);
       empty or unselected is `session_host_missing` (1);
-   4. `describe` and the capability checks (§5.2);
-   5. the activation matrix (§5.8).
+   3. `describe` and the capability checks (§5.2);
+   4. the activation matrix (§5.8).
 4. `host_mode: auto` with no flag:
    1. the registry: invalid is `session_manager_registry_invalid` (2), never
       empty;
-   2. empty or unselected gives native, plus its notice. If `ax.json` is
-      enabled, `ax` routing applies;
+   2. empty or unselected gives native, plus its notice;
    3. selected:
-      1. if `ax.json` is enabled, `host_configuration_conflict` (2);
-      2. the hosted checks of step 3.2;
-      3. `describe` and the capability checks;
-      4. the activation matrix. Its native row gives `notice-unselected`.
+         1. the hosted checks of step 3.1;
+      2. `describe` and the capability checks;
+      3. the activation matrix. Its native row gives `notice-unselected`.
 
    After the registry read, nothing in `auto` turns a refusal into native.
    The matrix row is decided by capability, not by a failure.
@@ -436,7 +438,7 @@ line-group.
 - **`selected`:** names one key of `managers`, or is absent.
 - **Effective registry:** if the system file exists, it alone decides, and
   the user file is not opened. Otherwise the user file decides. This is the
-  same machine-first rule as `ax.json` (SPEC §4.6).
+  machine-first rule defined for the registry.
 - **CLI display:** `list` and `show` begin text output with `layer: system`,
   `layer: user`, or (list with no file) `layer: none`. Their closed CLI JSON
   adds the top-level member `"layer"` with the same vocabulary; otherwise list
@@ -786,7 +788,7 @@ is `session_host_provider_unsupported` (6). Both are checked before any
 | `system_prompt` | `null`, or `{semantics: "append"\|"replace"}` (the SPEC §5 opt-in). |
 | `sandbox` | `{mode: "none"\|"workspace-write", writable_roots: [abs…]}`. |
 | `harness_memory` | Boolean. |
-| `session_name` | The SPEC §3 `--name` grammar. |
+| `session_name` | The label grammar `[A-Za-z0-9][A-Za-z0-9._-]{0,63}`; this is not a launcher CLI option. |
 | `labels` | At most 16 entries. Keys match `[a-z0-9.-]{1,32}`. Values match `[A-Za-z0-9._:/@+=-]{1,128}`, which contains both the §3.4 selector value set and the a2a identity set `[a-z0-9._=-]`, so `selector=<decision_id>` and `identity=<a2a id>` labels always fit. |
 | `child_env` | Non-secret literals: at most 32 names `[A-Z][A-Z0-9_]{0,63}`, none reserved (§9.2), values at most 4096 bytes, passing the **secret check** below. Otherwise `secret_policy_violation` (16). |
 | `board_goal` | `none` or `workspace`. |
@@ -2154,8 +2156,7 @@ detail values are allowed only from the vocabularies shown:
 - `session_host_capability_missing`, with `capability`: `<cap>`;
 - `session_host_provider_unsupported`, with `environment`: `<env>`;
 - the `session_resume_*` codes, `session_liveness_unknown` (`operation`:
-  UUID), `policy_refused`, `secret_policy_violation`, `launch_plan_invalid`
-  and `host_configuration_conflict`;
+  UUID), `policy_refused`, `secret_policy_violation`, `launch_plan_invalid`;
 - task-board's `session_curator_identity_stale`, passed through from manager
   admission (§5.7);
 - the Curator local-credential refusals (protocol §9), passed through with
@@ -2180,7 +2181,7 @@ detail values are allowed only from the vocabularies shown:
 ## 13. Compatibility and migration
 
 - **Default behaviour.** A machine without `launcher.json`, a registry and
-  `ax.json` behaves as `auto` with an empty registry: native, plus
+  any retired `ax.json` entry behaves as `auto` with an empty registry: native, plus
   `notice-empty`. Compared with today, that line is the only visible
   difference.
 - **`curator-run migrate`** first computes a complete plan and prints it.
@@ -2188,9 +2189,9 @@ detail values are allowed only from the vocabularies shown:
   from the backups it made. `--dry-run` prints the plan and stops. It never
   applies anything, writes no file and makes no backup. The plan's steps:
   - **Copy.** Each old-path file is copied to the same layer's new
-    directory. User-layer files are always copied. System-layer files are
+    directory, excluding retired `ax.json` and `ax.json.bak`. User-layer files are always copied. System-layer files are
     copied only when the process can write `/etc/swarma/launcher/`;
-    otherwise one line lists them. Old files are never moved or deleted.
+    otherwise one line lists them. Active old files are never moved or deleted.
   - **Existing destination.** The launcher compares an existing destination
     with the bytes that migrate **would produce** from the current old file,
     after the `host` transformation below.
@@ -2210,6 +2211,13 @@ detail values are allowed only from the vocabularies shown:
     - **User layer:** the `host` values are dropped, because `host_mode` is
       machine-only. One line names them, so the operator can ask the
       machine owner.
+  - **Retired ax policy.** Ax tracking was **removed 2026-10-27 (owner decision)**.
+    Independently list `ax.json` in all four current/deprecated system/user
+    directories. Back up regular files to `.bak` then remove them in the same
+    rollback-capable transaction; conflicting backups refuse before writes.
+    System write authority remains unchanged. Non-regular entries are listed
+    for manual removal without opening/following them; apply refuses the whole
+    transaction before writes. These entries and backups are never copied.
   - **Backups.** Each rewritten file keeps `<name>.bak` beside it.
   - **Writes** are atomic.
   - **Idempotent.** A second run reports that nothing is left to do.

@@ -12,7 +12,6 @@ package hosted
 // Owner codes of the hosted families. Diagnostics transcribes them; the
 // owner stays the single source of truth.
 const (
-	CodeHostConflict                           = "host_configuration_conflict"
 	CodeSessionHostMissing                     = "session_host_missing"
 	CodeSessionHostUnavailable                 = "session_host_unavailable"
 	CodeSessionHostProviderUnsupported         = "session_host_provider_unsupported"

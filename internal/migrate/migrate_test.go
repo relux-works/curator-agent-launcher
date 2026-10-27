@@ -72,8 +72,11 @@ func TestCopyStripAndIdempotence(t *testing.T) {
 	if !strings.Contains(out.String(), "user host values dropped: claude_code=native, pi=native") {
 		t.Fatal(out.String())
 	}
-	if get(t, l.User, "ax.json") != get(t, l.LegacyUser, "ax.json") {
-		t.Fatal("copy differs")
+	if get(t, l.LegacyUser, "ax.json.bak") != `{"schema":"curator-run-ax-v1","enabled":true}` {
+		t.Fatal("backup differs")
+	}
+	if _, err := os.Lstat(filepath.Join(l.LegacyUser, "ax.json")); !os.IsNotExist(err) {
+		t.Fatal("retired input remains", err)
 	}
 	out.Reset()
 	if err := Run(l, false, &out, Options{CanWriteSystem: allowed, WriteFile: func(string, []byte, os.FileMode) error { t.Fatal("second run wrote a file"); return nil }}); err != nil {
@@ -90,7 +93,7 @@ func TestPlanRefusalsWriteNothing(t *testing.T) {
 	for _, kind := range []string{"mixed", "conflict", "launcher-conflict", "backup-conflict"} {
 		t.Run(kind, func(t *testing.T) {
 			l := fixture(t)
-			put(t, l.LegacyUser, "ax.json", `{"schema":"curator-run-ax-v1","enabled":true}`)
+			put(t, l.LegacyUser, "extra.json", `{"extra":"value"}`)
 			var path string
 			want := "migrate_destination_exists"
 			switch kind {
@@ -99,8 +102,8 @@ func TestPlanRefusalsWriteNothing(t *testing.T) {
 				want = "host_member_withdrawn"
 			case "conflict":
 				os.Mkdir(l.User, 0700)
-				path = filepath.Join(l.User, "ax.json")
-				put(t, l.User, "ax.json", "different")
+				path = filepath.Join(l.User, "extra.json")
+				put(t, l.User, "extra.json", "different")
 			case "launcher-conflict":
 				os.Mkdir(l.System, 0700)
 				path = filepath.Join(l.System, "launcher.json")
@@ -124,7 +127,7 @@ func TestPlanRefusalsWriteNothing(t *testing.T) {
 			if path != "" && get(t, filepath.Dir(path), filepath.Base(path)) == "" {
 				t.Fatal("destination changed")
 			}
-			if _, err := os.Stat(filepath.Join(l.User, "ax.json")); kind != "conflict" && !os.IsNotExist(err) {
+			if _, err := os.Stat(filepath.Join(l.User, "extra.json")); kind != "conflict" && !os.IsNotExist(err) {
 				t.Fatal("partial write", err)
 			}
 			if _, err := os.Stat(filepath.Join(l.System, "defaults.json")); !os.IsNotExist(err) {
@@ -139,8 +142,8 @@ func TestPlanRefusalsWriteNothing(t *testing.T) {
 func TestDryRunAndUnwritableSystem(t *testing.T) {
 	l := fixture(t)
 	put(t, l.LegacySystem, "defaults.json", legacy)
-	put(t, l.LegacySystem, "ax.json", "system")
-	put(t, l.LegacyUser, "ax.json", "user")
+	put(t, l.LegacySystem, "extra.json", "system")
+	put(t, l.LegacyUser, "extra.json", "user")
 	var out bytes.Buffer
 	opt := Options{CanWriteSystem: func(string) bool { return false }}
 	if err := Run(l, true, &out, opt); err != nil {
@@ -157,7 +160,7 @@ func TestDryRunAndUnwritableSystem(t *testing.T) {
 	if err := Run(l, false, &out, opt); err != nil {
 		t.Fatal(err)
 	}
-	if get(t, l.User, "ax.json") != "user" {
+	if get(t, l.User, "extra.json") != "user" {
 		t.Fatal("user not copied")
 	}
 	if _, err := os.Stat(l.System); !os.IsNotExist(err) {
@@ -202,8 +205,8 @@ func TestApplyFailureRollsBack(t *testing.T) {
 func TestIdenticalDestination(t *testing.T) {
 	l := fixture(t)
 	os.Mkdir(l.User, 0700)
-	put(t, l.LegacyUser, "ax.json", "same")
-	put(t, l.User, "ax.json", "same")
+	put(t, l.LegacyUser, "extra.json", "same")
+	put(t, l.User, "extra.json", "same")
 	if err := Run(l, false, &bytes.Buffer{}, Options{CanWriteSystem: allowed, WriteFile: func(string, []byte, os.FileMode) error { t.Fatal("identical file written"); return nil }}); err != nil {
 		t.Fatal(err)
 	}

@@ -7,7 +7,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/relux-works/curator-agent-launcher/internal/axconfig"
 	"github.com/relux-works/curator-agent-launcher/internal/composition"
 	"github.com/relux-works/curator-agent-launcher/internal/fragment"
 	sp "github.com/relux-works/curator-agent-launcher/internal/systemprompt"
@@ -130,27 +129,4 @@ func syspromptProbe(t *testing.T) error {
 		t.Fatalf("absent files: %v %v", obs, err)
 	}
 	return refusal
-}
-
-// axconfigFailure drives the real Load read failure: a present but broken
-// ax.json is defaults_config_invalid, never "not configured".
-func axconfigFailure(t *testing.T) error {
-	t.Helper()
-	root := t.TempDir()
-	machine := filepath.Join(root, "machine")
-	if err := os.MkdirAll(machine, 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(machine, "ax.json"), []byte("{broken"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	_, err := axconfig.Load(machine, filepath.Join(root, "absent-operator"))
-	if err == nil {
-		t.Fatal("broken ax.json must fail")
-	}
-	// Absence stays absence: both dirs missing means not configured.
-	if enabled, err := axconfig.Load(filepath.Join(root, "no-machine"), filepath.Join(root, "no-operator")); err != nil || enabled {
-		t.Fatalf("absent files: %v %v", enabled, err)
-	}
-	return err
 }

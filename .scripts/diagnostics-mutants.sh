@@ -4,7 +4,7 @@
 # Two classes of mutants share this harness. NARROWING mutants keep the
 # gate present and weaken it to admit exactly one member of the class it
 # must reject: D01, D03, D09, D10, D11, D13, D14, D15, D16, D17, D18,
-# D19, D20, D21. D06 and D12 preserve the searched-for token and change
+# D21. D06 and D12 preserve the searched-for token and change
 # behavior, so only the behavioral suites — never a static checker — can
 # catch them, but they are NOT narrowing: D06 admits arbitrary prefixes
 # and D12 disables framing for ALL multiline details, so both stay as
@@ -17,7 +17,7 @@
 # D13-D21 are adopted from the independently accepted owner/form gate
 # (TASK-260909-3d1589 rev3): D13/D14/D15 admit one foreign code at one
 # owner gate (D14/D15 are the prior R3 survivors the hand-selected
-# matrix missed); D16 rejects one joined owned code; D17-D20 reject one
+# matrix missed); D16 rejects one joined owned code; D17-D18 reject one
 # fixed-owner positive-form cell each (D17 is the exact rev2 reviewer
 # survivor); D21 exempts exactly one complete hostile Detail from
 # framing at the real main/resolver entry while companions stay framed.
@@ -45,11 +45,11 @@ trap restore EXIT
 
 # Fields separated by "@@": id, file, expected failing test, from, to.
 # from/to are literal text; the first occurrence is replaced. D04, D06,
-# D09, D11, D16, D17, D18, D19, D20 and D21 carry multi-line replacements
+# D09, D11, D16, D17, D18 and D21 carry multi-line replacements
 # and are handled in the special cases below; their table from/to are
 # placeholders.
 mutants=(
-  'D01@@diag@@TestExitForCode@@case CodeUsage, CodeHostConflict,@@case CodeUsage, CodeExecMissing, CodeHostConflict,'
+  'D01@@diag@@TestExitForCode@@case CodeUsage,@@case CodeUsage, CodeExecMissing,'
   'D02@@diag@@TestExitForCode@@	return ExitOperational@@	return 0'
   'D03@@diag@@TestDiagnosticLineDistinguishesTransport@@func Valid(code string) bool { return valid[code] }@@func Valid(code string) bool { return valid[code] || code == "environment_home_stale" }'
   'D04@@diag@@TestCodeOfUnknownFailsClosed@@D04_PLACEHOLDER_FROM@@D04_PLACEHOLDER_TO'
@@ -67,8 +67,6 @@ mutants=(
   'D16@@diag@@TestGateJoinedOwnedAccepted@@D16_PLACEHOLDER_FROM@@D16_PLACEHOLDER_TO'
   'D17@@diag@@TestGateOwnerFormPositives@@D17_PLACEHOLDER_FROM@@D17_PLACEHOLDER_TO'
   'D18@@diag@@TestGateOwnerFormPositives@@D18_PLACEHOLDER_FROM@@D18_PLACEHOLDER_TO'
-  'D19@@diag@@TestGateOwnerFormPositives@@D19_PLACEHOLDER_FROM@@D19_PLACEHOLDER_TO'
-  'D20@@diag@@TestGateOwnerFormPositives@@D20_PLACEHOLDER_FROM@@D20_PLACEHOLDER_TO'
   'D21@@diag@@TestGateFramingSingleDetailAtRealResolver@@D21_PLACEHOLDER_FROM@@D21_PLACEHOLDER_TO'
 )
 
@@ -125,7 +123,7 @@ for m in "${mutants[@]}"; do
 		}
 	}'
   fi
-  # D17-D20 (narrowing, adopted gate fixed-owner form cells): one
+  # D17-D18 (narrowing, adopted gate fixed-owner form cells): one
   # fixed-owner positive form is rejected instead of accepted. Wrapped
   # mutants guard with nilValue before Unwrap: several owners'
   # Unwrap methods dereference the receiver and panic on typed-nil
@@ -146,22 +144,8 @@ for m in "${mutants[@]}"; do
 		if ue, yes := w.Unwrap().(*cli.UsageError); yes && ue != nil { return "", false }
 	}'
   fi
-  if [ "$id" = D19 ]; then
-    from='func CodeOf(err error) (code string, ok bool) {'
-    to='func CodeOf(err error) (code string, ok bool) {
-	if joined, yes := err.(interface{ Unwrap() []error }); yes {
-		for _, child := range joined.Unwrap() {
-			if ae, yes := child.(*axconfig.Error); yes && ae != nil { return "", false }
-		}
-	}'
-  fi
-  if [ "$id" = D20 ]; then
-    from='func CodeOf(err error) (code string, ok bool) {'
-    to='func CodeOf(err error) (code string, ok bool) {
-	if w, yes := err.(interface{ Unwrap() error }); yes && !nilValue(err) {
-		if ae, yes := w.Unwrap().(*axconfig.Error); yes && ae != nil { return "", false }
-	}'
-  fi
+
+
   # D21 (narrowing, adopted gate framing): Line exempts exactly one
   # complete hostile Detail (the fixed-binary main-entry Detail) via
   # equality, returning it unframed; every other detail stays framed.
@@ -206,8 +190,6 @@ if f in src:
     D16) needle='joined owned resolve "resolve_invocation_failed" lost' ;;
     D17) needle='usage joined lost: "" false' ;;
     D18) needle='usage wrapped lost: "" false' ;;
-    D19) needle='axconfig joined lost: "" false' ;;
-    D20) needle='axconfig wrapped lost: "" false' ;;
     D21) needle='does not carry code "resolve_invocation_failed"' ;;
   esac
   log="$out/$id.log"

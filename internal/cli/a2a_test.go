@@ -10,18 +10,18 @@ import (
 func TestA2AFlag(t *testing.T) {
 	for _, identity := range []string{"example.dev", "a=b_-.", strings.Repeat("a", 64)} {
 		for _, args := range [][]string{{"claude_code", "--hosted", "--a2a", identity}, {"claude_code", "--a2a=" + identity}} {
-			inv, err := Parse(args, Options{})
+			inv, err := Parse(args)
 			if err != nil || inv.A2A != identity {
 				t.Fatalf("valid identity refused: %v %+v", err, inv)
 			}
 		}
 	}
 	for _, tail := range [][]string{{"--a2a"}, {"--a2a="}, {"--a2a", "Upper"}, {"--a2a", "has space"}, {"--a2a", strings.Repeat("a", 65)}, {"--a2a", "a;cmd"}, {"--a2a", "a", "--a2a", "b"}, {"--a2a", "a", "--native"}, {"--untracked", "--a2a", "a"}} {
-		if _, err := Parse(append([]string{"claude_code"}, tail...), Options{}); !IsUsage(err) {
+		if _, err := Parse(append([]string{"claude_code"}, tail...)); !IsUsage(err) {
 			t.Fatalf("invalid shape accepted: %q %v", tail, err)
 		}
 	}
-	inv, err := Parse([]string{"claude_code", "--native", "--", "--a2a", "provider-value"}, Options{})
+	inv, err := Parse([]string{"claude_code", "--native", "--", "--a2a", "provider-value"})
 	if err != nil || inv.A2A != "" || len(inv.Native) != 2 {
 		t.Fatalf("native tail changed: %+v %v", inv, err)
 	}
@@ -36,16 +36,16 @@ func TestA2ALeadingHyphen(t *testing.T) {
 			cases = append(cases, []string{"claude_code", "--hosted", "--a2a", identity})
 		}
 		for _, args := range cases {
-			inv, err := Parse(args, Options{})
+			inv, err := Parse(args)
 			if err != nil || inv.A2A != identity {
 				t.Fatalf("grammar identity %q refused: %v", identity, err)
 			}
 		}
 	}
-	if _, err := Parse([]string{"claude_code", "--a2a", "--"}, Options{}); !IsUsage(err) {
+	if _, err := Parse([]string{"claude_code", "--a2a", "--"}); !IsUsage(err) {
 		t.Fatal("separator consumed as identity")
 	}
-	if _, err := Parse([]string{"claude_code", "--model=-sample"}, Options{}); !IsUsage(err) {
+	if _, err := Parse([]string{"claude_code", "--model=-sample"}); !IsUsage(err) {
 		t.Fatal("unrelated value-flag rule weakened")
 	}
 }

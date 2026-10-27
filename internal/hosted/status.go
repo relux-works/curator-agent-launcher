@@ -1,6 +1,6 @@
 // Receiving boundary for fd4 status records: the closed
 // urn:relux:task-board:hosted-diagnostics 1.0.0 registry (contract
-// Appendix V-ERR) and its normalizer.
+// Appendix V-ERR, excluding retired ax-only codes) and its normalizer.
 //
 // This registry is RECEIVING-ONLY. The launcher emits only its own SPEC
 // §6 diagnostics (internal/diagnostics); it never emits most of these
@@ -71,14 +71,14 @@ type statusRow struct {
 	details statusDetails
 }
 
-// statusRows transcribes Appendix V-ERR verbatim: code spellings, numeric
+// statusRows transcribes Appendix V-ERR with retired ax-only rows removed:
+// code spellings, numeric
 // exits, literal constant messages (exact bytes, final period), and the
 // D0/D1/D2 detail class per row.
 var statusRows = []statusRow{
 	{[]string{"usage"}, 2, "Invalid invocation.", statusD0},
 	{[]string{"launch_plan_invalid"}, 2, "Invalid launch plan.", statusD1},
 	{[]string{"session_resume_invalid"}, 2, "Invalid resume selector.", statusD0},
-	{[]string{"host_configuration_conflict"}, 2, "Conflicting host configuration.", statusD0},
 	{[]string{"session_host_missing"}, 1, "Session host is missing.", statusD0},
 	{[]string{"session_host_unavailable"}, 1, "Session host is unavailable.", statusD0},
 	{[]string{"session_host_protocol_error"}, 6, "Invalid session host response.", statusD0},
@@ -107,7 +107,7 @@ var statusRows = []statusRow{
 	}, 1, "Profile resolution refused.", statusD0},
 	{[]string{
 		"plan_refused", "plan_provider_limited", "env_unsupported",
-		"permission_policy_unsupported", "permission_mode_tracked_unsupported",
+		"permission_policy_unsupported",
 		"permission_mode_unsupported", "exec_provider_missing",
 		"mcp_layer_missing", "mcp_layer_unreadable",
 		"sysprompt_channel_unavailable", "sysprompt_file_unreadable",

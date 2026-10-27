@@ -77,9 +77,6 @@ func resolveHost(ctx context.Context, inv cli.Invocation, frag *fragment.Fragmen
 	}
 	explicit := inv.HostFlag == cli.HostFlagHosted || mode == "hosted"
 	checks := func() error {
-		if inv.Tracked {
-			return hostError("host_configuration_conflict", nil)
-		}
 		if inv.NetworkSet {
 			return hostError("network_scope_unsupported", nil)
 		}

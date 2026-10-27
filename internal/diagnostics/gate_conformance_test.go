@@ -1,41 +1,6 @@
-// Gate: single exhaustive owner-by-form registry for diagnostics CodeOf.
-// Adopted from TASK-260909-3d1589 (accepted rev3): board resource
-// TASK-260909-3d1589_rev2_gate-conformance_test.go, committed here under
-// its adopted name per TASK-260909-3d1589_rev3_adoption.md. Test bodies
-// are unchanged from the accepted gate; only this header is new.
-// The gate was verified against candidate tree
-// fbe90d5e60593a3a069721b2ad9e53cd071d8c02 (base 3ff66a9).
-//
-// ONE owner registry (gateOwnerRegistry) crossed with ONE form registry
-// (gateFormRegistry: direct/wrapped/joined) derives every positive and nil
-// expectation below. All five CodeOf-recognized owners are rows:
-// ResolveError, LayerError and Refusal carry a mutable per-value Code;
-// UsageError carries a constant code ("usage" via Code()) and
-// axconfig.Error always maps to defaults_config_invalid. Both fixed-code
-// owners are pinned as direct/wrapped/joined positives with named
-// positive-form narrowing mutants in the runner: the rev2 reviewer showed a
-// joined-UsageError rejection surviving the whole published gate, so every
-// fixed owner/form combination is asserted here and counted in
-// TestGateCoverageCounts. Claimed combinations cannot be silently omitted:
-// the coverage test fails when the registry stops matching the measured
-// matrix.
-//
-// Vectors are additionally derived at test runtime from SPEC section 6 and
-// the owner constants, never hand-enumerated. Each mutable owner gate has
-// its own named test so a single-foreign-code weakening fails exactly one
-// name. The remaining normative codes (defaults_unresolvable,
-// plan_refused, plan_provider_limited, env_unsupported,
-// permission_policy_unsupported, permission_mode_tracked_unsupported,
-// permission_mode_unsupported, exec_provider_missing, ax_handoff_failed,
-// network_profile_unknown, network_profile_denied,
-// network_scope_unsupported, network_configuration_conflict,
-// network_proxy_unreachable, network_proxy_auth_failed,
-// network_profile_invalid, network_file_unreadable, and the fourteen
-// hosted codes of the host, session host, resume, launch plan, and policy
-// families)
-// are call-site-selected with no CodeOf classification in this tree; they
-// appear here only as rejected foreign values and as Codes() members, with
-// production call sites pinned in vectors where implemented.
+// CodeOf recognizes four typed owners: one fixed UsageError and the mutable
+// ResolveError, LayerError and Refusal families. The owner/form matrix covers
+// direct, wrapped and joined positives, foreign codes and typed nils.
 package diagnostics_test
 
 import (
@@ -49,7 +14,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/relux-works/curator-agent-launcher/internal/axconfig"
 	"github.com/relux-works/curator-agent-launcher/internal/cli"
 	"github.com/relux-works/curator-agent-launcher/internal/composition"
 	"github.com/relux-works/curator-agent-launcher/internal/diagnostics"
@@ -76,7 +40,7 @@ type gateOwnerEntry struct {
 
 // gateOwnerRegistry is the complete owner table. Mutable families reuse the
 // owner constants so the owner stays the single source of truth; fixed
-// owners pin their constant mapping (UsageError.Code(), axconfig.CodeInvalid).
+// owners pin their constant mapping (UsageError.Code()).
 var gateOwnerRegistry = []gateOwnerEntry{
 	{
 		name: "usage", kind: "fixed",
@@ -122,14 +86,6 @@ var gateOwnerRegistry = []gateOwnerEntry{
 		callSite: "systemprompt.Select via PrepareLaunch / systemprompt.ProbeFiles via PrepareLaunch",
 		makeErr:  func(c string) error { return &sp.Refusal{Code: c, Path: "p"} },
 		nilErr:   (*sp.Refusal)(nil),
-	},
-	{
-		name: "axconfig", kind: "fixed",
-		owned:    []string{diagnostics.CodeDefaultsInvalid},
-		consts:   []string{"axconfig.CodeInvalid"},
-		callSite: "axconfig.Load (exit 1)",
-		makeErr:  func(string) error { return &axconfig.Error{Path: "p", Err: errors.New("cause")} },
-		nilErr:   (*axconfig.Error)(nil),
 	},
 }
 
@@ -404,10 +360,10 @@ func TestGateJoinedOwnedAccepted(t *testing.T) {
 }
 
 // TestGateOwnerFormPositives derives one positive case per owner/code/form
-// cell of the single registry: 12 owned slots (resolve 6, layer 2,
-// refusal 2, usage 1, axconfig 1) x 3 forms = 36 assertions. A mutant that
+// cell of the single registry: 11 owned slots (resolve 6, layer 2,
+// refusal 2, usage 1) x 3 forms = 33 assertions. A mutant that
 // drops any single cell -- including the rev2 surviving joined-UsageError
-// rejection and its axconfig/wrapped siblings -- fails here with a named
+// rejection and its wrapped siblings -- fails here with a named
 // "<owner> <form> lost" assertion the runner requires by name.
 func TestGateOwnerFormPositives(t *testing.T) {
 	normative := gateSpecSection6Codes(t)
@@ -466,12 +422,12 @@ func TestGateOwnerFormNil(t *testing.T) {
 
 // TestGateCoverageCounts pins the complete coverage arithmetic derived from
 // the single registry: 5 owners, 3 forms, 93 normative codes; mutable-Code
-// families resolve 6 / layer 2 / refusal 2 with foreign sets 87 / 91 / 91
-// (269 normative rejection pairs); 4 extra strangers per family add 12
-// pairs, for 281 owner/code pairs x 3 forms = 843 rejection cases; 12 owned
-// slots (10 mutable + 2 fixed) x 3 forms =
-// 36 positive cases (30 mutable + 6 fixed); 5 owners x 4 nil forms + 3
-// absence extras = 23 nil cases. Fixed-code owners (usage, axconfig) carry
+// families resolve 6 / layer 2 / refusal 2 with foreign sets 85 / 89 / 89
+// (263 normative rejection pairs); 4 extra strangers per family add 12
+// pairs, for 275 owner/code pairs x 3 forms = 825 rejection cases; 11 owned
+// slots (10 mutable + 1 fixed) x 3 forms =
+// 33 positive cases (30 mutable + 3 fixed); 4 owners x 4 nil forms + 3
+// absence extras = 19 nil cases. The fixed-code owner (usage) carries
 // no mutable-Code gate by construction; their constant mappings are pinned
 // here and their positives asserted in TestGateOwnerFormPositives.
 // Permission and network codes are declaration-only in this leaf: they
@@ -479,26 +435,24 @@ func TestGateOwnerFormNil(t *testing.T) {
 // as Codes() members and rejected foreign values elsewhere here.
 func TestGateCoverageCounts(t *testing.T) {
 	normative := gateSpecSection6Codes(t)
-	if len(normative) != 93 {
-		t.Fatalf("normative codes = %d, want 93: %q", len(normative), normative)
+	if len(normative) != 91 {
+		t.Fatalf("normative codes = %d, want 91: %q", len(normative), normative)
 	}
-	if len(gateOwnerRegistry) != 5 {
-		t.Fatalf("owner registry rows = %d, want 5 (usage, resolve, layer, refusal, axconfig)", len(gateOwnerRegistry))
+	if len(gateOwnerRegistry) != 4 {
+		t.Fatalf("owner registry rows = %d, want 4 (usage, resolve, layer, refusal)", len(gateOwnerRegistry))
 	}
 	if !slices.Equal([]string{
 		gateOwnerRegistry[0].name,
 		gateOwnerRegistry[1].name,
 		gateOwnerRegistry[2].name,
 		gateOwnerRegistry[3].name,
-		gateOwnerRegistry[4].name,
-	}, []string{"usage", "resolve", "layer", "refusal", "axconfig"}) {
-		t.Fatalf("owner registry names = %q, want [usage resolve layer refusal axconfig]",
+	}, []string{"usage", "resolve", "layer", "refusal"}) {
+		t.Fatalf("owner registry names = %q, want [usage resolve layer refusal]",
 			[]string{
 				gateOwnerRegistry[0].name,
 				gateOwnerRegistry[1].name,
 				gateOwnerRegistry[2].name,
 				gateOwnerRegistry[3].name,
-				gateOwnerRegistry[4].name,
 			})
 	}
 	if !slices.Equal(gateFormRegistry, []string{"direct", "wrapped", "joined"}) {
@@ -532,25 +486,21 @@ func TestGateCoverageCounts(t *testing.T) {
 	if mutableSlots != 10 {
 		t.Fatalf("mutable owned slots = %d, want 10 (resolve 6 + layer 2 + refusal 2)", mutableSlots)
 	}
-	if fixedSlots != 2 {
-		t.Fatalf("fixed owned slots = %d, want 2 (usage 1 + axconfig 1)", fixedSlots)
+	if fixedSlots != 1 {
+		t.Fatalf("fixed owned slots = %d, want 1 (usage 1)", fixedSlots)
 	}
 	positives := (mutableSlots + fixedSlots) * len(gateFormRegistry)
-	if positives != 36 {
-		t.Fatalf("positive owner/form cases = %d, want 36 (12 slots x 3 forms; 30 mutable + 6 fixed)", positives)
+	if positives != 33 {
+		t.Fatalf("positive owner/form cases = %d, want 33 (11 slots x 3 forms; 30 mutable + 3 fixed)", positives)
 	}
 	nils := len(gateOwnerRegistry)*4 + 3
-	if nils != 23 {
-		t.Fatalf("nil owner/form cases = %d, want 23 (5 owners x 4 forms + 3 absence extras)", nils)
+	if nils != 19 {
+		t.Fatalf("nil owner/form cases = %d, want 19 (4 owners x 4 forms + 3 absence extras)", nils)
 	}
 	// Normative code mapping: fixed owners pin their constant codes, and the
 	// mutable families transcribe the owner constants (shared slices above).
 	if diagnostics.CodeUsage != "usage" {
 		t.Fatalf("diagnostics.CodeUsage = %q, want %q", diagnostics.CodeUsage, "usage")
-	}
-	if diagnostics.CodeDefaultsInvalid != axconfig.CodeInvalid {
-		t.Fatalf("diagnostics.CodeDefaultsInvalid = %q, axconfig.CodeInvalid = %q",
-			diagnostics.CodeDefaultsInvalid, axconfig.CodeInvalid)
 	}
 	if diagnostics.CodeDefaultsInvalid != "defaults_config_invalid" {
 		t.Fatalf("defaults_config_invalid literal = %q", diagnostics.CodeDefaultsInvalid)
@@ -568,18 +518,18 @@ func TestGateCoverageCounts(t *testing.T) {
 			t.Fatalf("%s owned = %d, want %d", f.name, f.own, f.want)
 		}
 		foreign := gateForeign(normative, gateOwnedByName(f.name))
-		wantForeign := 93 - f.want + len(gateExtraStrangers())
+		wantForeign := 91 - f.want + len(gateExtraStrangers())
 		if len(foreign) != wantForeign {
 			t.Fatalf("%s foreign+extras = %d, want %d: %q", f.name, len(foreign), wantForeign, foreign)
 		}
 	}
-	normPairs := 87 + 91 + 91
-	if normPairs != 269 {
-		t.Fatalf("normative rejection pairs = %d, want 269", normPairs)
+	normPairs := 85 + 89 + 89
+	if normPairs != 263 {
+		t.Fatalf("normative rejection pairs = %d, want 263", normPairs)
 	}
-	withExtras := (87 + 4) + (91 + 4) + (91 + 4)
-	if withExtras*3 != 843 {
-		t.Fatalf("rejection cases with extras x forms = %d, want 843", withExtras*3)
+	withExtras := (85 + 4) + (89 + 4) + (89 + 4)
+	if withExtras*3 != 825 {
+		t.Fatalf("rejection cases with extras x forms = %d, want 825", withExtras*3)
 	}
 }
 
@@ -597,7 +547,7 @@ func TestGateOwnFamilyAndNilPreserved(t *testing.T) {
 		t.Fatalf("resolve error: %q %v", code, ok)
 	}
 	// Every production-typed positive holds direct, %w-wrapped, and joined,
-	// including both fixed-code owners in every form (the rev2 gap: only
+	// including the fixed-code owner in every form (the rev2 gap: only
 	// usage-direct was pinned here before).
 	joinedPositives := map[string]struct {
 		err  error
@@ -606,15 +556,6 @@ func TestGateOwnFamilyAndNilPreserved(t *testing.T) {
 		"usage-direct":    {&cli.UsageError{Detail: "x"}, "usage"},
 		"usage-wrapped":   {fmt.Errorf("outer: %w", &cli.UsageError{Detail: "x"}), "usage"},
 		"usage-joined":    {errors.Join(errors.New("outer"), &cli.UsageError{Detail: "x"}), "usage"},
-		"axconfig-direct": {&axconfig.Error{Path: "p", Err: errors.New("cause")}, "defaults_config_invalid"},
-		"axconfig-wrapped": {
-			fmt.Errorf("outer: %w", &axconfig.Error{Path: "p", Err: errors.New("cause")}),
-			"defaults_config_invalid",
-		},
-		"axconfig-joined": {
-			errors.Join(errors.New("outer"), &axconfig.Error{Path: "p", Err: errors.New("cause")}),
-			"defaults_config_invalid",
-		},
 		"resolve-joined":  {errors.Join(errors.New("outer"), &fragment.ResolveError{Code: fragment.CodeInvocationFailed, Detail: "x"}), "resolve_invocation_failed"},
 		"resolve-wrapped": {fmt.Errorf("outer: %w", &fragment.ResolveError{Code: fragment.CodeFragmentInvalid, Detail: "x"}), "resolve_fragment_invalid"},
 	}
@@ -641,16 +582,12 @@ func TestGateOwnFamilyAndNilPreserved(t *testing.T) {
 	if code, ok := diagnostics.CodeOf(syspromptProbe(t)); !ok || code != "sysprompt_file_unreadable" {
 		t.Fatalf("sysprompt probe: %q %v", code, ok)
 	}
-	if code, ok := diagnostics.CodeOf(axconfigFailure(t)); !ok || code != "defaults_config_invalid" {
-		t.Fatalf("axconfig failure: %q %v", code, ok)
-	}
 	var ue *cli.UsageError
 	var reNil *fragment.ResolveError
 	var leNil *composition.LayerError
 	var srNil *sp.Refusal
-	var aeNil *axconfig.Error
 	for name, err := range map[string]error{
-		"usage": ue, "resolve": reNil, "layer": leNil, "refusal": srNil, "ax": aeNil,
+		"usage": ue, "resolve": reNil, "layer": leNil, "refusal": srNil,
 		"nil": nil, "plain": errors.New("boom"),
 	} {
 		if got, ok := diagnostics.CodeOf(err); ok || got != "" {

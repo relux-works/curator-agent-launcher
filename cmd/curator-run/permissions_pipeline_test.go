@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"reflect"
 	"strings"
 	"testing"
 
@@ -17,7 +16,6 @@ import (
 
 type permissionRow struct {
 	family, name, env string
-	tracked           bool
 	setup             func(*testing.T, *pipelineFixture)
 	code              int
 	diagnostic        string
@@ -129,16 +127,9 @@ func TestChoice5PermissionRowsThroughRealCuratorRun(t *testing.T) {
 		}, code: 2, diagnostic: "usage"},
 		{family: "force-native-lock", name: "silent-lock-is-native", env: "claude_code", setup: func(t *testing.T, f *pipelineFixture) { f.usePermissionsFragment(t, "native", true, "global") }, mode: agentic.PermissionModeNative, source: "default-headless"},
 
-		{family: "tracked-yolo", name: "flag", env: "claude_code", tracked: true, setup: func(t *testing.T, f *pipelineFixture) { v2Default(f, t); insertLauncherArgs(f, "--permissions=yolo") }, code: 1, diagnostic: "permission_mode_tracked_unsupported"},
-		{family: "tracked-yolo", name: "profile", env: "codex_cli", tracked: true, setup: func(t *testing.T, f *pipelineFixture) { f.usePermissionsFragment(t, "yolo", false, "profile") }, code: 1, diagnostic: "permission_mode_tracked_unsupported"},
-		{family: "tracked-yolo", name: "global", env: "claude_code", tracked: true, setup: func(t *testing.T, f *pipelineFixture) {
-			v2Default(f, t)
-			globalPermission(t, f, "curator-run-defaults-v2", "yolo")
-		}, code: 1, diagnostic: "permission_mode_tracked_unsupported"},
-
 		// Q-D3 (2026-10-05), literal: headless detection (terminal,
 		// CI markers, native-argument form) never changes the
-		// permission default. Untracked silence is yolo everywhere.
+		// permission default. Native silence is yolo everywhere.
 		{family: "qd3-unconfigured", name: "stdio-non-tty", env: "claude_code", setup: func(t *testing.T, f *pipelineFixture) {
 			v2Default(f, t)
 			f.deps.isTerminal = func() bool { return false }
@@ -153,11 +144,6 @@ func TestChoice5PermissionRowsThroughRealCuratorRun(t *testing.T) {
 			f.deps.isTerminal = func() bool { return true }
 			f.addEnv("GITHUB_ACTIONS", "")
 		}, mode: agentic.PermissionModeYolo, source: "default-interactive", yoloMapped: true},
-		// Tracked silence keeps the native built-in: tracked native
-		// launches cannot use yolo at all, so the default cannot be
-		// yolo there without refusing every unconfigured tracked
-		// launch. This term is not headless detection.
-		{family: "tracked-silence", name: "tracked-silence", env: "codex_cli", tracked: true, setup: func(t *testing.T, f *pipelineFixture) { v2Default(f, t) }, mode: agentic.PermissionModeNative, source: "default-headless"},
 		{family: "qd3-unconfigured", name: "ni-tail-ignored", env: "codex_cli", setup: func(t *testing.T, f *pipelineFixture) {
 			v2Default(f, t)
 			f.deps.isTerminal = func() bool { return true }
@@ -174,7 +160,7 @@ func TestChoice5PermissionRowsThroughRealCuratorRun(t *testing.T) {
 		row := row
 		counts[row.family]++
 		t.Run(row.family+"/"+row.name, func(t *testing.T) {
-			f := entryFixture(t, row.env, row.tracked)
+			f := entryFixture(t, row.env)
 			row.setup(t, f)
 			code, out, stderr := f.run()
 			if code != row.code {
@@ -184,11 +170,8 @@ func TestChoice5PermissionRowsThroughRealCuratorRun(t *testing.T) {
 				if len(out) != 0 || !bytes.Contains(stderr, []byte("curator-run: "+row.diagnostic+":")) {
 					t.Fatalf("missing %s refusal: out=%s stderr=%s", row.diagnostic, out, stderr)
 				}
-				if row.family == "tracked-yolo" || row.family == "legacy-yolo-transport" || row.family == "force-native-lock" {
+				if row.family == "legacy-yolo-transport" || row.family == "force-native-lock" {
 					f.assertNoChild(t)
-				}
-				if row.family == "tracked-yolo" && f.builds != 0 {
-					t.Fatalf("tracked yolo reached admission: builds=%d", f.builds)
 				}
 				if row.family == "cli-conflict" && f.resolver.calls != 0 {
 					t.Fatalf("conflicting launcher flags reached Curator resolve: calls=%d", f.resolver.calls)
@@ -198,7 +181,7 @@ func TestChoice5PermissionRowsThroughRealCuratorRun(t *testing.T) {
 			if f.builds != 1 || f.request.PermissionMode != row.mode {
 				t.Fatalf("admitted request mode=%q builds=%d, want mode=%q", f.request.PermissionMode, f.builds, row.mode)
 			}
-			if !row.tracked && !bytes.Contains(stderr, []byte("curator-run: permissions="+string(row.mode)+" source="+row.source+" mapped=")) {
+			if !bytes.Contains(stderr, []byte("curator-run: permissions="+string(row.mode)+" source="+row.source+" mapped=")) {
 				t.Fatalf("missing provenance source %q: %s", row.source, stderr)
 			}
 			if row.yoloMapped {
@@ -219,7 +202,7 @@ func TestChoice5PermissionRowsThroughRealCuratorRun(t *testing.T) {
 				t.Fatal(err)
 			}
 			if !strings.Contains(string(child.Stdin), "effective-native-policy") && strings.Contains(string(stderr), "effective-native-policy") {
-				t.Fatal("untracked effective policy unexpectedly persisted")
+				t.Fatal("native effective policy unexpectedly persisted")
 			}
 		})
 	}
@@ -278,7 +261,7 @@ func TestChoice5ProviderConflictRowsThroughRealCuratorRun(t *testing.T) {
 			unknownCount++
 		}
 		t.Run(row.env+"/"+row.name, func(t *testing.T) {
-			f := entryFixture(t, row.env, false)
+			f := entryFixture(t, row.env)
 			v2Default(f, t)
 			insertLauncherArgs(f, "--permissions=yolo")
 			replaceNativeArgs(f, row.args...)
@@ -301,7 +284,7 @@ func TestChoice5MappedBypassDuplicateRowsThroughRealCuratorRun(t *testing.T) {
 		{"codex_cli", "codex", "0.153.2"},
 	} {
 		t.Run(tc.env, func(t *testing.T) {
-			f := entryFixture(t, tc.env, false)
+			f := entryFixture(t, tc.env)
 			v2Default(f, t)
 			mapping, err := agentic.Default.PermissionMapping(agentic.SystemID(tc.system), tc.release, agentic.PermissionModeYolo)
 			if err != nil || mapping.Flag == "" {
@@ -321,55 +304,37 @@ func TestChoice5MappedBypassDuplicateRowsThroughRealCuratorRun(t *testing.T) {
 	}
 }
 
-func TestChoice5EffectiveNativePolicyLineAndTrackedRecord(t *testing.T) {
-	for _, tracked := range []bool{false, true} {
-		t.Run(fmt.Sprintf("tracked=%v", tracked), func(t *testing.T) {
-			f := entryFixture(t, "claude_code", tracked)
-			insertLauncherArgs(f, "--permissions", "native")
-			if err := os.WriteFile(filepath.Join(f.home, "settings.json"), []byte(`{"permissions":{"defaultMode":"bypassPermissions","allow":["rule-1","rule-2","rule-3","rule-4","rule-5","rule-6","rule-7","rule-8","rule-9"],"additionalDirectories":["/tmp"]}}`), 0600); err != nil {
-				t.Fatal(err)
-			}
-			code, out, stderr := f.run()
-			if code != 0 || !bytes.Contains(stderr, []byte("curator-run: effective-native-policy: relaxation=")) || !bytes.Contains(stderr, []byte("permissions.allow (9 rules)")) {
-				t.Fatalf("native-policy line missing: exit=%d stderr=%s", code, stderr)
-			}
-			if bytes.Contains(stderr, []byte("managed settings (system, MDM")) {
-				t.Fatalf("inspection claimed a source the module did not inspect: %s", stderr)
-			}
-			if !bytes.Contains(stderr, []byte("source="+filepath.Join(f.home, "settings.json"))) {
-				t.Fatalf("native-policy line did not identify the inspected file: %s", stderr)
-			}
-			var child childCapture
-			if err := json.Unmarshal(out, &child); err != nil {
-				t.Fatal(err)
-			}
-			if tracked {
-				var doc struct {
-					Extensions map[string]json.RawMessage `json:"extensions"`
-				}
-				if err := json.Unmarshal(child.Stdin, &doc); err != nil {
-					t.Fatal(err)
-				}
-				raw := doc.Extensions["works.relux.curator.effective-native-policy"]
-				var policy struct {
-					Relaxations []string `json:"relaxations"`
-					Source      string   `json:"source"`
-				}
-				if err := json.Unmarshal(raw, &policy); err != nil {
-					t.Fatalf("tracked native-policy record is not a usable object: %s (%v)", raw, err)
-				}
-				if !reflect.DeepEqual(policy.Relaxations, []string{"permissions.additionalDirectories", "permissions.allow", "permissions.defaultMode"}) || policy.Source != filepath.Join(f.home, "settings.json") {
-					t.Fatalf("tracked native-policy record = %+v", policy)
-				}
-			} else if strings.Contains(string(child.Stdin), "effective-native-policy") {
-				t.Fatalf("untracked launch persisted policy record: %s", child.Stdin)
-			}
-		})
-	}
+func TestChoice5EffectiveNativePolicyLine(t *testing.T) {
+
+	t.Run("native", func(t *testing.T) {
+		f := entryFixture(t, "claude_code")
+		insertLauncherArgs(f, "--permissions", "native")
+		if err := os.WriteFile(filepath.Join(f.home, "settings.json"), []byte(`{"permissions":{"defaultMode":"bypassPermissions","allow":["rule-1","rule-2","rule-3","rule-4","rule-5","rule-6","rule-7","rule-8","rule-9"],"additionalDirectories":["/tmp"]}}`), 0600); err != nil {
+			t.Fatal(err)
+		}
+		code, out, stderr := f.run()
+		if code != 0 || !bytes.Contains(stderr, []byte("curator-run: effective-native-policy: relaxation=")) || !bytes.Contains(stderr, []byte("permissions.allow (9 rules)")) {
+			t.Fatalf("native-policy line missing: exit=%d stderr=%s", code, stderr)
+		}
+		if bytes.Contains(stderr, []byte("managed settings (system, MDM")) {
+			t.Fatalf("inspection claimed a source the module did not inspect: %s", stderr)
+		}
+		if !bytes.Contains(stderr, []byte("source="+filepath.Join(f.home, "settings.json"))) {
+			t.Fatalf("native-policy line did not identify the inspected file: %s", stderr)
+		}
+		var child childCapture
+		if err := json.Unmarshal(out, &child); err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(string(child.Stdin), "effective-native-policy") {
+			t.Fatalf("native launch persisted policy record: %s", child.Stdin)
+		}
+	})
+
 }
 
 func TestChoice5V2FragmentCarriesPermissionMember(t *testing.T) {
-	f := entryFixture(t, "claude_code", false)
+	f := entryFixture(t, "claude_code")
 	f.usePermissionsFragment(t, "native", false, "default")
 	parsed, err := fragment.Parse([]byte(f.resolver.stdout))
 	if err != nil || parsed.Revision != fragment.IdentityV2 || parsed.Permissions == nil {

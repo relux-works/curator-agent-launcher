@@ -138,7 +138,7 @@ func readable(path string, allowAbsent bool) (bool, error) {
 }
 
 // Launch contains composition inputs and warning lines (without a trailing LF).
-// Both tracked and untracked execution must emit every line before launching.
+// Native and hosted execution must emit every line before launching.
 type Launch struct {
 	Selection Selection
 	Warnings  []string

@@ -5,7 +5,6 @@ usage: curator-run <env-id> [--hosted | --native | --untracked]
                    [--profile <name>] [--system-prompt <append|replace>]
                    [--model <model>] [--effort <effort>]
                    [--permissions <native|yolo> | --yolo]
-                   [--name <session-name>] [--ax-profile <standard|yolo>]
                    [--network <profile>] [--network-policy <policy>]
                    [--network-known-bad <path>]
                    [--] <native args...>
@@ -31,7 +30,8 @@ forwarded to the tool verbatim, in order, uninspected.
 
 options:
   --hosted                          use the selected registered session manager
-  --native, --untracked             run natively; the two spellings are equal
+  --native                         run natively
+  --untracked                      deprecated alias of --native (two releases)
   --board-goal                      bind the workspace board goal (hosted only)
   --a2a <identity>                  request runtime doorbell wiring (hosted only)
   --detach                          launch without attaching (hosted only)
@@ -44,11 +44,9 @@ options:
   --permissions <native|yolo>        permission mode passed to the spawn plane
   --yolo                             alias for --permissions yolo
   -d, --danger                       rejected; use --permissions explicitly
-  --name <session-name>             ax session name (tracked machines only)
-  --ax-profile <standard|yolo>      ax execution profile (tracked machines only)
   --network-policy <policy>        optimistic (default), strict, pinned:<binary SHA-256>
   --network-known-bad <path>        explicit operator known-bad list (failure refuses)
-  --network <profile>               network profile for direct execution (tracked refuses)
+  --network <profile>               network profile for direct execution (hosted refuses)
   --help, -h                        print this usage text and exit 0
   --version                         print the launcher name and version, exit 0
 
@@ -69,20 +67,11 @@ pi-anthropic, pi-openai, pi-google; explicit models bind their own runtime.
 Pi has no MCP channel. Prompt opt-in defaults off; native prompt-file
 candidates can still produce warnings without opt-in.
 
-Tracking: sibling ax.json, schema curator-run-ax-v1, enabled:true.
-An existing machine ax.json wins; otherwise use the operator file.
-Missing files or enabled:false select direct execution. Invalid/unreadable
-configuration refuses launches; --help and --version never read it. No direct
-fallback on ax failure.
---name defaults to <env-id>-<YYYYMMDDTHHMMSSZ> (UTC), accepts
-[A-Za-z0-9][A-Za-z0-9._-]{0,63}, and has no effect when untracked.
---ax-profile is a usage error when untracked; absent uses ax's default.
 Repeated/unknown flags, missing values and extra operands before -- refuse.
 
 Host: --hosted, --native and --untracked share one host request: a repeat
 or a combination refuses. Machine launcher.json selects native, hosted or auto
-(default). Native skips the manager registry; explicit --native also bypasses
-ax. Auto uses the selected registered manager, or launches natively with a notice.
+(default). Native skips the manager registry. Auto uses the selected registered manager, or launches natively with a notice.
 An invalid registry refuses auto; hosted refusals never fall back to native.
 Delegated launches are signed off (Q1): auto and hosted use the selected
 manager, including a delegated-only one. Machine delegated_trial is withdrawn

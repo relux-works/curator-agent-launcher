@@ -188,20 +188,20 @@ func TestPrepareBlankRefuses(t *testing.T) {
 	}
 }
 
-// TestPrepareTrackedRefusesBeforeIO: tracked mode refuses before the
+// TestPrepareHostedRefusesBeforeIO: hosted mode refuses before the
 // catalog read and the probe. HOME is unset (a catalog read would fail)
 // and the prober fails the test when called.
-func TestPrepareTrackedRefusesBeforeIO(t *testing.T) {
+func TestPrepareHostedRefusesBeforeIO(t *testing.T) {
 	req := baseRequest(t.TempDir())
-	req.Tracked = true
+	req.Hosted = true
 	req.ParentEnv = []string{"PATH=/usr/bin"}
 	req.Prober = forbiddenProber{t}
 	_, err := network.Prepare(context.Background(), req)
 	if err == nil || refusalCode(t, err) != refusal.CodeScopeUnsupported {
-		t.Fatalf("tracked error = %v, want %s", err, refusal.CodeScopeUnsupported)
+		t.Fatalf("hosted error = %v, want %s", err, refusal.CodeScopeUnsupported)
 	}
 	if !strings.Contains(err.Error(), "egress-a") {
-		t.Fatalf("tracked refusal %q does not name the selection", err.Error())
+		t.Fatalf("hosted refusal %q does not name the selection", err.Error())
 	}
 }
 
