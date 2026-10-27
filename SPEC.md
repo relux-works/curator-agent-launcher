@@ -107,6 +107,12 @@ and gets exactly the codex they know, in the companyA managed home, on an
 admitted model, executed natively or by the selected hosted manager.
 Everything after `--` belongs to the tool, untouched.
 
+The separately versioned [same-user non-chat contract/1](docs/same-user-nonchat-contract.md)
+proposes a narrow trusted development/review/assessment exception to this
+interactive-only scope. It requires a new native context per invocation and
+explicit effective-config/intake/result admission. It is not implemented or
+qualified, does not extend today's CLI and is distinct from the §10 target.
+
 Non-goals, each a boundary rather than an omission:
 
 - **No native session state.** Hosted sessions belong to the selected manager.
@@ -152,10 +158,11 @@ persistent owners without assigning session state to the launcher.
 |---|---|---|---|
 | Direct human launch | `curator-run <env-id> …` resolves the profile and composes an admitted interactive plan on the caller's side. | The launcher starts and waits for the native child. | §§3–6; existing interactive API. |
 | Hosted launch | The same caller-side interactive composer exports the destination contract. Host selection remains independent of permissions. | The hosted receiver creates/manages the process; a refusal never falls back to a direct child. | §§4.6, 4.8–4.9; existing APIs and their stated evidence limits. |
+| Trusted same-user non-chat | Explicit current-user assignment and frozen exact tuple/inputs; no child chat/board presence. | Target launcher adapter and retained supervisor; controller owns result custody. | [Documentary contract/1](docs/same-user-nonchat-contract.md), **not implemented or qualified**; no shipped entry. |
 | Agent one-shot exec | A caller composes the immutable plan; `swarma-dispatcher` admits, provisions and tracks; `swarma-user-launcher` verifies the approved executor and drops privileges. | `curator-run` under `worker-<label>` verifies the plan, leases a credential when selected and executes the harness. | §10, target amendment (version pending); **not implemented**. Local headless only in dispatcher v0. |
 
-The one-shot door does not run §§4.1–4.5 under the agent account. It does
-not resolve or repair profiles, compose plans, pick models, or infer
+The §10 agent-account one-shot door does not run §§4.1–4.5 under the agent
+account. It does not resolve or repair profiles, compose plans, pick models, or infer
 permission defaults. The caller composes; the executor verifies and
 executes. Direct interactive execution is already a launcher responsibility;
 there is no universal compose-only claim. Long sessions use the target
@@ -206,7 +213,10 @@ curator-run --version
 ```
 
 This is the existing interactive surface. The separate proposed one-shot
-entry is described in §10.1 and is not a shipped command.
+entry is described in §10.1 and is not a shipped command. The distinct
+[same-user non-chat target](docs/same-user-nonchat-contract.md) also publishes
+no current CLI grammar; non-interactive arguments or missing terminals do not
+admit it.
 
 The flag set is deliberately minimal; every flag below names the single
 plane it feeds, and a need that fits none of them is a specification
@@ -575,8 +585,11 @@ The `mapped` value is supplied by agents-management; this SPEC names no
 provider flag. Headless detection (terminal, CI markers) is observed but
 never consulted by the built-in default since Q-D3; native-argument
 non-interactive classification is gone entirely. Detection modifies no
-native arguments and claims nothing about their safety. See §4.6 for
-the closed headless marker set and lock rule.
+native arguments and claims nothing about their safety. These interactive
+classification/default rules do not admit the separate
+[same-user non-chat target](docs/same-user-nonchat-contract.md), whose fresh
+context and effective-config gates require explicit future admission. See §4.6
+for the closed headless marker set and lock rule.
 
 The §4.3 stderr line-group prints at **every** launch, before the plan
 request, in this order — so an operator always sees which binary is
@@ -1366,7 +1379,10 @@ misattributing behavior to the tool.
 ## 6. Errors and diagnostics
 
 This section governs the existing interactive API. Target one-shot
-refusals and the unresolved numeric mapping are specified in §10.5.
+refusals and the unresolved numeric mapping are specified in §10.5. The
+[same-user target contract](docs/same-user-nonchat-contract.md#5-execution-and-observable-outcomes)
+separately distinguishes admission/start/native/result/cleanup evidence; it
+assigns no shipped refusal names or numeric exits and does not reuse §6.
 
 Diagnostics are stable machine-readable codes in closed families. A
 failing launch prints exactly one diagnostic code line to stderr,
@@ -1584,6 +1600,11 @@ and the wave-5 transfer, untrusted-class, network-tool and abuse controls.
 The other open choices stay open.
 This section specifies obligations for a future implementation, not
 current capability or runtime evidence.
+
+The [same-user development-member target](docs/same-user-nonchat-contract.md#1-scope-and-source-boundaries)
+is a separate scoped amendment, not an implementation, fallback or qualification
+of §10. All dispatcher/worker-account/broker and activation gates below remain
+unchanged.
 
 ### 10.1 Immutable input, descriptor transport and limits
 

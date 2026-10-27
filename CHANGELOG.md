@@ -11,6 +11,11 @@
 
 ### Added
 
+- Document the separate same-user trusted development-member non-chat target:
+  fresh native context, no child messaging/board presence, exact input/result
+  admission and a qualification plan. This documentary amendment adds no
+  implemented command or qualified runtime capability.
+
 - Require public Curator home leases for hosted launch/resume, with a durable
   acquire-first recovery journal, exact route/registration evidence, terminal
   no-RPC settlement and bidirectional Werkstatt allocation checks. Native
