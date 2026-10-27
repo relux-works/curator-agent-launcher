@@ -56,6 +56,19 @@ mode start a new conversation under the new profile (§§6.1–6.5, 11).
 Optional liveness and operation-journal profile evidence preserves old-file
 compatibility without inference (§5.7).
 
+**2026-10-27 home-lease amendment (spec gate):** the accepted
+[home-lease contract](https://github.com/relux-works/curator-spec/blob/e8f0f6e7/protocol/home-leases.md)
+HL21–HL24 adds launcher-owned reservation, replay and allocation obligations
+(§§5.3, 5.7, 6.2, 6.5, 11). This amendment specifies the consumer before code;
+it does not advertise an implemented lease capability. Initial implementation
+is **refuse-only, protection retained**: acquire/replay, attempted bind and lane
+allocation, with **no launcher release calls**. Exact-bind success, no-start
+release and every evidence-based release remain unqualified until an accepted
+observation v2 and session-host proof contract supplies OS process incarnation,
+independent no-start, descendant termination and ownership reconciliation. The
+closed observation v1 of §4.3 is unchanged. Review acceptance of this amendment
+precedes consumer code and the schema-first publication described in §5.7.
+
 ## 0. Sources and decisions applied
 
 | Source | What it fixes here |
@@ -837,6 +850,14 @@ is `session_host_provider_unsupported` (6). Both are checked before any
 
 ### 5.3 Launch and resume requests
 
+**Home-lease precondition (HL21, L1/L6).** Before a hosted launch or resume,
+the launcher admits the resolved environment, profile and exact
+`profile.lock_sha256`, then follows the durable acquire sequence in §5.7.
+Native launches take no lease. There is no hosted `--no-home-lease` bypass and
+no fallback to native after lease refusal. Lease correlation belongs to the
+launcher journal, not to invented members of the manager's closed request.
+The manager's existing profile/digest admission remains required.
+
 **Launch** — `urn:relux:curator-run:delegated-launch` `1.0.0`, closed:
 
 | Member | Content |
@@ -1265,7 +1286,7 @@ bounded by 60 s.
 ```text
 r := status{operation_id}
 loop:
-  started   → success: write liveness, clear op.json, done
+  started   → bind/settle through the home-lease gate below; clear op.json only after safe settlement
   failed    → refuse with r.code, clear op.json, done
   cancelled → refuse session_host_unavailable (reason=cancelled), clear op.json, done
   admitted  → wait 2 s; r := status{operation_id}; continue
@@ -1287,7 +1308,7 @@ Two traces settle the review's cases:
 - **Start that races the cancel.** The `cancel` answers `started`, and the
   loop completes as success.
 
-**Durable correlation.** Before submitting a Werkstatt launch or resume,
+**Durable correlation (existing format).** Before submitting a Werkstatt launch or resume,
 the launcher writes `<state>/werkstatt/<id>.op.json` atomically, under the
 lock:
 
@@ -1328,6 +1349,100 @@ lock:
   The launcher's own exit for that reconciliation is the reported code's
   registry exit.
 
+**Home-lease reservation and recovery (HL21–HL23, L1–L3).** The following
+extends the existing journal. It supersedes the plain-hosted exception below
+and the unconditional clearing of lease-bearing operations above.
+Old journals without lease correlation retain their existing recovery format;
+they are not proof that a lease was acquired or that no manager call occurred.
+New hosted submissions always use the extended format.
+
+1. **Probe, never guess a version.** Use the read-only
+   `curator env lease list --format json` command as the capability probe.
+   Only the published closed v1 `list` envelope with the matching process exit
+   establishes command support. An installed Curator without this command
+   refuses hosted execution as `session_home_lease_unavailable`,
+   `reason=curator_lease_unsupported`. A valid semantic refusal preserves its
+   Curator code/reason; it does not establish admission. Missing executable,
+   malformed output and transport failure also refuse, never bypass.
+2. **Reserve durably.** Before the first acquire, atomically write `op.json`
+   with `phase: lease_requested`, a launcher-generated `request_id`, canonical
+   environment, profile, admitted `lock_sha256`, exact manager registration,
+   nullable Werkstatt id and the identical prepared holder payload. Persist the
+   original validated launch/resume request too, so recovery never reconstructs
+   a different payload from edited configuration. The request id is stable for
+   this operation; a new admission uses a fresh id. No manager submission can
+   precede this journal or successful acquire.
+3. **Acquire/replay.** Call only the public CLI:
+   `curator env lease acquire --env <id> --profile <P> --lock-sha256 <digest>
+   --request-id <id> --holder <json> --format json`. A lost reply leaves
+   `lease_requested`; recovery replays the identical payload and request id
+   before **any manager RPC**, including describe/status. A changed payload
+   under that id refuses. Lock mismatch requires fresh admission; never replace
+   the admitted digest silently. Persist the returned lease id/revision and
+   prepared blocking disposition before submission.
+4. **Terminal replay is not admission.** `already_released` and
+   `already_broken`, even with exit 0/`ok:true`, make **zero manager calls**.
+   Settle the journal as **not started**, retain that settlement, and refuse
+   `session_home_lease_unavailable` carrying Curator's terminal reason. Do not
+   revive the lease or generate a replacement request inside recovery.
+   The paired positive is `acquired` with the same still-prepared lease and
+   `changed:false`: it permits exactly one manager launch/resume call. Require
+   matching current environment/profile/digest/holder identity, not just a
+   successful envelope or a historical prepared snapshot.
+5. **Mark possible submission first.** After acquire and allocation (§6.2),
+   durably mark that the manager call may occur, then send the persisted
+   request exactly once. A crash in that window is uncertain; recover through
+   the operation owner's status/cancel protocol, never blindly resend. An
+   uncertain operation is never converted into no-start evidence.
+6. **Attempt bind immediately after started (HL22, L2).** Keep the lease and
+   operation correlation while binding with `--if-revision` and the exact
+   manager id/registration, session handle, generation, OS process incarnation
+   and nullable Werkstatt id. A crash between start and bind leaves the
+   prepared lease blocking; reconciliation uses the manager's authoritative
+   started record and retries binding before clearing correlation. A conflicting
+   bind or Curator refusal is not success: keep the prepared lease and pending
+   bind correlation, report the session handle, and refuse
+   `session_home_lease_unavailable`. Do not start another generation to repair
+   a bind failure.
+7. **No invented proof; no release in this implementation (HL23, L3).** The
+   published bound holder requires `{pid, started_at}` for the OS process;
+   session-record v1 supplies neither. A session's `started_at` is not that
+   proof, and the launcher PID is not the provider's incarnation. If a valid
+   bound payload cannot be constructed from accepted authoritative evidence,
+   retain protection and report `process_incarnation_unavailable` rather than
+   send fabricated holder values. Curator's current observer also refuses
+   otherwise well-formed bind attempts. Exact-bind positive qualification is
+   therefore a gap. This unit sends **no release command**, including after a
+   journal settles with no manager call. No-start settlement is retained for
+   a future independent observation contract; it is not caller-supplied release
+   authority. Unknown, unreachable, draining, missing/re-registered manager,
+   exact down, detach and launcher death all retain protection. A future
+   observation-v2 integration must satisfy HL09/HL23 before enabling any release.
+
+The CLI consumer parses one bounded closed operation-specific v1 envelope,
+including its code/reason and exit combination, rejects duplicate/unknown
+members and tokens, and discards untrusted stderr. It never reads or writes
+Curator state files. The only lifecycle commands in this implementation are
+`acquire`, `bind` and read-only `list`; release/break are never invoked.
+
+A confirmed not-started outcome is a settlement, not a pending manager
+operation. Retain its operation journal under
+`<state>/operations/settled/<operation_id>.json` before removing the pending
+journal; archive failure leaves the pending journal intact. A later fresh
+admission uses a new request id. This operation history neither owns Curator
+lease disposition nor grants release authority. Failed/cancelled manager
+outcomes retain their lease correlation in the same way, without claiming
+that a manager was never called.
+
+The extended operation phases/members, settled not-started record and lease
+correlation retention must be published in the nested schema module as a
+signed schema-first commit before root-module code pins that revision; no
+`replace`. Plain hosted launch/resume uses recoverable
+`<state>/hosted/<operation_id>.op.json` under its matching operation lock;
+Werkstatt operations keep the existing per-id path and lock. The schema
+amendment must preserve old journal recovery and define the closed phase
+transitions before implementation. This document changes no schema bytes yet.
+
 **Local serialisation.** Every mutation of a Werkstatt's `op.json` or
 liveness file, including those made by `status`, happens under an
 exclusive lock on `<state>/werkstatt/<id>.lock`.
@@ -1344,10 +1459,11 @@ exclusive lock on `<state>/werkstatt/<id>.lock`.
 - Every liveness write is also the expected-value compare-and-swap of §6.5.
 - Manager admission still decides across clients and state roots.
 
-**Plain hosted launches** (no Werkstatt) are attached and interactive. A
-lost answer runs the loop once in the same invocation, without `op.json`.
-If it stays unresolved, the launcher prints the `operation_id` and refuses
-`session_liveness_unknown`.
+**Plain hosted launches** (no Werkstatt) remain attached and interactive.
+The home-lease amendment requires their own durable journal above. A lost
+manager answer runs the same reconciliation loop; unresolved correlation and
+lease protection remain durable. The launcher prints the `operation_id` and
+refuses `session_liveness_unknown`. Native launches create no lease journal.
 
 ### 5.8 Activation boundary for `launch-delegated/1`
 
@@ -1516,7 +1632,14 @@ local write.
         - any other answer refuses, and the binding is unchanged.
       - `werkstatt recover <id> --abandon-operation` is an **operator
         override** (§6.5). It is a decision, not evidence that the old
-        generation stopped.
+        generation stopped. It **never releases or breaks a home lease**.
+        Report the retained lease id and current revision, using read-only
+        Curator list when necessary, and print the operator command:
+        `curator env lease break --lease <id> --if-revision <n> --operator
+        --reason <reason> --format json`. The operator supplies a deliberate
+        reason and runs it separately. If the revision cannot be read, report
+        that uncertainty instead of inventing a runnable revision. Clearing
+        operation correlation must not erase the retained lease diagnostic.
    5. **Routing.** While the binding exists, `status`, `stop`, `resume` and
       `down` for this Werkstatt go to the **bound** manager, not to the
       selected one.
@@ -1550,13 +1673,36 @@ local write.
      `launch`/`resume` is called, and liveness is unchanged. The step-1 lock
      and step-3/4 manager reads keep their existing order. If the member is
      absent, no comparison is made.
+   - **Lane allocation (HL24).** One unattended lane is one Werkstatt id;
+     one selected managed profile home must not be shared by another
+     Werkstatt or an ad-hoc hosted holder. No lane member is added to the
+     Curator holder. The accepted holder's `werkstatt` identifies this lane;
+     `null` means ad-hoc, not permission to share an unattended home.
+     Check the effective Werkstatt records for a conflicting selected
+     environment/profile, and the complete read-only Curator list for actual
+     home identity and blocking holders. After acquire, before any manager
+     submission, repeat the list check including the new reservation: every
+     blocking holder for that home must belong to the same Werkstatt.
+     Different-Werkstatt or null ownership refuses
+     `session_home_lease_unavailable`, `reason=allocation_conflict`; retain
+     the reservation, with no release or break. Same-lane independent holders
+     are allowed only for the exact admitted home/digest. Disjoint homes are
+     unaffected. Unreadable/incomplete allocation evidence refuses; profile
+     labels alone never establish physical disjointness. An ad-hoc hosted
+     acquire performs the same post-acquire check and refuses a home allocated
+     to a Werkstatt. Ordered acquire/list snapshots must enforce this rule
+     across concurrent admissions; a pre-acquire-only check is insufficient.
+     This allocation/read contract is part of the spec review gate and must
+     be qualified with competing callers before advertising HL24 support.
    - Admit `model` and `effort` (SPEC §4.3).
    - Read the fragment's credential projection (§9). A node source refuses
      here until §9.2 allows it.
 7. **Doorbell preparation.** For `claude_code`, write the transitional
    hooks (§8.1).
 8. **Start.**
-   - Write `op.json` (§5.7).
+   - Write `op.json` phase `lease_requested`, acquire/replay, and enforce
+     the post-acquire lane check (§5.7). Terminal replay refuses before every
+     manager RPC in that recovery path. Mark possible submission durably.
    - Make exactly one call, with `admission_key: werkstatt:<id>`:
      - `resume {selector: {kind: handle, handle: <target>}, scope: {cwd: clone, labels: {werkstatt: id}}}`
        when step 4 found a target;
@@ -1572,11 +1718,17 @@ local write.
        - the labels `werkstatt=<id>` and `identity`. There is no generation
          label, because each manager numbers its own generations (§6.5).
    - Reconcile per §5.7.
-9. **Liveness.** Write the §6.5 record, including the owner binding copied
+9. **Bind and liveness.** Attempt the §5.7 bind immediately after manager
+   `started`, retaining the prepared lease and journal on missing proof or
+   refusal. A bind refusal is not a failed provider start: report the started
+   handle, preserve truthful manager liveness, and do not attach or clear the
+   pending bind. No lease release follows. Write the §6.5 record, including
+   the owner binding copied
    from `op.json`'s `manager`, its submitted `profile` and the settled
    `operation_id`. An old journal without `profile` installs unknown
    (absent) evidence, never the current edited record's profile. Only then
-   remove `op.json`.
+   remove `op.json`, and only when no bind remains pending. Current proof
+   gaps therefore retain lease-bearing started journals for recovery.
    - If the liveness write fails, the session is still up: print the
      handle, and refuse `werkstatt_liveness_write_failed` (1).
    - The next `status` rewrites the record.
@@ -1742,6 +1894,14 @@ schema `werkstatt-liveness-v1`, written atomically:
   dispatchable.
 - **Mirroring:** the router reads this file. Once `station` exists, the
   launcher also mirrors `state`, `last_heartbeat_at` and `session` to it.
+- **Home-lease retention (HL23).** Liveness and lease disposition are
+  distinct. Preserve exact lease/operation correlation until settlement is
+  safe; a pending bind remains recoverable after a successful liveness write.
+  A status refresh, exact `down`, operator override, manager rebind, missing
+  owner, draining or unknown state never releases/breaks a lease in this unit.
+  Neither `last_heartbeat_at` nor the session's `started_at` supplies process
+  incarnation, descendant termination or ownership proof. Keep these explicit
+  gaps until an accepted observation-v2/session-host contract qualifies them.
 - **a2a liveness** (`a2a status set` / `who`) is the Werkstatt's own
   heartbeat. `status` shows both, unmerged.
 
@@ -2183,6 +2343,7 @@ Detail vocabularies are closed (§5.6). Grammar names:
 | `session_manager_registry_shadowed` | 2 | user mutation while a system registry exists | `path` |
 | `session_manager_not_registered` | 2 | `use` (or deprecated `select`)/`unregister` of an unknown id | `id`: `<id>` |
 | `session_manager_registry_busy` | 1 | another registry mutation holds the lock (§4.3 rule 8) | none |
+| `session_home_lease_unavailable` | 1 | hosted lease support/admission/bind/allocation unavailable (§5.7); launcher-only | `curator_code`, `reason`: closed vocabularies below; optional launcher-validated `session`: `<handle>` after start |
 | `session_operation_conflict` | 1 | a reused `operation_id` with a different request digest (§5.7) | none |
 | `session_operation_expired` | 1 | `submitted_at` is older than the retention window (§5.7) | none |
 | `session_generation_mismatch` | 1 | `expected_generation` differs from the current one (§5.2) | none |
@@ -2209,6 +2370,22 @@ Detail vocabularies are closed (§5.6). Grammar names:
 | `selector_abstained` | 1 | enforcing selector returned a typed abstention (§3.4) | `code`: `[a-z0-9_]{1,64}` |
 | `werkstatt_operation_unresolved` | 1 | the manager owning a pending operation or a live generation is missing or changed (§§5.7, 6.2) | `reason`: `manager_missing`, `manager_changed`; `operation`: UUID |
 | `session_host_delegated_unauthorized` | 16 | reserved: before the Q1 sign-off, the selected route was delegated without a trial authorisation (§5.8). Not emitted since 2026-10-21 | none |
+
+**Closed home-lease details (L5).** `curator_code` is absent for local
+failures and otherwise comes only from the accepted home-lease v1 result
+code vocabulary (HL20), including `usage`; raw stderr is never copied.
+`reason` is the paired Curator code/reason vocabulary from HL20, plus terminal
+replay `already_released`/`already_broken` or these launcher-owned tokens:
+`curator_lease_unsupported`, `curator_lease_protocol_error`,
+`curator_lease_unreachable`, `curator_lease_timeout`,
+`process_incarnation_unavailable`, `allocation_conflict`.
+The consumer validates the operation/exit/result/disposition relationship before
+using these details; unknown values are a protocol refusal. In particular
+`environment_lock_unavailable/mutation_lock_busy` is distinct from a holder
+refusal, and `environment_lease_lock_mismatch/profile_lock_changed` requires
+fresh admission. A post-start lease refusal prints the validated session handle
+so an operator can locate the session; it never implies that nothing started.
+No new manager-emittable code or holder-evidence authority is introduced.
 
 **Reused with their meaning.** These codes keep their meaning. Plugin-borne
 detail values are allowed only from the vocabularies shown:
