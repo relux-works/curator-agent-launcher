@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Added
+
+- Require public Curator home leases for hosted launch/resume, with a durable
+  acquire-first recovery journal, exact route/registration evidence, terminal
+  no-RPC settlement and bidirectional Werkstatt allocation checks. Native
+  execution makes no lease call. Start currently retains prepared protection
+  and refuses `process_incarnation_unavailable`: session-record v1 cannot
+  supply authoritative OS incarnation for bind. No release/break is sent;
+  explicit abandon retains evidence and prints a separate operator hint.
+
 ## 0.6.0 — 2026-10-27
 
 ### Removed
@@ -14,15 +24,6 @@
   deprecated `--native` alias for two releases with one warning.
 
 ### Added
-
-- Require public Curator home leases for hosted launch/resume, with a durable
-  acquire-first recovery journal, exact route/registration evidence, terminal
-  no-RPC settlement and bidirectional Werkstatt allocation checks. Native
-  execution makes no lease call. Start currently retains prepared protection
-  and refuses `process_incarnation_unavailable`: session-record v1 cannot
-  supply authoritative OS incarnation for bind. No release/break is sent;
-  explicit abandon retains evidence and prints a separate operator hint.
-
 
 - Add read-only `session-manager observe <manager-id> --session <SES-handle>
   --json`: one closed observation with the registration incarnation, validated
