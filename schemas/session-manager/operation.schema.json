@@ -64,7 +64,7 @@
         },
         "registered_at": {
           "type": "string",
-          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$",
           "format": "date-time"
         }
       },
@@ -144,7 +144,18 @@
           "pattern": "^[0-9a-f]{64}$"
         },
         "holder": {
-          "$ref": "urn:relux:curator-run:lease-holder-v1"
+          "allOf": [
+            {
+              "$ref": "urn:relux:curator-run:lease-holder-v1"
+            },
+            {
+              "properties": {
+                "kind": {
+                  "const": "prepared"
+                }
+              }
+            }
+          ]
         },
         "capabilities": {
           "type": "array",
@@ -212,6 +223,71 @@
           },
           "lease": {
             "not": {}
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "phase"
+        ],
+        "properties": {
+          "phase": {
+            "enum": [
+              "lease_prepared",
+              "possibly_submitted",
+              "bind_pending"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "lease": {
+            "properties": {
+              "record": {
+                "type": "object"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "phase"
+        ],
+        "properties": {
+          "kind": {
+            "const": "launch"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "request": {
+            "$ref": "urn:relux:curator-run:delegated-launch"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "phase"
+        ],
+        "properties": {
+          "kind": {
+            "const": "resume"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "request": {
+            "$ref": "urn:relux:curator-run:delegated-resume"
           }
         }
       }
