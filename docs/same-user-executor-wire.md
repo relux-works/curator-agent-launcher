@@ -100,9 +100,9 @@ it is provenance data, never permission to fetch or execute it.
 
 | Value | Hard ceiling in this proposed protocol |
 | --- | ---: |
-| Request / tuple / result / owner input individually | 64 KiB |
-| Authorization / state owner | 4 KiB |
-| Response / snapshot / consumption record individually | 16 KiB |
+| Request / catalog / tuple / result / owner input / native observation individually | 64 KiB |
+| Authorization / state owner / cancel individually | 4 KiB |
+| Response / snapshot / head / scope proof / conflict / consumption record individually | 16 KiB |
 | Objects, including tuple and owner evidence | 128 unique names, 4 MiB each, 16 MiB total unique bytes |
 | Trusted instruction objects combined | 64 KiB, included in object totals |
 | Result files | 128, 4 MiB each, 16 MiB combined |
@@ -113,6 +113,9 @@ it is provenance data, never permission to fetch or execute it.
 | TERM grace / KILL-observation / result delivery | 6000 ms each |
 | State lock acquisition / cancellation polling interval | 1000 ms / 100 ms |
 
+Every stored record must satisfy its individual byte ceiling before parsing;
+unknown record classes refuse, not an unbounded read. Catalog bytes are not
+counted as invocation input but remain within their independent 64 KiB ceiling.
 Every admission supplies positive deadlines within these bounds; no absent or
 unbounded defaults. The admission's wall-clock expiry is checked before effects.
 The startup deadline begins at durable start-intent and includes gated spawn;
@@ -204,6 +207,14 @@ S is controller-owned, distinct from candidate inputs and native work/output
 roots. Only the entry's trusted supervisor/reconciler writes observations there;
 worker stdout/artifacts cannot supply a snapshot or result envelope. The harness
 is not passed store paths/handles. Cooperative same-UID limits still apply.
+All store directories are current-UID mode0700; records and fixed lock files are
+current-UID regular mode0600 with one link, opened relative to the retained S
+anchor without symlink traversal. Owner/catalog identity is rechecked under the
+store lock. Control readers take the edit lock for a consistent head/cancel/
+conflict view; an immutable result is not permission to ignore newer conflicts.
+Generation filenames are decimal 1..256 without leading zero. Publication temps
+use `.stage.<32 lowercase hex>` with exclusive creation; an unexplained surviving
+temp is an incomplete publication, never a valid record or permission to retry.
 
 Fixed layout, names derived only from validated hexadecimal IDs:
 
