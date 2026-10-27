@@ -284,16 +284,22 @@ func TestLeaseCompetingBinary(t *testing.T) {
 	}
 	ready := make(chan struct{})
 	results := make(chan answer, 2)
-	go func() {
-		<-ready
-		code, _, stderr := w.invoke(false, false, "--hosted", "--detach")
-		results <- answer{code, stderr}
-	}()
-	go func() { <-ready; code, _, stderr := w.invokeWS("up"); results <- answer{code, stderr} }()
+	run := func(invoke func() (int, string, string)) {
+		go func() {
+			a := answer{code: -1}
+			// Goexit from a fixture Fatal must still join this worker, and
+			// neither worker may outlive assertions or fixture cleanup.
+			defer func() { results <- a }()
+			<-ready
+			a.code, _, a.stderr = invoke()
+		}()
+	}
+	run(func() (int, string, string) { return w.invoke(false, false, "--hosted", "--detach") })
+	run(func() (int, string, string) { return w.invokeWS("up") })
 	close(ready)
+	answers := []answer{<-results, <-results}
 	conflicts := 0
-	for range 2 {
-		a := <-results
+	for _, a := range answers {
 		if a.code != 1 {
 			t.Fatal("competing admission reported success", a)
 		}
