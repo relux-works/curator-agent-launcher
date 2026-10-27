@@ -136,6 +136,14 @@ submission request. Settlement, including crash recovery, installs that value;
 an old journal without it settles with an unknown profile. The current editable
 Werkstatt record is never used to reconstruct missing historical evidence.
 
+Werkstatt liveness preserves the exact manager `registered_at` string admitted
+by the lease journal and holder: UTC `Z`, whole seconds or 1–9 fractional digits.
+Trailing fractional zeroes remain identity bytes, not a normalization request.
+Other liveness timestamps keep their existing whole-second contracts. Published
+liveness vectors cover fractional registration, malformed spelling/precision,
+closed manager members and the intentionally narrower session/heartbeat/abandon
+timestamps.
+
 ## Session observations
 
 `session-observation.schema.json` defines `curator-run-session-observation-v1`,
