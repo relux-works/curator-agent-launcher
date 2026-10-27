@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.6.0 — 2026-10-27
+
 ### Removed
 
 - Remove the ax tracked execution route, `ax.json` policy parsing,
@@ -27,6 +29,10 @@
 
 ### Changed
 
+- Pin skill-agents-management v0.5.74 (was v0.5.68). It adds
+  `permission-grammar-v3` for codex-cli 0.164.0, so `--permissions yolo` maps
+  on that release instead of failing closed; 0.153.2 and other rows are
+  unchanged.
 - Diagnose unwritable explicit registry scopes as
   `session_manager_registry_unwritable` (exit 2, directory `path` and `scope`),
   separately from invalid/unreadable registry content, before any lock or write.

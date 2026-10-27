@@ -435,7 +435,7 @@ The executable supports `claude_code` (alias `claude`), `codex_cli`
 Muse requires `launch-env-fragment-v4`: exactly four XDG parents under one
 managed home plus `TBH_CREDENTIAL_BACKEND=file`, preserving inherited `HOME`.
 Older Muse fragments refuse `fragment_version_unsupported` before launch.
-The pinned agents-management v0.5.68 plugin owns the native plan; managed
+The pinned agents-management v0.5.74 plugin owns the native plan; managed
 Muse refuses module versions older than v0.5.66. The optional frozen-copy
 tuple otherwise leaves binary resolution on the handed PATH. `muse-wonder`
 resolves to `muse-wonder-1.0-contributor` with module-owned effort rules.
@@ -525,10 +525,10 @@ The launch pipeline follows these steps:
    refuse `session_liveness_unknown`. No hosted refusal executes natively.
 
 The permission interface is implemented against upstream
-`skill-agents-management v0.5.68`. It owns
+`skill-agents-management v0.5.74`. It owns
 `LaunchRequest.PermissionMode`, the release-bound mapping, versioned native
 argument classification, stored-policy inspection, and the capability table.
-Claude Code and Codex CLI use `permission-grammar-v2`; Pi uses
+Claude Code and Codex CLI 0.153.2 use `permission-grammar-v2`, Codex CLI 0.164.0 uses `permission-grammar-v3`; Pi uses
 `permission-grammar-v1`. The admitted result supplies
 the plan and owned environment literals from the same prepared,
 alias-projected request; composition never rebuilds the plan.
@@ -537,7 +537,7 @@ Codex v4 `credential_store` accepts absent or `native` policy without an auth
 store override. The reader validates `file` and `keychain` with their matching
 `config_overrides`, but the pinned module explicitly refuses both with
 `plan_refused`; it leaves `config.toml` unchanged. Positive `-c` application
-is an open upstream dependency: v0.5.68 sets
+is an open upstream dependency: v0.5.74 sets
 `curatorCodexCredentialStoreApplied=false` in
 `pkg/agentic/curator_context.go:714–725`. A future released consumer is
 required before those selections can launch. The launcher does not implement
@@ -590,11 +590,11 @@ made from this host's tests.
 Install the tagged release with the Go toolchain specified by `go.mod`:
 
 ```bash
-go install github.com/relux-works/curator-agent-launcher/cmd/curator-run@v0.5.0
+go install github.com/relux-works/curator-agent-launcher/cmd/curator-run@v0.6.0
 curator-run --version
 ```
 
-The v0.5.0 release reports `0.5.0` (specification `0.5.1-draft`).
+The v0.6.0 release reports `0.6.0` (specification `0.5.1-draft`).
 Compatible with curator v0.15.0-rc.3 or later, once published.
 
 Alternatively, hosts without Go can download GitHub release artifacts.

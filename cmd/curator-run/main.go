@@ -45,7 +45,7 @@ const (
 // buildVersion is the launcher's own version; the specification version is
 // reported beside it (SPEC §8). It is a variable so that `make
 // release-binary` can set it with -ldflags -X (FRONT-DOOR §10).
-var buildVersion = "0.5.0"
+var buildVersion = "0.6.0"
 
 func main() {
 	if len(os.Args) == 2 && os.Args[1] == selector.WorkerArgument {
