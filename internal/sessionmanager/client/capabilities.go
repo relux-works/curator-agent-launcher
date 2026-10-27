@@ -73,16 +73,26 @@ func Required(d Describe, n Needs) (Route, error) {
 		launchCap = "launch-exact/2"
 		launchOp = "launch-exact"
 	}
-	if n.Doorbell && !slices.Contains(operations, "launch") && slices.Contains(operations, "launch-exact") {
+	if n.Resume {
+		route = "delegated"
+		launchCap = "resume/1"
+		launchOp = "resume"
+	}
+	if route == "exact" || !slices.Contains(operations, launchOp) || !slices.Contains(d.Capabilities, launchCap) || !slices.Contains(operations, "status") || !slices.Contains(operations, "cancel") || !slices.Contains(d.Capabilities, "status/1") || !slices.Contains(d.Capabilities, "admission/1") {
+		return Route{}, leaseFailure("route_not_lease_capable")
+	}
+	if !n.Resume && n.Doorbell && !slices.Contains(operations, "launch") && slices.Contains(operations, "launch-exact") {
 		return Route{}, refusal("session_host_capability_missing", map[string]string{"capability": "launch-exact-doorbell"})
 	}
-	if n.Detached && !slices.Contains(operations, "launch") && slices.Contains(operations, "launch-exact") {
+	if !n.Resume && n.Detached && !slices.Contains(operations, "launch") && slices.Contains(operations, "launch-exact") {
 		return Route{}, refusal("session_host_capability_missing", map[string]string{"capability": "launch-exact-detached"})
 	}
-	required := []string{launchCap}
-	neededOps := map[string]string{launchCap: launchOp}
+	required := []string{launchCap, "admission/1", "status/1"}
+	neededOps := map[string]string{launchCap: launchOp, "admission/1": "cancel", "status/1": "status"}
 	need := func(cap, op string) {
-		required = append(required, cap)
+		if !slices.Contains(required, cap) {
+			required = append(required, cap)
+		}
 		if op != "" {
 			neededOps[cap] = op
 		}

@@ -67,7 +67,7 @@ func binding(id string, e sessionmanager.Entry) client.Binding {
 	return client.Binding{ID: id, Executable: e.Executable, RegisteredAt: e.RegisteredAt}
 }
 func (s Service) reconciler(r sessionmanager.Registry) client.Reconciler {
-	return client.Reconciler{Registry: r.Managers, Now: s.Now, Caller: func(id string, e sessionmanager.Entry) client.Caller { return s.remote(id, e) }}
+	return client.Reconciler{Registry: r.Managers, Now: s.Now, Leases: &client.LeaseCLI{Environment: s.Environment}, Caller: func(id string, e sessionmanager.Entry) client.Caller { return s.remote(id, e) }}
 }
 func call(ctx context.Context, c client.Caller, op string, request any) (client.Response, error) {
 	b, _ := json.Marshal(request)
@@ -201,6 +201,13 @@ func (s Service) one(ctx context.Context, c Command) (row Status, exit int, resu
 	}
 	defer tx.Close()
 	if c.AbandonOperation {
+		pending, e := tx.Pending()
+		if e != nil {
+			return row, 0, e
+		}
+		if pending != nil && pending.Lease != nil {
+			client.WriteLeaseBreakHint(ctx, s.Stderr, client.LeaseCLI{Environment: s.Environment}, *pending)
+		}
 		if err := tx.Abandon(s.now()); err != nil {
 			return row, 0, err
 		}
@@ -235,6 +242,9 @@ func (s Service) one(ctx context.Context, c Command) (row Status, exit int, resu
 				exit, err = s.Attach(ctx, p.Manager.ID, reg.Managers[p.Manager.ID], recovered)
 			}
 			return row, exit, err
+		}
+		if p.Lease != nil {
+			return row, 0, nil
 		}
 	}
 	row.Record, _, err = s.Loader.Load(ctx, c.ID)
@@ -391,6 +401,9 @@ func (s Service) up(ctx context.Context, c Command, tx *client.Transaction, reg 
 	if _, err = client.Required(*response.Describe, needs); err != nil {
 		return 0, err
 	}
+	if err = s.allocationInventory(ctx, r); err != nil {
+		return 0, err
+	}
 	var confirmed *client.Session
 	if l != nil && l.State != "down" {
 		confirmed, err = s.ownerRead(ctx, reg, l)
@@ -503,7 +516,7 @@ func (s Service) up(ctx context.Context, c Command, tx *client.Transaction, reg 
 	}
 	_ = json.Unmarshal(prepared.Request, &correlation)
 	p := client.Pending{OperationID: correlation.OperationID, Kind: op, SubmittedAt: correlation.SubmittedAt, AdmissionKey: "werkstatt:" + r.ID, Manager: selectedBinding}
-	session, err := s.reconciler(reg).Submit(ctx, tx, p, prepared.Request)
+	session, err := s.reconciler(reg).SubmitLeased(ctx, tx, p, prepared.Request, *response.Describe)
 	if prepared.Observe != nil {
 		outcome := "launched"
 		if err != nil {

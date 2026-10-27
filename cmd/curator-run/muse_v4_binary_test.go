@@ -306,7 +306,7 @@ func TestMuseV4HostedBinary(t *testing.T) {
 		want       int
 		calls      []string
 	}{
-		{name: "qualified", ops: []string{"launch", "attach"}, calls: []string{"describe", "launch", "attach"}},
+		{name: "qualified", ops: []string{"launch", "attach"}, want: 1, calls: []string{"describe", "launch"}},
 		{name: "missing-runtime", want: 6, calls: []string{"describe"}},
 		{name: "no-attach", ops: []string{"launch"}, want: 6, calls: []string{"describe"}},
 		{name: "no-launch", ops: []string{"attach"}, want: 6, calls: []string{"describe"}},
@@ -318,7 +318,7 @@ func TestMuseV4HostedBinary(t *testing.T) {
 			f := newFront(t, bin)
 			if tc.ops != nil {
 				f.managerConfig = fakemanager.MuseConfig()
-				f.managerConfig.Runtimes[fragment.EnvMuse] = tc.ops
+				f.managerConfig.Runtimes[fragment.EnvMuse] = append(slices.Clone(tc.ops), "status", "cancel")
 			}
 			current := frontV4(t, f, fragment.EnvMuse, false)
 			// Same bytes produce the same digest. Only adding root_context changes
@@ -346,6 +346,9 @@ func TestMuseV4HostedBinary(t *testing.T) {
 			args := append(museBinaryArgs(), "--hosted", "--", "hello")
 			code, _, stderr := f.command(bin.launcher, args, nil, true, false, 12*time.Second)
 			diagnostic := ""
+			if tc.name == "qualified" {
+				diagnostic = "process_incarnation_unavailable"
+			}
 			if tc.want == 6 {
 				diagnostic = "session_host_provider_unsupported"
 			}
@@ -353,11 +356,11 @@ func TestMuseV4HostedBinary(t *testing.T) {
 				diagnostic = "policy_refused"
 			}
 			starts := 0
-			if tc.want == 0 {
+			if tc.name == "qualified" {
 				starts = 1
 			}
 			f.require(t, code, tc.want, stderr, diagnostic, tc.calls, starts, false)
-			if tc.want == 0 {
+			if tc.name == "qualified" {
 				var state fakemanager.State
 				if err := json.Unmarshal(f.observe().Records, &state); err != nil {
 					t.Fatal(err)
@@ -441,7 +444,7 @@ func TestCodexV4WerkstattPreparation(t *testing.T) {
 				w.runWS("up", 1, `codex_cli credential_store "file"`)
 				w.expectStarts(0)
 			} else {
-				w.runWS("up", 0, "")
+				w.runWS("up", 1, "process_incarnation_unavailable")
 				w.expectStarts(1)
 			}
 			if _, err := os.Stat(filepath.Join(w.root, "native-called")); !os.IsNotExist(err) {

@@ -216,7 +216,7 @@ func TestWerkstattBinary(t *testing.T) {
 				case "capability":
 					w.managerConfig.Capabilities = slices.DeleteFunc(w.managerConfig.Capabilities, func(c string) bool { return c == "admission/1" })
 					w.reset()
-					want, diagnostic, calls = 6, "capability=admission/1", []string{"describe"}
+					want, diagnostic, calls = 1, "reason=route_not_lease_capable", []string{"describe"}
 				case "clone":
 					w.record["clone"] = filepath.Join(w.root, "absent")
 					w.write()
@@ -313,20 +313,28 @@ func TestWerkstattBinary(t *testing.T) {
 				if name == "attach-capability" {
 					args = []string{"--attach"}
 				}
+				eligible := want == 0
+				if eligible {
+					want, diagnostic = 1, "process_incarnation_unavailable"
+				}
 				w.runWS("up", want, diagnostic, args...)
 				if !slices.Equal(w.calls(), calls) {
 					t.Fatalf("calls=%v want=%v", w.calls(), calls)
 				}
 				starts := 0
-				if want == 0 {
+				if eligible {
 					starts = 1
 				}
 				w.expectStarts(starts)
 				if _, err := os.Stat(filepath.Join(w.root, "native-called")); !errors.Is(err, os.ErrNotExist) {
 					t.Fatal("native execution escaped manager")
 				}
-				w.noOperation()
-				if want == 0 {
+				if eligible {
+					w.protectedOperation()
+				} else {
+					w.noOperation()
+				}
+				if eligible {
 					l := w.live()
 					if l.State != "idle" || l.Manager.ID != "fake" || l.Generation != 1 {
 						t.Fatal(l)
@@ -353,7 +361,7 @@ func TestWerkstattBinary(t *testing.T) {
 	})
 	t.Run("lifecycle", func(t *testing.T) {
 		w := newWS(t, bin)
-		w.runWS("up", 0, "")
+		w.startThenAbandon(t)
 		first := *w.live()
 		w.runWS("up", 1, "werkstatt_already_up")
 		w.expectStarts(1)
@@ -376,12 +384,12 @@ func TestWerkstattBinary(t *testing.T) {
 		if w.live().State != "down" {
 			t.Fatal("down not persisted")
 		}
-		w.runWS("up", 0, "")
+		w.startThenAbandon(t)
 		second := w.live()
 		if second.Session != first.Session || second.Generation != 2 || second.QueueDepth != 2 || second.CurrentTask == nil {
 			t.Fatal("continue lost identity or metadata", second)
 		}
-		w.runWS("recycle", 0, "")
+		w.admitThenAbandon(t, "recycle")
 		third := w.live()
 		if third.Session == first.Session || third.Generation != 3 {
 			t.Fatal("recycle did not start new thread", third)
@@ -398,11 +406,12 @@ func TestWerkstattBinary(t *testing.T) {
 	t.Run("attach", func(t *testing.T) {
 		w := newWS(t, bin)
 		code, _, stderr := w.command(bin.launcher, []string{"werkstatt", "up", w.id, "--attach"}, nil, true, false, 12*time.Second)
-		if code != 0 {
+		if code != 1 || !strings.Contains(stderr, "process_incarnation_unavailable") {
 			t.Fatal(code, stderr)
 		}
+		w.protectedOperation()
 		w.expectStarts(1)
-		if !slices.Equal(w.calls(), []string{"describe", "list", "launch", "attach"}) {
+		if !slices.Equal(w.calls(), []string{"describe", "list", "launch"}) {
 			t.Fatal(w.calls())
 		}
 	})
@@ -413,9 +422,9 @@ func TestWerkstattBinary(t *testing.T) {
 				w.control(fakemanager.FixtureRequest{Operation: "inject_fault", Name: fault})
 				switch fault {
 				case "after-admission":
-					w.runWS("up", 0, "")
+					w.runWS("up", 1, "process_incarnation_unavailable")
 					w.expectStarts(1)
-					w.noOperation()
+					w.protectedOperation()
 				case "before-admission":
 					w.runWS("up", 1, "reason=cancelled")
 					w.expectStarts(0)
@@ -474,13 +483,13 @@ func TestWerkstattBinary(t *testing.T) {
 		if err := os.Remove(w.path(".json")); err != nil {
 			t.Fatal(err)
 		}
-		w.runWS("status", 0, "", "--json")
-		w.noOperation()
+		w.runWS("status", 1, "process_incarnation_unavailable", "--json")
+		w.protectedOperation()
 		w.expectStarts(1)
 		if w.live().Session != stored.Handle {
 			t.Fatal(w.live())
 		}
-		if !slices.Equal(w.calls(), []string{"describe", "list", "launch", "status", "status"}) {
+		if !slices.Equal(w.calls(), []string{"describe", "list", "launch", "status"}) {
 			t.Fatal(w.calls())
 		}
 	})
@@ -499,24 +508,25 @@ func TestWerkstattBinary(t *testing.T) {
 		}
 		wg.Wait()
 		close(results)
-		wins, refused := 0, 0
+		observed, refused := 0, 0
 		for r := range results {
-			if r.code == 0 {
-				wins++
+			if r.code == 1 && strings.Contains(r.err, "process_incarnation_unavailable") {
+				observed++
 			} else if r.code == 1 && (strings.Contains(r.err, "werkstatt_busy") || strings.Contains(r.err, "werkstatt_already_up")) {
 				refused++
 			} else {
 				t.Fatal(r)
 			}
 		}
-		if wins != 1 || refused != 1 {
-			t.Fatal(wins, refused)
+		if observed < 1 || observed+refused != 2 {
+			t.Fatal(observed, refused)
 		}
+		w.protectedOperation()
 		w.expectStarts(1)
 	})
 	t.Run("owner-rebind", func(t *testing.T) {
 		w := newWS(t, bin)
-		w.runWS("up", 0, "")
+		w.startThenAbandon(t)
 		l := w.live()
 		original := l.Manager
 		r, _, e := sessionmanager.Load(configfile.Resolver{Locations: configfile.Locations{System: bin.system, User: w.config}})
@@ -541,7 +551,7 @@ func TestWerkstattBinary(t *testing.T) {
 	})
 	t.Run("unreadable-status", func(t *testing.T) {
 		w := newWS(t, bin)
-		w.runWS("up", 0, "")
+		w.startThenAbandon(t)
 		before := *w.live()
 		w.control(fakemanager.FixtureRequest{Operation: "corrupt_index", Kind: "unreadable", Session: before.Session})
 		w.runWS("up", 1, "session_liveness_unknown")
@@ -568,7 +578,7 @@ func TestWerkstattBinary(t *testing.T) {
 					w.write()
 					want = "1m30s"
 				}
-				w.runWS("up", 0, "")
+				w.startThenAbandon(t)
 				writeFixture(t, filepath.Join(w.root, "a2a-who.json"), []byte(`[{"agent":"sample.dev","state":"busy"}]`), 0600)
 				if mode == "unavailable" {
 					writeFixture(t, filepath.Join(w.root, "a2a-who-fail"), []byte("inert"), 0600)
@@ -622,14 +632,14 @@ func TestWerkstattBinary(t *testing.T) {
 			t.Run(mode, func(t *testing.T) {
 				w := newWS(t, bin)
 				w.control(fakemanager.FixtureRequest{Operation: "set_clock", Now: "2026-01-01T00:00:00Z"})
-				w.runWS("up", 0, "")
+				w.startThenAbandon(t)
 				first := w.live().Session
 				w.runWS("down", 0, "")
 				if mode == "resume-capability" {
 					w.managerConfig.Capabilities = slices.DeleteFunc(w.managerConfig.Capabilities, func(c string) bool { return c == "resume/1" })
 					// Changing fixture configuration must preserve the sessions under test.
 					writeFixture(t, filepath.Join(w.state, "curator-run", "fake-manager", "config.json"), frontJSON(w.managerConfig), 0600)
-					w.runWS("up", 6, "capability=resume/1")
+					w.runWS("up", 1, "reason=route_not_lease_capable")
 					w.expectStarts(1)
 					w.noOperation()
 					return
@@ -637,7 +647,7 @@ func TestWerkstattBinary(t *testing.T) {
 				if mode == "newest" {
 					w.control(fakemanager.FixtureRequest{Operation: "set_clock", Now: "2026-01-01T00:00:01Z"})
 				}
-				w.runWS("up", 0, "", "--new")
+				w.startThenAbandon(t, "--new")
 				second := w.live().Session
 				w.runWS("down", 0, "")
 				if first == second {
@@ -660,13 +670,13 @@ func TestWerkstattBinary(t *testing.T) {
 						w.write()
 						args = nil
 					}
-					w.runWS("up", 0, "", args...)
+					w.startThenAbandon(t, args...)
 					if l := w.live(); l.Session == first || l.Session == second {
 						t.Fatal("fresh launch resumed", l)
 					}
 					w.expectStarts(3)
 				default:
-					w.runWS("up", 0, "")
+					w.startThenAbandon(t)
 					if w.live().Session != second {
 						t.Fatal("newest not resumed")
 					}
@@ -683,7 +693,7 @@ func TestWerkstattBinary(t *testing.T) {
 		for _, mode := range []string{"force", "draining", "recycle-draining", "recycle-timeout"} {
 			t.Run(mode, func(t *testing.T) {
 				w := newWS(t, bin)
-				w.runWS("up", 0, "")
+				w.startThenAbandon(t)
 				first := w.live().Session
 				if mode == "force" {
 					w.activity("busy")
@@ -746,27 +756,27 @@ func TestWerkstattBinary(t *testing.T) {
 				w.control(fakemanager.FixtureRequest{Operation: "set_activity", Session: first, Activity: "provider-gone", Enabled: true})
 				<-done
 				r := <-result
-				if r.code != 0 {
+				if r.code != 1 || !strings.Contains(r.err, "process_incarnation_unavailable") {
 					t.Fatal(r)
 				}
 				if l := w.live(); l.Session == first || l.Generation != 2 {
 					t.Fatal(l)
 				}
 				w.expectStarts(2)
-				w.noOperation()
+				w.protectedOperation()
 			})
 		}
 	})
 	// The owner status, not stale liveness, supplies stop's generation.
 	t.Run("current-stop-generation", func(t *testing.T) {
 		w := newWS(t, bin)
-		w.runWS("up", 0, "")
+		w.startThenAbandon(t)
 		old, err := os.ReadFile(w.path(".json"))
 		if err != nil {
 			t.Fatal(err)
 		}
 		w.runWS("down", 0, "")
-		w.runWS("up", 0, "")
+		w.startThenAbandon(t)
 		if w.live().Generation != 2 {
 			t.Fatal(w.live())
 		}
@@ -783,7 +793,8 @@ func TestWerkstattBinary(t *testing.T) {
 		if _, err := os.Stat(w.path(".json")); !errors.Is(err, os.ErrNotExist) {
 			t.Fatal("invented liveness")
 		}
-		w.runWS("up", 0, "")
+		w.runWS("up", 1, "process_incarnation_unavailable")
+		w.protectedOperation()
 		first := w.live().Session
 		w.runWS("status", 0, "", "--abandon-operation", "--json")
 		if l := w.live(); l.State != "down" || l.StateSource != "operator_override" || len(l.AbandonedOperations) != 1 {
@@ -804,7 +815,7 @@ func TestWerkstattBinary(t *testing.T) {
 	// later status/down still route to it after selection changes again.
 	t.Run("manager-switch", func(t *testing.T) {
 		w := newWS(t, bin)
-		w.runWS("up", 0, "")
+		w.startThenAbandon(t)
 		old := *w.live()
 		other := filepath.Join(w.root, "other-manager")
 		otherState := filepath.Join(w.root, "other-state")
@@ -861,7 +872,7 @@ func TestWerkstattBinary(t *testing.T) {
 			t.Fatal("cross-manager duplicate")
 		}
 		w.runWS("down", 0, "")
-		w.runWS("up", 0, "")
+		w.startThenAbandon(t)
 		current := *w.live()
 		if current.Manager.ID != "other" || current.Generation != 1 || current.Session == old.Session {
 			t.Fatal(current)
@@ -886,7 +897,7 @@ func TestWerkstattBinary(t *testing.T) {
 		writeFixture(t, filepath.Join(bin.system, "selector.json"), frontJSON(map[string]any{"schema": "curator-run-selector-v1", "mode": "enforce", "executable": bin.selector, "argv_prefix": []string{"valid"}, "timeout_seconds": 5}), 0600)
 		writeFixture(t, filepath.Join(filepath.Dir(bin.selector), "response.json"), []byte(`{"decision_id":"dispatch/@+1","runtime":"claude","model":"claude-opus-5","effort":"high","weights_id":null,"refusal":null}`), 0600)
 		cleanupSelectorFake(t, bin.selector)
-		w.runWS("up", 0, "", "--task-class", "code.implement", "--difficulty", "high")
+		w.startThenAbandon(t, "--task-class", "code.implement", "--difficulty", "high")
 		b, e := os.ReadFile(filepath.Join(filepath.Dir(bin.selector), "request.json"))
 		if e != nil {
 			t.Fatal(e)

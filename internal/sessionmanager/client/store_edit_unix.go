@@ -117,6 +117,9 @@ func (t *Transaction) Abandon(at time.Time) error {
 		return err
 	}
 	if p != nil {
+		if p.Lease != nil {
+			return t.settleLease(*p, "abandoned", "operator_override", at)
+		}
 		path := filepath.Join(t.dir, t.id+".op.json")
 		if err = os.Remove(path); err != nil {
 			return storeError(t.id)

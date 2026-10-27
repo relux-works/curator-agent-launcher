@@ -435,8 +435,8 @@ func TestGateOwnerFormNil(t *testing.T) {
 // as Codes() members and rejected foreign values elsewhere here.
 func TestGateCoverageCounts(t *testing.T) {
 	normative := gateSpecSection6Codes(t)
-	if len(normative) != 91 {
-		t.Fatalf("normative codes = %d, want 91: %q", len(normative), normative)
+	if len(normative) != 92 {
+		t.Fatalf("normative codes = %d, want 92: %q", len(normative), normative)
 	}
 	if len(gateOwnerRegistry) != 4 {
 		t.Fatalf("owner registry rows = %d, want 4 (usage, resolve, layer, refusal)", len(gateOwnerRegistry))
@@ -518,7 +518,7 @@ func TestGateCoverageCounts(t *testing.T) {
 			t.Fatalf("%s owned = %d, want %d", f.name, f.own, f.want)
 		}
 		foreign := gateForeign(normative, gateOwnedByName(f.name))
-		wantForeign := 91 - f.want + len(gateExtraStrangers())
+		wantForeign := 92 - f.want + len(gateExtraStrangers())
 		if len(foreign) != wantForeign {
 			t.Fatalf("%s foreign+extras = %d, want %d: %q", f.name, len(foreign), wantForeign, foreign)
 		}

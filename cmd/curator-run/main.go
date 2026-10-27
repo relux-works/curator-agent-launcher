@@ -462,6 +462,9 @@ func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, ta
 	if selected.terminal != nil {
 		defer selected.terminal.Close()
 	}
+	if selected.recovered {
+		return 0
+	}
 	deps.hostedSelection = &selected
 	isHosted := selected.route.Kind != "native"
 	if !isHosted && inv.A2A != "" {

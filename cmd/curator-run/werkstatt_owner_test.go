@@ -21,10 +21,10 @@ func TestWerkstattReadableOwnerBinary(t *testing.T) {
 	for _, state := range []string{"idle", "unknown"} {
 		t.Run(state, func(t *testing.T) {
 			w := newWS(t, bin)
-			w.runWS("up", 0, "")
+			w.seedLegacySession(t)
 			prior := *w.live()
 			w.runWS("down", 0, "")
-			w.runWS("up", 0, "")
+			w.seedLegacySession(t)
 			current := *w.live()
 			if current.Generation != prior.Generation+1 {
 				t.Fatal("resume did not advance generation")
@@ -90,7 +90,7 @@ func TestWerkstattOwnerRefusalBinary(t *testing.T) {
 		for _, action := range actions {
 			t.Run(kind+"/"+action, func(t *testing.T) {
 				w := newWS(t, bin)
-				w.runWS("up", 0, "")
+				w.seedLegacySession(t)
 				before, err := os.ReadFile(w.path(".json"))
 				if err != nil {
 					t.Fatal(err)

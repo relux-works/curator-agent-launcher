@@ -158,7 +158,7 @@ func TestScriptedSubmissionAndBinding(t *testing.T) {
 					calls++
 					if calls == 1 {
 						stored, err := tx.Pending()
-						if err != nil || stored == nil || *stored != p {
+						if err != nil || stored == nil || !reflect.DeepEqual(*stored, p) {
 							t.Fatal("remote submission preceded durable correlation")
 						}
 						info, err := os.Stat(filepath.Join(tx.dir, "example.op.json"))

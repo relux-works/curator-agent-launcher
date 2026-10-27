@@ -43,7 +43,7 @@ func TestWerkstattOneProfile(t *testing.T) {
 			}
 			w.managerConfig.Profiles["different"] = fakemanager.Profile{LockSHA256: f.Profile.LockSHA256, FragmentDigest: f.Digest}
 			w.reset()
-			w.runWS("up", 0, "")
+			w.seedLegacySession(t)
 			if w.live().Profile != "sample" {
 				t.Fatal("new generation did not record submitted profile")
 			}
@@ -152,7 +152,7 @@ func TestWerkstattOneProfile(t *testing.T) {
 				}
 				return
 			}
-			if code != 0 {
+			if code != 1 || !strings.Contains(stderr, "process_incarnation_unavailable") {
 				t.Fatalf("valid transition exit=%d out=%s stderr=%s", code, out, stderr)
 			}
 			newGeneration := mode == "new" || mode == "fresh" || mode == "recycle"
@@ -169,7 +169,7 @@ func TestWerkstattOneProfile(t *testing.T) {
 				t.Fatal("conversation identity changed incorrectly")
 			}
 			w.expectStarts(starts + 1)
-			w.noOperation()
+			w.protectedOperation()
 			if _, err := os.Stat(hooks); err != nil {
 				t.Fatal("positive control did not install hooks", err)
 			}
@@ -191,7 +191,7 @@ func readWSFile(t *testing.T, path string) []byte {
 func TestWerkstattMalformedLivenessProfile(t *testing.T) {
 	bin := frontBuild(t)
 	w := newWS(t, bin)
-	w.runWS("up", 0, "")
+	w.seedLegacySession(t)
 	w.runWS("down", 0, "")
 	good := readWSFile(t, w.path(".json"))
 	for _, tc := range []struct {
@@ -221,5 +221,5 @@ func TestWerkstattMalformedLivenessProfile(t *testing.T) {
 		})
 	}
 	writeFixture(t, w.path(".json"), good, 0600)
-	w.runWS("up", 0, "")
+	w.seedLegacySession(t)
 }

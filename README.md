@@ -14,7 +14,7 @@ No implementation, qualification or activation is claimed.
 | Entry | Composer | Process/lifetime owner | Status |
 |---|---|---|---|
 | Direct human `curator-run <env-id> …` | Caller-side interactive launcher | Launcher starts and waits for native child | Existing API below. |
-| Hosted launch | Validated caller policy; plugin composes delegated launches | Registered session manager | Delegated launch is activated for Claude/Codex through a selected conforming manager; refusal never falls back to native. |
+| Hosted launch | Validated caller policy; plugin composes delegated launches | Registered session manager | Delegated launch requires a lease-capable selected manager; start currently retains protection at the process-incarnation gate. Refusal never falls back to native. |
 | Agent one-shot exec | Caller composes; dispatcher admits/provisions/tracks | `curator-run` under `worker-<label>` verifies and executes; dispatcher/helper own stop and cleanup | **Target amendment (version pending), not implemented**; [SPEC §10](SPEC.md#10-agent-account-one-shot-exec-contract-target-amendment). |
 
 Front-door amendment (partially implemented; delegated activation signed off):
@@ -94,8 +94,9 @@ passed through. Claude transitional hooks are installed and verified before
 start; runtime binding remains the manager's responsibility.
 
 State, operation journal and lock files live under
-`${XDG_STATE_HOME:-~/.local/state}/swarma/launcher/werkstatt/`. The journal stays
-until a terminal outcome and a successful liveness write. Owner binding and
+`${XDG_STATE_HOME:-~/.local/state}/swarma/launcher/werkstatt/`. Legacy journals stay
+until a terminal outcome and a successful liveness write. Lease-bearing
+started journals additionally retain pending bind correlation as described below. Owner binding and
 expected tuple CAS prevent stale writes. `recover --rebind-manager` explicitly
 accepts a re-registered owner after a matching session read;
 `recover --abandon-operation` records an operator override and a tombstone,
@@ -129,6 +130,54 @@ A lock timeout always returns the JSON array as a read-only stale snapshot,
 including null liveness before the first start. Recycle polls draining every
 second for at most 20 seconds; a timeout never starts another generation.
 
+## Hosted home leases
+
+Every new hosted launch or resume requires the public Curator home-lease API.
+Native launches make no lease calls. Fresh admission performs one manager
+`describe`; only delegated routes with admission, status and cancel support
+are eligible. An exact route refuses `session_home_lease_unavailable` with
+`reason=route_not_lease_capable` before any lease call or further manager RPC.
+The launcher probes `curator env lease list --format json`, persists the
+original validated request and admitted registration/capability evidence, then
+acquires with a stable request id. Missing, malformed or unsupported lease
+support refuses hosted execution; there is no bypass.
+
+Plain hosted journals live under
+`${XDG_STATE_HOME:-~/.local/state}/swarma/launcher/hosted/`; Werkstatt uses its
+existing journal directory. Recovery replays acquire before any manager RPC.
+Released/broken replay retains a not-started settlement and makes zero manager
+calls. A still-prepared, never-submitted request revalidates its frozen route
+before one submission; a possibly submitted request uses status/cancel and is
+never resent. Plain recovery matches canonical environment/profile/cwd and the
+exact manager registration, skips held locks, refuses multiple matches and
+ends the invocation after recovering one. Run the command again for a fresh
+admission after settlement.
+
+**Current bind limit:** session-record v1 supplies no authoritative provider
+`{pid, started_at}`. After start, the launcher reports the validated session
+handle and `session_home_lease_unavailable`,
+`reason=process_incarnation_unavailable`. It retains the prepared lease and
+pending bind journal, makes no fabricated bind call and does not attach or
+report successful hosted admission. Recovery reconciles the same operation;
+it never starts another generation to repair this gate.
+
+Werkstatt checks all effective file records and the complete Curator lease
+inventory before admission, then repeats the lease inventory check after
+acquire. Conflicting home-to-lane or lane-to-home assignments refuse
+`reason=allocation_conflict`; incomplete inventory also refuses. A configured
+Get-only station source cannot establish complete inventory. Old blocking
+allocations survive down, recycle, manager switches and abandon. A new tuple
+is eligible only after authoritative terminal disposition of the old one.
+
+The launcher sends **no release or break command on any path**. Explicit
+`werkstatt recover <id> --abandon-operation` retains a settlement and prints a
+separate operator break command using the current lease id/revision; an
+unavailable revision produces an inspection hint instead. Neither abandonment
+nor terminal manager status proves release authority. Settlements live under
+`${XDG_STATE_HOME:-~/.local/state}/swarma/launcher/operations/settled/`.
+Exact bind and safe release remain qualification gaps pending authoritative
+process and independent observation contracts.
+
 ## Hosted doorbells
 
 ```sh
@@ -141,7 +190,7 @@ for a doorbell with heartbeat `1m` and six wakes per hour. Werkstatt records
 supply their own values. A doorbell selects delegated launch/resume, even
 when the manager also supports exact launch, under the post-sign-off policy
 in FRONT-DOOR §5.8; `delegated_trial` no longer changes routing. Exact-only
-managers refuse `launch-exact-doorbell`; missing runtime doorbell capabilities
+managers refuse `session_home_lease_unavailable`, `reason=route_not_lease_capable`; missing runtime doorbell capabilities
 refuse before hook installation or start.
 
 For Claude, the launcher runs the resolved absolute `a2a` executable with
@@ -511,18 +560,18 @@ The launch pipeline follows these steps:
 7. Prepare native execution or a plugin request.
    Native launch retains its existing pre-exec checks and prompt preparation.
    Delegated launch sends the resolved profile hashes, model/effort, permission
-   source, prompt semantics and selector-free native tail to `launch`, followed
-   by generation-fenced `attach` unless `--detach` is set. `--board-goal` asks for
+   source, prompt semantics and selector-free native tail to `launch`, with a durable home-lease journal before submission.
+   Current starts stop at the process-incarnation bind gate described above;
+   generation-fenced `attach` is reachable only after successful binding. `--board-goal` asks for
    `workspace` and requires `board-goal/1`; ordinary requests use `none`.
    Selector decision ids are copied verbatim to the `selector` label. Credential
    requests remain null. Doorbell requests follow the hosted doorbell path
    above. Unsupported fragment revisions refuse before manager contact. Hosted
    Muse requires a manager-advertised launch shape and attach operation,
-   including their global capabilities. Plain exact-plan requests retain
-   the qualified payload path.
-   Lost launch/resume answers use the client's single reconciliation loop,
-   without local `op.json`; unresolved outcomes disclose the operation id and
-   refuse `session_liveness_unknown`. No hosted refusal executes natively.
+   including their global capabilities. Exact-plan routes refuse before lease acquisition.
+   Lost launch/resume answers reconcile through their persisted original
+   operation and owner; unresolved outcomes retain correlation and refuse
+   `session_liveness_unknown`. No hosted refusal executes natively.
 
 The permission interface is implemented against upstream
 `skill-agents-management v0.5.74`. It owns
@@ -1002,7 +1051,7 @@ on stderr. Foreign Curator/provider output is forwarded unchanged.
 | `mcp_layer_missing`, `mcp_layer_unreadable` | 1 |
 | `sysprompt_channel_unavailable`, `sysprompt_file_unreadable` | 1 |
 | `network_profile_unknown`, `network_profile_denied`, `network_scope_unsupported`, `network_configuration_conflict`, `network_proxy_unreachable`, `network_proxy_auth_failed`, `network_profile_invalid`, `network_file_unreadable` | 1 (hosted `--network`: `network_scope_unsupported` exits 16) |
-| `session_host_missing`, `session_host_unavailable` | 1 |
+| `session_host_missing`, `session_host_unavailable`, `session_home_lease_unavailable` | 1 |
 | `session_host_protocol_unsupported`, `session_host_provider_unsupported`, `session_host_scope_unsupported`, `session_host_execution_profile_unsupported`, `session_host_terminal_required`, `session_host_stdin_unsupported` | 6 |
 | `secret_policy_violation`, `policy_refused`, `session_host_delegated_unauthorized` | 16 |
 | Direct child failure | Child's exit code unchanged |

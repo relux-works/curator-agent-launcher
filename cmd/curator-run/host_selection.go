@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"slices"
 
 	"github.com/relux-works/curator-agent-launcher/internal/cli"
@@ -20,11 +21,13 @@ import (
 )
 
 type hostSelection struct {
-	client   client.Client
-	route    client.Route
-	terminal *os.File
-	tail     []string
-	intent   agentic.ResumeIntent
+	client    client.Client
+	route     client.Route
+	terminal  *os.File
+	tail      []string
+	intent    agentic.ResumeIntent
+	describe  client.Describe
+	recovered bool
 }
 
 func emitHostFailure(w io.Writer, err error) int {
@@ -174,10 +177,24 @@ func resolveHost(ctx context.Context, inv cli.Invocation, frag *fragment.Fragmen
 		return result, err
 	}
 	result.client = client.Client{ID: state.ID, Entry: state.Entry, Environment: deps.environ(), CWD: wd}
+	physical, e := filepath.EvalSymlinks(wd)
+	if e != nil {
+		return result, hostError("launch_plan_invalid", nil)
+	}
+	result.client.CWD = physical
+	recoverer := client.Reconciler{Registry: registry.Managers, Leases: &client.LeaseCLI{Environment: deps.environ()}, Caller: func(id string, e sessionmanager.Entry) client.Caller {
+		return client.Client{ID: id, Entry: e, Environment: deps.environ(), CWD: physical}
+	}}
+	matched, _, e := client.PlainStore(deps.environ()).RecoverMatching(ctx, recoverer, frag.Environment, frag.Profile.Name, physical, client.Binding{ID: state.ID, Executable: state.Entry.Executable, RegisteredAt: state.Entry.RegisteredAt})
+	if matched || e != nil {
+		result.recovered = matched
+		return result, e
+	}
 	response, err := result.client.Call(ctx, "describe", []byte(`{}`))
 	if err != nil {
 		return result, err
 	}
+	result.describe = *response.Describe
 	result.route, err = client.Required(*response.Describe, client.Needs{
 		Runtime: frag.Environment, HostMode: mode, ExplicitHosted: inv.HostFlag == cli.HostFlagHosted,
 		Detached: inv.Detach, Resume: elevation.Intent.Kind != agentic.ResumeNew, BoardGoal: inv.BoardGoal,

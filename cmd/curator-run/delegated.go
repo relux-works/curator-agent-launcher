@@ -108,6 +108,9 @@ func runDelegated(ctx context.Context, inv cli.Invocation, frag *fragment.Fragme
 	if deps.now != nil {
 		now = deps.now
 	}
+	if deps.hostedSelection.client.CWD != "" {
+		cwd = deps.hostedSelection.client.CWD
+	}
 	op, data, err := delegatedRequest(inv, frag, resolved, permission, cwd, tail, intent, now())
 	if err != nil {
 		return emitHostFailure(stderr, err)
@@ -118,11 +121,13 @@ func runDelegated(ctx context.Context, inv cli.Invocation, frag *fragment.Fragme
 			return emitHostFailure(stderr, err)
 		}
 	}
-	session, err := deps.hostedSelection.client.Start(ctx, op, data)
+	session, err := deps.hostedSelection.client.StartLeased(ctx, op, data, deps.hostedSelection.describe)
+	if session != nil {
+		client.WriteDoorbell(stderr, session)
+	}
 	if err != nil {
 		return emitHostFailure(stderr, err)
 	}
-	client.WriteDoorbell(stderr, session)
 	if deps.hostedSession != nil {
 		deps.hostedSession(session.Session)
 	}

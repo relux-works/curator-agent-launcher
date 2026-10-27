@@ -26,7 +26,7 @@ func TestWerkstattAlignmentBinary(t *testing.T) {
 	for _, override := range []bool{false, true} {
 		t.Run(map[bool]string{false: "unreadable-manager", true: "unreadable-override"}[override], func(t *testing.T) {
 			w := newWS(t, bin)
-			w.runWS("up", 0, "")
+			w.seedLegacySession(t)
 			w.runWS("status", 0, "", "--set-task", "sample-task", "--queue-depth", "3", "--json")
 			if override {
 				w.runWS("status", 0, "", "--abandon-operation", "--json")
@@ -60,7 +60,7 @@ func TestWerkstattAlignmentBinary(t *testing.T) {
 				t.Run(name, func(t *testing.T) {
 					w := newWS(t, bin)
 					if populated {
-						w.runWS("up", 0, "")
+						w.seedLegacySession(t)
 					}
 					before, readErr := os.ReadFile(w.path(".json"))
 					if readErr != nil && !errors.Is(readErr, os.ErrNotExist) {
@@ -133,7 +133,7 @@ func TestWerkstattAlignmentBinary(t *testing.T) {
 			if _, e := os.Stat(w.path(".json")); !errors.Is(e, os.ErrNotExist) {
 				t.Fatal("dispatch invented liveness", e)
 			}
-			w.runWS("up", 0, "")
+			w.seedLegacySession(t)
 			settled := *w.live()
 			prestart := settled
 			prestart.Session, prestart.Generation, prestart.OperationID = "", 0, nil

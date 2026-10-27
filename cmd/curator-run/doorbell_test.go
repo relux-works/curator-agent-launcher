@@ -63,7 +63,8 @@ func doorbellLine(t *testing.T, text, state, reason string) {
 
 // The real launcher installs and independently verifies the three exact Claude
 // commands before any start. Failures retain no pending operation and start no
-// provider; unrelated settings/hooks survive the positive control.
+// provider; unrelated settings/hooks survive the positive control, whose start
+// retains its journal at the HL22 local incarnation gate.
 func TestDoorbellBinary(t *testing.T) {
 	bin := frontBuild(t)
 	t.Run("hooks", func(t *testing.T) {
@@ -83,7 +84,7 @@ func TestDoorbellBinary(t *testing.T) {
 				code, out, stderr := w.invokeWS("up")
 				want, step := 1, "verify"
 				if mode == "success" {
-					want = 0
+					want = 1
 					step = ""
 				} else if mode == "fail" || mode == "timeout" {
 					step = "install"
@@ -95,8 +96,8 @@ func TestDoorbellBinary(t *testing.T) {
 				if strings.Contains(stderr, "UNTRUSTED_INSTALL_OUTPUT") {
 					t.Fatal("installer output leaked")
 				}
-				w.noOperation()
 				if mode != "success" {
+					w.noOperation()
 					if !strings.Contains(stderr, "doorbell_setup_failed") || !strings.Contains(stderr, "step="+step) {
 						t.Fatal("wrong hook failure", stderr)
 					}
@@ -105,6 +106,10 @@ func TestDoorbellBinary(t *testing.T) {
 						t.Fatal("start after hook failure", w.calls())
 					}
 					return
+				}
+				w.protectedOperation()
+				if !strings.Contains(stderr, "process_incarnation_unavailable") {
+					t.Fatal(stderr)
 				}
 				w.expectStarts(1)
 				doorbellLine(t, stderr, "armed", "")
@@ -120,8 +125,10 @@ func TestDoorbellBinary(t *testing.T) {
 				if !strings.Contains(string(data), "user-hook") || !strings.Contains(string(data), "leave alone") || !strings.Contains(string(data), `"KEEP":"yes"`) || !strings.Contains(string(data), `"kept":true`) {
 					t.Fatal("unrelated settings removed", string(data))
 				}
+				w.runWS("recover", 0, "", "--abandon-operation")
+				w.runWS("status", 0, "")
 				w.runWS("down", 0, "")
-				w.runWS("up", 0, "")
+				w.runWS("up", 1, "process_incarnation_unavailable")
 				if !slices.Contains(w.calls(), "resume") {
 					t.Fatal("missing resume", w.calls())
 				}
@@ -143,8 +150,8 @@ func TestDoorbellBinary(t *testing.T) {
 					w.control(fakemanager.FixtureRequest{Operation: "set_doorbell", Name: variant})
 				}
 				code, _, stderr := w.invokeWS("up")
-				if code != 0 {
-					t.Fatal("up failed", stderr)
+				if code != 1 || !strings.Contains(stderr, "process_incarnation_unavailable") {
+					t.Fatal("up gate", stderr)
 				}
 				state, reason := variant, ""
 				if variant == "unsupported_version" {
@@ -159,6 +166,8 @@ func TestDoorbellBinary(t *testing.T) {
 				} else {
 					hookEvidence(t, w.frontFixture)
 				}
+				// Explicit fixture operator settlement permits testing independent read surfaces.
+				w.runWS("recover", 0, "", "--abandon-operation")
 				for _, action := range []string{"status", "list"} {
 					args := []string{"werkstatt", action}
 					if action == "status" {
@@ -194,7 +203,7 @@ func TestDoorbellBinary(t *testing.T) {
 				w := newWS(t, bin)
 				identity := "sample.dev"
 				args := []string{"--hosted", "--detach", "--a2a", identity}
-				want, diagnostic, calls, starts := 0, "", []string{"describe", "launch"}, 1
+				want, diagnostic, calls, starts := 1, "process_incarnation_unavailable", []string{"describe", "launch"}, 1
 				switch variant {
 				case "hyphen-identity":
 					identity = "-sample.dev"
@@ -297,8 +306,8 @@ func TestDoorbellBinary(t *testing.T) {
 							w.expectStarts(0)
 							w.noOperation()
 						} else {
-							if code != 0 {
-								t.Fatal("plain directory refused", stderr)
+							if code != 1 || !strings.Contains(stderr, "process_incarnation_unavailable") {
+								t.Fatal("plain directory gate", stderr)
 							}
 							hookEvidence(t, w.frontFixture)
 							w.expectStarts(1)
@@ -361,8 +370,8 @@ func TestDoorbellBinary(t *testing.T) {
 				}
 				code, _, stderr := w.invokeWS("up")
 				if variant == "trusted-after-repo" {
-					if code != 0 {
-						t.Fatal("trusted alternative refused", stderr)
+					if code != 1 || !strings.Contains(stderr, "process_incarnation_unavailable") {
+						t.Fatal("trusted alternative gate", stderr)
 					}
 					evidence := hookEvidence(t, w.frontFixture)
 					var args []string
@@ -400,7 +409,7 @@ func TestDoorbellBinary(t *testing.T) {
 		w.managerConfig.Profiles["sample"] = fakemanager.Profile{LockSHA256: frag.Profile.LockSHA256, FragmentDigest: frag.Digest}
 		w.reset()
 		code, _, stderr := w.command(bin.launcher, []string{"codex_cli", "--hosted", "--detach", "--a2a", "sample.dev", "--model", "gpt-6-astra", "--effort", "medium", "--permissions", "native"}, nil, false, false, 15*time.Second)
-		w.require(t, code, 0, stderr, "", []string{"describe", "launch"}, 1, false)
+		w.require(t, code, 1, stderr, "process_incarnation_unavailable", []string{"describe", "launch"}, 1, false)
 		hookAbsent(t, w.frontFixture)
 		doorbellLine(t, stderr, "armed", "")
 	})

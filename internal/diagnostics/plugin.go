@@ -10,6 +10,7 @@ type PluginDiagnostic struct {
 }
 
 var pluginDiagnostics = map[string]PluginDiagnostic{
+	"session_home_lease_unavailable":           {1, "Hosted home lease unavailable."},
 	"ax_tracking_removed":                      {2, "Ax tracking was removed; delete this file."},
 	"credential_binding_mismatch":              {2, "Credential binding mismatch."},
 	"credential_injection_unavailable":         {2, "Credential injection unavailable."},

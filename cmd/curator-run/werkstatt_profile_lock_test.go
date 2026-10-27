@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-// Profile-lock admission preserves matching/absent launches and refuses unsafe locks without start effects.
+// HL21/HL22 / L1/L2: profile-lock admission preserves matching/absent submissions and refuses unsafe locks without start effects.
 // Curator and the manager are local doubles, not real provider integrations.
 func TestWerkstattProfileLock(t *testing.T) {
 	bin := frontBuild(t)
@@ -24,7 +24,7 @@ func TestWerkstattProfileLock(t *testing.T) {
 				w.record["doorbell"] = map[string]any{"heartbeat": "1m", "max_wakes_per_hour": 6}
 				w.write()
 				if mode != "new" {
-					w.runWS("up", 0, "")
+					w.seedLegacySession(t)
 					if mode == "resume" {
 						w.runWS("down", 0, "")
 					} else {
@@ -68,11 +68,11 @@ func TestWerkstattProfileLock(t *testing.T) {
 					if mode != "new" {
 						operation = "resume"
 					}
-					if code != 0 || !slices.Equal(gotCalls, append(reads, operation)) {
+					if code != 1 || !strings.Contains(stderr, "process_incarnation_unavailable") || !slices.Equal(gotCalls, append(reads, operation)) {
 						t.Fatalf("valid lock exit=%d calls=%v stdout=%s stderr=%s", code, gotCalls, out, stderr)
 					}
 					w.expectStarts(starts + 1)
-					w.noOperation()
+					w.protectedOperation()
 					if _, err := os.Stat(hooks); err != nil {
 						t.Fatal("matching/absent lock did not install hooks", err)
 					}

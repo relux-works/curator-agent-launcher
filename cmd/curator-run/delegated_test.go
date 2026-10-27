@@ -35,12 +35,12 @@ func TestDelegatedProjection(t *testing.T) {
 			t.Errorf("projection %s=%#v want=%#v", k, r[k], want)
 		}
 	}
-	d := client.Describe{Capabilities: []string{"launch-delegated/1", "attach/1", "board-goal/1"}, Runtimes: map[string][]string{"claude_code": {"launch", "attach"}}}
+	d := client.Describe{Capabilities: []string{"launch-delegated/1", "attach/1", "board-goal/1", "status/1", "admission/1"}, Runtimes: map[string][]string{"claude_code": {"launch", "attach", "status", "cancel"}}}
 	route, err := client.RequiredForRequest(d, op, data, client.Needs{ExplicitHosted: true, DelegatedTrial: true})
 	if err != nil || route.Kind != "delegated" {
 		t.Fatal(route, err)
 	}
-	d.Capabilities = []string{"launch-delegated/1", "attach/1"}
+	d.Capabilities = []string{"launch-delegated/1", "attach/1", "status/1", "admission/1"}
 	if _, err := client.RequiredForRequest(d, op, data, client.Needs{ExplicitHosted: true, DelegatedTrial: true}); !client.IsCode(err, "session_host_capability_missing") {
 		t.Fatal("board goal capability not required", err)
 	}

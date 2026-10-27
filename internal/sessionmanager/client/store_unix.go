@@ -23,13 +23,29 @@ type Binding struct {
 	RegisteredAt string `json:"registered_at"`
 }
 type Pending struct {
-	Profile      string  `json:"profile,omitempty"`
-	OperationID  string  `json:"operation_id"`
-	Kind         string  `json:"kind"`
-	SubmittedAt  string  `json:"submitted_at"`
-	AdmissionKey string  `json:"admission_key"`
-	Manager      Binding `json:"manager"`
+	Phase        string          `json:"phase,omitempty"`
+	CWD          string          `json:"cwd,omitempty"`
+	Request      json.RawMessage `json:"request,omitempty"`
+	Lease        *LeaseAdmission `json:"lease,omitempty"`
+	Profile      string          `json:"profile,omitempty"`
+	OperationID  string          `json:"operation_id"`
+	Kind         string          `json:"kind"`
+	SubmittedAt  string          `json:"submitted_at"`
+	AdmissionKey string          `json:"admission_key"`
+	Manager      Binding         `json:"manager"`
 }
+
+func (p Pending) MarshalJSON() ([]byte, error) {
+	type raw Pending
+	if p.Lease != nil && p.AdmissionKey == "" {
+		return json.Marshal(struct {
+			raw
+			AdmissionKey *string `json:"admission_key"`
+		}{raw: raw(p)})
+	}
+	return json.Marshal(raw(p))
+}
+
 type Abandoned struct {
 	OperationID string `json:"operation_id"`
 	AbandonedAt string `json:"abandoned_at"`
@@ -69,12 +85,16 @@ func sameOperation(a, b *string) bool {
 	return a == nil && b == nil || a != nil && b != nil && *a == *b
 }
 
-type Store struct{ Directory string }
+type Store struct {
+	Directory string
+	Plain     bool
+}
 
 // Transaction is an exclusive, caller-owned handle, not shared between goroutines.
 // Pending and liveness mutations cannot be performed without this handle.
 type Transaction struct {
 	id, dir string
+	plain   bool
 	lock    *os.File
 }
 
@@ -87,7 +107,7 @@ func storeError(id string) *Error {
 	return refusal("werkstatt_record_invalid", map[string]string{"id": id})
 }
 func (s Store) Lock(ctx context.Context, id string) (*Transaction, error) {
-	if !werkstattID.MatchString(id) || !filepath.IsAbs(s.Directory) {
+	if !s.validID(id) || !filepath.IsAbs(s.Directory) {
 		return nil, storeError("")
 	}
 	if err := os.MkdirAll(s.Directory, 0700); err != nil {
@@ -112,7 +132,12 @@ func (s Store) Lock(ctx context.Context, id string) (*Transaction, error) {
 	for {
 		err = unix.Flock(fd, unix.LOCK_EX|unix.LOCK_NB)
 		if err == nil {
-			return &Transaction{id: id, dir: s.Directory, lock: file}, nil
+			physical, e := filepath.EvalSymlinks(s.Directory)
+			if e != nil {
+				file.Close()
+				return nil, storeError(id)
+			}
+			return &Transaction{id: id, dir: physical, lock: file, plain: s.Plain}, nil
 		}
 		if err != unix.EWOULDBLOCK && err != unix.EAGAIN && err != unix.EINTR {
 			file.Close()
@@ -126,6 +151,21 @@ func (s Store) Lock(ctx context.Context, id string) (*Transaction, error) {
 		}
 	}
 }
+func (s Store) validID(id string) bool {
+	if !s.Plain {
+		return werkstattID.MatchString(id)
+	}
+	return operationUUID.MatchString(id)
+}
+func (t *Transaction) matches(p Pending) bool {
+	if t.plain {
+		return p.Lease != nil && p.OperationID == t.id && p.AdmissionKey == ""
+	}
+	return p.AdmissionKey == "werkstatt:"+t.id
+}
+
+var operationUUID = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`)
+
 func (t *Transaction) Close() error {
 	if t == nil || t.lock == nil {
 		return nil
@@ -171,7 +211,7 @@ func (t *Transaction) Pending() (*Pending, error) {
 	}
 	var p Pending
 	_ = json.Unmarshal(data, &p)
-	if p.AdmissionKey != "werkstatt:"+t.id {
+	if !t.matches(p) || !validateLeaseCorrelation(p) {
 		return nil, storeError(t.id)
 	}
 	return &p, nil
@@ -188,7 +228,7 @@ func (t *Transaction) WritePending(p Pending) error {
 		return refusal("werkstatt_busy", map[string]string{"operation": "in_progress"})
 	}
 	data, err := json.Marshal(p)
-	if err != nil || managerschema.Validate("operation.schema.json", data) != nil || p.AdmissionKey != "werkstatt:"+t.id {
+	if err != nil || managerschema.Validate("operation.schema.json", data) != nil || !t.matches(p) || !validateLeaseCorrelation(p) {
 		return storeError(t.id)
 	}
 	if sessionmanager.WriteAtomic(filepath.Join(t.dir, t.id+".op.json"), data) != nil {
@@ -199,7 +239,7 @@ func (t *Transaction) WritePending(p Pending) error {
 
 // clearTerminal cannot be called for intermediate outcomes or unconfirmed cancel.
 func (t *Transaction) clearTerminal(operation, outcome string) error {
-	if outcome != "started" && outcome != "failed" && outcome != "cancelled" {
+	if outcome != "started" && outcome != "failed" && outcome != "cancelled" && outcome != "not_started" && outcome != "abandoned" {
 		return storeError(t.id)
 	}
 	p, err := t.Pending()

@@ -16,6 +16,20 @@ import (
 var providerHelp string
 
 func main() {
+	if filepath.Base(os.Args[0]) == "advertise-manager" {
+		raw, _ := json.Marshal(map[string]any{"pid": os.Getpid(), "args": os.Args[1:]})
+		_ = os.WriteFile("advertise-trace.json", raw, 0600)
+		if len(os.Args) != 2 || os.Args[1] != "describe" {
+			os.Exit(95)
+		}
+		body, err := os.ReadFile("advertise-describe.json")
+		if err != nil {
+			os.Exit(94)
+		}
+		os.Stdout.Write(body)
+		return
+	}
+
 	if filepath.Base(os.Args[0]) == "a2a" {
 		if len(os.Args) > 2 && os.Args[1] == "hook" {
 			hookInstall()
@@ -43,6 +57,10 @@ func main() {
 		return
 	}
 	if filepath.Base(os.Args[0]) == "curator" {
+		if len(os.Args) > 3 && os.Args[1] == "env" && os.Args[2] == "lease" {
+			leaseCommand()
+			return
+		}
 		if path := os.Getenv("FRONTDOOR_RESOLVE_LOG"); path != "" {
 			if os.WriteFile(path, []byte("resolved"), 0600) != nil {
 				os.Exit(1)

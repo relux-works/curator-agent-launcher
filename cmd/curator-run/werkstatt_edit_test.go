@@ -68,7 +68,7 @@ func TestWerkstattEditBinary(t *testing.T) {
 	} {
 		t.Run(tc.action+"/"+strings.Join(tc.flags, " "), func(t *testing.T) {
 			w := newWS(t, bin)
-			w.runWS("up", 0, "")
+			w.seedLegacySession(t)
 			before, err := os.ReadFile(w.path(".json"))
 			if err != nil {
 				t.Fatal(err)

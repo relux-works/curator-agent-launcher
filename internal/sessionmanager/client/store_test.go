@@ -213,7 +213,7 @@ func TestLivenessFailureRecovery(t *testing.T) {
 				return callerFunc(func(_ context.Context, op string, _ []byte) (Response, error) {
 					calls = append(calls, op)
 					stored, err := tx.Pending()
-					if err != nil || stored == nil || *stored != p {
+					if err != nil || stored == nil || !reflect.DeepEqual(*stored, p) {
 						t.Fatal("remote call lacks durable owner-bound correlation")
 					}
 					if op == "launch" {

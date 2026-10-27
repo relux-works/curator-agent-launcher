@@ -118,6 +118,32 @@ func newFront(t *testing.T, bin frontBinaries) *frontFixture {
 	f.reset()
 	f.policy("auto", false)
 	f.registry("selected")
+	// HL23 / L3: all real-binary front-door fixtures enforce a zero release/break
+	// invocation counter and recorded-PID no-survivor assertion, including failures.
+	t.Cleanup(func() {
+		raw, _ := os.ReadFile(filepath.Join(root, "lease-trace.jsonl"))
+		counts := map[string]int{}
+		for _, line := range bytes.Split(bytes.TrimSpace(raw), []byte{'\n'}) {
+			if len(line) == 0 {
+				continue
+			}
+			var row struct {
+				Operation string
+				PID       int
+			}
+			if json.Unmarshal(line, &row) != nil {
+				t.Error("invalid lease trace")
+				continue
+			}
+			counts[row.Operation]++
+			if !errors.Is(syscall.Kill(row.PID, 0), syscall.ESRCH) {
+				t.Errorf("lease child survived: %d", row.PID)
+			}
+		}
+		if counts["release"] != 0 || counts["break"] != 0 {
+			t.Errorf("ZERO-RELEASE ALARM release=%d break=%d", counts["release"], counts["break"])
+		}
+	})
 	return f
 }
 func (f *frontFixture) policy(mode string, trial bool) {
@@ -267,9 +293,9 @@ func TestFrontDoorBinary(t *testing.T) {
 				starts           int
 				native           bool
 			}{
-				{"explicit", "auto", "--hosted", 0, "ends hosted sessions when it is upgraded", []string{"describe", "launch", "attach"}, 1, false},
-				{"auto", "auto", "", 0, "ends hosted sessions when it is upgraded", []string{"describe", "launch", "attach"}, 1, false},
-				{"hosted-default", "hosted", "", 0, "ends hosted sessions when it is upgraded", []string{"describe", "launch", "attach"}, 1, false},
+				{"explicit", "auto", "--hosted", 1, "process_incarnation_unavailable", []string{"describe", "launch"}, 1, false},
+				{"auto", "auto", "", 1, "process_incarnation_unavailable", []string{"describe", "launch"}, 1, false},
+				{"hosted-default", "hosted", "", 1, "process_incarnation_unavailable", []string{"describe", "launch"}, 1, false},
 				{"native-flag", "hosted", "--native", 0, "", nil, 0, true},
 				{"native-mode", "native", "", 0, "", nil, 0, true},
 			} {
@@ -310,7 +336,7 @@ func TestFrontDoorBinary(t *testing.T) {
 						return
 					}
 					if kind == "selected" {
-						f.require(t, code, 0, stderr, "", []string{"describe", "launch", "attach"}, 1, false)
+						f.require(t, code, 1, stderr, "process_incarnation_unavailable", []string{"describe", "launch"}, 1, false)
 						return
 					}
 					detail := "no manager selected"
@@ -421,7 +447,7 @@ func testDelegatedDetails(t *testing.T, bin frontBinaries) {
 		f := newFront(t, bin)
 		f.policy("auto", true)
 		code, _, stderr := f.invoke(true, false, "--hosted", "--", "hello")
-		f.require(t, code, 0, stderr, "ends hosted sessions when it is upgraded", []string{"describe", "launch", "attach"}, 1, false)
+		f.require(t, code, 1, stderr, "process_incarnation_unavailable", []string{"describe", "launch"}, 1, false)
 		stored := frontStored(t, f.observe())
 		var request map[string]any
 		json.Unmarshal(stored.Plan, &request)
@@ -445,7 +471,7 @@ func testDelegatedDetails(t *testing.T, bin frontBinaries) {
 		f := newFront(t, bin)
 		f.policy("auto", true)
 		code, _, stderr := f.invoke(false, false, "--hosted", "--detach")
-		f.require(t, code, 0, stderr, "", []string{"describe", "launch"}, 1, false)
+		f.require(t, code, 1, stderr, "process_incarnation_unavailable", []string{"describe", "launch"}, 1, false)
 	})
 	t.Run("board-goal", func(t *testing.T) {
 		f := newFront(t, bin)
@@ -454,14 +480,14 @@ func testDelegatedDetails(t *testing.T, bin frontBinaries) {
 		f.require(t, code, 6, stderr, "capability=board-goal/1", []string{"describe"}, 0, false)
 		// Nearby positive control: goal-less request works with this same manager.
 		code, _, stderr = f.invoke(true, false, "--hosted")
-		f.require(t, code, 0, stderr, "", []string{"describe", "describe", "launch", "attach"}, 1, false)
+		f.require(t, code, 1, stderr, "process_incarnation_unavailable", []string{"describe", "describe", "launch"}, 1, false)
 	})
-	t.Run("attach-exit", func(t *testing.T) {
+	t.Run("bind-gate-precedes-attach", func(t *testing.T) {
 		f := newFront(t, bin)
 		f.policy("auto", true)
 		f.control(fakemanager.FixtureRequest{Operation: "inject_fault", Name: "plain-attach-exit"})
 		code, _, stderr := f.invoke(true, false, "--hosted")
-		f.require(t, code, 7, stderr, "", []string{"describe", "launch", "attach"}, 1, false)
+		f.require(t, code, 1, stderr, "process_incarnation_unavailable", []string{"describe", "launch"}, 1, false)
 		if strings.Contains(stderr, "policy_refused") {
 			t.Fatal("untyped exit converted to refusal")
 		}
@@ -474,7 +500,7 @@ func testDelegatedDetails(t *testing.T, bin frontBinaries) {
 			code, _, stderr := f.invoke(true, false, "--hosted")
 			switch fault {
 			case "after-admission":
-				f.require(t, code, 0, stderr, "", []string{"describe", "launch", "status", "attach"}, 1, false)
+				f.require(t, code, 1, stderr, "process_incarnation_unavailable", []string{"describe", "launch", "status"}, 1, false)
 			case "crash-after-start":
 				f.require(t, code, 1, stderr, "session_liveness_unknown", []string{"describe", "launch", "status"}, 1, false)
 				if !strings.Contains(stderr, "operation=") {
@@ -490,7 +516,7 @@ func testDelegatedDetails(t *testing.T, bin frontBinaries) {
 			f := newFront(t, bin)
 			f.policy("auto", true)
 			code, _, stderr := f.invoke(false, false, "--hosted", "--detach")
-			f.require(t, code, 0, stderr, "", []string{"describe", "launch"}, 1, false)
+			f.require(t, code, 1, stderr, "process_incarnation_unavailable", []string{"describe", "launch"}, 1, false)
 			stored := frontStored(t, f.observe())
 			nativeID := "01234567-89ab-4cde-8123-456789abcdef"
 			// The fake's generated opaque id is not a Claude UUID. Set this harmless
@@ -512,6 +538,12 @@ func testDelegatedDetails(t *testing.T, bin frontBinaries) {
 			if code != 0 {
 				t.Fatalf("stop %d %s", code, stderr)
 			}
+			f.terminalLeases("broken")
+			code, _, stderr = f.invoke(false, false, "--hosted", "--detach")
+			if code != 1 || !strings.Contains(stderr, "already_broken") {
+				t.Fatal("terminal recovery did not end run", stderr)
+			}
+
 			args := []string{"--hosted"}
 			switch selector {
 			case "latest":
@@ -529,7 +561,7 @@ func testDelegatedDetails(t *testing.T, bin frontBinaries) {
 			if selector == "missing" {
 				f.require(t, code, 1, stderr, "session_resume_not_found", []string{"describe", "launch", "stop", "describe", "resume"}, 1, false)
 			} else {
-				f.require(t, code, 0, stderr, "", []string{"describe", "launch", "stop", "describe", "resume", "attach"}, 2, false)
+				f.require(t, code, 1, stderr, "process_incarnation_unavailable", []string{"describe", "launch", "stop", "describe", "resume"}, 2, false)
 				if s := frontStored(t, f.observe()); s.Handle != stored.Handle {
 					t.Fatal("resume created another session")
 				}
@@ -555,15 +587,20 @@ func testDelegatedDetails(t *testing.T, bin frontBinaries) {
 		f.managerConfig.Profiles["sample"] = fakemanager.Profile{LockSHA256: frag.Profile.LockSHA256, FragmentDigest: frag.Digest}
 		f.reset()
 		code, _, stderr := f.invoke(true, false, "--hosted", "--system-prompt", "append")
-		f.require(t, code, 0, stderr, "", []string{"describe", "launch", "attach"}, 1, false)
+		f.require(t, code, 1, stderr, "process_incarnation_unavailable", []string{"describe", "launch"}, 1, false)
 		stored := frontStored(t, f.observe())
 		var plan map[string]any
 		json.Unmarshal(stored.Plan, &plan)
 		if !reflect.DeepEqual(plan["system_prompt"], map[string]any{"semantics": "append"}) {
 			t.Fatal("prompt semantics lost")
 		}
+		f.terminalLeases("broken")
+		code, _, stderr = f.invoke(true, false, "--hosted", "--detach")
+		if code != 1 || !strings.Contains(stderr, "already_broken") {
+			t.Fatal(stderr)
+		}
 		code, _, stderr = f.invoke(true, false, "--hosted", "--system-prompt", "append", "--", "--append-system-prompt", "conflict")
-		f.require(t, code, 1, stderr, "plan_refused", []string{"describe", "launch", "attach", "describe"}, 1, false)
+		f.require(t, code, 1, stderr, "plan_refused", []string{"describe", "launch", "describe"}, 1, false)
 		if strings.Contains(stderr, "conflict\"") {
 			t.Fatal("hosted refusal echoed native value")
 		}
@@ -587,7 +624,7 @@ func testDelegatedDetails(t *testing.T, bin frontBinaries) {
 		f.reset()
 		args := []string{"codex_cli", "--hosted", "--model", "gpt-6-astra", "--effort", "medium", "--permissions", "native"}
 		code, _, stderr := f.command(f.bin.launcher, args, nil, true, false, 12*time.Second)
-		f.require(t, code, 0, stderr, "", []string{"describe", "launch", "attach"}, 1, false)
+		f.require(t, code, 1, stderr, "process_incarnation_unavailable", []string{"describe", "launch"}, 1, false)
 		if stored := frontStored(t, f.observe()); stored.Runtime != "codex_cli" {
 			t.Fatal("wrong runtime")
 		}
@@ -614,7 +651,7 @@ func testDelegatedDetails(t *testing.T, bin frontBinaries) {
 				syscall.Kill(-pid, syscall.SIGKILL)
 				t.Fatal("selector survived invocation")
 			}
-			f.require(t, code, 0, stderr, "", []string{"describe", "launch", "attach"}, 1, false)
+			f.require(t, code, 1, stderr, "process_incarnation_unavailable", []string{"describe", "launch"}, 1, false)
 			if !reflect.DeepEqual(frontStored(t, f.observe()).Labels, map[string]string{"selector": decision}) {
 				t.Fatal("selector label lost")
 			}
@@ -625,9 +662,14 @@ func testDelegatedDetails(t *testing.T, bin frontBinaries) {
 			if code != 0 {
 				t.Fatal(stderr)
 			}
+			f.terminalLeases("broken")
+			code, _, stderr = f.invoke(true, false, "--hosted", "--detach")
+			if code != 1 || !strings.Contains(stderr, "already_broken") {
+				t.Fatal(stderr)
+			}
 			writeFixture(t, filepath.Join(f.root, "bin", "response.json"), frontJSON(map[string]any{"decision_id": "new-decision", "runtime": "claude", "model": "claude-opus-5", "effort": "medium", "weights_id": nil, "refusal": nil}), 0600)
 			code, _, stderr = f.invoke(true, false, "--hosted", "resume")
-			f.require(t, code, 0, stderr, "", []string{"describe", "launch", "attach", "stop", "describe", "resume", "attach"}, 2, false)
+			f.require(t, code, 1, stderr, "process_incarnation_unavailable", []string{"describe", "launch", "stop", "describe", "resume"}, 2, false)
 			after := frontStored(t, f.observe())
 			if !reflect.DeepEqual(after.Labels, stored.Labels) || f.observe().PolicyDigests[stored.Handle] != before {
 				t.Fatal("resume replaced admitted labels or policy")
@@ -649,8 +691,8 @@ func testDelegatedDetails(t *testing.T, bin frontBinaries) {
 	})
 }
 
-// Actual shadow observations correlate ordinary and reconciled hosted starts
-// with the admitted handle. A refused start never produces a hosted outcome.
+// HL22/L2: a manager start followed by the incarnation gate is a refused
+// launcher outcome, never a successful hosted outcome or attach.
 // The shadow worker is stubbed here; its detached lifetime is tested separately.
 func testHostedShadowOutcome(t *testing.T, bin frontBinaries) {
 	for _, fault := range []string{"none", "after-admission", "before-admission"} {
@@ -687,7 +729,7 @@ func testHostedShadowOutcome(t *testing.T, bin frontBinaries) {
 			defer cancel()
 			code := run(ctx, []string{"claude_code", "--hosted", "--detach", "--model", "claude-opus-5", "--effort", "medium", "--permissions", "native"}, &stdout, &stderr, deps)
 			calls := []string{"describe", "launch"}
-			want, starts, diagnostic := 0, 1, ""
+			want, starts, diagnostic := 1, 1, "process_incarnation_unavailable"
 			if fault != "none" {
 				calls = append(calls, "status")
 			}
@@ -706,7 +748,7 @@ func testHostedShadowOutcome(t *testing.T, bin frontBinaries) {
 			}
 			expected := "refused:session_host_unavailable"
 			if starts == 1 {
-				expected = "hosted:" + frontStored(t, f.observe()).Handle
+				expected = "refused:session_home_lease_unavailable"
 			}
 			if record.Kind != "observation" || record.Outcome != expected {
 				t.Fatalf("shadow outcome=%q want=%q", record.Outcome, expected)

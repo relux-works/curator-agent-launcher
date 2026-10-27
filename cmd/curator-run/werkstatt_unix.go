@@ -291,7 +291,11 @@ func prepareWerkstatt(ctx context.Context, r *werkstatt.Record, c werkstatt.Comm
 	if deps.now != nil {
 		at = deps.now()
 	}
-	_, data, err := delegatedRequest(inv, frag, resolved, permission, r.Clone, []string{}, intent, at)
+	physicalClone, err := filepath.EvalSymlinks(r.Clone)
+	if err != nil {
+		return werkstatt.Prepared{}, err
+	}
+	_, data, err := delegatedRequest(inv, frag, resolved, permission, physicalClone, []string{}, intent, at)
 	if err != nil {
 		return werkstatt.Prepared{}, err
 	}
@@ -302,7 +306,7 @@ func prepareWerkstatt(ctx context.Context, r *werkstatt.Record, c werkstatt.Comm
 		request["doorbell"] = map[string]any{"identity": r.Identity, "heartbeat": r.Doorbell.Heartbeat, "max_wakes_per_hour": r.Doorbell.MaxWakesPerHour}
 	}
 	if target != "" {
-		request["scope"] = map[string]any{"cwd": r.Clone, "labels": map[string]string{"werkstatt": r.ID}}
+		request["scope"] = map[string]any{"cwd": physicalClone, "labels": map[string]string{"werkstatt": r.ID}}
 	} else {
 		labels := map[string]string{"werkstatt": r.ID, "identity": r.Identity}
 		if resolved.SelectorDecisionID != "" {

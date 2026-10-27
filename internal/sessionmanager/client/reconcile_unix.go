@@ -14,6 +14,7 @@ type Caller interface {
 	Call(context.Context, string, []byte) (Response, error)
 }
 type Reconciler struct {
+	Leases   *LeaseCLI
 	Registry map[string]sessionmanager.Entry
 	Caller   func(string, sessionmanager.Entry) Caller
 	Now      func() time.Time
@@ -30,7 +31,7 @@ func (r Reconciler) owner(p Pending) (Caller, error) {
 	if !ok {
 		return nil, refusal("werkstatt_operation_unresolved", map[string]string{"reason": "manager_missing", "operation": p.OperationID})
 	}
-	if entry.Executable != p.Manager.Executable {
+	if entry.Executable != p.Manager.Executable || p.Lease != nil && entry.RegisteredAt != p.Manager.RegisteredAt {
 		return nil, refusal("werkstatt_operation_unresolved", map[string]string{"reason": "manager_changed", "operation": p.OperationID})
 	}
 	if r.Caller != nil {
@@ -103,10 +104,16 @@ func (r Reconciler) Recover(ctx context.Context, tx *Transaction) (*Session, err
 	if err != nil || p == nil {
 		return nil, err
 	}
+	if p.Lease != nil {
+		return r.runLeased(ctx, tx, *p, true)
+	}
 	remote, err := r.owner(*p)
 	if err != nil {
 		return nil, err
 	}
+	return r.recoverOwned(ctx, tx, *p, remote)
+}
+func (r Reconciler) recoverOwned(ctx context.Context, tx *Transaction, p Pending, remote Caller) (*Session, error) {
 	live, err := tx.Liveness()
 	if err != nil {
 		return nil, err
@@ -126,7 +133,7 @@ func (r Reconciler) Recover(ctx context.Context, tx *Transaction) (*Session, err
 			if outcome.Outcome == "started" && (outcome.Session == nil || outcome.Session.OperationID != p.OperationID) {
 				return nil, unresolved(p.OperationID)
 			}
-			return r.finish(tx, *p, expected, outcome)
+			return r.finish(tx, p, expected, outcome)
 		case "not_found", "prepared":
 			response, err = remote.Call(ctx, "cancel", data)
 		case "admitted":
@@ -151,7 +158,10 @@ func (r Reconciler) finish(tx *Transaction, p Pending, expected Expected, outcom
 		result = outcome.Session
 		op := p.OperationID
 		next := Liveness{Profile: p.Profile, ID: tx.id, State: result.State, Manager: p.Manager, OperationID: &op, StateSource: "manager", Session: result.Session, Generation: result.Generation, StartedAt: result.StartedAt, LastHeartbeatAt: r.now().UTC().Format(time.RFC3339), LastActivityAt: result.LastActivityAt, Doorbell: result.Doorbell.State, DoorbellUncertain: result.Doorbell.Uncertain}
-		written, err := tx.CompareAndSwap(expected, next)
+		written, err := true, error(nil)
+		if !tx.plain {
+			written, err = tx.CompareAndSwap(expected, next)
+		}
 		if err != nil {
 			resultErr = refusal("werkstatt_liveness_write_failed", map[string]string{"session": result.Session})
 		} else if !written {
@@ -165,6 +175,21 @@ func (r Reconciler) finish(tx *Transaction, p Pending, expected Expected, outcom
 		resultErr = refusal(outcome.Code, nil)
 	case "cancelled":
 		resultErr = unavailable("cancelled")
+	}
+	if p.Lease != nil {
+		if outcome.Outcome == "started" {
+			p.Phase = "bind_pending"
+			if err := tx.updateLease(p); err != nil {
+				return result, err
+			}
+			e := leaseFailure("process_incarnation_unavailable")
+			e.Details["session"] = result.Session
+			return result, e
+		}
+		if err := tx.settleLease(p, outcome.Outcome, outcome.Outcome, r.now()); err != nil {
+			return result, err
+		}
+		return result, resultErr
 	}
 	if err := tx.clearTerminal(p.OperationID, outcome.Outcome); err != nil {
 		return result, err
