@@ -4,6 +4,8 @@ github.com/relux-works/curator-agent-launcher/schemas/session-manager v0.0.0-202
 github.com/relux-works/curator-agent-launcher/schemas/session-manager v0.0.0-20261027024527-30d3f177eb54/go.mod h1:gVV9OQTCR5EItZ1EcETtNyHsGsc52JX+za15xVKaW3M=
 github.com/relux-works/curator-agent-launcher/schemas/session-manager v0.0.0-20261027115551-3613a4e32eaa h1:CAECYg1ypix3k3qGE6HXaTdPVyM6fh0qN2x7YNXEOxA=
 github.com/relux-works/curator-agent-launcher/schemas/session-manager v0.0.0-20261027115551-3613a4e32eaa/go.mod h1:gVV9OQTCR5EItZ1EcETtNyHsGsc52JX+za15xVKaW3M=
+github.com/relux-works/curator-agent-launcher/schemas/session-manager v0.0.0-20261027121946-5c426a9a8bd3 h1:S30xizGsgBbeZZ0wnPo3H9lfdP9dZqKSzaCL0rJ+PLE=
+github.com/relux-works/curator-agent-launcher/schemas/session-manager v0.0.0-20261027121946-5c426a9a8bd3/go.mod h1:gVV9OQTCR5EItZ1EcETtNyHsGsc52JX+za15xVKaW3M=
 github.com/relux-works/curator-network-profiles v0.3.1 h1:ERyAQNyvswAaDImOs91HQgBs3IUPSH61YyB+JzeaSO0=
 github.com/relux-works/curator-network-profiles v0.3.1/go.mod h1:KlPpVwgH45EtLFWodP1ofqWc+amLHGuftUVoZ1rsWhg=
 github.com/relux-works/skill-agents-management v0.5.74 h1:Us+L2uMpE8ZNoYF4uygnmgw8NtSZW7eBQr+y26GVcCY=
