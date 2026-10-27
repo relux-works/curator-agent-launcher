@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Fixed
+
+- Preserve exact fractional manager registration in Werkstatt liveness and
+  automatic status recovery, matching the journal and lease holder. A started
+  session retains its handle and prepared protection at the existing bind gate;
+  unrelated liveness timestamps keep their whole-second contract.
+
 ### Added
 
 - Require public Curator home leases for hosted launch/resume, with a durable
