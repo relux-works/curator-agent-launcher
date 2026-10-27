@@ -88,4 +88,54 @@ git show HEAD:.github/release-signers > .github/release-signers
 
 fixture_git commit -S -q --allow-empty -m 'Different checkout'
 refused checkout-mismatch v1.2.3 'release tag does not name the checked-out commit'
+
+# Presence controls use only synthetic values and never invoke a signer.
+# Exhaust all 32 subsets: none/all are accepted; the other 30, including each
+# single missing field, must fail for partial configuration without effects.
+signing_case() {
+	label=$1
+	expected_status=$2
+	expected_message=$3
+	shift 3
+	before_refs=$(git show-ref)
+	before_diff=$(git diff --binary HEAD)
+	set +e
+	env -u MACOS_SIGN_P12 -u MACOS_SIGN_P12_PASSWORD \
+		-u ASC_ISSUER_ID -u ASC_KEY_ID -u ASC_KEY_P8 \
+		"$@" "$root/scripts/release-signing-gate.sh" > "$work/signing.log" 2>&1
+	result=$?
+	set -e
+	[ "$result" -eq "$expected_status" ] &&
+		grep -Fqx "$expected_message" "$work/signing.log" &&
+		! grep -q 'fixture-secret-not-for-logging' "$work/signing.log" &&
+		[ "$(wc -l < "$work/signing.log" | tr -d ' ')" = 1 ] &&
+		[ "$before_refs" = "$(git show-ref)" ] &&
+		[ "$before_diff" = "$(git diff --binary HEAD)" ] &&
+		[ -z "$(git ls-files --others --exclude-standard)" ] || {
+		cat "$work/signing.log" >&2
+		echo "release-gate-test: FAIL signing-$label (exit $result or state/log changed)" >&2
+		exit 1
+	}
+	echo "release-gate-test: signing-$label exit=$result without effects or values"
+}
+
+mask=0
+while [ "$mask" -lt 32 ]; do
+	set --
+	[ $((mask & 1)) -eq 0 ] || set -- "$@" 'MACOS_SIGN_P12=fixture-secret-not-for-logging'
+	[ $((mask & 2)) -eq 0 ] || set -- "$@" 'MACOS_SIGN_P12_PASSWORD=fixture-secret-not-for-logging'
+	[ $((mask & 4)) -eq 0 ] || set -- "$@" 'ASC_ISSUER_ID=fixture-secret-not-for-logging'
+	[ $((mask & 8)) -eq 0 ] || set -- "$@" 'ASC_KEY_ID=fixture-secret-not-for-logging'
+	# A multiline PEM-like value still counts as one present field.
+	[ $((mask & 16)) -eq 0 ] || set -- "$@" "ASC_KEY_P8=$(printf 'fixture-secret-not-for-logging\nsecond-line')"
+	case $mask in
+	0) signing_case none 0 'release-signing-gate: disabled (no signing fields)' "$@" ;;
+	31) signing_case all 0 'release-signing-gate: enabled (all five fields present)' "$@" ;;
+	*) signing_case "partial-mask-$mask" 1 'release-signing-gate: partial signing configuration; set all five signing fields or none' "$@" ;;
+	esac
+	mask=$((mask + 1))
+done
+# GitHub resolves unavailable secrets to explicit empty environment values.
+signing_case empty 0 'release-signing-gate: disabled (no signing fields)' \
+	MACOS_SIGN_P12= MACOS_SIGN_P12_PASSWORD= ASC_ISSUER_ID= ASC_KEY_ID= ASC_KEY_P8=
 echo 'release-gate-test: OK'

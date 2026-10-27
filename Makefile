@@ -70,7 +70,7 @@ release-binary:
 release-repro:
 	scripts/release-repro.sh
 
-# Trusted-signer positive control and release admission refusals, offline.
+# Offline signed-tag admission and all-or-nothing signing configuration controls.
 release-gate-test:
 	@mkdir -p .temp
 	scripts/release-gate-test.sh

@@ -2,6 +2,12 @@ version: 2
 
 project_name: curator-run
 
+# No signing fields preserves the unsigned path, including snapshots. Any
+# partial configuration fails before builds; all five opt into sign+notarize.
+before:
+  hooks:
+    - ./scripts/release-signing-gate.sh
+
 builds:
   - id: curator-run
     main: ./cmd/curator-run
@@ -63,8 +69,10 @@ nfpms:
 checksum:
   name_template: checksums.txt
 
-# Same opt-in and five org secrets as Curator. GoReleaser applies this only
-# to Darwin binaries, after building and before archiving/checksumming.
+# Same opt-in and five org secrets as Curator, guarded by the before hook.
+# All fields are required when enabled, so ASC omissions cannot skip notarizing.
+# Signing/notarization errors abort the release before archives or publishing.
+# GoReleaser applies this only to Darwin binaries, after building.
 notarize:
   macos:
     - enabled: '{{ isEnvSet "MACOS_SIGN_P12" }}'

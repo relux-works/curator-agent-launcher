@@ -633,9 +633,14 @@ spctl --assess --type execute --verbose=4 ./curator-run
 
 Require a successful checksum/signature check, then on macOS a Developer ID
 Application signature for Relux Works, LLC and an accepted notarized result
-from `spctl`. Signing and notarization are enabled only when the release
-environment has `MACOS_SIGN_P12`; an artifact from an unsigned build does not
-satisfy these macOS checks. Bare CLI binaries have no stapled ticket, so
+from `spctl`. Before release builds, the pipeline requires either all five
+signing fields (`MACOS_SIGN_P12`, `MACOS_SIGN_P12_PASSWORD`, `ASC_ISSUER_ID`,
+`ASC_KEY_ID`, `ASC_KEY_P8`) or none. A partial configuration fails without
+printing values. With all five, Darwin signing and notarization are required;
+a signing or notarization error fails the release before publication. With
+none, the unsigned path remains available, including for release publication;
+its artifacts do not satisfy these macOS checks. Bare CLI binaries have no
+stapled ticket, so
 Gatekeeper assessment may need network access. On Linux choose `linux_amd64`
 or `linux_arm64`, verify cosign and the checksum, and omit the macOS commands.
 After verification, place the binary in a trusted operator-owned directory.
@@ -1060,6 +1065,17 @@ runs need their own explicit timeout budget, for example
 
 ### Tools
 
+Workflow actions are pinned to full commit SHAs, with patch-version comments.
+To update a pin, resolve the selected tag in that action's own repository with
+`gh api repos/<owner>/<repo>/git/ref/tags/<version>`. If `object.type` is
+`tag`, follow `gh api repos/<owner>/<repo>/git/tags/<object.sha>` until it
+names a commit. Review that commit's action entrypoint and execution code,
+then update the SHA and version comment together. Run `actionlint` and the
+release admission controls before review; never replace a pin with a mutable tag.
+The release admission job has only `contents: read`; the dependent publish job
+gets release/OIDC permissions. Only its pinned GoReleaser step receives the
+five signing secrets.
+
 | Tool | Purpose | Entry point | Output |
 |---|---|---|---|
 | `curator-run session-manager` | inspect and atomically update the manager registry | `curator-run session-manager list/show/register/use/unregister (deprecated alias: select)` (forms above) | stdout or JSON; `session-managers.json` in the effective target config home |
@@ -1082,7 +1098,8 @@ runs need their own explicit timeout budget, for example
 | Homebrew and package inspection | generated-formula style and read-only deb/rpm payload inspection; not needed on the release runner | `HOMEBREW_NO_AUTO_UPDATE=1 brew style dist/homebrew/Formula/curator-run.rb` (requires Homebrew's style gems); `dpkg-deb -c <package.deb>`; `rpm -qlp <package.rpm>` | stdout; extraction for byte comparison stays under `.temp/` |
 | `scripts/release-go.sh` | GoReleaser's Go tool pinned from go.mod, matching `release-binary` | `scripts/release-go.sh version`; invoked by `.goreleaser.yml` | stdout and GoReleaser's `dist/` |
 | `scripts/release-gate.sh` | require an annotated SSH-signed stable tag from `.github/release-signers`, its exact checkout and matching buildVersion | `scripts/release-gate.sh v<semver>`; tag-push-only `.github/workflows/release.yml` runs it before credentials reach GoReleaser | stdout; no mutations |
-| Release admission fixtures | trusted SSH positive control; unsigned, foreign, version, ref and checkout refusals with unchanged state | `make release-gate-test`; included in `make check` and CI | isolated `.temp/release-gate-test.*`, removed on exit |
+| `scripts/release-signing-gate.sh` | require all five signing fields or none before GoReleaser release builds; print only configuration mode | GoReleaser `before.hooks`; `scripts/release-signing-gate.sh` | stdout/stderr; no build, signing or network effects |
+| Release admission fixtures | trusted SSH positive and 13 tag refusals; all 32 signing-field subsets plus explicit-empty control, with unchanged state and no values logged | `make release-gate-test`; included in `make check` and CI | isolated `.temp/release-gate-test.*`, removed on exit |
 | actionlint | static validation of GitHub workflows | `actionlint .github/workflows/release.yml .github/workflows/ci.yml` | stdout |
 | cosign, curl, shasum, tar, codesign, spctl | authenticate, download, unpack and verify release artifacts | installation commands above | downloaded archives, checksums/signatures and extracted `curator-run` in the current directory |
 | `scripts/release-binary.sh` | the release build itself; validates VERSION, GOOS, GOARCH and DIST before any use (the Makefile passes them as unexpanded data) | `make release-binary …` (not run directly) | as above; invalid input exits 2 and writes nothing |
