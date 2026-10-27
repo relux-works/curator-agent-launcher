@@ -35,8 +35,9 @@ are different. Outcome members `session` and `code` are present only for
 a code-specific closed vocabulary; launcher-sourced paths, identities and field names
 are deliberately unavailable to plugin responses. Unknown describe capability
 strings confer no authority. RPC refusals and historical failed outcomes admit only plugin-owned codes.
-The fd-4 transport retains the existing SPEC §4.9 registry unchanged. UTC
-timestamps use whole seconds, exactly `YYYY-MM-DDTHH:MM:SSZ`.
+The fd-4 transport retains the existing SPEC §4.9 registry unchanged. RPC/lifecycle UTC
+timestamps use whole seconds, exactly `YYYY-MM-DDTHH:MM:SSZ`; registration
+incarnations in observations retain the registry spelling described below.
 
 Session responses carry the envelope; list rows use `session-record` without
 one. Every record carries `readable`. Unreadable records preserve their index
@@ -134,3 +135,20 @@ The operation journal also carries optional `profile`, copied from the validated
 submission request. Settlement, including crash recovery, installs that value;
 an old journal without it settles with an unknown profile. The current editable
 Werkstatt record is never used to reconstruct missing historical evidence.
+
+## Session observations
+
+`session-observation.schema.json` defines `curator-run-session-observation-v1`,
+the read-only launcher observation used by Curator home leases. Its manager
+identity contains the registered executable and the exact `registered_at`
+incarnation. Registration timestamps retain UTC RFC 3339 fractional seconds
+and zero-offset spellings from the registry; `observed_at` is launcher UTC in
+whole seconds. The nested `session` is the envelope-free `session-record`: all
+validated members and explicit nulls survive. A valid unknown or unreadable
+record is evidence, never inferred to be down. The client checks manager and
+requested-handle correlation before constructing the observation. Like other
+documents in this module, observations are closed and bounded to 64 KiB.
+
+Schema validation checks the original strict document, including every member.
+CCJ-1 signature omission applies to `CanonicalJSON` hashing only; it cannot
+make an unknown `sig` member acceptable to a closed protocol schema.

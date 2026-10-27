@@ -180,3 +180,20 @@ func TestValidationIdentity(t *testing.T) {
 		}
 	}
 }
+
+// Closed validation retains unknown members for rejection; CCJ-1 signature
+// omission belongs only to canonical hashing, not protocol/schema acceptance.
+func TestValidateRetainsUnknownMembers(t *testing.T) {
+	if err := Validate("describe-request.schema.json", []byte(`{}`)); err != nil {
+		t.Fatal(err)
+	}
+	for _, member := range []string{"sig", "extra"} {
+		if err := Validate("describe-request.schema.json", []byte(`{"`+member+`":"sentinel"}`)); err == nil {
+			t.Fatalf("closed schema accepted %s", member)
+		}
+	}
+	b, err := CanonicalJSON([]byte(`{"sig":"sentinel"}`))
+	if err != nil || string(b) != "{}" {
+		t.Fatal("canonical hashing contract changed", string(b), err)
+	}
+}

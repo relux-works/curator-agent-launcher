@@ -1,0 +1,2388 @@
+[
+  {
+    "name": "record-readable",
+    "valid": true,
+    "document": {
+      "schema": "curator-run-session-observation-v1",
+      "manager": {
+        "id": "demo",
+        "executable": "/opt/example/bin/manager",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "session": {
+        "session": "SES-example",
+        "operation_id": "11111111-1111-4111-8111-111111111111",
+        "manager": "demo",
+        "runtime": "codex_cli",
+        "native_id": null,
+        "readable": true,
+        "state": "unknown",
+        "labels": {},
+        "generation": 1,
+        "started_at": "2026-01-01T00:00:00Z",
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        }
+      },
+      "observed_at": "2026-01-01T00:00:01Z"
+    }
+  },
+  {
+    "name": "record-unreadable",
+    "valid": true,
+    "document": {
+      "schema": "curator-run-session-observation-v1",
+      "manager": {
+        "id": "demo",
+        "executable": "/opt/example/bin/manager",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "session": {
+        "session": "SES-example",
+        "operation_id": null,
+        "manager": "demo",
+        "runtime": null,
+        "native_id": null,
+        "readable": false,
+        "state": "unknown",
+        "labels": {},
+        "generation": null,
+        "started_at": null,
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        }
+      },
+      "observed_at": "2026-01-01T00:00:01Z"
+    }
+  },
+  {
+    "name": "record-row-envelope-forbidden",
+    "valid": false,
+    "document": {
+      "schema": "curator-run-session-observation-v1",
+      "manager": {
+        "id": "demo",
+        "executable": "/opt/example/bin/manager",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "session": {
+        "protocol": "curator-session-manager/1",
+        "ok": true,
+        "session": "SES-example",
+        "operation_id": "11111111-1111-4111-8111-111111111111",
+        "manager": "demo",
+        "runtime": "codex_cli",
+        "native_id": null,
+        "readable": true,
+        "state": "unknown",
+        "labels": {},
+        "generation": 1,
+        "started_at": "2026-01-01T00:00:00Z",
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        }
+      },
+      "observed_at": "2026-01-01T00:00:01Z"
+    }
+  },
+  {
+    "name": "record-missing-session",
+    "valid": false,
+    "document": {
+      "schema": "curator-run-session-observation-v1",
+      "manager": {
+        "id": "demo",
+        "executable": "/opt/example/bin/manager",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "session": {
+        "operation_id": null,
+        "manager": "demo",
+        "runtime": null,
+        "native_id": null,
+        "readable": false,
+        "state": "unknown",
+        "labels": {},
+        "generation": null,
+        "started_at": null,
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        }
+      },
+      "observed_at": "2026-01-01T00:00:01Z"
+    }
+  },
+  {
+    "name": "record-missing-operation_id",
+    "valid": false,
+    "document": {
+      "schema": "curator-run-session-observation-v1",
+      "manager": {
+        "id": "demo",
+        "executable": "/opt/example/bin/manager",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "session": {
+        "session": "SES-example",
+        "manager": "demo",
+        "runtime": null,
+        "native_id": null,
+        "readable": false,
+        "state": "unknown",
+        "labels": {},
+        "generation": null,
+        "started_at": null,
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        }
+      },
+      "observed_at": "2026-01-01T00:00:01Z"
+    }
+  },
+  {
+    "name": "record-missing-manager",
+    "valid": false,
+    "document": {
+      "schema": "curator-run-session-observation-v1",
+      "manager": {
+        "id": "demo",
+        "executable": "/opt/example/bin/manager",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "session": {
+        "session": "SES-example",
+        "operation_id": null,
+        "runtime": null,
+        "native_id": null,
+        "readable": false,
+        "state": "unknown",
+        "labels": {},
+        "generation": null,
+        "started_at": null,
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        }
+      },
+      "observed_at": "2026-01-01T00:00:01Z"
+    }
+  },
+  {
+    "name": "record-missing-runtime",
+    "valid": false,
+    "document": {
+      "schema": "curator-run-session-observation-v1",
+      "manager": {
+        "id": "demo",
+        "executable": "/opt/example/bin/manager",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "session": {
+        "session": "SES-example",
+        "operation_id": null,
+        "manager": "demo",
+        "native_id": null,
+        "readable": false,
+        "state": "unknown",
+        "labels": {},
+        "generation": null,
+        "started_at": null,
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        }
+      },
+      "observed_at": "2026-01-01T00:00:01Z"
+    }
+  },
+  {
+    "name": "record-missing-native_id",
+    "valid": false,
+    "document": {
+      "schema": "curator-run-session-observation-v1",
+      "manager": {
+        "id": "demo",
+        "executable": "/opt/example/bin/manager",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "session": {
+        "session": "SES-example",
+        "operation_id": null,
+        "manager": "demo",
+        "runtime": null,
+        "readable": false,
+        "state": "unknown",
+        "labels": {},
+        "generation": null,
+        "started_at": null,
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        }
+      },
+      "observed_at": "2026-01-01T00:00:01Z"
+    }
+  },
+  {
+    "name": "record-missing-readable",
+    "valid": false,
+    "document": {
+      "schema": "curator-run-session-observation-v1",
+      "manager": {
+        "id": "demo",
+        "executable": "/opt/example/bin/manager",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "session": {
+        "session": "SES-example",
+        "operation_id": null,
+        "manager": "demo",
+        "runtime": null,
+        "native_id": null,
+        "state": "unknown",
+        "labels": {},
+        "generation": null,
+        "started_at": null,
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        }
+      },
+      "observed_at": "2026-01-01T00:00:01Z"
+    }
+  },
+  {
+    "name": "record-missing-state",
+    "valid": false,
+    "document": {
+      "schema": "curator-run-session-observation-v1",
+      "manager": {
+        "id": "demo",
+        "executable": "/opt/example/bin/manager",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "session": {
+        "session": "SES-example",
+        "operation_id": null,
+        "manager": "demo",
+        "runtime": null,
+        "native_id": null,
+        "readable": false,
+        "labels": {},
+        "generation": null,
+        "started_at": null,
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        }
+      },
+      "observed_at": "2026-01-01T00:00:01Z"
+    }
+  },
+  {
+    "name": "record-missing-labels",
+    "valid": false,
+    "document": {
+      "schema": "curator-run-session-observation-v1",
+      "manager": {
+        "id": "demo",
+        "executable": "/opt/example/bin/manager",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "session": {
+        "session": "SES-example",
+        "operation_id": null,
+        "manager": "demo",
+        "runtime": null,
+        "native_id": null,
+        "readable": false,
+        "state": "unknown",
+        "generation": null,
+        "started_at": null,
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        }
+      },
+      "observed_at": "2026-01-01T00:00:01Z"
+    }
+  },
+  {
+    "name": "record-missing-generation",
+    "valid": false,
+    "document": {
+      "schema": "curator-run-session-observation-v1",
+      "manager": {
+        "id": "demo",
+        "executable": "/opt/example/bin/manager",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "session": {
+        "session": "SES-example",
+        "operation_id": null,
+        "manager": "demo",
+        "runtime": null,
+        "native_id": null,
+        "readable": false,
+        "state": "unknown",
+        "labels": {},
+        "started_at": null,
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        }
+      },
+      "observed_at": "2026-01-01T00:00:01Z"
+    }
+  },
+  {
+    "name": "record-missing-started_at",
+    "valid": false,
+    "document": {
+      "schema": "curator-run-session-observation-v1",
+      "manager": {
+        "id": "demo",
+        "executable": "/opt/example/bin/manager",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "session": {
+        "session": "SES-example",
+        "operation_id": null,
+        "manager": "demo",
+        "runtime": null,
+        "native_id": null,
+        "readable": false,
+        "state": "unknown",
+        "labels": {},
+        "generation": null,
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        }
+      },
+      "observed_at": "2026-01-01T00:00:01Z"
+    }
+  },
+  {
+    "name": "record-missing-last_activity_at",
+    "valid": false,
+    "document": {
+      "schema": "curator-run-session-observation-v1",
+      "manager": {
+        "id": "demo",
+        "executable": "/opt/example/bin/manager",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "session": {
+        "session": "SES-example",
+        "operation_id": null,
+        "manager": "demo",
+        "runtime": null,
+        "native_id": null,
+        "readable": false,
+        "state": "unknown",
+        "labels": {},
+        "generation": null,
+        "started_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        }
+      },
+      "observed_at": "2026-01-01T00:00:01Z"
+    }
+  },
+  {
+    "name": "record-missing-doorbell",
+    "valid": false,
+    "document": {
+      "schema": "curator-run-session-observation-v1",
+      "manager": {
+        "id": "demo",
+        "executable": "/opt/example/bin/manager",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "session": {
+        "session": "SES-example",
+        "operation_id": null,
+        "manager": "demo",
+        "runtime": null,
+        "native_id": null,
+        "readable": false,
+        "state": "unknown",
+        "labels": {},
+        "generation": null,
+        "started_at": null,
+        "last_activity_at": null
+      },
+      "observed_at": "2026-01-01T00:00:01Z"
+    }
+  },
+  {
+    "name": "record-unreadable-forbidden-state",
+    "valid": false,
+    "document": {
+      "schema": "curator-run-session-observation-v1",
+      "manager": {
+        "id": "demo",
+        "executable": "/opt/example/bin/manager",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "session": {
+        "session": "SES-example",
+        "operation_id": null,
+        "manager": "demo",
+        "runtime": null,
+        "native_id": null,
+        "readable": false,
+        "state": "down",
+        "labels": {},
+        "generation": null,
+        "started_at": null,
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        }
+      },
+      "observed_at": "2026-01-01T00:00:01Z"
+    }
+  },
+  {
+    "name": "record-unreadable-forbidden-operation_id",
+    "valid": false,
+    "document": {
+      "schema": "curator-run-session-observation-v1",
+      "manager": {
+        "id": "demo",
+        "executable": "/opt/example/bin/manager",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "session": {
+        "session": "SES-example",
+        "operation_id": "11111111-1111-4111-8111-111111111111",
+        "manager": "demo",
+        "runtime": null,
+        "native_id": null,
+        "readable": false,
+        "state": "unknown",
+        "labels": {},
+        "generation": null,
+        "started_at": null,
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        }
+      },
+      "observed_at": "2026-01-01T00:00:01Z"
+    }
+  },
+  {
+    "name": "record-unreadable-forbidden-runtime",
+    "valid": false,
+    "document": {
+      "schema": "curator-run-session-observation-v1",
+      "manager": {
+        "id": "demo",
+        "executable": "/opt/example/bin/manager",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "session": {
+        "session": "SES-example",
+        "operation_id": null,
+        "manager": "demo",
+        "runtime": "codex_cli",
+        "native_id": null,
+        "readable": false,
+        "state": "unknown",
+        "labels": {},
+        "generation": null,
+        "started_at": null,
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        }
+      },
+      "observed_at": "2026-01-01T00:00:01Z"
+    }
+  },
+  {
+    "name": "record-unreadable-forbidden-native_id",
+    "valid": false,
+    "document": {
+      "schema": "curator-run-session-observation-v1",
+      "manager": {
+        "id": "demo",
+        "executable": "/opt/example/bin/manager",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "session": {
+        "session": "SES-example",
+        "operation_id": null,
+        "manager": "demo",
+        "runtime": null,
+        "native_id": "native-1",
+        "readable": false,
+        "state": "unknown",
+        "labels": {},
+        "generation": null,
+        "started_at": null,
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        }
+      },
+      "observed_at": "2026-01-01T00:00:01Z"
+    }
+  },
+  {
+    "name": "record-unreadable-forbidden-generation",
+    "valid": false,
+    "document": {
+      "schema": "curator-run-session-observation-v1",
+      "manager": {
+        "id": "demo",
+        "executable": "/opt/example/bin/manager",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "session": {
+        "session": "SES-example",
+        "operation_id": null,
+        "manager": "demo",
+        "runtime": null,
+        "native_id": null,
+        "readable": false,
+        "state": "unknown",
+        "labels": {},
+        "generation": 1,
+        "started_at": null,
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        }
+      },
+      "observed_at": "2026-01-01T00:00:01Z"
+    }
+  },
+  {
+    "name": "record-unreadable-forbidden-started_at",
+    "valid": false,
+    "document": {
+      "schema": "curator-run-session-observation-v1",
+      "manager": {
+        "id": "demo",
+        "executable": "/opt/example/bin/manager",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "session": {
+        "session": "SES-example",
+        "operation_id": null,
+        "manager": "demo",
+        "runtime": null,
+        "native_id": null,
+        "readable": false,
+        "state": "unknown",
+        "labels": {},
+        "generation": null,
+        "started_at": "2026-01-01T00:00:00Z",
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        }
+      },
+      "observed_at": "2026-01-01T00:00:01Z"
+    }
+  },
+  {
+    "name": "record-unreadable-forbidden-last_activity_at",
+    "valid": false,
+    "document": {
+      "schema": "curator-run-session-observation-v1",
+      "manager": {
+        "id": "demo",
+        "executable": "/opt/example/bin/manager",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "session": {
+        "session": "SES-example",
+        "operation_id": null,
+        "manager": "demo",
+        "runtime": null,
+        "native_id": null,
+        "readable": false,
+        "state": "unknown",
+        "labels": {},
+        "generation": null,
+        "started_at": null,
+        "last_activity_at": "2026-01-01T00:00:00Z",
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        }
+      },
+      "observed_at": "2026-01-01T00:00:01Z"
+    }
+  },
+  {
+    "name": "record-unreadable-forbidden-doorbell",
+    "valid": false,
+    "document": {
+      "schema": "curator-run-session-observation-v1",
+      "manager": {
+        "id": "demo",
+        "executable": "/opt/example/bin/manager",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "session": {
+        "session": "SES-example",
+        "operation_id": null,
+        "manager": "demo",
+        "runtime": null,
+        "native_id": null,
+        "readable": false,
+        "state": "unknown",
+        "labels": {},
+        "generation": null,
+        "started_at": null,
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": true,
+          "generation": null,
+          "reason": "previous_generation_uncertain"
+        }
+      },
+      "observed_at": "2026-01-01T00:00:01Z"
+    }
+  },
+  {
+    "name": "record-unreadable-forbidden-readable",
+    "valid": false,
+    "document": {
+      "schema": "curator-run-session-observation-v1",
+      "manager": {
+        "id": "demo",
+        "executable": "/opt/example/bin/manager",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "session": {
+        "session": "SES-example",
+        "operation_id": null,
+        "manager": "demo",
+        "runtime": null,
+        "native_id": null,
+        "readable": null,
+        "state": "unknown",
+        "labels": {},
+        "generation": null,
+        "started_at": null,
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        }
+      },
+      "observed_at": "2026-01-01T00:00:01Z"
+    }
+  },
+  {
+    "name": "record-readable-null-operation_id",
+    "valid": false,
+    "document": {
+      "schema": "curator-run-session-observation-v1",
+      "manager": {
+        "id": "demo",
+        "executable": "/opt/example/bin/manager",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "session": {
+        "session": "SES-example",
+        "operation_id": null,
+        "manager": "demo",
+        "runtime": "codex_cli",
+        "native_id": null,
+        "readable": true,
+        "state": "unknown",
+        "labels": {},
+        "generation": 1,
+        "started_at": "2026-01-01T00:00:00Z",
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        }
+      },
+      "observed_at": "2026-01-01T00:00:01Z"
+    }
+  },
+  {
+    "name": "record-readable-null-runtime",
+    "valid": false,
+    "document": {
+      "schema": "curator-run-session-observation-v1",
+      "manager": {
+        "id": "demo",
+        "executable": "/opt/example/bin/manager",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "session": {
+        "session": "SES-example",
+        "operation_id": "11111111-1111-4111-8111-111111111111",
+        "manager": "demo",
+        "runtime": null,
+        "native_id": null,
+        "readable": true,
+        "state": "unknown",
+        "labels": {},
+        "generation": 1,
+        "started_at": "2026-01-01T00:00:00Z",
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        }
+      },
+      "observed_at": "2026-01-01T00:00:01Z"
+    }
+  },
+  {
+    "name": "record-readable-null-generation",
+    "valid": false,
+    "document": {
+      "schema": "curator-run-session-observation-v1",
+      "manager": {
+        "id": "demo",
+        "executable": "/opt/example/bin/manager",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "session": {
+        "session": "SES-example",
+        "operation_id": "11111111-1111-4111-8111-111111111111",
+        "manager": "demo",
+        "runtime": "codex_cli",
+        "native_id": null,
+        "readable": true,
+        "state": "unknown",
+        "labels": {},
+        "generation": null,
+        "started_at": "2026-01-01T00:00:00Z",
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        }
+      },
+      "observed_at": "2026-01-01T00:00:01Z"
+    }
+  },
+  {
+    "name": "record-readable-null-started_at",
+    "valid": false,
+    "document": {
+      "schema": "curator-run-session-observation-v1",
+      "manager": {
+        "id": "demo",
+        "executable": "/opt/example/bin/manager",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "session": {
+        "session": "SES-example",
+        "operation_id": "11111111-1111-4111-8111-111111111111",
+        "manager": "demo",
+        "runtime": "codex_cli",
+        "native_id": null,
+        "readable": true,
+        "state": "unknown",
+        "labels": {},
+        "generation": 1,
+        "started_at": null,
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        }
+      },
+      "observed_at": "2026-01-01T00:00:01Z"
+    }
+  },
+  {
+    "name": "record-selector-spelling",
+    "valid": true,
+    "document": {
+      "schema": "curator-run-session-observation-v1",
+      "manager": {
+        "id": "demo",
+        "executable": "/opt/example/bin/manager",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "session": {
+        "session": "SES-example",
+        "operation_id": "11111111-1111-4111-8111-111111111111",
+        "manager": "demo",
+        "runtime": "codex_cli",
+        "native_id": null,
+        "readable": true,
+        "state": "unknown",
+        "labels": {
+          "selector": "decision/@+1"
+        },
+        "generation": 1,
+        "started_at": "2026-01-01T00:00:00Z",
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        }
+      },
+      "observed_at": "2026-01-01T00:00:01Z"
+    }
+  },
+  {
+    "name": "record-label-space",
+    "valid": false,
+    "document": {
+      "schema": "curator-run-session-observation-v1",
+      "manager": {
+        "id": "demo",
+        "executable": "/opt/example/bin/manager",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "session": {
+        "session": "SES-example",
+        "operation_id": "11111111-1111-4111-8111-111111111111",
+        "manager": "demo",
+        "runtime": "codex_cli",
+        "native_id": null,
+        "readable": true,
+        "state": "unknown",
+        "labels": {
+          "selector": "decision 1"
+        },
+        "generation": 1,
+        "started_at": "2026-01-01T00:00:00Z",
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        }
+      },
+      "observed_at": "2026-01-01T00:00:01Z"
+    }
+  },
+  {
+    "name": "record-label-semicolon",
+    "valid": false,
+    "document": {
+      "schema": "curator-run-session-observation-v1",
+      "manager": {
+        "id": "demo",
+        "executable": "/opt/example/bin/manager",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "session": {
+        "session": "SES-example",
+        "operation_id": "11111111-1111-4111-8111-111111111111",
+        "manager": "demo",
+        "runtime": "codex_cli",
+        "native_id": null,
+        "readable": true,
+        "state": "unknown",
+        "labels": {
+          "selector": "decision;1"
+        },
+        "generation": 1,
+        "started_at": "2026-01-01T00:00:00Z",
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        }
+      },
+      "observed_at": "2026-01-01T00:00:01Z"
+    }
+  },
+  {
+    "name": "record-label-overlong",
+    "valid": false,
+    "document": {
+      "schema": "curator-run-session-observation-v1",
+      "manager": {
+        "id": "demo",
+        "executable": "/opt/example/bin/manager",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "session": {
+        "session": "SES-example",
+        "operation_id": "11111111-1111-4111-8111-111111111111",
+        "manager": "demo",
+        "runtime": "codex_cli",
+        "native_id": null,
+        "readable": true,
+        "state": "unknown",
+        "labels": {
+          "selector": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "generation": 1,
+        "started_at": "2026-01-01T00:00:00Z",
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        }
+      },
+      "observed_at": "2026-01-01T00:00:01Z"
+    }
+  },
+  {
+    "name": "record-raw-identity-equals",
+    "valid": true,
+    "document": {
+      "schema": "curator-run-session-observation-v1",
+      "manager": {
+        "id": "demo",
+        "executable": "/opt/example/bin/manager",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "session": {
+        "session": "SES-example",
+        "operation_id": "11111111-1111-4111-8111-111111111111",
+        "manager": "demo",
+        "runtime": "codex_cli",
+        "native_id": null,
+        "readable": true,
+        "state": "unknown",
+        "labels": {
+          "identity": "example=dev"
+        },
+        "generation": 1,
+        "started_at": "2026-01-01T00:00:00Z",
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        }
+      },
+      "observed_at": "2026-01-01T00:00:01Z"
+    }
+  },
+  {
+    "name": "record-draining-unsignalled-after-restart",
+    "valid": true,
+    "document": {
+      "schema": "curator-run-session-observation-v1",
+      "manager": {
+        "id": "demo",
+        "executable": "/opt/example/bin/manager",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "session": {
+        "session": "SES-example",
+        "operation_id": "11111111-1111-4111-8111-111111111111",
+        "manager": "demo",
+        "runtime": "codex_cli",
+        "native_id": null,
+        "readable": true,
+        "state": "draining",
+        "labels": {},
+        "generation": 1,
+        "started_at": "2026-01-01T00:00:00Z",
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        },
+        "draining": {
+          "reason": "stop_intent_unsignalled_after_restart",
+          "remediation": "stop_force"
+        }
+      },
+      "observed_at": "2026-01-01T00:00:01Z"
+    }
+  },
+  {
+    "name": "record-draining-alive-after-graceful",
+    "valid": true,
+    "document": {
+      "schema": "curator-run-session-observation-v1",
+      "manager": {
+        "id": "demo",
+        "executable": "/opt/example/bin/manager",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "session": {
+        "session": "SES-example",
+        "operation_id": "11111111-1111-4111-8111-111111111111",
+        "manager": "demo",
+        "runtime": "codex_cli",
+        "native_id": null,
+        "readable": true,
+        "state": "draining",
+        "labels": {},
+        "generation": 1,
+        "started_at": "2026-01-01T00:00:00Z",
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        },
+        "draining": {
+          "reason": "provider_alive_after_graceful",
+          "remediation": "wait"
+        }
+      },
+      "observed_at": "2026-01-01T00:00:01Z"
+    }
+  },
+  {
+    "name": "record-draining-without-reason",
+    "valid": true,
+    "document": {
+      "schema": "curator-run-session-observation-v1",
+      "manager": {
+        "id": "demo",
+        "executable": "/opt/example/bin/manager",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "session": {
+        "session": "SES-example",
+        "operation_id": "11111111-1111-4111-8111-111111111111",
+        "manager": "demo",
+        "runtime": "codex_cli",
+        "native_id": null,
+        "readable": true,
+        "state": "draining",
+        "labels": {},
+        "generation": 1,
+        "started_at": "2026-01-01T00:00:00Z",
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        }
+      },
+      "observed_at": "2026-01-01T00:00:01Z"
+    }
+  },
+  {
+    "name": "record-draining-reason-outside-draining-state",
+    "valid": false,
+    "document": {
+      "schema": "curator-run-session-observation-v1",
+      "manager": {
+        "id": "demo",
+        "executable": "/opt/example/bin/manager",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "session": {
+        "session": "SES-example",
+        "operation_id": "11111111-1111-4111-8111-111111111111",
+        "manager": "demo",
+        "runtime": "codex_cli",
+        "native_id": null,
+        "readable": true,
+        "state": "busy",
+        "labels": {},
+        "generation": 1,
+        "started_at": "2026-01-01T00:00:00Z",
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        },
+        "draining": {
+          "reason": "stop_intent_unsignalled_after_restart",
+          "remediation": "stop_force"
+        }
+      },
+      "observed_at": "2026-01-01T00:00:01Z"
+    }
+  },
+  {
+    "name": "record-draining-reason-on-down",
+    "valid": false,
+    "document": {
+      "schema": "curator-run-session-observation-v1",
+      "manager": {
+        "id": "demo",
+        "executable": "/opt/example/bin/manager",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "session": {
+        "session": "SES-example",
+        "operation_id": "11111111-1111-4111-8111-111111111111",
+        "manager": "demo",
+        "runtime": "codex_cli",
+        "native_id": null,
+        "readable": true,
+        "state": "down",
+        "labels": {},
+        "generation": 1,
+        "started_at": "2026-01-01T00:00:00Z",
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        },
+        "draining": {
+          "reason": "provider_alive_after_graceful",
+          "remediation": "wait"
+        }
+      },
+      "observed_at": "2026-01-01T00:00:01Z"
+    }
+  },
+  {
+    "name": "record-draining-pairing-mismatch",
+    "valid": false,
+    "document": {
+      "schema": "curator-run-session-observation-v1",
+      "manager": {
+        "id": "demo",
+        "executable": "/opt/example/bin/manager",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "session": {
+        "session": "SES-example",
+        "operation_id": "11111111-1111-4111-8111-111111111111",
+        "manager": "demo",
+        "runtime": "codex_cli",
+        "native_id": null,
+        "readable": true,
+        "state": "draining",
+        "labels": {},
+        "generation": 1,
+        "started_at": "2026-01-01T00:00:00Z",
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        },
+        "draining": {
+          "reason": "stop_intent_unsignalled_after_restart",
+          "remediation": "wait"
+        }
+      },
+      "observed_at": "2026-01-01T00:00:01Z"
+    }
+  },
+  {
+    "name": "record-draining-unknown-reason",
+    "valid": false,
+    "document": {
+      "schema": "curator-run-session-observation-v1",
+      "manager": {
+        "id": "demo",
+        "executable": "/opt/example/bin/manager",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "session": {
+        "session": "SES-example",
+        "operation_id": "11111111-1111-4111-8111-111111111111",
+        "manager": "demo",
+        "runtime": "codex_cli",
+        "native_id": null,
+        "readable": true,
+        "state": "draining",
+        "labels": {},
+        "generation": 1,
+        "started_at": "2026-01-01T00:00:00Z",
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        },
+        "draining": {
+          "reason": "provider_ignored_sigterm",
+          "remediation": "wait"
+        }
+      },
+      "observed_at": "2026-01-01T00:00:01Z"
+    }
+  },
+  {
+    "name": "record-draining-extra-member",
+    "valid": false,
+    "document": {
+      "schema": "curator-run-session-observation-v1",
+      "manager": {
+        "id": "demo",
+        "executable": "/opt/example/bin/manager",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "session": {
+        "session": "SES-example",
+        "operation_id": "11111111-1111-4111-8111-111111111111",
+        "manager": "demo",
+        "runtime": "codex_cli",
+        "native_id": null,
+        "readable": true,
+        "state": "draining",
+        "labels": {},
+        "generation": 1,
+        "started_at": "2026-01-01T00:00:00Z",
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        },
+        "draining": {
+          "reason": "stop_intent_unsignalled_after_restart",
+          "remediation": "stop_force",
+          "detail": "x"
+        }
+      },
+      "observed_at": "2026-01-01T00:00:01Z"
+    }
+  },
+  {
+    "name": "record-draining-missing-remediation",
+    "valid": false,
+    "document": {
+      "schema": "curator-run-session-observation-v1",
+      "manager": {
+        "id": "demo",
+        "executable": "/opt/example/bin/manager",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "session": {
+        "session": "SES-example",
+        "operation_id": "11111111-1111-4111-8111-111111111111",
+        "manager": "demo",
+        "runtime": "codex_cli",
+        "native_id": null,
+        "readable": true,
+        "state": "draining",
+        "labels": {},
+        "generation": 1,
+        "started_at": "2026-01-01T00:00:00Z",
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        },
+        "draining": {
+          "reason": "provider_alive_after_graceful"
+        }
+      },
+      "observed_at": "2026-01-01T00:00:01Z"
+    }
+  },
+  {
+    "name": "record-draining-null",
+    "valid": false,
+    "document": {
+      "schema": "curator-run-session-observation-v1",
+      "manager": {
+        "id": "demo",
+        "executable": "/opt/example/bin/manager",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "session": {
+        "session": "SES-example",
+        "operation_id": "11111111-1111-4111-8111-111111111111",
+        "manager": "demo",
+        "runtime": "codex_cli",
+        "native_id": null,
+        "readable": true,
+        "state": "draining",
+        "labels": {},
+        "generation": 1,
+        "started_at": "2026-01-01T00:00:00Z",
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        },
+        "draining": null
+      },
+      "observed_at": "2026-01-01T00:00:01Z"
+    }
+  },
+  {
+    "name": "record-draining-on-unreadable",
+    "valid": false,
+    "document": {
+      "schema": "curator-run-session-observation-v1",
+      "manager": {
+        "id": "demo",
+        "executable": "/opt/example/bin/manager",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "session": {
+        "session": "SES-example",
+        "operation_id": null,
+        "manager": "demo",
+        "runtime": null,
+        "native_id": null,
+        "readable": false,
+        "state": "unknown",
+        "labels": {},
+        "generation": null,
+        "started_at": null,
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        },
+        "draining": {
+          "reason": "stop_intent_unsignalled_after_restart",
+          "remediation": "stop_force"
+        }
+      },
+      "observed_at": "2026-01-01T00:00:01Z"
+    }
+  },
+  {
+    "name": "state-starting",
+    "valid": true,
+    "document": {
+      "schema": "curator-run-session-observation-v1",
+      "manager": {
+        "id": "demo",
+        "executable": "/opt/example/bin/manager",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "session": {
+        "session": "SES-example",
+        "operation_id": "11111111-1111-4111-8111-111111111111",
+        "manager": "demo",
+        "runtime": "codex_cli",
+        "native_id": null,
+        "readable": true,
+        "state": "starting",
+        "labels": {},
+        "generation": 1,
+        "started_at": "2026-01-01T00:00:00Z",
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        }
+      },
+      "observed_at": "2026-01-01T00:00:01Z"
+    }
+  },
+  {
+    "name": "state-idle",
+    "valid": true,
+    "document": {
+      "schema": "curator-run-session-observation-v1",
+      "manager": {
+        "id": "demo",
+        "executable": "/opt/example/bin/manager",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "session": {
+        "session": "SES-example",
+        "operation_id": "11111111-1111-4111-8111-111111111111",
+        "manager": "demo",
+        "runtime": "codex_cli",
+        "native_id": null,
+        "readable": true,
+        "state": "idle",
+        "labels": {},
+        "generation": 1,
+        "started_at": "2026-01-01T00:00:00Z",
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        }
+      },
+      "observed_at": "2026-01-01T00:00:01Z"
+    }
+  },
+  {
+    "name": "state-busy",
+    "valid": true,
+    "document": {
+      "schema": "curator-run-session-observation-v1",
+      "manager": {
+        "id": "demo",
+        "executable": "/opt/example/bin/manager",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "session": {
+        "session": "SES-example",
+        "operation_id": "11111111-1111-4111-8111-111111111111",
+        "manager": "demo",
+        "runtime": "codex_cli",
+        "native_id": null,
+        "readable": true,
+        "state": "busy",
+        "labels": {},
+        "generation": 1,
+        "started_at": "2026-01-01T00:00:00Z",
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        }
+      },
+      "observed_at": "2026-01-01T00:00:01Z"
+    }
+  },
+  {
+    "name": "state-draining",
+    "valid": true,
+    "document": {
+      "schema": "curator-run-session-observation-v1",
+      "manager": {
+        "id": "demo",
+        "executable": "/opt/example/bin/manager",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "session": {
+        "session": "SES-example",
+        "operation_id": "11111111-1111-4111-8111-111111111111",
+        "manager": "demo",
+        "runtime": "codex_cli",
+        "native_id": null,
+        "readable": true,
+        "state": "draining",
+        "labels": {},
+        "generation": 1,
+        "started_at": "2026-01-01T00:00:00Z",
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        }
+      },
+      "observed_at": "2026-01-01T00:00:01Z"
+    }
+  },
+  {
+    "name": "state-down",
+    "valid": true,
+    "document": {
+      "schema": "curator-run-session-observation-v1",
+      "manager": {
+        "id": "demo",
+        "executable": "/opt/example/bin/manager",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "session": {
+        "session": "SES-example",
+        "operation_id": "11111111-1111-4111-8111-111111111111",
+        "manager": "demo",
+        "runtime": "codex_cli",
+        "native_id": null,
+        "readable": true,
+        "state": "down",
+        "labels": {},
+        "generation": 1,
+        "started_at": "2026-01-01T00:00:00Z",
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        }
+      },
+      "observed_at": "2026-01-01T00:00:01Z"
+    }
+  },
+  {
+    "name": "state-unknown",
+    "valid": true,
+    "document": {
+      "schema": "curator-run-session-observation-v1",
+      "manager": {
+        "id": "demo",
+        "executable": "/opt/example/bin/manager",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "session": {
+        "session": "SES-example",
+        "operation_id": "11111111-1111-4111-8111-111111111111",
+        "manager": "demo",
+        "runtime": "codex_cli",
+        "native_id": null,
+        "readable": true,
+        "state": "unknown",
+        "labels": {},
+        "generation": 1,
+        "started_at": "2026-01-01T00:00:00Z",
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        }
+      },
+      "observed_at": "2026-01-01T00:00:01Z"
+    }
+  },
+  {
+    "name": "registration-2026-01-01T00:00:00.123456789Z",
+    "valid": true,
+    "document": {
+      "schema": "curator-run-session-observation-v1",
+      "manager": {
+        "id": "demo",
+        "executable": "/opt/example/bin/manager",
+        "registered_at": "2026-01-01T00:00:00.123456789Z"
+      },
+      "session": {
+        "session": "SES-example",
+        "operation_id": "11111111-1111-4111-8111-111111111111",
+        "manager": "demo",
+        "runtime": "codex_cli",
+        "native_id": null,
+        "readable": true,
+        "state": "unknown",
+        "labels": {},
+        "generation": 1,
+        "started_at": "2026-01-01T00:00:00Z",
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        }
+      },
+      "observed_at": "2026-01-01T00:00:01Z"
+    }
+  },
+  {
+    "name": "registration-2026-01-01T00:00:00+00:00",
+    "valid": true,
+    "document": {
+      "schema": "curator-run-session-observation-v1",
+      "manager": {
+        "id": "demo",
+        "executable": "/opt/example/bin/manager",
+        "registered_at": "2026-01-01T00:00:00+00:00"
+      },
+      "session": {
+        "session": "SES-example",
+        "operation_id": "11111111-1111-4111-8111-111111111111",
+        "manager": "demo",
+        "runtime": "codex_cli",
+        "native_id": null,
+        "readable": true,
+        "state": "unknown",
+        "labels": {},
+        "generation": 1,
+        "started_at": "2026-01-01T00:00:00Z",
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        }
+      },
+      "observed_at": "2026-01-01T00:00:01Z"
+    }
+  },
+  {
+    "name": "registration-2026-01-01T00:00:00-00:00",
+    "valid": true,
+    "document": {
+      "schema": "curator-run-session-observation-v1",
+      "manager": {
+        "id": "demo",
+        "executable": "/opt/example/bin/manager",
+        "registered_at": "2026-01-01T00:00:00-00:00"
+      },
+      "session": {
+        "session": "SES-example",
+        "operation_id": "11111111-1111-4111-8111-111111111111",
+        "manager": "demo",
+        "runtime": "codex_cli",
+        "native_id": null,
+        "readable": true,
+        "state": "unknown",
+        "labels": {},
+        "generation": 1,
+        "started_at": "2026-01-01T00:00:00Z",
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        }
+      },
+      "observed_at": "2026-01-01T00:00:01Z"
+    }
+  },
+  {
+    "name": "outer-missing-schema",
+    "valid": false,
+    "document": {
+      "manager": {
+        "id": "demo",
+        "executable": "/opt/example/bin/manager",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "session": {
+        "session": "SES-example",
+        "operation_id": "11111111-1111-4111-8111-111111111111",
+        "manager": "demo",
+        "runtime": "codex_cli",
+        "native_id": null,
+        "readable": true,
+        "state": "unknown",
+        "labels": {},
+        "generation": 1,
+        "started_at": "2026-01-01T00:00:00Z",
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        }
+      },
+      "observed_at": "2026-01-01T00:00:01Z"
+    }
+  },
+  {
+    "name": "outer-missing-manager",
+    "valid": false,
+    "document": {
+      "schema": "curator-run-session-observation-v1",
+      "session": {
+        "session": "SES-example",
+        "operation_id": "11111111-1111-4111-8111-111111111111",
+        "manager": "demo",
+        "runtime": "codex_cli",
+        "native_id": null,
+        "readable": true,
+        "state": "unknown",
+        "labels": {},
+        "generation": 1,
+        "started_at": "2026-01-01T00:00:00Z",
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        }
+      },
+      "observed_at": "2026-01-01T00:00:01Z"
+    }
+  },
+  {
+    "name": "outer-missing-session",
+    "valid": false,
+    "document": {
+      "schema": "curator-run-session-observation-v1",
+      "manager": {
+        "id": "demo",
+        "executable": "/opt/example/bin/manager",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "observed_at": "2026-01-01T00:00:01Z"
+    }
+  },
+  {
+    "name": "outer-missing-observed_at",
+    "valid": false,
+    "document": {
+      "schema": "curator-run-session-observation-v1",
+      "manager": {
+        "id": "demo",
+        "executable": "/opt/example/bin/manager",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "session": {
+        "session": "SES-example",
+        "operation_id": "11111111-1111-4111-8111-111111111111",
+        "manager": "demo",
+        "runtime": "codex_cli",
+        "native_id": null,
+        "readable": true,
+        "state": "unknown",
+        "labels": {},
+        "generation": 1,
+        "started_at": "2026-01-01T00:00:00Z",
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        }
+      }
+    }
+  },
+  {
+    "name": "outer-extra",
+    "valid": false,
+    "document": {
+      "schema": "curator-run-session-observation-v1",
+      "manager": {
+        "id": "demo",
+        "executable": "/opt/example/bin/manager",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "session": {
+        "session": "SES-example",
+        "operation_id": "11111111-1111-4111-8111-111111111111",
+        "manager": "demo",
+        "runtime": "codex_cli",
+        "native_id": null,
+        "readable": true,
+        "state": "unknown",
+        "labels": {},
+        "generation": 1,
+        "started_at": "2026-01-01T00:00:00Z",
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        }
+      },
+      "observed_at": "2026-01-01T00:00:01Z",
+      "extra": "sentinel"
+    }
+  },
+  {
+    "name": "outer-null",
+    "valid": false,
+    "document": {
+      "schema": "curator-run-session-observation-v1",
+      "manager": {
+        "id": "demo",
+        "executable": "/opt/example/bin/manager",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "session": null,
+      "observed_at": "2026-01-01T00:00:01Z"
+    }
+  },
+  {
+    "name": "manager-missing-id",
+    "valid": false,
+    "document": {
+      "schema": "curator-run-session-observation-v1",
+      "manager": {
+        "executable": "/opt/example/bin/manager",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "session": {
+        "session": "SES-example",
+        "operation_id": "11111111-1111-4111-8111-111111111111",
+        "manager": "demo",
+        "runtime": "codex_cli",
+        "native_id": null,
+        "readable": true,
+        "state": "unknown",
+        "labels": {},
+        "generation": 1,
+        "started_at": "2026-01-01T00:00:00Z",
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        }
+      },
+      "observed_at": "2026-01-01T00:00:01Z"
+    }
+  },
+  {
+    "name": "manager-missing-executable",
+    "valid": false,
+    "document": {
+      "schema": "curator-run-session-observation-v1",
+      "manager": {
+        "id": "demo",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "session": {
+        "session": "SES-example",
+        "operation_id": "11111111-1111-4111-8111-111111111111",
+        "manager": "demo",
+        "runtime": "codex_cli",
+        "native_id": null,
+        "readable": true,
+        "state": "unknown",
+        "labels": {},
+        "generation": 1,
+        "started_at": "2026-01-01T00:00:00Z",
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        }
+      },
+      "observed_at": "2026-01-01T00:00:01Z"
+    }
+  },
+  {
+    "name": "manager-missing-registered_at",
+    "valid": false,
+    "document": {
+      "schema": "curator-run-session-observation-v1",
+      "manager": {
+        "id": "demo",
+        "executable": "/opt/example/bin/manager"
+      },
+      "session": {
+        "session": "SES-example",
+        "operation_id": "11111111-1111-4111-8111-111111111111",
+        "manager": "demo",
+        "runtime": "codex_cli",
+        "native_id": null,
+        "readable": true,
+        "state": "unknown",
+        "labels": {},
+        "generation": 1,
+        "started_at": "2026-01-01T00:00:00Z",
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        }
+      },
+      "observed_at": "2026-01-01T00:00:01Z"
+    }
+  },
+  {
+    "name": "manager-extra",
+    "valid": false,
+    "document": {
+      "schema": "curator-run-session-observation-v1",
+      "manager": {
+        "id": "demo",
+        "executable": "/opt/example/bin/manager",
+        "registered_at": "2026-01-01T00:00:00Z",
+        "extra": "sentinel"
+      },
+      "session": {
+        "session": "SES-example",
+        "operation_id": "11111111-1111-4111-8111-111111111111",
+        "manager": "demo",
+        "runtime": "codex_cli",
+        "native_id": null,
+        "readable": true,
+        "state": "unknown",
+        "labels": {},
+        "generation": 1,
+        "started_at": "2026-01-01T00:00:00Z",
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        }
+      },
+      "observed_at": "2026-01-01T00:00:01Z"
+    }
+  },
+  {
+    "name": "manager-null",
+    "valid": false,
+    "document": {
+      "schema": "curator-run-session-observation-v1",
+      "manager": null,
+      "session": {
+        "session": "SES-example",
+        "operation_id": "11111111-1111-4111-8111-111111111111",
+        "manager": "demo",
+        "runtime": "codex_cli",
+        "native_id": null,
+        "readable": true,
+        "state": "unknown",
+        "labels": {},
+        "generation": 1,
+        "started_at": "2026-01-01T00:00:00Z",
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        }
+      },
+      "observed_at": "2026-01-01T00:00:01Z"
+    }
+  },
+  {
+    "name": "invalid-schema-other",
+    "valid": false,
+    "document": {
+      "schema": "other",
+      "manager": {
+        "id": "demo",
+        "executable": "/opt/example/bin/manager",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "session": {
+        "session": "SES-example",
+        "operation_id": "11111111-1111-4111-8111-111111111111",
+        "manager": "demo",
+        "runtime": "codex_cli",
+        "native_id": null,
+        "readable": true,
+        "state": "unknown",
+        "labels": {},
+        "generation": 1,
+        "started_at": "2026-01-01T00:00:00Z",
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        }
+      },
+      "observed_at": "2026-01-01T00:00:01Z"
+    }
+  },
+  {
+    "name": "invalid-observed_at-2026-01-01T00:00:01.1Z",
+    "valid": false,
+    "document": {
+      "schema": "curator-run-session-observation-v1",
+      "manager": {
+        "id": "demo",
+        "executable": "/opt/example/bin/manager",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "session": {
+        "session": "SES-example",
+        "operation_id": "11111111-1111-4111-8111-111111111111",
+        "manager": "demo",
+        "runtime": "codex_cli",
+        "native_id": null,
+        "readable": true,
+        "state": "unknown",
+        "labels": {},
+        "generation": 1,
+        "started_at": "2026-01-01T00:00:00Z",
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        }
+      },
+      "observed_at": "2026-01-01T00:00:01.1Z"
+    }
+  },
+  {
+    "name": "invalid-observed_at-2026-01-01T00:00:01+00:00",
+    "valid": false,
+    "document": {
+      "schema": "curator-run-session-observation-v1",
+      "manager": {
+        "id": "demo",
+        "executable": "/opt/example/bin/manager",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "session": {
+        "session": "SES-example",
+        "operation_id": "11111111-1111-4111-8111-111111111111",
+        "manager": "demo",
+        "runtime": "codex_cli",
+        "native_id": null,
+        "readable": true,
+        "state": "unknown",
+        "labels": {},
+        "generation": 1,
+        "started_at": "2026-01-01T00:00:00Z",
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        }
+      },
+      "observed_at": "2026-01-01T00:00:01+00:00"
+    }
+  },
+  {
+    "name": "invalid-observed_at-2026-02-31T00:00:00Z",
+    "valid": false,
+    "document": {
+      "schema": "curator-run-session-observation-v1",
+      "manager": {
+        "id": "demo",
+        "executable": "/opt/example/bin/manager",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "session": {
+        "session": "SES-example",
+        "operation_id": "11111111-1111-4111-8111-111111111111",
+        "manager": "demo",
+        "runtime": "codex_cli",
+        "native_id": null,
+        "readable": true,
+        "state": "unknown",
+        "labels": {},
+        "generation": 1,
+        "started_at": "2026-01-01T00:00:00Z",
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        }
+      },
+      "observed_at": "2026-02-31T00:00:00Z"
+    }
+  },
+  {
+    "name": "invalid-manager-id-BAD",
+    "valid": false,
+    "document": {
+      "schema": "curator-run-session-observation-v1",
+      "manager": {
+        "id": "BAD",
+        "executable": "/opt/example/bin/manager",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "session": {
+        "session": "SES-example",
+        "operation_id": "11111111-1111-4111-8111-111111111111",
+        "manager": "demo",
+        "runtime": "codex_cli",
+        "native_id": null,
+        "readable": true,
+        "state": "unknown",
+        "labels": {},
+        "generation": 1,
+        "started_at": "2026-01-01T00:00:00Z",
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        }
+      },
+      "observed_at": "2026-01-01T00:00:01Z"
+    }
+  },
+  {
+    "name": "invalid-manager-executable-relative",
+    "valid": false,
+    "document": {
+      "schema": "curator-run-session-observation-v1",
+      "manager": {
+        "id": "demo",
+        "executable": "relative",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "session": {
+        "session": "SES-example",
+        "operation_id": "11111111-1111-4111-8111-111111111111",
+        "manager": "demo",
+        "runtime": "codex_cli",
+        "native_id": null,
+        "readable": true,
+        "state": "unknown",
+        "labels": {},
+        "generation": 1,
+        "started_at": "2026-01-01T00:00:00Z",
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        }
+      },
+      "observed_at": "2026-01-01T00:00:01Z"
+    }
+  },
+  {
+    "name": "invalid-manager-executable-/bad\u0000path",
+    "valid": false,
+    "document": {
+      "schema": "curator-run-session-observation-v1",
+      "manager": {
+        "id": "demo",
+        "executable": "/bad\u0000path",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "session": {
+        "session": "SES-example",
+        "operation_id": "11111111-1111-4111-8111-111111111111",
+        "manager": "demo",
+        "runtime": "codex_cli",
+        "native_id": null,
+        "readable": true,
+        "state": "unknown",
+        "labels": {},
+        "generation": 1,
+        "started_at": "2026-01-01T00:00:00Z",
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        }
+      },
+      "observed_at": "2026-01-01T00:00:01Z"
+    }
+  },
+  {
+    "name": "invalid-manager-registered_at-2026-02-31T00:00:00Z",
+    "valid": false,
+    "document": {
+      "schema": "curator-run-session-observation-v1",
+      "manager": {
+        "id": "demo",
+        "executable": "/opt/example/bin/manager",
+        "registered_at": "2026-02-31T00:00:00Z"
+      },
+      "session": {
+        "session": "SES-example",
+        "operation_id": "11111111-1111-4111-8111-111111111111",
+        "manager": "demo",
+        "runtime": "codex_cli",
+        "native_id": null,
+        "readable": true,
+        "state": "unknown",
+        "labels": {},
+        "generation": 1,
+        "started_at": "2026-01-01T00:00:00Z",
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        }
+      },
+      "observed_at": "2026-01-01T00:00:01Z"
+    }
+  },
+  {
+    "name": "invalid-manager-registered_at-2026-01-01T01:00:00+01:00",
+    "valid": false,
+    "document": {
+      "schema": "curator-run-session-observation-v1",
+      "manager": {
+        "id": "demo",
+        "executable": "/opt/example/bin/manager",
+        "registered_at": "2026-01-01T01:00:00+01:00"
+      },
+      "session": {
+        "session": "SES-example",
+        "operation_id": "11111111-1111-4111-8111-111111111111",
+        "manager": "demo",
+        "runtime": "codex_cli",
+        "native_id": null,
+        "readable": true,
+        "state": "unknown",
+        "labels": {},
+        "generation": 1,
+        "started_at": "2026-01-01T00:00:00Z",
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        }
+      },
+      "observed_at": "2026-01-01T00:00:01Z"
+    }
+  },
+  {
+    "name": "rpc-envelope-forbidden",
+    "valid": false,
+    "document": {
+      "schema": "curator-run-session-observation-v1",
+      "manager": {
+        "id": "demo",
+        "executable": "/opt/example/bin/manager",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "session": {
+        "session": "SES-example",
+        "operation_id": "11111111-1111-4111-8111-111111111111",
+        "manager": "demo",
+        "runtime": "codex_cli",
+        "native_id": null,
+        "readable": true,
+        "state": "unknown",
+        "labels": {},
+        "generation": 1,
+        "started_at": "2026-01-01T00:00:00Z",
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        },
+        "protocol": "curator-session-manager/1",
+        "ok": true
+      },
+      "observed_at": "2026-01-01T00:00:01Z"
+    }
+  },
+  {
+    "name": "outer-sig-forbidden",
+    "valid": false,
+    "document": {
+      "schema": "curator-run-session-observation-v1",
+      "manager": {
+        "id": "demo",
+        "executable": "/opt/example/bin/manager",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "session": {
+        "session": "SES-example",
+        "operation_id": "11111111-1111-4111-8111-111111111111",
+        "manager": "demo",
+        "runtime": "codex_cli",
+        "native_id": null,
+        "readable": true,
+        "state": "unknown",
+        "labels": {},
+        "generation": 1,
+        "started_at": "2026-01-01T00:00:00Z",
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        }
+      },
+      "observed_at": "2026-01-01T00:00:01Z",
+      "sig": "sentinel"
+    }
+  }
+]

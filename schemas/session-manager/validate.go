@@ -66,12 +66,12 @@ func Validate(name string, data []byte) error {
 	if len(data) > Limit {
 		return errors.New("protocol document exceeds byte bound")
 	}
-	canonical, err := CanonicalJSON(data)
+	_, err := parseJSON(data)
 	if err != nil {
 		return errors.New("invalid protocol JSON")
 	}
 	var value any
-	if json.Unmarshal(canonical, &value) != nil {
+	if json.Unmarshal(data, &value) != nil {
 		return errors.New("invalid protocol JSON")
 	}
 	if err := validateFile(name, value, 0); err != nil {
@@ -302,7 +302,9 @@ func check(s map[string]any, value any, field string, depth int) error {
 		if format, ok := s["format"].(string); ok {
 			switch format {
 			case "date-time":
-				if _, err := time.Parse(time.RFC3339Nano, v); err != nil || !strings.HasSuffix(v, "Z") {
+				// Timestamp spelling and UTC restrictions belong to each schema pattern.
+				// Registrations retain fractional seconds and zero-offset spellings.
+				if _, err := time.Parse(time.RFC3339Nano, v); err != nil {
 					return bad()
 				}
 			default:
