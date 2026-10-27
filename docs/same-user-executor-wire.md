@@ -520,8 +520,11 @@ storage failure; no detachment or presence of `owner.lock` promises otherwise.
 
 A `reconcile` process may acquire owner.lock only after its prior holder is
 actually gone; lock-read failure is not permission. It NEVER starts a harness.
-With a valid pre-intent record it may attest no start attempt, but only admitted/not_requested proves no allocation; with any intent
-or unexplained partial record it treats start as consumed/uncertain. It reopens
+With a valid pre-start-intent record it may attest no native start attempt, but
+only admitted/not_requested proves no allocation. A start intent or unexplained
+possible-start publication makes start consumed/uncertain; an operation or
+allocation intent alone does not prove a native start attempt. Allocation
+uncertainty remains governed by the allocation recovery rule above. It reopens
 only the exact persisted recoverable scope through the approved scope adapter,
 compares boot/namespace/object/incarnation identity and observes/stops that scope.
 PID reuse, a missing namespace or unmatched scope is `scope_unknown`, never a

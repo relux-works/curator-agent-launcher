@@ -1,6 +1,6 @@
 {
   "kind": "curator-run member-ack/1",
-  "reservation_sha256": "889c4196fbc1c2538722be1b6717415b085b84b4239ffe91c153c9ea2e379105",
+  "reservation_sha256": "357c39b442eb8748f97d9b4fcc9c6559c8bd4a47eeae9bc63f7b8384dec123c7",
   "receipt": {
     "name": "receipt",
     "length": 66,
