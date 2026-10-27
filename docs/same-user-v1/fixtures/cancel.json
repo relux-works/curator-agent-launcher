@@ -1,0 +1,7 @@
+{
+  "kind": "curator-run member-cancel/1",
+  "invocation_id": "00000000000000000000000000000004",
+  "cancel_id": "00000000000000000000000000000009",
+  "source": "controller_request",
+  "requested_at_ms": 1
+}

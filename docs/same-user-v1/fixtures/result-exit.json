@@ -1,0 +1,78 @@
+{
+  "kind": "curator-run member-result/1",
+  "store_id": "00000000000000000000000000000002",
+  "identity": {
+    "controller_id": "00000000000000000000000000000001",
+    "assignment_id": "00000000000000000000000000000003",
+    "invocation_id": "00000000000000000000000000000004",
+    "member_id": "00000000000000000000000000000005",
+    "consumer_id": "00000000000000000000000000000006",
+    "role": "development",
+    "producer_member_id": null,
+    "predecessor_invocation_id": null
+  },
+  "request_sha256": "a199b5ad254437be01ac2a017eb810f72f201a57f76e7d5fcac5f9265177dae0",
+  "tuple_sha256": "80fdb1ade7796542a4cf5bedbc6f490e7b7f16bc2379944b11b46a98af23c25c",
+  "writer": {
+    "role": "supervisor",
+    "id": "00000000000000000000000000000008",
+    "incarnation_sha256": "66ea9fa85734ed6b63216d5b10a965a24f53ac1edc8842daf30cbbc818259c6b",
+    "supervisor_id": "00000000000000000000000000000008"
+  },
+  "scope": {
+    "adapter_id": "fixture-scope",
+    "adapter_revision": "2222222222222222222222222222222222222222",
+    "scope_id": "0000000000000000000000000000000b",
+    "identity_sha256": "bdb53d401768cf538dc9375014e4fac86d34f9f08ac42320f0e7ba3a3037593a",
+    "boot_sha256": "cf96c665581362fd7dbe14172fefc6582a7ec0a85e36ecdd2c4f98f87e744848",
+    "namespace_sha256": "119f116400d8645611cc1b5683344649c9ea4c4aab656645ad8a5491954676ba",
+    "root_incarnation_sha256": "2480be9dc3099dfd2a7c19e426a6b1bb2300f4c4154901e4432c4f7fe1d1cf03"
+  },
+  "actual_tuple": {
+    "name": "tuple",
+    "length": 3470,
+    "sha256": "80fdb1ade7796542a4cf5bedbc6f490e7b7f16bc2379944b11b46a98af23c25c"
+  },
+  "argv": [
+    "fixture-runtime",
+    "fixture-input"
+  ],
+  "native": {
+    "status": "exit",
+    "code": 0,
+    "evidence": {
+      "name": "native-exit",
+      "length": 1199,
+      "sha256": "53b98f410b2ba168e91f6ab70fc14fc214d30bc48173fc277bf8d39abd44a868"
+    }
+  },
+  "cleanup": {
+    "status": "confirmed_absent",
+    "evidence": {
+      "name": "scope-absent",
+      "length": 1082,
+      "sha256": "b1726783a25df07bf986c3ca02c29e0b525ac3a1db4e82c880d77b9ecaee3770"
+    }
+  },
+  "cancel": null,
+  "worker_output": "complete",
+  "outputs": [
+    {
+      "name": "patch",
+      "length": 62,
+      "sha256": "9045ac521450db8370cf015b551984ceb3b69d42cf1194965fc1d1b051bc6fe2"
+    }
+  ],
+  "stdout": {
+    "length": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "truncated": false
+  },
+  "stderr": {
+    "length": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "truncated": false
+  },
+  "error": null,
+  "final_generation": 5
+}

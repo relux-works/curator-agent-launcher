@@ -1,0 +1,8 @@
+{
+  "kind": "curator-run member-request/1",
+  "request_id": "140c729688cc1ba35847fa0b4f27f62b",
+  "operation": "cancel",
+  "invocation_id": "00000000000000000000000000000004",
+  "cancel_id": "00000000000000000000000000000009",
+  "reason": "controller_request"
+}

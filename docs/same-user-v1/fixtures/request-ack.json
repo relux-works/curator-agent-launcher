@@ -1,0 +1,15 @@
+{
+  "kind": "curator-run member-request/1",
+  "request_id": "64a37929fb113e18daa6263a1fb1f90c",
+  "operation": "consume",
+  "action": "ack",
+  "invocation_id": "00000000000000000000000000000004",
+  "consumer_id": "00000000000000000000000000000006",
+  "effect_id": "0000000000000000000000000000000a",
+  "result_sha256": "28b66777eabc2f20145af8144ab5be9d59894c0b6abe14e223669a0a9278c2e3",
+  "receipt": {
+    "name": "receipt",
+    "length": 66,
+    "sha256": "aea75ce30c43d0692aac60b4c285b03b3e9e52e50dd62eb39bba725bc11e1c84"
+  }
+}

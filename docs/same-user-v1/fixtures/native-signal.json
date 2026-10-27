@@ -1,0 +1,33 @@
+{
+  "kind": "curator-run member-observation/1",
+  "invocation_id": "00000000000000000000000000000004",
+  "supervisor_id": "00000000000000000000000000000008",
+  "scope": {
+    "adapter_id": "fixture-scope",
+    "adapter_revision": "2222222222222222222222222222222222222222",
+    "scope_id": "0000000000000000000000000000000b",
+    "identity_sha256": "bdb53d401768cf538dc9375014e4fac86d34f9f08ac42320f0e7ba3a3037593a",
+    "boot_sha256": "cf96c665581362fd7dbe14172fefc6582a7ec0a85e36ecdd2c4f98f87e744848",
+    "namespace_sha256": "119f116400d8645611cc1b5683344649c9ea4c4aab656645ad8a5491954676ba",
+    "root_incarnation_sha256": "2480be9dc3099dfd2a7c19e426a6b1bb2300f4c4154901e4432c4f7fe1d1cf03"
+  },
+  "process_incarnation_sha256": "2480be9dc3099dfd2a7c19e426a6b1bb2300f4c4154901e4432c4f7fe1d1cf03",
+  "boot_sha256": "cf96c665581362fd7dbe14172fefc6582a7ec0a85e36ecdd2c4f98f87e744848",
+  "observed_monotonic_ms": 5000,
+  "wait": {
+    "status": "signal",
+    "number": 15,
+    "name": "SIGTERM",
+    "core_dumped": false,
+    "raw_status": 15
+  },
+  "actual_tuple": {
+    "name": "tuple",
+    "length": 3470,
+    "sha256": "80fdb1ade7796542a4cf5bedbc6f490e7b7f16bc2379944b11b46a98af23c25c"
+  },
+  "argv": [
+    "fixture-runtime",
+    "fixture-input"
+  ]
+}

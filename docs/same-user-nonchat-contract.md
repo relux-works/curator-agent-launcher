@@ -6,6 +6,11 @@ This revision versions the documentary contract, not an executable, CLI, wire
 schema, refusal registry or capability. Source publication alone enables none
 of them. The qualification section is a PLAN, with no executed witnesses.
 
+The follow-up [executor protocol source revision 1](same-user-executor-wire.md)
+concretizes the proposed entry, closed records and custody ordering with inert
+fixtures/manual cases. It adds no implementation or positive compatibility tuple;
+this contract's retained scope and separate qualification gates continue to apply.
+
 ## 1. Scope and source boundaries
 
 This target admits bounded trusted development, independent source review and

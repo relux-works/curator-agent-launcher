@@ -1,0 +1,39 @@
+{
+  "kind": "curator-run member-snapshot/1",
+  "store_id": "00000000000000000000000000000002",
+  "identity": {
+    "controller_id": "00000000000000000000000000000001",
+    "assignment_id": "00000000000000000000000000000003",
+    "invocation_id": "00000000000000000000000000000004",
+    "member_id": "00000000000000000000000000000005",
+    "consumer_id": "00000000000000000000000000000006",
+    "role": "development",
+    "producer_member_id": null,
+    "predecessor_invocation_id": null
+  },
+  "request_sha256": "a199b5ad254437be01ac2a017eb810f72f201a57f76e7d5fcac5f9265177dae0",
+  "tuple_sha256": "80fdb1ade7796542a4cf5bedbc6f490e7b7f16bc2379944b11b46a98af23c25c",
+  "authorization_sha256": "c49e7b826952fb5dec3d374893ec0da0215c97bbaddd1e64c80e4fb4d152c360",
+  "generation": 1,
+  "phase": "admitted",
+  "writer": {
+    "role": "supervisor",
+    "id": "00000000000000000000000000000008",
+    "incarnation_sha256": "66ea9fa85734ed6b63216d5b10a965a24f53ac1edc8842daf30cbbc818259c6b",
+    "supervisor_id": "00000000000000000000000000000008"
+  },
+  "scope": null,
+  "boot_sha256": "cf96c665581362fd7dbe14172fefc6582a7ec0a85e36ecdd2c4f98f87e744848",
+  "deadline_monotonic_ms": 5000,
+  "start": {
+    "status": "not_attempted"
+  },
+  "native": {
+    "status": "not_started"
+  },
+  "cleanup": {
+    "status": "not_started"
+  },
+  "result": null,
+  "error": null
+}

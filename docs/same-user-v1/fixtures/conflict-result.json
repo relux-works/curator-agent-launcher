@@ -1,0 +1,14 @@
+{
+  "kind": "curator-run member-conflict/1",
+  "store_id": "00000000000000000000000000000002",
+  "invocation_id": "00000000000000000000000000000004",
+  "category": "result",
+  "original_sha256": "28b66777eabc2f20145af8144ab5be9d59894c0b6abe14e223669a0a9278c2e3",
+  "conflicting_sha256": "57822942238d571850406f2062ee333e18b94e1a9c691d0c7f17ea25b5e7d58f",
+  "writer": {
+    "role": "supervisor",
+    "id": "00000000000000000000000000000008",
+    "incarnation_sha256": "66ea9fa85734ed6b63216d5b10a965a24f53ac1edc8842daf30cbbc818259c6b",
+    "supervisor_id": "00000000000000000000000000000008"
+  }
+}

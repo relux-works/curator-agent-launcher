@@ -1,0 +1,3004 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://relux.works/curator-agent-launcher/same-user-v1/records.schema.json",
+  "title": "Proposed same-user executor records v1; no runtime admission",
+  "$comment": "Inert Stage1 source schema. Byte/custody/hash/compatibility/transition constraints in ../same-user-executor-wire.md are additionally normative. Schema-valid fixture tuples are synthetic, not supported native tuples.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/request"
+    },
+    {
+      "$ref": "#/$defs/authorization"
+    },
+    {
+      "$ref": "#/$defs/owner"
+    },
+    {
+      "$ref": "#/$defs/tuple"
+    },
+    {
+      "$ref": "#/$defs/snapshot"
+    },
+    {
+      "$ref": "#/$defs/head"
+    },
+    {
+      "$ref": "#/$defs/cancel"
+    },
+    {
+      "$ref": "#/$defs/observation"
+    },
+    {
+      "$ref": "#/$defs/scopeProof"
+    },
+    {
+      "$ref": "#/$defs/result"
+    },
+    {
+      "$ref": "#/$defs/response"
+    },
+    {
+      "$ref": "#/$defs/replay"
+    },
+    {
+      "$ref": "#/$defs/reservation"
+    },
+    {
+      "$ref": "#/$defs/ack"
+    },
+    {
+      "$ref": "#/$defs/catalog"
+    },
+    {
+      "$ref": "#/$defs/conflict"
+    }
+  ],
+  "$defs": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 32,
+      "pattern": "^[a-f0-9]{32}$"
+    },
+    "digest": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "revision": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^([a-f0-9]{40}|[a-f0-9]{64})$"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
+    },
+    "ref": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/name"
+        },
+        "length": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4194304
+        },
+        "sha256": {
+          "$ref": "#/$defs/digest"
+        }
+      },
+      "required": [
+        "name",
+        "length",
+        "sha256"
+      ],
+      "additionalProperties": false
+    },
+    "identity": {
+      "type": "object",
+      "properties": {
+        "controller_id": {
+          "$ref": "#/$defs/id"
+        },
+        "assignment_id": {
+          "$ref": "#/$defs/id"
+        },
+        "invocation_id": {
+          "$ref": "#/$defs/id"
+        },
+        "member_id": {
+          "$ref": "#/$defs/id"
+        },
+        "consumer_id": {
+          "$ref": "#/$defs/id"
+        },
+        "role": {
+          "enum": [
+            "development",
+            "source_review",
+            "recipient_assessment"
+          ]
+        },
+        "producer_member_id": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/id"
+            }
+          ]
+        },
+        "predecessor_invocation_id": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/id"
+            }
+          ]
+        }
+      },
+      "required": [
+        "controller_id",
+        "assignment_id",
+        "invocation_id",
+        "member_id",
+        "consumer_id",
+        "role",
+        "producer_member_id",
+        "predecessor_invocation_id"
+      ],
+      "additionalProperties": false
+    },
+    "component": {
+      "type": "object",
+      "properties": {
+        "repository": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048,
+          "pattern": "^https://[A-Za-z0-9./_-]+$"
+        },
+        "revision": {
+          "$ref": "#/$defs/revision"
+        },
+        "binary_sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "release": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      },
+      "required": [
+        "repository",
+        "revision",
+        "binary_sha256",
+        "release"
+      ],
+      "additionalProperties": false
+    },
+    "ownerInput": {
+      "type": "object",
+      "properties": {
+        "owner": {
+          "enum": [
+            "curator",
+            "runtime",
+            "launcher"
+          ]
+        },
+        "repository": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048,
+          "pattern": "^https://[A-Za-z0-9./_-]+$"
+        },
+        "revision": {
+          "$ref": "#/$defs/revision"
+        },
+        "document": {
+          "$ref": "#/$defs/ref"
+        }
+      },
+      "required": [
+        "owner",
+        "repository",
+        "revision",
+        "document"
+      ],
+      "additionalProperties": false
+    },
+    "manager": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "const": "required"
+            },
+            "id": {
+              "$ref": "#/$defs/name"
+            },
+            "registration_sha256": {
+              "$ref": "#/$defs/digest"
+            },
+            "transport_binding_sha256": {
+              "$ref": "#/$defs/digest"
+            },
+            "capabilities_sha256": {
+              "$ref": "#/$defs/digest"
+            },
+            "protocol": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "compatibility_sha256": {
+              "$ref": "#/$defs/digest"
+            }
+          },
+          "required": [
+            "mode",
+            "id",
+            "registration_sha256",
+            "transport_binding_sha256",
+            "capabilities_sha256",
+            "protocol",
+            "compatibility_sha256"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "const": "compatible_absence"
+            },
+            "compatibility_sha256": {
+              "$ref": "#/$defs/digest"
+            }
+          },
+          "required": [
+            "mode",
+            "compatibility_sha256"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "effort": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "const": "named"
+            },
+            "value": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            }
+          },
+          "required": [
+            "mode",
+            "value"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "const": "not_applicable"
+            },
+            "evidence_sha256": {
+              "$ref": "#/$defs/digest"
+            }
+          },
+          "required": [
+            "mode",
+            "evidence_sha256"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "tuple": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "curator-run member-tuple/1"
+        },
+        "launcher": {
+          "$ref": "#/$defs/component"
+        },
+        "curator": {
+          "$ref": "#/$defs/component"
+        },
+        "agents_management": {
+          "type": "object",
+          "properties": {
+            "module": {
+              "const": "github.com/relux-works/skill-agents-management"
+            },
+            "version": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "revision": {
+              "$ref": "#/$defs/revision"
+            }
+          },
+          "required": [
+            "module",
+            "version",
+            "revision"
+          ],
+          "additionalProperties": false
+        },
+        "runtime": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/name"
+            },
+            "vendor": {
+              "$ref": "#/$defs/name"
+            },
+            "release": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "binary_sha256": {
+              "$ref": "#/$defs/digest"
+            },
+            "model": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "effort": {
+              "$ref": "#/$defs/effort"
+            },
+            "os": {
+              "enum": [
+                "linux",
+                "darwin"
+              ]
+            },
+            "architecture": {
+              "enum": [
+                "amd64",
+                "arm64"
+              ]
+            },
+            "adapter_id": {
+              "$ref": "#/$defs/name"
+            },
+            "adapter_revision": {
+              "$ref": "#/$defs/revision"
+            }
+          },
+          "required": [
+            "id",
+            "vendor",
+            "release",
+            "binary_sha256",
+            "model",
+            "effort",
+            "os",
+            "architecture",
+            "adapter_id",
+            "adapter_revision"
+          ],
+          "additionalProperties": false
+        },
+        "profile": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/name"
+            },
+            "revision": {
+              "$ref": "#/$defs/revision"
+            },
+            "source_closure_sha256": {
+              "$ref": "#/$defs/digest"
+            },
+            "config_sha256": {
+              "$ref": "#/$defs/digest"
+            },
+            "lock_sha256": {
+              "$ref": "#/$defs/digest"
+            },
+            "fragment_kind": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "fragment_sha256": {
+              "$ref": "#/$defs/digest"
+            },
+            "effective_config_sha256": {
+              "$ref": "#/$defs/digest"
+            },
+            "permission_posture": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "permission_policy_sha256": {
+              "$ref": "#/$defs/digest"
+            }
+          },
+          "required": [
+            "id",
+            "revision",
+            "source_closure_sha256",
+            "config_sha256",
+            "lock_sha256",
+            "fragment_kind",
+            "fragment_sha256",
+            "effective_config_sha256",
+            "permission_posture",
+            "permission_policy_sha256"
+          ],
+          "additionalProperties": false
+        },
+        "home": {
+          "type": "object",
+          "properties": {
+            "uid": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 4294967295
+            },
+            "mode": {
+              "enum": [
+                "managed_snapshot",
+                "native_strict"
+              ]
+            },
+            "provenance_sha256": {
+              "$ref": "#/$defs/digest"
+            },
+            "native_origin_sha256": {
+              "$ref": "#/$defs/digest"
+            },
+            "auth_binding_sha256": {
+              "$ref": "#/$defs/digest"
+            }
+          },
+          "required": [
+            "uid",
+            "mode",
+            "provenance_sha256",
+            "native_origin_sha256",
+            "auth_binding_sha256"
+          ],
+          "additionalProperties": false
+        },
+        "manager": {
+          "$ref": "#/$defs/manager"
+        },
+        "owner_inputs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ownerInput"
+          },
+          "minItems": 3,
+          "maxItems": 16,
+          "allOf": [
+            {
+              "contains": {
+                "properties": {
+                  "owner": {
+                    "const": "curator"
+                  }
+                },
+                "required": [
+                  "owner"
+                ]
+              }
+            },
+            {
+              "contains": {
+                "properties": {
+                  "owner": {
+                    "const": "runtime"
+                  }
+                },
+                "required": [
+                  "owner"
+                ]
+              }
+            },
+            {
+              "contains": {
+                "properties": {
+                  "owner": {
+                    "const": "launcher"
+                  }
+                },
+                "required": [
+                  "owner"
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "launcher",
+        "curator",
+        "agents_management",
+        "runtime",
+        "profile",
+        "home",
+        "manager",
+        "owner_inputs"
+      ],
+      "additionalProperties": false
+    },
+    "artifact": {
+      "type": "object",
+      "properties": {
+        "object": {
+          "$ref": "#/$defs/ref"
+        },
+        "role": {
+          "enum": [
+            "instruction",
+            "source",
+            "tuple",
+            "owner_input",
+            "profile_input",
+            "receipt"
+          ]
+        }
+      },
+      "required": [
+        "object",
+        "role"
+      ],
+      "additionalProperties": false
+    },
+    "effects": {
+      "type": "object",
+      "properties": {
+        "tools": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/name"
+          },
+          "minItems": 0,
+          "maxItems": 32,
+          "uniqueItems": true
+        },
+        "read_objects": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/name"
+          },
+          "minItems": 0,
+          "maxItems": 128,
+          "uniqueItems": true
+        },
+        "output_names": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/name"
+          },
+          "minItems": 0,
+          "maxItems": 128,
+          "uniqueItems": true
+        },
+        "network": {
+          "enum": [
+            "disabled",
+            "admitted_provider"
+          ]
+        },
+        "provider_binding_sha256": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/digest"
+            }
+          ]
+        },
+        "max_processes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 64
+        },
+        "max_provider_requests": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 64
+        },
+        "max_provider_tokens": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65536
+        }
+      },
+      "required": [
+        "tools",
+        "read_objects",
+        "output_names",
+        "network",
+        "provider_binding_sha256",
+        "max_processes",
+        "max_provider_requests",
+        "max_provider_tokens"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "network": {
+                "const": "disabled"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "provider_binding_sha256": {
+                "const": null
+              },
+              "max_provider_requests": {
+                "const": 0
+              },
+              "max_provider_tokens": {
+                "const": 0
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "provider_binding_sha256": {
+                "$ref": "#/$defs/digest"
+              },
+              "max_provider_requests": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 64
+              },
+              "max_provider_tokens": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 65536
+              }
+            }
+          }
+        }
+      ]
+    },
+    "deadlines": {
+      "type": "object",
+      "properties": {
+        "startup_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 60000
+        },
+        "runtime_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3600000
+        },
+        "term_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 6000
+        },
+        "kill_observation_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 6000
+        },
+        "result_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 6000
+        },
+        "state_budget_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 67108864
+        }
+      },
+      "required": [
+        "startup_ms",
+        "runtime_ms",
+        "term_ms",
+        "kill_observation_ms",
+        "result_ms",
+        "state_budget_bytes"
+      ],
+      "additionalProperties": false
+    },
+    "submit": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "curator-run member-request/1"
+        },
+        "request_id": {
+          "$ref": "#/$defs/id"
+        },
+        "operation": {
+          "const": "submit"
+        },
+        "identity": {
+          "$ref": "#/$defs/identity"
+        },
+        "tuple": {
+          "$ref": "#/$defs/ref"
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/artifact"
+          },
+          "minItems": 1,
+          "maxItems": 128
+        },
+        "effects": {
+          "$ref": "#/$defs/effects"
+        },
+        "deadlines": {
+          "$ref": "#/$defs/deadlines"
+        }
+      },
+      "required": [
+        "kind",
+        "request_id",
+        "operation",
+        "identity",
+        "tuple",
+        "artifacts",
+        "effects",
+        "deadlines"
+      ],
+      "additionalProperties": false
+    },
+    "inspect": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "curator-run member-request/1"
+        },
+        "request_id": {
+          "$ref": "#/$defs/id"
+        },
+        "operation": {
+          "const": "inspect"
+        },
+        "invocation_id": {
+          "$ref": "#/$defs/id"
+        }
+      },
+      "required": [
+        "kind",
+        "request_id",
+        "operation",
+        "invocation_id"
+      ],
+      "additionalProperties": false
+    },
+    "cancelRequest": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "curator-run member-request/1"
+        },
+        "request_id": {
+          "$ref": "#/$defs/id"
+        },
+        "operation": {
+          "const": "cancel"
+        },
+        "invocation_id": {
+          "$ref": "#/$defs/id"
+        },
+        "cancel_id": {
+          "$ref": "#/$defs/id"
+        },
+        "reason": {
+          "enum": [
+            "controller_request",
+            "deadline"
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "request_id",
+        "operation",
+        "invocation_id",
+        "cancel_id",
+        "reason"
+      ],
+      "additionalProperties": false
+    },
+    "reconcile": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "curator-run member-request/1"
+        },
+        "request_id": {
+          "$ref": "#/$defs/id"
+        },
+        "operation": {
+          "const": "reconcile"
+        },
+        "invocation_id": {
+          "$ref": "#/$defs/id"
+        }
+      },
+      "required": [
+        "kind",
+        "request_id",
+        "operation",
+        "invocation_id"
+      ],
+      "additionalProperties": false
+    },
+    "reserveRequest": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "curator-run member-request/1"
+        },
+        "request_id": {
+          "$ref": "#/$defs/id"
+        },
+        "operation": {
+          "const": "consume"
+        },
+        "action": {
+          "const": "reserve"
+        },
+        "invocation_id": {
+          "$ref": "#/$defs/id"
+        },
+        "consumer_id": {
+          "$ref": "#/$defs/id"
+        },
+        "effect_id": {
+          "$ref": "#/$defs/id"
+        },
+        "result_sha256": {
+          "$ref": "#/$defs/digest"
+        }
+      },
+      "required": [
+        "kind",
+        "request_id",
+        "operation",
+        "action",
+        "invocation_id",
+        "consumer_id",
+        "effect_id",
+        "result_sha256"
+      ],
+      "additionalProperties": false
+    },
+    "ackRequest": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "curator-run member-request/1"
+        },
+        "request_id": {
+          "$ref": "#/$defs/id"
+        },
+        "operation": {
+          "const": "consume"
+        },
+        "action": {
+          "const": "ack"
+        },
+        "invocation_id": {
+          "$ref": "#/$defs/id"
+        },
+        "consumer_id": {
+          "$ref": "#/$defs/id"
+        },
+        "effect_id": {
+          "$ref": "#/$defs/id"
+        },
+        "result_sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "receipt": {
+          "$ref": "#/$defs/ref"
+        }
+      },
+      "required": [
+        "kind",
+        "request_id",
+        "operation",
+        "action",
+        "invocation_id",
+        "consumer_id",
+        "effect_id",
+        "result_sha256",
+        "receipt"
+      ],
+      "additionalProperties": false
+    },
+    "request": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/submit"
+        },
+        {
+          "$ref": "#/$defs/inspect"
+        },
+        {
+          "$ref": "#/$defs/cancelRequest"
+        },
+        {
+          "$ref": "#/$defs/reconcile"
+        },
+        {
+          "$ref": "#/$defs/reserveRequest"
+        },
+        {
+          "$ref": "#/$defs/ackRequest"
+        }
+      ]
+    },
+    "authorization": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "curator-run member-authorization/1"
+        },
+        "controller_id": {
+          "$ref": "#/$defs/id"
+        },
+        "store_id": {
+          "$ref": "#/$defs/id"
+        },
+        "request_length": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65536
+        },
+        "request_sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "expires_at_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "kind",
+        "controller_id",
+        "store_id",
+        "request_length",
+        "request_sha256",
+        "expires_at_ms"
+      ],
+      "additionalProperties": false
+    },
+    "owner": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "curator-run member-owner/1"
+        },
+        "controller_id": {
+          "$ref": "#/$defs/id"
+        },
+        "store_id": {
+          "$ref": "#/$defs/id"
+        },
+        "uid": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4294967295
+        },
+        "catalog_sha256": {
+          "$ref": "#/$defs/digest"
+        }
+      },
+      "required": [
+        "kind",
+        "controller_id",
+        "store_id",
+        "uid",
+        "catalog_sha256"
+      ],
+      "additionalProperties": false
+    },
+    "sourceError": {
+      "type": "object",
+      "properties": {
+        "component": {
+          "$ref": "#/$defs/name"
+        },
+        "namespace": {
+          "$ref": "#/$defs/name"
+        },
+        "code": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9_.:-]+$"
+        }
+      },
+      "required": [
+        "component",
+        "namespace",
+        "code"
+      ],
+      "additionalProperties": false
+    },
+    "error": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "stage": {
+              "const": "bootstrap"
+            },
+            "code": {
+              "enum": [
+                "transport_unavailable",
+                "descriptor_invalid"
+              ]
+            },
+            "source": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "#/$defs/sourceError"
+                }
+              ]
+            },
+            "evidence": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "#/$defs/ref"
+                }
+              ]
+            }
+          },
+          "required": [
+            "stage",
+            "code",
+            "source",
+            "evidence"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "stage": {
+              "const": "parse"
+            },
+            "code": {
+              "enum": [
+                "encoding_invalid",
+                "schema_invalid",
+                "bounds_exceeded"
+              ]
+            },
+            "source": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "#/$defs/sourceError"
+                }
+              ]
+            },
+            "evidence": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "#/$defs/ref"
+                }
+              ]
+            }
+          },
+          "required": [
+            "stage",
+            "code",
+            "source",
+            "evidence"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "stage": {
+              "const": "admission"
+            },
+            "code": {
+              "enum": [
+                "authorization_invalid",
+                "authorization_expired",
+                "input_mismatch",
+                "identity_mismatch",
+                "invocation_conflict"
+              ]
+            },
+            "source": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "#/$defs/sourceError"
+                }
+              ]
+            },
+            "evidence": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "#/$defs/ref"
+                }
+              ]
+            }
+          },
+          "required": [
+            "stage",
+            "code",
+            "source",
+            "evidence"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "stage": {
+              "const": "compatibility"
+            },
+            "code": {
+              "enum": [
+                "compatibility_unpublished",
+                "compatibility_mismatch",
+                "configuration_unknown",
+                "presence_contamination",
+                "history_contamination"
+              ]
+            },
+            "source": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "#/$defs/sourceError"
+                }
+              ]
+            },
+            "evidence": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "#/$defs/ref"
+                }
+              ]
+            }
+          },
+          "required": [
+            "stage",
+            "code",
+            "source",
+            "evidence"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "stage": {
+              "const": "store"
+            },
+            "code": {
+              "enum": [
+                "store_busy",
+                "store_unreadable",
+                "store_full"
+              ]
+            },
+            "source": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "#/$defs/sourceError"
+                }
+              ]
+            },
+            "evidence": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "#/$defs/ref"
+                }
+              ]
+            }
+          },
+          "required": [
+            "stage",
+            "code",
+            "source",
+            "evidence"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "stage": {
+              "const": "start"
+            },
+            "code": {
+              "enum": [
+                "spawn_failed"
+              ]
+            },
+            "source": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "#/$defs/sourceError"
+                }
+              ]
+            },
+            "evidence": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "#/$defs/ref"
+                }
+              ]
+            }
+          },
+          "required": [
+            "stage",
+            "code",
+            "source",
+            "evidence"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "stage": {
+              "const": "runtime"
+            },
+            "code": {
+              "enum": [
+                "supervisor_lost"
+              ]
+            },
+            "source": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "#/$defs/sourceError"
+                }
+              ]
+            },
+            "evidence": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "#/$defs/ref"
+                }
+              ]
+            }
+          },
+          "required": [
+            "stage",
+            "code",
+            "source",
+            "evidence"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "stage": {
+              "const": "result"
+            },
+            "code": {
+              "enum": [
+                "result_invalid",
+                "result_overflow",
+                "result_conflict"
+              ]
+            },
+            "source": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "#/$defs/sourceError"
+                }
+              ]
+            },
+            "evidence": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "#/$defs/ref"
+                }
+              ]
+            }
+          },
+          "required": [
+            "stage",
+            "code",
+            "source",
+            "evidence"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "stage": {
+              "const": "cleanup"
+            },
+            "code": {
+              "enum": [
+                "scope_unknown",
+                "cleanup_failed"
+              ]
+            },
+            "source": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "#/$defs/sourceError"
+                }
+              ]
+            },
+            "evidence": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "#/$defs/ref"
+                }
+              ]
+            }
+          },
+          "required": [
+            "stage",
+            "code",
+            "source",
+            "evidence"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "stage": {
+              "const": "consume"
+            },
+            "code": {
+              "enum": [
+                "consumption_conflict",
+                "effect_unknown"
+              ]
+            },
+            "source": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "#/$defs/sourceError"
+                }
+              ]
+            },
+            "evidence": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "#/$defs/ref"
+                }
+              ]
+            }
+          },
+          "required": [
+            "stage",
+            "code",
+            "source",
+            "evidence"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "stage": {
+              "const": "cancel"
+            },
+            "code": {
+              "enum": [
+                "cancel_conflict"
+              ]
+            },
+            "source": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "#/$defs/sourceError"
+                }
+              ]
+            },
+            "evidence": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "#/$defs/ref"
+                }
+              ]
+            }
+          },
+          "required": [
+            "stage",
+            "code",
+            "source",
+            "evidence"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "scope": {
+      "type": "object",
+      "properties": {
+        "adapter_id": {
+          "$ref": "#/$defs/name"
+        },
+        "adapter_revision": {
+          "$ref": "#/$defs/revision"
+        },
+        "scope_id": {
+          "$ref": "#/$defs/id"
+        },
+        "identity_sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "boot_sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "namespace_sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "root_incarnation_sha256": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/digest"
+            }
+          ]
+        }
+      },
+      "required": [
+        "adapter_id",
+        "adapter_revision",
+        "scope_id",
+        "identity_sha256",
+        "boot_sha256",
+        "namespace_sha256",
+        "root_incarnation_sha256"
+      ],
+      "additionalProperties": false
+    },
+    "writer": {
+      "type": "object",
+      "properties": {
+        "role": {
+          "enum": [
+            "supervisor",
+            "reconciler"
+          ]
+        },
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "incarnation_sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "supervisor_id": {
+          "$ref": "#/$defs/id"
+        }
+      },
+      "required": [
+        "role",
+        "id",
+        "incarnation_sha256",
+        "supervisor_id"
+      ],
+      "additionalProperties": false
+    },
+    "wait": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "status": {
+              "const": "exit"
+            },
+            "code": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 255
+            },
+            "raw_status": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            }
+          },
+          "required": [
+            "status",
+            "code",
+            "raw_status"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "status": {
+              "const": "signal"
+            },
+            "number": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 32,
+              "pattern": "^[A-Z0-9]+$"
+            },
+            "core_dumped": {
+              "type": "boolean"
+            },
+            "raw_status": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            }
+          },
+          "required": [
+            "status",
+            "number",
+            "name",
+            "core_dumped",
+            "raw_status"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "observation": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "curator-run member-observation/1"
+        },
+        "invocation_id": {
+          "$ref": "#/$defs/id"
+        },
+        "supervisor_id": {
+          "$ref": "#/$defs/id"
+        },
+        "scope": {
+          "$ref": "#/$defs/scope"
+        },
+        "process_incarnation_sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "boot_sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "observed_monotonic_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "wait": {
+          "$ref": "#/$defs/wait"
+        },
+        "actual_tuple": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/ref"
+            }
+          ]
+        },
+        "argv": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              },
+              "minItems": 0,
+              "maxItems": 128
+            }
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "invocation_id",
+        "supervisor_id",
+        "scope",
+        "process_incarnation_sha256",
+        "boot_sha256",
+        "observed_monotonic_ms",
+        "wait",
+        "actual_tuple",
+        "argv"
+      ],
+      "additionalProperties": false
+    },
+    "scopeProof": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "curator-run member-scope-proof/1"
+        },
+        "invocation_id": {
+          "$ref": "#/$defs/id"
+        },
+        "scope": {
+          "$ref": "#/$defs/scope"
+        },
+        "observer": {
+          "$ref": "#/$defs/writer"
+        },
+        "observed_monotonic_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "method_sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "observation_complete": {
+          "type": "boolean"
+        },
+        "scope_matches": {
+          "type": "boolean"
+        },
+        "empty": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "kind",
+        "invocation_id",
+        "scope",
+        "observer",
+        "observed_monotonic_ms",
+        "method_sha256",
+        "observation_complete",
+        "scope_matches",
+        "empty"
+      ],
+      "additionalProperties": false
+    },
+    "native": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "status": {
+              "const": "not_started"
+            }
+          },
+          "required": [
+            "status"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "status": {
+              "const": "running"
+            }
+          },
+          "required": [
+            "status"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "status": {
+              "const": "unknown"
+            }
+          },
+          "required": [
+            "status"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "status": {
+              "const": "exit"
+            },
+            "code": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 255
+            },
+            "evidence": {
+              "$ref": "#/$defs/ref"
+            }
+          },
+          "required": [
+            "status",
+            "code",
+            "evidence"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "status": {
+              "const": "signal"
+            },
+            "number": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 32,
+              "pattern": "^[A-Z0-9]+$"
+            },
+            "core_dumped": {
+              "type": "boolean"
+            },
+            "evidence": {
+              "$ref": "#/$defs/ref"
+            }
+          },
+          "required": [
+            "status",
+            "number",
+            "name",
+            "core_dumped",
+            "evidence"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "start": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "status": {
+              "const": "not_attempted"
+            }
+          },
+          "required": [
+            "status"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "status": {
+              "const": "attempted_unknown"
+            }
+          },
+          "required": [
+            "status"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "status": {
+              "const": "spawned"
+            },
+            "process_incarnation_sha256": {
+              "$ref": "#/$defs/digest"
+            }
+          },
+          "required": [
+            "status",
+            "process_incarnation_sha256"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "status": {
+              "const": "exec_confirmed"
+            },
+            "process_incarnation_sha256": {
+              "$ref": "#/$defs/digest"
+            }
+          },
+          "required": [
+            "status",
+            "process_incarnation_sha256"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "status": {
+              "const": "spawn_failed"
+            },
+            "os_error": {
+              "$ref": "#/$defs/sourceError"
+            }
+          },
+          "required": [
+            "status",
+            "os_error"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "cleanup": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "status": {
+              "const": "not_started"
+            }
+          },
+          "required": [
+            "status"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "status": {
+              "const": "pending"
+            }
+          },
+          "required": [
+            "status"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "status": {
+              "const": "unknown"
+            }
+          },
+          "required": [
+            "status"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "status": {
+              "const": "failed"
+            },
+            "evidence": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "#/$defs/ref"
+                }
+              ]
+            }
+          },
+          "required": [
+            "status",
+            "evidence"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "status": {
+              "const": "confirmed_absent"
+            },
+            "evidence": {
+              "$ref": "#/$defs/ref"
+            }
+          },
+          "required": [
+            "status",
+            "evidence"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "cancel": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "curator-run member-cancel/1"
+        },
+        "invocation_id": {
+          "$ref": "#/$defs/id"
+        },
+        "cancel_id": {
+          "$ref": "#/$defs/id"
+        },
+        "source": {
+          "enum": [
+            "controller_request",
+            "deadline",
+            "controller_lost",
+            "supervisor_signal"
+          ]
+        },
+        "requested_at_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "kind",
+        "invocation_id",
+        "cancel_id",
+        "source",
+        "requested_at_ms"
+      ],
+      "additionalProperties": false
+    },
+    "snapshot": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "curator-run member-snapshot/1"
+        },
+        "store_id": {
+          "$ref": "#/$defs/id"
+        },
+        "identity": {
+          "$ref": "#/$defs/identity"
+        },
+        "request_sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "tuple_sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "authorization_sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "generation": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 256
+        },
+        "phase": {
+          "enum": [
+            "admitted",
+            "start_intent",
+            "spawned",
+            "running",
+            "stopping",
+            "terminal",
+            "uncertain"
+          ]
+        },
+        "writer": {
+          "$ref": "#/$defs/writer"
+        },
+        "scope": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/scope"
+            }
+          ]
+        },
+        "boot_sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "deadline_monotonic_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "start": {
+          "$ref": "#/$defs/start"
+        },
+        "native": {
+          "$ref": "#/$defs/native"
+        },
+        "cleanup": {
+          "$ref": "#/$defs/cleanup"
+        },
+        "result": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/ref"
+            }
+          ]
+        },
+        "error": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/error"
+            }
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "store_id",
+        "identity",
+        "request_sha256",
+        "tuple_sha256",
+        "authorization_sha256",
+        "generation",
+        "phase",
+        "writer",
+        "scope",
+        "boot_sha256",
+        "deadline_monotonic_ms",
+        "start",
+        "native",
+        "cleanup",
+        "result",
+        "error"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "phase": {
+                "const": "admitted"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "start": {
+                "properties": {
+                  "status": {
+                    "const": "not_attempted"
+                  }
+                }
+              },
+              "native": {
+                "properties": {
+                  "status": {
+                    "const": "not_started"
+                  }
+                }
+              },
+              "cleanup": {
+                "properties": {
+                  "status": {
+                    "const": "not_started"
+                  }
+                }
+              },
+              "scope": {
+                "const": null
+              },
+              "result": {
+                "const": null
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "phase": {
+                "const": "start_intent"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "start": {
+                "properties": {
+                  "status": {
+                    "const": "attempted_unknown"
+                  }
+                }
+              },
+              "native": {
+                "properties": {
+                  "status": {
+                    "const": "unknown"
+                  }
+                }
+              },
+              "scope": {
+                "$ref": "#/$defs/scope"
+              },
+              "cleanup": {
+                "properties": {
+                  "status": {
+                    "const": "pending"
+                  }
+                }
+              },
+              "result": {
+                "const": null
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "phase": {
+                "const": "spawned"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "start": {
+                "properties": {
+                  "status": {
+                    "const": "spawned"
+                  }
+                }
+              },
+              "native": {
+                "properties": {
+                  "status": {
+                    "const": "unknown"
+                  }
+                }
+              },
+              "scope": {
+                "$ref": "#/$defs/scope"
+              },
+              "cleanup": {
+                "properties": {
+                  "status": {
+                    "const": "pending"
+                  }
+                }
+              },
+              "result": {
+                "const": null
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "phase": {
+                "const": "running"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "start": {
+                "properties": {
+                  "status": {
+                    "const": "exec_confirmed"
+                  }
+                }
+              },
+              "native": {
+                "properties": {
+                  "status": {
+                    "const": "running"
+                  }
+                }
+              },
+              "scope": {
+                "$ref": "#/$defs/scope"
+              },
+              "cleanup": {
+                "properties": {
+                  "status": {
+                    "const": "pending"
+                  }
+                }
+              },
+              "result": {
+                "const": null
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "phase": {
+                "const": "terminal"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "native": {
+                "properties": {
+                  "status": {
+                    "enum": [
+                      "not_started",
+                      "exit",
+                      "signal"
+                    ]
+                  }
+                }
+              },
+              "cleanup": {
+                "properties": {
+                  "status": {
+                    "enum": [
+                      "not_started",
+                      "confirmed_absent"
+                    ]
+                  }
+                }
+              },
+              "result": {
+                "$ref": "#/$defs/ref"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "head": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "curator-run member-head/1"
+        },
+        "invocation_id": {
+          "$ref": "#/$defs/id"
+        },
+        "generation": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 256
+        },
+        "snapshot": {
+          "$ref": "#/$defs/ref"
+        }
+      },
+      "required": [
+        "kind",
+        "invocation_id",
+        "generation",
+        "snapshot"
+      ],
+      "additionalProperties": false
+    },
+    "stream": {
+      "type": "object",
+      "properties": {
+        "length": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1048576
+        },
+        "sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "length",
+        "sha256",
+        "truncated"
+      ],
+      "additionalProperties": false
+    },
+    "result": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "curator-run member-result/1"
+        },
+        "store_id": {
+          "$ref": "#/$defs/id"
+        },
+        "identity": {
+          "$ref": "#/$defs/identity"
+        },
+        "request_sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "tuple_sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "writer": {
+          "$ref": "#/$defs/writer"
+        },
+        "scope": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/scope"
+            }
+          ]
+        },
+        "actual_tuple": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/ref"
+            }
+          ]
+        },
+        "argv": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              },
+              "minItems": 0,
+              "maxItems": 128
+            }
+          ]
+        },
+        "native": {
+          "$ref": "#/$defs/native"
+        },
+        "cleanup": {
+          "$ref": "#/$defs/cleanup"
+        },
+        "cancel": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/ref"
+            }
+          ]
+        },
+        "worker_output": {
+          "enum": [
+            "complete",
+            "missing",
+            "partial",
+            "invalid",
+            "overflow"
+          ]
+        },
+        "outputs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ref"
+          },
+          "minItems": 0,
+          "maxItems": 128
+        },
+        "stdout": {
+          "$ref": "#/$defs/stream"
+        },
+        "stderr": {
+          "$ref": "#/$defs/stream"
+        },
+        "error": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/error"
+            }
+          ]
+        },
+        "final_generation": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 256
+        }
+      },
+      "required": [
+        "kind",
+        "store_id",
+        "identity",
+        "request_sha256",
+        "tuple_sha256",
+        "writer",
+        "scope",
+        "actual_tuple",
+        "argv",
+        "native",
+        "cleanup",
+        "cancel",
+        "worker_output",
+        "outputs",
+        "stdout",
+        "stderr",
+        "error",
+        "final_generation"
+      ],
+      "additionalProperties": false
+    },
+    "replay": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "curator-run member-replay/1"
+        },
+        "key": {
+          "enum": [
+            "invocation",
+            "cancel",
+            "effect",
+            "none"
+          ]
+        },
+        "classification": {
+          "enum": [
+            "new",
+            "identical",
+            "conflict",
+            "none"
+          ]
+        },
+        "original_request_sha256": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/digest"
+            }
+          ]
+        },
+        "current_request_sha256": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/digest"
+            }
+          ]
+        },
+        "original_result_sha256": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/digest"
+            }
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "key",
+        "classification",
+        "original_request_sha256",
+        "current_request_sha256",
+        "original_result_sha256"
+      ],
+      "additionalProperties": false
+    },
+    "reservation": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "curator-run member-reservation/1"
+        },
+        "store_id": {
+          "$ref": "#/$defs/id"
+        },
+        "assignment_id": {
+          "$ref": "#/$defs/id"
+        },
+        "invocation_id": {
+          "$ref": "#/$defs/id"
+        },
+        "consumer_id": {
+          "$ref": "#/$defs/id"
+        },
+        "effect_id": {
+          "$ref": "#/$defs/id"
+        },
+        "result_sha256": {
+          "$ref": "#/$defs/digest"
+        }
+      },
+      "required": [
+        "kind",
+        "store_id",
+        "assignment_id",
+        "invocation_id",
+        "consumer_id",
+        "effect_id",
+        "result_sha256"
+      ],
+      "additionalProperties": false
+    },
+    "ack": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "curator-run member-ack/1"
+        },
+        "reservation_sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "receipt": {
+          "$ref": "#/$defs/ref"
+        }
+      },
+      "required": [
+        "kind",
+        "reservation_sha256",
+        "receipt"
+      ],
+      "additionalProperties": false
+    },
+    "response": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "curator-run member-response/1"
+        },
+        "request_id": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/id"
+            }
+          ]
+        },
+        "request_sha256": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/digest"
+            }
+          ]
+        },
+        "operation": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "enum": [
+                "submit",
+                "inspect",
+                "cancel",
+                "reconcile",
+                "consume"
+              ]
+            }
+          ]
+        },
+        "outcome": {
+          "enum": [
+            "refused",
+            "snapshot",
+            "result",
+            "conflict",
+            "consumption"
+          ]
+        },
+        "snapshot": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/ref"
+            }
+          ]
+        },
+        "result": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/ref"
+            }
+          ]
+        },
+        "reservation": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/ref"
+            }
+          ]
+        },
+        "ack": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/ref"
+            }
+          ]
+        },
+        "error": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/error"
+            }
+          ]
+        },
+        "replay": {
+          "$ref": "#/$defs/replay"
+        }
+      },
+      "required": [
+        "kind",
+        "request_id",
+        "request_sha256",
+        "operation",
+        "outcome",
+        "snapshot",
+        "result",
+        "reservation",
+        "ack",
+        "error",
+        "replay"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "outcome": {
+                "enum": [
+                  "refused",
+                  "conflict"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "error": {
+                "$ref": "#/$defs/error"
+              },
+              "result": {
+                "const": null
+              },
+              "reservation": {
+                "const": null
+              },
+              "ack": {
+                "const": null
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "outcome": {
+                "const": "snapshot"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "snapshot": {
+                "$ref": "#/$defs/ref"
+              },
+              "result": {
+                "const": null
+              },
+              "error": {
+                "const": null
+              },
+              "reservation": {
+                "const": null
+              },
+              "ack": {
+                "const": null
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "outcome": {
+                "const": "result"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "result": {
+                "$ref": "#/$defs/ref"
+              },
+              "snapshot": {
+                "$ref": "#/$defs/ref"
+              },
+              "error": {
+                "const": null
+              },
+              "reservation": {
+                "const": null
+              },
+              "ack": {
+                "const": null
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "outcome": {
+                "const": "consumption"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "reservation": {
+                "$ref": "#/$defs/ref"
+              },
+              "error": {
+                "const": null
+              },
+              "result": {
+                "$ref": "#/$defs/ref"
+              },
+              "snapshot": {
+                "$ref": "#/$defs/ref"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "catalogEntry": {
+      "type": "object",
+      "properties": {
+        "tuple": {
+          "$ref": "#/$defs/ref"
+        },
+        "owner_inputs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ownerInput"
+          },
+          "minItems": 3,
+          "maxItems": 16
+        },
+        "construction_contract_sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "private_verification_contract_sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "scope_contract_sha256": {
+          "$ref": "#/$defs/digest"
+        }
+      },
+      "required": [
+        "tuple",
+        "owner_inputs",
+        "construction_contract_sha256",
+        "private_verification_contract_sha256",
+        "scope_contract_sha256"
+      ],
+      "additionalProperties": false
+    },
+    "catalog": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "curator-run member-catalog/1"
+        },
+        "controller_id": {
+          "$ref": "#/$defs/id"
+        },
+        "store_id": {
+          "$ref": "#/$defs/id"
+        },
+        "entries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/catalogEntry"
+          },
+          "minItems": 0,
+          "maxItems": 32
+        }
+      },
+      "required": [
+        "kind",
+        "controller_id",
+        "store_id",
+        "entries"
+      ],
+      "additionalProperties": false
+    },
+    "conflict": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "curator-run member-conflict/1"
+        },
+        "store_id": {
+          "$ref": "#/$defs/id"
+        },
+        "invocation_id": {
+          "$ref": "#/$defs/id"
+        },
+        "category": {
+          "enum": [
+            "request",
+            "result",
+            "cancel",
+            "consumption",
+            "observation"
+          ]
+        },
+        "original_sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "conflicting_sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "writer": {
+          "$ref": "#/$defs/writer"
+        }
+      },
+      "required": [
+        "kind",
+        "store_id",
+        "invocation_id",
+        "category",
+        "original_sha256",
+        "conflicting_sha256",
+        "writer"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

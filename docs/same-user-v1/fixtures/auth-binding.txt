@@ -1,0 +1,1 @@
+INERT SYNTHETIC auth-binding; not a source publication, supported tuple, credential or native witness.

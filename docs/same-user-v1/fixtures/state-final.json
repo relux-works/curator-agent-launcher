@@ -1,0 +1,63 @@
+{
+  "kind": "curator-run member-snapshot/1",
+  "store_id": "00000000000000000000000000000002",
+  "identity": {
+    "controller_id": "00000000000000000000000000000001",
+    "assignment_id": "00000000000000000000000000000003",
+    "invocation_id": "00000000000000000000000000000004",
+    "member_id": "00000000000000000000000000000005",
+    "consumer_id": "00000000000000000000000000000006",
+    "role": "development",
+    "producer_member_id": null,
+    "predecessor_invocation_id": null
+  },
+  "request_sha256": "a199b5ad254437be01ac2a017eb810f72f201a57f76e7d5fcac5f9265177dae0",
+  "tuple_sha256": "80fdb1ade7796542a4cf5bedbc6f490e7b7f16bc2379944b11b46a98af23c25c",
+  "authorization_sha256": "c49e7b826952fb5dec3d374893ec0da0215c97bbaddd1e64c80e4fb4d152c360",
+  "generation": 5,
+  "phase": "terminal",
+  "writer": {
+    "role": "supervisor",
+    "id": "00000000000000000000000000000008",
+    "incarnation_sha256": "66ea9fa85734ed6b63216d5b10a965a24f53ac1edc8842daf30cbbc818259c6b",
+    "supervisor_id": "00000000000000000000000000000008"
+  },
+  "scope": {
+    "adapter_id": "fixture-scope",
+    "adapter_revision": "2222222222222222222222222222222222222222",
+    "scope_id": "0000000000000000000000000000000b",
+    "identity_sha256": "bdb53d401768cf538dc9375014e4fac86d34f9f08ac42320f0e7ba3a3037593a",
+    "boot_sha256": "cf96c665581362fd7dbe14172fefc6582a7ec0a85e36ecdd2c4f98f87e744848",
+    "namespace_sha256": "119f116400d8645611cc1b5683344649c9ea4c4aab656645ad8a5491954676ba",
+    "root_incarnation_sha256": "2480be9dc3099dfd2a7c19e426a6b1bb2300f4c4154901e4432c4f7fe1d1cf03"
+  },
+  "boot_sha256": "cf96c665581362fd7dbe14172fefc6582a7ec0a85e36ecdd2c4f98f87e744848",
+  "deadline_monotonic_ms": 7000,
+  "start": {
+    "status": "exec_confirmed",
+    "process_incarnation_sha256": "2480be9dc3099dfd2a7c19e426a6b1bb2300f4c4154901e4432c4f7fe1d1cf03"
+  },
+  "native": {
+    "status": "exit",
+    "code": 0,
+    "evidence": {
+      "name": "native-exit",
+      "length": 1199,
+      "sha256": "53b98f410b2ba168e91f6ab70fc14fc214d30bc48173fc277bf8d39abd44a868"
+    }
+  },
+  "cleanup": {
+    "status": "confirmed_absent",
+    "evidence": {
+      "name": "scope-absent",
+      "length": 1082,
+      "sha256": "b1726783a25df07bf986c3ca02c29e0b525ac3a1db4e82c880d77b9ecaee3770"
+    }
+  },
+  "result": {
+    "name": "result-exit",
+    "length": 2612,
+    "sha256": "28b66777eabc2f20145af8144ab5be9d59894c0b6abe14e223669a0a9278c2e3"
+  },
+  "error": null
+}

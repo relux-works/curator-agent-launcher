@@ -1,0 +1,90 @@
+{
+  "kind": "curator-run member-tuple/1",
+  "launcher": {
+    "repository": "https://example.invalid/source",
+    "revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "binary_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "release": "fixture-release"
+  },
+  "curator": {
+    "repository": "https://example.invalid/source",
+    "revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "binary_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "release": "fixture-release"
+  },
+  "agents_management": {
+    "module": "github.com/relux-works/skill-agents-management",
+    "version": "fixture-only",
+    "revision": "cccccccccccccccccccccccccccccccccccccccc"
+  },
+  "runtime": {
+    "id": "fixture-runtime",
+    "vendor": "fixture-vendor",
+    "release": "fixture-release",
+    "binary_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "model": "fixture-model",
+    "effort": {
+      "mode": "named",
+      "value": "fixture-effort"
+    },
+    "os": "linux",
+    "architecture": "amd64",
+    "adapter_id": "fixture-adapter",
+    "adapter_revision": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+  },
+  "profile": {
+    "id": "fixture-static",
+    "revision": "ffffffffffffffffffffffffffffffffffffffff",
+    "source_closure_sha256": "6537a1e75dcf840e8a68ae9681c56a3c7abc84c344f46e5bb1314bbcf5167880",
+    "config_sha256": "6537a1e75dcf840e8a68ae9681c56a3c7abc84c344f46e5bb1314bbcf5167880",
+    "lock_sha256": "6537a1e75dcf840e8a68ae9681c56a3c7abc84c344f46e5bb1314bbcf5167880",
+    "fragment_kind": "fixture-fragment-not-a-capability",
+    "fragment_sha256": "6537a1e75dcf840e8a68ae9681c56a3c7abc84c344f46e5bb1314bbcf5167880",
+    "effective_config_sha256": "3bf7ff10e931bb1ac7e47a6ae789402aa43d989fed9e97c733fb722bc799b39a",
+    "permission_posture": "fixture-only",
+    "permission_policy_sha256": "3bf7ff10e931bb1ac7e47a6ae789402aa43d989fed9e97c733fb722bc799b39a"
+  },
+  "home": {
+    "uid": 1000,
+    "mode": "managed_snapshot",
+    "provenance_sha256": "b7c298a00beeb89f6fa988a5e715ae128eb495beac6408abee2163d24cbaf76a",
+    "native_origin_sha256": "af6ae47d1f3b3b877c002b37fc92e496b3a4f488a920e6da4f5892f9bf99a2c6",
+    "auth_binding_sha256": "cd190c28cb0dae58d15ba69a0d272f56378cd6a575b66ae29aefc0e962590d61"
+  },
+  "manager": {
+    "mode": "compatible_absence",
+    "compatibility_sha256": "3121b1bc45140bd51459c48ea8e0434a7fbb66b44522edffc155440e100dfe5d"
+  },
+  "owner_inputs": [
+    {
+      "owner": "curator",
+      "repository": "https://example.invalid/curator",
+      "revision": "1111111111111111111111111111111111111111",
+      "document": {
+        "name": "curator-input",
+        "length": 104,
+        "sha256": "cfc1b1e7fe1dc010fd9996eaf67068b231b37b2a3202701904b6633de4ee42a7"
+      }
+    },
+    {
+      "owner": "runtime",
+      "repository": "https://example.invalid/runtime",
+      "revision": "1111111111111111111111111111111111111111",
+      "document": {
+        "name": "runtime-input",
+        "length": 104,
+        "sha256": "85df83cd26cd8aab8a632db4ab3825f34b573a0c7938308343ff1dc6d3c12075"
+      }
+    },
+    {
+      "owner": "launcher",
+      "repository": "https://example.invalid/launcher",
+      "revision": "1111111111111111111111111111111111111111",
+      "document": {
+        "name": "launcher-input",
+        "length": 105,
+        "sha256": "38271d3fad69cc6a8c195c993b52ae23241e2caae4f427659f905e808dafe5e0"
+      }
+    }
+  ]
+}

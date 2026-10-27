@@ -1,0 +1,24 @@
+{
+  "kind": "curator-run member-scope-proof/1",
+  "invocation_id": "00000000000000000000000000000004",
+  "scope": {
+    "adapter_id": "fixture-scope",
+    "adapter_revision": "2222222222222222222222222222222222222222",
+    "scope_id": "0000000000000000000000000000000b",
+    "identity_sha256": "bdb53d401768cf538dc9375014e4fac86d34f9f08ac42320f0e7ba3a3037593a",
+    "boot_sha256": "cf96c665581362fd7dbe14172fefc6582a7ec0a85e36ecdd2c4f98f87e744848",
+    "namespace_sha256": "119f116400d8645611cc1b5683344649c9ea4c4aab656645ad8a5491954676ba",
+    "root_incarnation_sha256": "2480be9dc3099dfd2a7c19e426a6b1bb2300f4c4154901e4432c4f7fe1d1cf03"
+  },
+  "observer": {
+    "role": "supervisor",
+    "id": "00000000000000000000000000000008",
+    "incarnation_sha256": "66ea9fa85734ed6b63216d5b10a965a24f53ac1edc8842daf30cbbc818259c6b",
+    "supervisor_id": "00000000000000000000000000000008"
+  },
+  "observed_monotonic_ms": 6000,
+  "method_sha256": "fab59c76bdda3399a887a615b9558b763babe3cd2111da51d818fa42515a5a9d",
+  "observation_complete": true,
+  "scope_matches": true,
+  "empty": true
+}

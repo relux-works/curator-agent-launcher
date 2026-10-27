@@ -1,0 +1,28 @@
+{
+  "kind": "curator-run member-response/1",
+  "request_id": "00000000000000000000000000000007",
+  "request_sha256": "a199b5ad254437be01ac2a017eb810f72f201a57f76e7d5fcac5f9265177dae0",
+  "operation": "submit",
+  "outcome": "result",
+  "snapshot": {
+    "name": "state-final",
+    "length": 2445,
+    "sha256": "158f67515a631ba8d5270598343bb1263a72406a961d9bccf8407d9aac8dc18c"
+  },
+  "result": {
+    "name": "result-exit",
+    "length": 2612,
+    "sha256": "28b66777eabc2f20145af8144ab5be9d59894c0b6abe14e223669a0a9278c2e3"
+  },
+  "reservation": null,
+  "ack": null,
+  "error": null,
+  "replay": {
+    "kind": "curator-run member-replay/1",
+    "key": "invocation",
+    "classification": "identical",
+    "original_request_sha256": "a199b5ad254437be01ac2a017eb810f72f201a57f76e7d5fcac5f9265177dae0",
+    "current_request_sha256": "a199b5ad254437be01ac2a017eb810f72f201a57f76e7d5fcac5f9265177dae0",
+    "original_result_sha256": "28b66777eabc2f20145af8144ab5be9d59894c0b6abe14e223669a0a9278c2e3"
+  }
+}

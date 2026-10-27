@@ -1,0 +1,8 @@
+{
+  "kind": "curator-run member-authorization/1",
+  "controller_id": "00000000000000000000000000000001",
+  "store_id": "00000000000000000000000000000002",
+  "request_length": 2992,
+  "request_sha256": "a199b5ad254437be01ac2a017eb810f72f201a57f76e7d5fcac5f9265177dae0",
+  "expires_at_ms": 1
+}

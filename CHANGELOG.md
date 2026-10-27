@@ -11,6 +11,10 @@
 
 ### Added
 
+- Specify a proposed same-user executor entry, descriptor custody, closed
+  records, durable start/replay/result/cleanup ordering and inert manual cases.
+  This source contract ships no member command or supported native tuple.
+
 - Document the separate same-user trusted development-member non-chat target:
   fresh native context, no child messaging/board presence, exact input/result
   admission and a qualification plan. This documentary amendment adds no

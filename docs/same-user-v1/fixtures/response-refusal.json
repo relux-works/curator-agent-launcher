@@ -1,0 +1,25 @@
+{
+  "kind": "curator-run member-response/1",
+  "request_id": "00000000000000000000000000000007",
+  "request_sha256": "a199b5ad254437be01ac2a017eb810f72f201a57f76e7d5fcac5f9265177dae0",
+  "operation": "submit",
+  "outcome": "refused",
+  "snapshot": null,
+  "result": null,
+  "reservation": null,
+  "ack": null,
+  "error": {
+    "stage": "compatibility",
+    "code": "compatibility_unpublished",
+    "source": null,
+    "evidence": null
+  },
+  "replay": {
+    "kind": "curator-run member-replay/1",
+    "key": "none",
+    "classification": "none",
+    "original_request_sha256": null,
+    "current_request_sha256": "a199b5ad254437be01ac2a017eb810f72f201a57f76e7d5fcac5f9265177dae0",
+    "original_result_sha256": null
+  }
+}
