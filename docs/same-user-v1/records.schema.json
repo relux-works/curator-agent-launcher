@@ -51,6 +51,18 @@
     },
     {
       "$ref": "#/$defs/conflict"
+    },
+    {
+      "$ref": "#/$defs/assignment"
+    },
+    {
+      "$ref": "#/$defs/attempt"
+    },
+    {
+      "$ref": "#/$defs/operationIntent"
+    },
+    {
+      "$ref": "#/$defs/operationCompletion"
     }
   ],
   "$defs": {
@@ -567,7 +579,8 @@
             "tuple",
             "owner_input",
             "profile_input",
-            "receipt"
+            "receipt",
+            "assignment"
           ]
         }
       },
@@ -767,6 +780,9 @@
         },
         "deadlines": {
           "$ref": "#/$defs/deadlines"
+        },
+        "assignment": {
+          "$ref": "#/$defs/ref"
         }
       },
       "required": [
@@ -777,7 +793,8 @@
         "tuple",
         "artifacts",
         "effects",
-        "deadlines"
+        "deadlines",
+        "assignment"
       ],
       "additionalProperties": false
     },
@@ -1156,7 +1173,8 @@
                 "authorization_expired",
                 "input_mismatch",
                 "identity_mismatch",
-                "invocation_conflict"
+                "invocation_conflict",
+                "assignment_conflict"
               ]
             },
             "source": {
@@ -1242,7 +1260,8 @@
               "enum": [
                 "store_busy",
                 "store_unreadable",
-                "store_full"
+                "store_full",
+                "store_interlocked"
               ]
             },
             "source": {
@@ -2084,6 +2103,8 @@
         "phase": {
           "enum": [
             "admitted",
+            "allocating",
+            "allocated",
             "start_intent",
             "spawned",
             "running",
@@ -2141,6 +2162,28 @@
               "$ref": "#/$defs/error"
             }
           ]
+        },
+        "allocation": {
+          "$ref": "#/$defs/allocation"
+        },
+        "gate": {
+          "enum": [
+            "not_created",
+            "held",
+            "release_intent",
+            "released_or_unknown",
+            "closed"
+          ]
+        },
+        "stop": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/stop"
+            }
+          ]
         }
       },
       "required": [
@@ -2160,7 +2203,10 @@
         "native",
         "cleanup",
         "result",
-        "error"
+        "error",
+        "allocation",
+        "gate",
+        "stop"
       ],
       "additionalProperties": false,
       "allOf": [
@@ -2200,6 +2246,13 @@
               },
               "result": {
                 "const": null
+              },
+              "allocation": {
+                "properties": {
+                  "status": {
+                    "const": "not_requested"
+                  }
+                }
               }
             }
           }
@@ -2357,6 +2410,131 @@
               },
               "result": {
                 "$ref": "#/$defs/ref"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "phase": {
+                "const": "allocating"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "allocation": {
+                "properties": {
+                  "status": {
+                    "const": "intent"
+                  }
+                }
+              },
+              "scope": {
+                "const": null
+              },
+              "start": {
+                "properties": {
+                  "status": {
+                    "const": "not_attempted"
+                  }
+                }
+              },
+              "native": {
+                "properties": {
+                  "status": {
+                    "const": "not_started"
+                  }
+                }
+              },
+              "cleanup": {
+                "properties": {
+                  "status": {
+                    "const": "pending"
+                  }
+                }
+              },
+              "result": {
+                "const": null
+              },
+              "stop": {
+                "const": null
+              },
+              "gate": {
+                "const": "not_created"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "phase": {
+                "const": "allocated"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "allocation": {
+                "properties": {
+                  "status": {
+                    "const": "known"
+                  }
+                }
+              },
+              "scope": {
+                "$ref": "#/$defs/scope"
+              },
+              "start": {
+                "properties": {
+                  "status": {
+                    "const": "not_attempted"
+                  }
+                }
+              },
+              "native": {
+                "properties": {
+                  "status": {
+                    "const": "not_started"
+                  }
+                }
+              },
+              "cleanup": {
+                "properties": {
+                  "status": {
+                    "const": "pending"
+                  }
+                }
+              },
+              "result": {
+                "const": null
+              },
+              "stop": {
+                "const": null
+              },
+              "gate": {
+                "const": "not_created"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "phase": {
+                "const": "stopping"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "stop": {
+                "$ref": "#/$defs/stop"
+              },
+              "result": {
+                "const": null
               }
             }
           }
@@ -2632,6 +2810,14 @@
         },
         "result_sha256": {
           "$ref": "#/$defs/digest"
+        },
+        "assignment_sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "attempt_ordinal": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 256
         }
       },
       "required": [
@@ -2641,7 +2827,9 @@
         "invocation_id",
         "consumer_id",
         "effect_id",
-        "result_sha256"
+        "result_sha256",
+        "assignment_sha256",
+        "attempt_ordinal"
       ],
       "additionalProperties": false
     },
@@ -2976,7 +3164,8 @@
             "result",
             "cancel",
             "consumption",
-            "observation"
+            "observation",
+            "assignment"
           ]
         },
         "original_sha256": {
@@ -2997,6 +3186,378 @@
         "original_sha256",
         "conflicting_sha256",
         "writer"
+      ],
+      "additionalProperties": false
+    },
+    "assignment": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "curator-run member-assignment/1"
+        },
+        "store_id": {
+          "$ref": "#/$defs/id"
+        },
+        "controller_id": {
+          "$ref": "#/$defs/id"
+        },
+        "assignment_id": {
+          "$ref": "#/$defs/id"
+        },
+        "member_id": {
+          "$ref": "#/$defs/id"
+        },
+        "consumer_id": {
+          "$ref": "#/$defs/id"
+        },
+        "role": {
+          "enum": [
+            "development",
+            "source_review",
+            "recipient_assessment"
+          ]
+        },
+        "producer_member_id": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/id"
+            }
+          ]
+        },
+        "tuple": {
+          "$ref": "#/$defs/ref"
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/artifact"
+          },
+          "minItems": 1,
+          "maxItems": 128
+        },
+        "effects": {
+          "$ref": "#/$defs/effects"
+        },
+        "deadlines": {
+          "$ref": "#/$defs/deadlines"
+        }
+      },
+      "required": [
+        "kind",
+        "store_id",
+        "controller_id",
+        "assignment_id",
+        "member_id",
+        "consumer_id",
+        "role",
+        "producer_member_id",
+        "tuple",
+        "artifacts",
+        "effects",
+        "deadlines"
+      ],
+      "additionalProperties": false
+    },
+    "attempt": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "curator-run member-attempt/1"
+        },
+        "store_id": {
+          "$ref": "#/$defs/id"
+        },
+        "assignment_id": {
+          "$ref": "#/$defs/id"
+        },
+        "assignment_sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "ordinal": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 256
+        },
+        "invocation_id": {
+          "$ref": "#/$defs/id"
+        },
+        "predecessor_invocation_id": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/id"
+            }
+          ]
+        },
+        "request_sha256": {
+          "$ref": "#/$defs/digest"
+        }
+      },
+      "required": [
+        "kind",
+        "store_id",
+        "assignment_id",
+        "assignment_sha256",
+        "ordinal",
+        "invocation_id",
+        "predecessor_invocation_id",
+        "request_sha256"
+      ],
+      "additionalProperties": false
+    },
+    "operationIntent": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "curator-run member-operation-intent/1"
+        },
+        "store_id": {
+          "$ref": "#/$defs/id"
+        },
+        "controller_id": {
+          "$ref": "#/$defs/id"
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4096
+        },
+        "operation": {
+          "enum": [
+            "submit",
+            "cancel",
+            "reconcile",
+            "reserve",
+            "ack",
+            "publish"
+          ]
+        },
+        "invocation_id": {
+          "$ref": "#/$defs/id"
+        },
+        "candidate_sha256": {
+          "$ref": "#/$defs/digest"
+        }
+      },
+      "required": [
+        "kind",
+        "store_id",
+        "controller_id",
+        "sequence",
+        "operation",
+        "invocation_id",
+        "candidate_sha256"
+      ],
+      "additionalProperties": false
+    },
+    "operationCompletion": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "curator-run member-operation-completion/1"
+        },
+        "store_id": {
+          "$ref": "#/$defs/id"
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4096
+        },
+        "intent": {
+          "$ref": "#/$defs/ref"
+        },
+        "disposition": {
+          "enum": [
+            "clear",
+            "conflict"
+          ]
+        },
+        "conflict": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/ref"
+            }
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "store_id",
+        "sequence",
+        "intent",
+        "disposition",
+        "conflict"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "disposition": {
+                "const": "clear"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "conflict": {
+                "const": null
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "disposition": {
+                "const": "conflict"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "conflict": {
+                "$ref": "#/$defs/ref"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "allocation": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "status": {
+              "const": "not_requested"
+            }
+          },
+          "required": [
+            "status"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "status": {
+              "const": "intent"
+            },
+            "allocation_id": {
+              "$ref": "#/$defs/id"
+            }
+          },
+          "required": [
+            "status",
+            "allocation_id"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "status": {
+              "const": "known"
+            },
+            "allocation_id": {
+              "$ref": "#/$defs/id"
+            }
+          },
+          "required": [
+            "status",
+            "allocation_id"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "status": {
+              "const": "unknown"
+            },
+            "allocation_id": {
+              "$ref": "#/$defs/id"
+            }
+          },
+          "required": [
+            "status",
+            "allocation_id"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "stop": {
+      "type": "object",
+      "properties": {
+        "stop_id": {
+          "$ref": "#/$defs/id"
+        },
+        "reason": {
+          "enum": [
+            "controller_request",
+            "deadline",
+            "controller_lost",
+            "supervisor_signal",
+            "descendants_remaining",
+            "overflow"
+          ]
+        },
+        "boot_sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "begun_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "term_deadline_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "kill_deadline_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "term_action_id": {
+          "$ref": "#/$defs/id"
+        },
+        "kill_action_id": {
+          "$ref": "#/$defs/id"
+        },
+        "stage": {
+          "enum": [
+            "term_intent",
+            "term_observe",
+            "kill_intent",
+            "kill_observe",
+            "complete",
+            "unknown"
+          ]
+        }
+      },
+      "required": [
+        "stop_id",
+        "reason",
+        "boot_sha256",
+        "begun_ms",
+        "term_deadline_ms",
+        "kill_deadline_ms",
+        "term_action_id",
+        "kill_action_id",
+        "stage"
       ],
       "additionalProperties": false
     }

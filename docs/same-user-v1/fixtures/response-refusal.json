@@ -1,7 +1,7 @@
 {
   "kind": "curator-run member-response/1",
   "request_id": "00000000000000000000000000000007",
-  "request_sha256": "a199b5ad254437be01ac2a017eb810f72f201a57f76e7d5fcac5f9265177dae0",
+  "request_sha256": "3a5080f47c4d8af599c8ec654ae2d926924868938a882ed1c801b0978b928cbb",
   "operation": "submit",
   "outcome": "refused",
   "snapshot": null,
@@ -19,7 +19,7 @@
     "key": "none",
     "classification": "none",
     "original_request_sha256": null,
-    "current_request_sha256": "a199b5ad254437be01ac2a017eb810f72f201a57f76e7d5fcac5f9265177dae0",
+    "current_request_sha256": "3a5080f47c4d8af599c8ec654ae2d926924868938a882ed1c801b0978b928cbb",
     "original_result_sha256": null
   }
 }

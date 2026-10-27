@@ -15,7 +15,7 @@ No implementation, qualification or activation is claimed.
 |---|---|---|---|
 | Direct human `curator-run <env-id> …` | Caller-side interactive launcher | Launcher starts and waits for native child | Existing API below. |
 | Hosted launch | Validated caller policy; plugin composes delegated launches | Registered session manager | Delegated launch requires a lease-capable selected manager; start currently retains protection at the process-incarnation gate. Refusal never falls back to native. |
-| Trusted same-user non-chat | Explicit current-user assignment, frozen inputs and exact execution tuple | Target launcher adapter/supervisor; no child a2a/board presence | [Contract/1](docs/same-user-nonchat-contract.md) and [Stage1 wire source/1](docs/same-user-executor-wire.md), with closed records and inert manual cases; **not implemented, qualified or activated**, no shipped CLI. |
+| Trusted same-user non-chat | Explicit current-user assignment, frozen inputs and exact execution tuple | Target launcher adapter/supervisor; no child a2a/board presence | [Contract/1](docs/same-user-nonchat-contract.md) and [Stage1 wire source/2](docs/same-user-executor-wire.md), with closed records and inert manual cases; **not implemented, qualified or activated**, no shipped CLI. |
 | Agent one-shot exec | Caller composes; dispatcher admits/provisions/tracks | `curator-run` under `worker-<label>` verifies and executes; dispatcher/helper own stop and cleanup | **Target amendment (version pending), not implemented**; [SPEC §10](SPEC.md#10-agent-account-one-shot-exec-contract-target-amendment). |
 
 Front-door amendment (partially implemented; delegated activation signed off):

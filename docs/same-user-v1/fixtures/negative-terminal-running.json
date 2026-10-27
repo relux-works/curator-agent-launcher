@@ -11,10 +11,10 @@
     "producer_member_id": null,
     "predecessor_invocation_id": null
   },
-  "request_sha256": "a199b5ad254437be01ac2a017eb810f72f201a57f76e7d5fcac5f9265177dae0",
+  "request_sha256": "3a5080f47c4d8af599c8ec654ae2d926924868938a882ed1c801b0978b928cbb",
   "tuple_sha256": "80fdb1ade7796542a4cf5bedbc6f490e7b7f16bc2379944b11b46a98af23c25c",
-  "authorization_sha256": "c49e7b826952fb5dec3d374893ec0da0215c97bbaddd1e64c80e4fb4d152c360",
-  "generation": 5,
+  "authorization_sha256": "99965b37937380c1a38fd5e7070274f7a0b953b6b1f4b1a43e614e67584c27c4",
+  "generation": 8,
   "phase": "terminal",
   "writer": {
     "role": "supervisor",
@@ -32,7 +32,7 @@
     "root_incarnation_sha256": "2480be9dc3099dfd2a7c19e426a6b1bb2300f4c4154901e4432c4f7fe1d1cf03"
   },
   "boot_sha256": "cf96c665581362fd7dbe14172fefc6582a7ec0a85e36ecdd2c4f98f87e744848",
-  "deadline_monotonic_ms": 10000,
+  "deadline_monotonic_ms": 7000,
   "start": {
     "status": "exec_confirmed",
     "process_incarnation_sha256": "2480be9dc3099dfd2a7c19e426a6b1bb2300f4c4154901e4432c4f7fe1d1cf03"
@@ -51,7 +51,13 @@
   "result": {
     "name": "result-exit",
     "length": 2612,
-    "sha256": "28b66777eabc2f20145af8144ab5be9d59894c0b6abe14e223669a0a9278c2e3"
+    "sha256": "5f4ae5c6c2e330878d9bedac2c26d214740b0d2d890609b15d26e29ded1d1411"
   },
-  "error": null
+  "error": null,
+  "allocation": {
+    "status": "known",
+    "allocation_id": "00000000000000000000000000000020"
+  },
+  "gate": "released_or_unknown",
+  "stop": null
 }

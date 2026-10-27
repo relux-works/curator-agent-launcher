@@ -1,10 +1,10 @@
 {
   "kind": "curator-run member-head/1",
   "invocation_id": "00000000000000000000000000000004",
-  "generation": 5,
+  "generation": 8,
   "snapshot": {
     "name": "state-final",
-    "length": 2445,
-    "sha256": "158f67515a631ba8d5270598343bb1263a72406a961d9bccf8407d9aac8dc18c"
+    "length": 2596,
+    "sha256": "346db4425257bb0a2d2c0b6416ff7df46261e89eea5fc267fa0919289b1ae8e7"
   }
 }

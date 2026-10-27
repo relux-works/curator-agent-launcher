@@ -1,0 +1,129 @@
+{
+  "kind": "curator-run member-request/1",
+  "request_id": "00000000000000000000000000000017",
+  "operation": "submit",
+  "identity": {
+    "controller_id": "00000000000000000000000000000001",
+    "assignment_id": "00000000000000000000000000000003",
+    "invocation_id": "00000000000000000000000000000014",
+    "member_id": "00000000000000000000000000000005",
+    "consumer_id": "00000000000000000000000000000006",
+    "role": "development",
+    "producer_member_id": null,
+    "predecessor_invocation_id": "00000000000000000000000000000004"
+  },
+  "tuple": {
+    "name": "tuple",
+    "length": 3470,
+    "sha256": "80fdb1ade7796542a4cf5bedbc6f490e7b7f16bc2379944b11b46a98af23c25c"
+  },
+  "artifacts": [
+    {
+      "object": {
+        "name": "instruction",
+        "length": 102,
+        "sha256": "0ba14e03f397a6064587ca6ccc78746d5d5a00038e708739a3a6668cd802cf01"
+      },
+      "role": "instruction"
+    },
+    {
+      "object": {
+        "name": "source",
+        "length": 97,
+        "sha256": "fc1072ae2c6473569048827bc387d221f2db28e8e6f3201480c6d3eb02f82f20"
+      },
+      "role": "source"
+    },
+    {
+      "object": {
+        "name": "profile",
+        "length": 98,
+        "sha256": "6537a1e75dcf840e8a68ae9681c56a3c7abc84c344f46e5bb1314bbcf5167880"
+      },
+      "role": "profile_input"
+    },
+    {
+      "object": {
+        "name": "effective-config",
+        "length": 107,
+        "sha256": "3bf7ff10e931bb1ac7e47a6ae789402aa43d989fed9e97c733fb722bc799b39a"
+      },
+      "role": "profile_input"
+    },
+    {
+      "object": {
+        "name": "manager-absence",
+        "length": 106,
+        "sha256": "3121b1bc45140bd51459c48ea8e0434a7fbb66b44522edffc155440e100dfe5d"
+      },
+      "role": "owner_input"
+    },
+    {
+      "object": {
+        "name": "curator-input",
+        "length": 104,
+        "sha256": "cfc1b1e7fe1dc010fd9996eaf67068b231b37b2a3202701904b6633de4ee42a7"
+      },
+      "role": "owner_input"
+    },
+    {
+      "object": {
+        "name": "runtime-input",
+        "length": 104,
+        "sha256": "85df83cd26cd8aab8a632db4ab3825f34b573a0c7938308343ff1dc6d3c12075"
+      },
+      "role": "owner_input"
+    },
+    {
+      "object": {
+        "name": "launcher-input",
+        "length": 105,
+        "sha256": "38271d3fad69cc6a8c195c993b52ae23241e2caae4f427659f905e808dafe5e0"
+      },
+      "role": "owner_input"
+    },
+    {
+      "object": {
+        "name": "tuple",
+        "length": 3470,
+        "sha256": "80fdb1ade7796542a4cf5bedbc6f490e7b7f16bc2379944b11b46a98af23c25c"
+      },
+      "role": "tuple"
+    },
+    {
+      "object": {
+        "name": "assignment-changed",
+        "length": 2840,
+        "sha256": "0fd95c841c752878e50d2f05c45f0140d4783754838791a569ac9ed22b1ecc22"
+      },
+      "role": "assignment"
+    }
+  ],
+  "effects": {
+    "tools": [],
+    "read_objects": [
+      "source"
+    ],
+    "output_names": [
+      "patch"
+    ],
+    "network": "disabled",
+    "provider_binding_sha256": null,
+    "max_processes": 3,
+    "max_provider_requests": 0,
+    "max_provider_tokens": 0
+  },
+  "deadlines": {
+    "startup_ms": 5000,
+    "runtime_ms": 10000,
+    "term_ms": 1000,
+    "kill_observation_ms": 1000,
+    "result_ms": 1000,
+    "state_budget_bytes": 67108864
+  },
+  "assignment": {
+    "name": "assignment-changed",
+    "length": 2840,
+    "sha256": "0fd95c841c752878e50d2f05c45f0140d4783754838791a569ac9ed22b1ecc22"
+  }
+}

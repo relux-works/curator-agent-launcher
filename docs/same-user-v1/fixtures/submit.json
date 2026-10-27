@@ -89,6 +89,14 @@
         "sha256": "80fdb1ade7796542a4cf5bedbc6f490e7b7f16bc2379944b11b46a98af23c25c"
       },
       "role": "tuple"
+    },
+    {
+      "object": {
+        "name": "assignment",
+        "length": 2840,
+        "sha256": "26f5e140a039b8d80d8a38c6f42633aedadd12b53b60734f7342adc3925799b1"
+      },
+      "role": "assignment"
     }
   ],
   "effects": {
@@ -112,5 +120,10 @@
     "kill_observation_ms": 1000,
     "result_ms": 1000,
     "state_budget_bytes": 67108864
+  },
+  "assignment": {
+    "name": "assignment",
+    "length": 2840,
+    "sha256": "26f5e140a039b8d80d8a38c6f42633aedadd12b53b60734f7342adc3925799b1"
   }
 }

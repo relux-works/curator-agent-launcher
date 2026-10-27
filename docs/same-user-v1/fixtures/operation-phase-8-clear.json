@@ -1,0 +1,12 @@
+{
+  "kind": "curator-run member-operation-completion/1",
+  "store_id": "00000000000000000000000000000002",
+  "sequence": 8,
+  "intent": {
+    "name": "operation-phase-8",
+    "length": 347,
+    "sha256": "b0fa2224b972da26a6f2fd58385764c275be8a780baf0bdc3892c4dd5ca93c9d"
+  },
+  "disposition": "clear",
+  "conflict": null
+}

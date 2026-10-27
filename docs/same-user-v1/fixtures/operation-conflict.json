@@ -1,0 +1,16 @@
+{
+  "kind": "curator-run member-operation-completion/1",
+  "store_id": "00000000000000000000000000000002",
+  "sequence": 9,
+  "intent": {
+    "name": "operation-result-conflict",
+    "length": 347,
+    "sha256": "3243a519abfa7f0a2b458f12f4b4cfca924be651b53c4a8c7665d26b80891f43"
+  },
+  "disposition": "conflict",
+  "conflict": {
+    "name": "conflict-result",
+    "length": 597,
+    "sha256": "4e8bf8540617a9fdbaa64f22586b590a4f1b3c9ee4c28f39bd3eb4d855500fcd"
+  }
+}

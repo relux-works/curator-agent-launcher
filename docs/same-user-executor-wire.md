@@ -1,4 +1,4 @@
-# Same-user executor protocol, source revision 1
+# Same-user executor protocol, source revision 2
 
 Status: **Stage1 source candidate; no implementation, supported native tuple,
 qualification or usable executor**. This publication makes new launcher-owned
@@ -102,12 +102,15 @@ it is provenance data, never permission to fetch or execute it.
 | --- | ---: |
 | Request / catalog / tuple / result / owner input / native observation individually | 64 KiB |
 | Authorization / state owner / cancel individually | 4 KiB |
-| Response / snapshot / head / scope proof / conflict / consumption record individually | 16 KiB |
+| Response / snapshot / head / scope proof / conflict / consumption / attempt / operation record individually | 16 KiB |
+| Immutable assignment binding | 64 KiB |
+| Operation journal | 4096 entries, 128 MiB reserved per store; no eviction |
+| Attempts per assignment | 256, including interrupted admissions |
 | Objects, including tuple and owner evidence | 128 unique names, 4 MiB each, 16 MiB total unique bytes |
 | Trusted instruction objects combined | 64 KiB, included in object totals |
 | Result files | 128, 4 MiB each, 16 MiB combined |
 | Harness stdout and stderr | 1 MiB each, with explicit truncation |
-| Persisted phase snapshots per invocation | 256; last 4 slots reserved for stop/final/uncertain evidence |
+| Persisted phase snapshots per invocation | 256; last 8 slots reserved for stop/final/uncertain evidence |
 | Total retained invocation state, input, outputs and diagnostics | 64 MiB, reserved before start |
 | Startup / runtime | 60000 ms / 3600000 ms |
 | TERM grace / KILL-observation / result delivery | 6000 ms each |
@@ -118,9 +121,9 @@ unknown record classes refuse, not an unbounded read. Catalog bytes are not
 counted as invocation input but remain within their independent 64 KiB ceiling.
 Every admission supplies positive deadlines within these bounds; no absent or
 unbounded defaults. The admission's wall-clock expiry is checked before effects.
-The startup deadline begins at durable start-intent and includes gated spawn;
-runtime begins at observed exec acknowledgment. TERM and KILL-observation budgets
-begin at their respective durable stopping barriers; result delivery begins at
+The startup deadline begins at durable allocation-intent and includes allocation and gated spawn;
+runtime begins at observed exec acknowledgment. The first stop barrier fixes both
+TERM and KILL-observation deadlines as described in §5; result delivery begins at
 quiescence or sealing an uncertain outcome. Each snapshot persists the current
 absolute monotonic deadline before the next effect; a recovered phase keeps its
 original deadline. Switching phase is not permission to renew an expired budget.
@@ -142,7 +145,7 @@ label/digest alone proves neither authorship nor authority; the controller's
 existing admission and descriptor/store custody are prerequisites. No signing
 key, bearer or parent a2a identity is copied into the child.
 
-`submit` binds identity, tuple reference, exact artifact manifest, effects and
+`submit` binds identity, immutable assignment reference, tuple reference, exact artifact manifest, effects and
 deadlines. Its `tuple` object must be included in the manifest with role `tuple`.
 Non-secret static profile/config/lock/fragment/effective-closure inputs and
 owner publications are immutable objects with declared roles. Private home/origin
@@ -222,6 +225,8 @@ Fixed layout, names derived only from validated hexadecimal IDs:
 owner.json
 catalog.json
 store.lock
+operations/<sequence>/intent.json
+operations/<sequence>/completion.json
 invocations/<invocation_id>/owner.lock
 invocations/<invocation_id>/edit.lock
 invocations/<invocation_id>/request.json
@@ -235,19 +240,123 @@ invocations/<invocation_id>/result.json
 invocations/<invocation_id>/outputs/<sha256>
 invocations/<invocation_id>/diagnostics/stdout
 invocations/<invocation_id>/diagnostics/stderr
+assignments/<assignment_id>/binding.json
+assignments/<assignment_id>/attempts/<ordinal>.json
 assignments/<assignment_id>/reservation.json
 assignments/<assignment_id>/ack.json
 ```
 
 `owner.lock`, `edit.lock` and `store.lock` are fixed inodes, never unlinked or
-replaced while the store exists. Acquire the store lock for identity-directory
-creation and assignment reservation, and the edit lock for snapshot/cancel
-publication. Lock order is store then edit; never acquire store while holding
-edit. The submitting process holds the invocation owner lock throughout its
-supervisor lifetime; it does not hold edit while waiting for the harness.
-Inspect/cancel can therefore proceed. Lock failure/timeouts are `store_busy`,
-not evidence that a supervisor died. A lock is concurrency custody, not a native
-process-incarnation proof or a hostile-UID security boundary.
+replaced while the store exists. All store mutations and reservation/start/gate
+checks acquire **store then edit**, including trusted supervisor publications.
+Do not acquire store while holding edit. Assignment admission and every check of
+latest attempt run under store; there is no per-invocation shortcut around it.
+The submitter holds owner.lock throughout supervision but releases store/edit
+between bounded publications/actions, never while waiting for native completion.
+Inspect uses store then edit for a consistent view. Lock acquisition timeout is
+`store_busy`, not proof of owner loss or absence. Locks are cooperative concurrency
+custody, not process incarnation or hostile-same-UID isolation.
+
+### Durable operation interlock
+
+Every authenticated submit/cancel/reconcile/reserve/ack and trusted publication
+that can compare or publish differing authoritative bytes follows this order:
+
+1. Validate descriptors, strict structure, A/store identity and supplied object
+   bytes, **without comparing candidate bytes/selection to existing invocation,
+   assignment, cancel or result bytes**. Under store.lock inspect the journal.
+2. Before that comparison, publish/sync a closed `operation-intent` in the next
+   exclusive `operations/<sequence>/` directory and sync its parent. Its sequence
+   is 1..4096, consecutive, and binds store/controller, operation, target invocation
+   and candidate raw digest. Directory existence without a complete intent is
+   also an unresolved interlock. No operation may borrow another entry's intent.
+3. Only after this barrier compare state, take edit and perform the allowed
+   publication. A clean operation finishes with a synced `operation-completion`
+   referencing the exact intent and disposition `clear`. A discovered conflict
+   first publishes its immutable conflict evidence and then a completion with
+   disposition `conflict` and that reference. Conflict is permanent in this
+   revision: there is no clearing/resolution or automatic new-store escape.
+4. A reserve checks **all other entries** for complete `clear` completions under
+   the same store lock, creates/syncs its reservation, completes its own entry
+   `clear`, and only then exposes the effect-authorizing response. Native start
+   and gate release likewise require no older unresolved/conflict entry. A
+   previously authorized effect cannot be retroactively revoked by a later
+   conflict; no subsequent authorization may pass its barrier.
+
+A failed conflict create leaving **no temp** is protected by the already durable
+intent. A failed conflict sync with a temp has that same intent plus partial
+bytes. Death before completion, an absent/malformed completion, differing entry,
+unexplained directory/temp or conflict disposition disables **the whole store**
+for new admissions, gate release and consumption. An in-memory flag is never the
+interlock. Recovery preserves the journal and original result; it never assumes
+an unmatched intent was harmless or writes a speculative `clear`. Inspect and
+bounded cancellation/reconciliation/stop evidence remain permitted under locks
+in the disabled store, but cannot issue effects, start, clear its interlock or
+replace a result. Such emergency evidence cannot turn the store healthy.
+
+If creating/syncing the *initial intent itself* fails, do not perform the target
+comparison, classify a target conflict, reserve, spawn or issue an effect response.
+An existing partial directory freezes later operations. If no directory/bytes
+exist, no target comparison occurred and no conflict-freeze claim is made; later
+operations start with their own intent. This distinguishes the pre-comparison
+failure from failure *after discovery*, which always has a preceding durable
+interlock. Prerequisite storage semantics and reserved journal capacity are
+necessary; unsupported/failed sync never establishes a barrier. Full journal
+refuses new work; never delete entries to regain capacity. Emergency stop remains
+a bounded duty, not a guarantee that failed storage can retain new evidence.
+
+### Immutable assignment and atomic attempt admission
+
+`submit.assignment` names an exact raw `member-assignment/1` object also in O's
+manifest with role `assignment`. This is copied unchanged into binding.json.
+It binds controller/store/assignment, member, role, producer and consumer, tuple,
+ordered logical artifact refs/roles, effects and deadlines. Its artifact array
+excludes the assignment object itself (no self-hash); submit's array is exactly
+that array followed by the assignment object. All repeated fields must match.
+Array order, names, lengths and digests are part of frozen logical inputs.
+
+Only request_id, invocation_id, predecessor_invocation_id and authorization
+issuance/expiry/raw digest may vary on retry. The raw assignment bytes, tuple,
+logical artifact bytes, member/role/producer/consumer, effects and budgets MUST
+NOT vary. Full raw request digest remains per-invocation idempotency, not the
+assignment digest. Changed input, role, consumer, model/tuple or policy is rework:
+use a separately authorized NEW assignment, never rename a retry. Whitespace
+changes in binding.json also change its immutable digest and refuse.
+
+After all new-submit preflight, under store→edit and a durable operation intent:
+
+- No assignment directory: require null predecessor, publish/sync binding.json,
+  then attempt ordinal1. Existing partial binding/directory is not absence.
+- Existing assignment: require exact binding bytes, no reservation/ack or pending
+  effect, no journal conflict/unknown, and a fully published latest attempt. The
+  supplied predecessor MUST equal that latest invocation; its authoritative
+  terminal result and allocation/scope evidence must prove no actor/resource
+  remains (or no allocation was requested). Unknown/missing predecessor refuses.
+  Never skip an intervening attempt or select an older clean result.
+- Publish an immutable closed `attempt` with ordinal, assignment digest, raw
+  request digest, invocation and predecessor, then sync its directory. Only then
+  may the invocation publish admitted. The attempt record is the admission
+  linearization point. There is no separate mutable latest pointer: the latest
+  is the greatest consecutive complete ordinal; partial/gapped entries freeze.
+  A crash after binding/attempt but before admitted consumes that ordinal and
+  leaves uncertain admission, never a fresh null-predecessor slot.
+
+Store.lock serializes the entire lookup/compare/attempt publication, not just
+reservation after execution. Thus two distinct first invocations cannot both
+win: after the winner, the loser with null predecessor refuses
+`assignment_conflict`, before native effects; its guarded conflict disables new
+consumption, preserving the winner's evidence. Identical original invocation is
+retrieval, not another attempt. At most256 attempts; no history eviction.
+
+Controller custody binds each controller ID to ONE immutable owner/store for its
+lifetime; all A issuances and assignment bindings must use that same actual S.
+Descriptor custody, not a caller label, establishes that controller ownership.
+There is no store migration/federation/alias transfer in this revision. A request
+or A against another store is `authorization_invalid`/`assignment_conflict`, with
+no local fallback, copying prior proof, new first attempt or cross-store retry.
+If S is unavailable, preserve the assignment as unavailable; do not manufacture a
+second store with its controller identity. A new catalog/store cannot continue
+these assignments. Cross-store migration needs a separate source contract.
 
 Create an invocation directory exclusively and sync its parent **before** an
 admission record or start. Any existing directory, including partial/corrupt
@@ -271,15 +380,18 @@ remain intact. No cross-filesystem rename or stale-head recovery is assumed. Tru
 and scope proofs use the same immutable object publication under retained
 `objects/<sha256>` before a result references them; private origin records and
 auth material are forbidden there. Diagnostics are retained before their digest
-is published. A conflict uses the closed `conflict` record in `conflicts/` before
+is published. A conflict uses the closed `conflict` record in `conflicts/`, protected by its preceding operation intent, before
 any conflicting response; category/original/conflicting hashes must differ and
 bind retained authoritative bytes versus the bounded conflicting digest. At most
 32 conflicts per invocation are retained; further conflicts refuse as store_full.
-Failure to persist conflict leaves uncertain custody and freezes consumption,
+Failure to persist conflict leaves its operation intent unresolved and freezes the store,
 never overwrites the original or silently permits an effect.
 
-No task effect crosses a barrier before its preceding durable publication is
-acknowledged. Failure during file/directory sync is not success. On recovery,
+No task effect crosses a barrier before its preceding durable publication AND
+that operation's clear completion are acknowledged. Publishing a new intent is
+not permission to ignore older unresolved entries. Inspect is read-only and
+needs no operation entry; emergency cleanup cannot authorize a task effect.
+Failure during file/directory sync is not success. On recovery,
 missing/truncated/conflicting head, any unexplained intent/temp or unreadable
 record is uncertain evidence, never absence. Retain bounded evidence and block
 new work; do not repair history, select a convenient older generation or delete
@@ -296,11 +408,12 @@ output; it cannot label its own origin/native exit/cleanup as observed.
 
 | Transition | Owner / required durable barrier | Allowed next effects and crash disposition |
 | --- | --- | --- |
-| absent → admitted | Submitter under exclusive directory creation; persist raw request/authorization/input bytes and snapshot | No native child; allocate only admitted private scratch and an empty recoverable scope. Partial admission is held, not retried. |
-| admitted → start_intent | Supervisor owns a complete recoverable scope identity and current incarnation; snapshot records intended single attempt, scope and deadline/boot evidence | Only after sync may it perform the single gated spawn. A crash here consumes the identity even if no native process actually started. |
+| absent → admitted | Store-serialized binding/attempt admission, exclusive invocation directory, retained N/A/O and snapshot | No scope allocation or child yet. Partial admission is held, not retried. |
+| admitted → allocating → allocated | Persist allocation ID and startup deadline BEFORE allocator call; publish exact returned scope identity after call | Allocating with no published identity means allocation-unknown, even if no native child exists. No second allocation. |
+| allocated → start_intent | Under store→edit, recheck journal/latest attempt/cancel/C/deadline and persist single attempt with exact scope identity | Only after sync may the single gated spawn occur. No fresh startup budget. A winning cancel forbids this edge. |
 | start_intent → spawned | Supervisor records actual child incarnation within the scope while the child is held before native exec | Persist identity/scope membership before releasing the gate. EOF/failure of that private gate aborts; it cannot auto-exec. No task code before containment. |
-| spawned → running | Release only after revalidating tuple/inputs/discovery and durable spawn evidence; observe actual native exec success separately | Exec acknowledgment is not initialization/readiness/task acceptance. Crash across release is start/native unknown unless a durable observation proves more. |
-| admitted/start_intent/spawned/running → stopping | Controller cancel record, controller-pipe loss, deadline or supervisor signal; durable intent before each bounded stop action when storage works | Preserve actual observed native outcome. TERM then KILL only under admitted scope policy and deadlines. No global/pattern signals. |
+| spawned → running | Under store→edit persist gate release intent, recheck cancel/C/custody/deadline, release gate while locks held; observe actual exec separately | Exec acknowledgment is not initialization/readiness/task acceptance. Crash across release is start/native unknown unless a durable observation proves more. |
+| admitted/allocating/allocated/start_intent/spawned/running → stopping | Controller cancel record, controller-pipe loss, deadline or supervisor signal; durable intent before each bounded stop action when storage works | Preserve actual observed native outcome. TERM then KILL only under admitted scope policy and original persisted stop stages/deadlines. No global/pattern signals. |
 | observed exit/spawn failure → terminal | Supervisor persists actual native evidence, outputs/status and complete-scope absence proof; publishes result then terminal snapshot | No child replacement. Native exit with remaining descendants goes through stopping, not terminal-clean by implication. |
 | any nonterminal → uncertain | Missing observation, owner loss, bad store, scope identity drift, failed/unknown cleanup or publication | Retain original evidence; no automatic retry/replacement/import, no invented exit or clean stop. |
 
@@ -312,6 +425,91 @@ unavailable actual model/effort/config stays null/unknown, not copied from the
 requested tuple. A tuple whose adapter cannot enforce its exact selection before
 work is not admitted by the catalog.
 
+### Cancellation, allocation and the start gate
+
+The cancel/start decision is serialized by store→edit. After publishing/syncing
+cancel.json, that record is authoritative even if the following snapshot write
+fails. A supervisor must re-read it under those same locks before publishing
+start_intent. Cancel winning first durably closes admission: no child, regardless
+of polling or whether its response reached R. With no allocation intent, this
+can finish not-started/no-resource. With an allocation intent or known scope,
+no child still holds, but allocation disposal/absence is a separate duty.
+
+Intent winning first permanently consumes the attempt. A later cancel closes
+the held gate or stops the exact owned scope; it never rewinds to not-attempted.
+Before *gated spawn*, recheck cancellation, journal and C under store→edit; if
+canceled, do not spawn, but preserve consumed intent. For *release*, hold those
+locks across the durable `gate: release_intent` snapshot and actual gate write.
+Revalidate latest-attempt/owner lock custody, inputs/closure, cancellation,
+deadline and nonblocking C status after syncing and immediately before release.
+Cancellation cannot commit concurrently inside this critical section. A winning
+cancel before it forbids release; a cancel after release cannot undo effects.
+
+C EOF/byte or lost ownership fails every pre-spawn/release check. Loss can occur
+between the final C observation and gate write; that window is ambiguous start,
+not a no-child guarantee. If the process dies with a release intent, reconciliation
+never writes the gate again and treats release as unknown. `gate` records
+not_created/held/release_intent/released_or_unknown/closed; closed never proves
+native absence. Polling at most100ms is post-start loss/cancel detection, not the
+pre-start barrier. Failed gate/store publication keeps the gate closed; any
+ambiguous actual write consumes start and enters bounded cleanup.
+
+Before the first allocation call, publish `allocating` with `allocation.status:
+intent`, a single allocation_id and original startup deadline. No allocator call
+may precede this barrier. `admitted` with not_requested proves no allocation;
+`allocating` without a published scope proves ONLY no native start. After the
+call, `allocated` binds that same ID and exact scope before start_intent. Failure
+or death between allocation and identity publication leaves allocation unknown,
+not no-resource. Even a crash before the call cannot be distinguished from a
+crash after it using that intent alone. There is no allocation retry.
+
+This revision assumes no kernel atomic allocate-and-persist or automatic disposal
+primitive. If exact identity cannot be recovered by a separately source-supported
+method, retain allocation-unknown (`scope: null`, cleanup unknown), controller
+orphan custody and refusal of replacement, consumption and scratch disposal.
+A reconciler does not allocate a fresh scope to resolve it. Only independent
+owner-supported evidence identifying and disposing that exact resource can later
+prove absence; otherwise it remains unknown. A known scope can be recovered and
+emptied by §6. No supported tuple/allocation-recovery method is supplied here.
+
+### Durable stop progression
+
+The first stop barrier records `stop_id`, immutable reason, boot, begun tick,
+`term_deadline_ms = begun_ms + term_ms`, and
+`kill_deadline_ms = term_deadline_ms + kill_observation_ms`, plus fixed TERM/KILL
+action IDs. These two original deadlines never change across writers/recovery.
+In phase stopping, `deadline_monotonic_ms` equals TERM's deadline in
+term_intent/term_observe and KILL's deadline in kill_intent/kill_observe. A sealed
+terminal/uncertain phase may carry its separate result-delivery deadline;
+the original `stop.*_deadline_ms` fields still never change.
+Explicit `stop.stage` owns progress, never generation number or current wall time:
+
+| Persisted stage | Next permitted action and recovery |
+| --- | --- |
+| term_intent | Sync before TERM to exact verified scope. If crash before/after TERM but before receipt, action is ambiguous; repeat the SAME action ID only if adapter publishes idempotent same-scope semantics and original grace remains. Otherwise unknown. |
+| term_observe | TERM action returned; observe until ORIGINAL term deadline. No renewed TERM grace. Proven absence may complete early. |
+| kill_intent | At term deadline, sync this stage BEFORE KILL. At recovery never go back to TERM. Ambiguous KILL may repeat same action ID only within original kill deadline with owner-supported idempotence. |
+| kill_observe | KILL returned; observe until ORIGINAL kill deadline. Do not reset it after takeover. |
+| complete | Exact complete-scope proof retained; no further signals. |
+| unknown | Original clock/scope/action outcome unavailable or kill deadline expired without absence; no false clean result/replacement/import. Retain reconciliation obligation. |
+
+Stages progress TERM intent/observation → KILL intent/observation, optionally
+skipping an expired observation to the next intent. Either may seal complete
+with exact absence or unknown without it. Complete/unknown never reactivate a
+signal stage; later evidence is appended without resetting this action history.
+
+Crashes before/after an action both recover from its persisted intent. A stage
+receipt is an observation, not proof that every actor stopped. If term deadline
+has already expired, persist kill_intent directly, never resend TERM to buy time.
+If kill deadline has expired, observation/retention only under this budget; no
+new signal/grace cycle. Reboot/clock identity mismatch yields unknown, never
+recomputed deadlines. Empty or unpublished scope identity cannot be signaled;
+allocation-unknown remains unknown. If storage fails, bounded best-effort stop of
+an already verified scope may still be attempted within original deadlines, but
+no durable stage/action/absence success is claimed. Further cleanup needs separately
+admitted recovery, not renewed time. All snapshot descendants retain nonnull stop
+once stopping began, including terminal/uncertain; initial snapshots have null.
+
 ### Survival and loss
 
 No controller/supervisor/host-crash survival is assumed. If only the controller
@@ -322,7 +520,7 @@ storage failure; no detachment or presence of `owner.lock` promises otherwise.
 
 A `reconcile` process may acquire owner.lock only after its prior holder is
 actually gone; lock-read failure is not permission. It NEVER starts a harness.
-With a valid pre-intent record it may attest no start attempt; with any intent
+With a valid pre-intent record it may attest no start attempt, but only admitted/not_requested proves no allocation; with any intent
 or unexplained partial record it treats start as consumed/uncertain. It reopens
 only the exact persisted recoverable scope through the approved scope adapter,
 compares boot/namespace/object/incarnation identity and observes/stops that scope.
@@ -344,7 +542,7 @@ A supported scope adapter is linked into the existing launcher; it is not a
 caller executable, shell command, PID list or third wrapper. Before start it
 must provide these exact primitive semantics to the supervisor:
 
-1. Allocate an empty private scope with stable recoverable kernel-object identity,
+1. After durable allocation intent, allocate an empty private scope with stable recoverable kernel-object identity,
    boot/namespace identity and no unrelated members.
 2. Gate creation/exec so no native task code can run before membership; every
    descendant remains in that scope despite fork, double-fork, setsid or reparent.
@@ -376,7 +574,8 @@ contract and consumer limit, not an implementation workaround.
 ## 7. Closed outcomes, replay and consumption
 
 The schema defines `request`, `authorization`, `owner`, `catalog`, `tuple`, `snapshot`,
-`head`, `cancel`, `result`, `response`, `replay`, `conflict`, `reservation` and
+`head`, `cancel`, `result`, `response`, `replay`, `conflict`, `assignment`, `attempt`,
+`operation-intent`, `operation-completion`, `reservation` and
 `ack` records, plus trusted `observation` and `scope-proof` records.
 No extension bag is available. Error codes/stages are closed in `$defs.error`;
 underlying source error namespaces/codes are bounded data, not new launcher exits.
@@ -393,11 +592,11 @@ confirmed cleanup and effect reservation still do not mean task acceptance.
 
 | Event | Exact comparison / authoritative state | Response and forbidden effect |
 | --- | --- | --- |
-| First submit | New exclusive invocation identity; A binds exact N and store | Admit once if every preflight passes; otherwise typed refusal, no native work. |
+| First submit | Exact immutable assignment binding and atomic first/latest attempt admission; A binds N and store | Admit once if every preflight passes; otherwise typed refusal, no native work. |
 | Identical submit | Same invocation and exact raw request digest/length; fresh controller authorization may renew expiry without changing N | Return recorded snapshot/result with replay `identical`; no second scope/start. |
 | Conflicting submit | Same invocation with any changed request byte/role/tuple/consumer | `invocation_conflict`; preserve original and bounded conflict hash, no overwrite/start. |
 | Inspect | Valid control request and authorization, exact store/invocation | Current validated snapshot/result; no signal, spawn, consumption or acceptance. |
-| Cancel | First immutable cancel record binds cancel ID and reason | Publish before signaling; supervisor polls at most every100 ms. Identical cancel is idempotent; changed record conflicts, never weakens the first cancellation. |
+| Cancel | First immutable cancel record binds cancel ID and reason | Publish under the cancel/start barrier above before signaling; post-start polling is at most100ms. Identical cancel is idempotent; changed record conflicts, never weakens the first cancellation. |
 | Reconcile | Owner lock acquired, validated durable evidence and exact scope identity | Observe/stop only; append new evidence, no restart. Existing result immutable. |
 | Same result bytes | Same invocation/input/result digest/length from trusted channel and stored origin | Idempotent retrieval; zero duplicate import/effect. |
 | Different result | Same invocation but different bytes, including after consumption | `result_conflict`, retain original and bounded new hash; freeze new consumption, never erase prior decisions/effects. |
@@ -411,9 +610,9 @@ and cannot branch or skip; head/hash corruption refuses, not a stale read.
 
 `consume` has actions `reserve` and `ack`. Reserve requires the exact immutable
 result, matching named consumer/assignment, known observed native outcome,
-complete worker output, confirmed cleanup and no unresolved conflict. Under
-store.lock create `assignments/<id>/reservation.json` exclusively and sync it
-before exposing an effect-authorizing response. It binds one effect ID, result,
+complete worker output, confirmed cleanup and an exactly bound admitted latest attempt, assignment and clear journal. Under
+store→edit and its own durable operation intent create `assignments/<id>/reservation.json` exclusively and sync it
+then complete its operation clear before exposing an effect-authorizing response. It binds one effect ID, result,
 consumer and invocation across all retry attempts of that assignment. Same
 reservation is retrieval only; any different selection conflicts. A later native
 retry cannot erase or create another reservation. No automatic winner selection.
@@ -433,9 +632,9 @@ The receiver applies this deterministic order, stopping at the first failed
 phase: (1) descriptor types/custody and byte ceilings; (2) strict JSON framing,
 lexical rules and schema; (3) A/request byte binding, expiry and S owner/catalog
 identity; (4) declared object bytes/unique names and cross-record identity;
-(5) existing invocation lookup under locks; (6) new-submit catalog, private
+(5) for mutating operations, operation intent barrier then existing invocation/assignment lookup under locks; inspect only reads; (6) new-submit catalog, private
 verification, exact composition/effective closure and resource admission;
-(7) immutable admission publication. Read/cancel/reconcile/consume never rerun
+(7) atomic assignment attempt and immutable invocation admission publication, then clear completion. Read/cancel/reconcile/consume never rerun
 profile resolution or compatibility preparation. Replays may retrieve old state
 with renewed A but cannot run a child against old admission. Missing invocation
 is `store_unreadable`, with no creation by a control operation. An O object not
@@ -446,17 +645,16 @@ other control operations require an empty O. Expired A refuses even a replay.
 snapshot/observation/result/cancel IDs; assignment/member/consumer/role and exact
 submit/tuple digests remain fixed across every generation. Source-review roles
 require a nonnull distinct producer_member_id; other roles require null.
-Predecessor IDs are never native history. A replacement invocation requires the
-same assignment, prior complete scope absence and no unknown effect/conflict;
-it cannot bypass an existing assignment reservation. No cross-store retry may
-escape these controller-owned assignment obligations. Digest equality is checked
-against retained bytes, not a record's unsupported claim.
+Predecessor IDs are never native history. §4's exact binding/attempt rules, latest
+predecessor absence, store identity and journal interlock are mandatory before
+another invocation can be admitted; post-execution reservation alone is not
+attempt arbitration. Digest equality is against retained bytes.
 
 A snapshot's scope/boot/root incarnation must agree with the durable intent and
 native evidence. Admitted requires null scope, not-attempted/not-started and no result;
-pre-start cancellation may later retain null scope in a no-start terminal result. Start-intent has a recoverable empty-scope identity, unknown outcome and
+pre-start cancellation may retain null scope in a no-start terminal result ONLY with not_requested allocation. Allocating/unknown cannot claim no-resource cleanup. Allocated requires known allocation and nonnull empty scope. Start-intent has a recoverable empty-scope identity, unknown outcome and
 no root incarnation; spawned/running have the same nonnull root incarnation.
-No transition may move back to admitted/start-intent or allocate a second scope.
+No transition may move back to admitted/allocating/allocated/start-intent or allocate a second scope. Allocation ID is immutable after intent. Stop IDs/reason/begun/deadlines are immutable; stages never regress. A stopping phase requires nonnull stop and uses the stage-specific original deadline.
 Stopping/uncertain retain the greatest proven start/native evidence, never
 convert an unknown start to not-started. A terminal snapshot has the exact
 result whose final_generation equals its generation; its identity, scope,
@@ -567,8 +765,8 @@ publication of one, or explicitly refusing that platform; no forced fit.
 
 After independent Stage1 acceptance and source-owner publication, a **separate
 recorded Stage2 assignment** may implement: closed parser and descriptor intake;
-immutable store/locks/barriers/replay; exact Curator/SAM adapter admission; gated
-spawn and native observations; scope recovery/cancel/cleanup; result staging and
+immutable assignment/attempt arbitration and operation interlock; store/locks/barriers/replay; exact Curator/SAM adapter admission; gated
+spawn and native observations; cancel/start and gate serialization; allocation-unknown recovery and durable stop-stage/deadline cleanup; result staging and
 consumer reservation. Implement the existing binary/library construction site,
 not an alternate composer. A contract mismatch returns to source review.
 

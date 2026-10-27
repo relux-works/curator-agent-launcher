@@ -1,0 +1,10 @@
+{
+  "kind": "curator-run member-attempt/1",
+  "store_id": "00000000000000000000000000000002",
+  "assignment_id": "00000000000000000000000000000003",
+  "assignment_sha256": "26f5e140a039b8d80d8a38c6f42633aedadd12b53b60734f7342adc3925799b1",
+  "ordinal": 2,
+  "invocation_id": "00000000000000000000000000000014",
+  "predecessor_invocation_id": "00000000000000000000000000000004",
+  "request_sha256": "b0421134dd8a2f4e0da982a1af72ae2fe2260eda9bc20f34bf587af6c97477aa"
+}

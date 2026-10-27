@@ -1,0 +1,64 @@
+{
+  "kind": "curator-run member-snapshot/1",
+  "store_id": "00000000000000000000000000000002",
+  "identity": {
+    "controller_id": "00000000000000000000000000000001",
+    "assignment_id": "00000000000000000000000000000003",
+    "invocation_id": "00000000000000000000000000000004",
+    "member_id": "00000000000000000000000000000005",
+    "consumer_id": "00000000000000000000000000000006",
+    "role": "development",
+    "producer_member_id": null,
+    "predecessor_invocation_id": null
+  },
+  "request_sha256": "3a5080f47c4d8af599c8ec654ae2d926924868938a882ed1c801b0978b928cbb",
+  "tuple_sha256": "80fdb1ade7796542a4cf5bedbc6f490e7b7f16bc2379944b11b46a98af23c25c",
+  "authorization_sha256": "99965b37937380c1a38fd5e7070274f7a0b953b6b1f4b1a43e614e67584c27c4",
+  "generation": 10,
+  "phase": "stopping",
+  "writer": {
+    "role": "supervisor",
+    "id": "00000000000000000000000000000008",
+    "incarnation_sha256": "66ea9fa85734ed6b63216d5b10a965a24f53ac1edc8842daf30cbbc818259c6b",
+    "supervisor_id": "00000000000000000000000000000008"
+  },
+  "scope": {
+    "adapter_id": "fixture-scope",
+    "adapter_revision": "2222222222222222222222222222222222222222",
+    "scope_id": "0000000000000000000000000000000b",
+    "identity_sha256": "bdb53d401768cf538dc9375014e4fac86d34f9f08ac42320f0e7ba3a3037593a",
+    "boot_sha256": "cf96c665581362fd7dbe14172fefc6582a7ec0a85e36ecdd2c4f98f87e744848",
+    "namespace_sha256": "119f116400d8645611cc1b5683344649c9ea4c4aab656645ad8a5491954676ba",
+    "root_incarnation_sha256": "2480be9dc3099dfd2a7c19e426a6b1bb2300f4c4154901e4432c4f7fe1d1cf03"
+  },
+  "boot_sha256": "cf96c665581362fd7dbe14172fefc6582a7ec0a85e36ecdd2c4f98f87e744848",
+  "deadline_monotonic_ms": 6000,
+  "start": {
+    "status": "exec_confirmed",
+    "process_incarnation_sha256": "2480be9dc3099dfd2a7c19e426a6b1bb2300f4c4154901e4432c4f7fe1d1cf03"
+  },
+  "native": {
+    "status": "running"
+  },
+  "cleanup": {
+    "status": "pending"
+  },
+  "result": null,
+  "error": null,
+  "allocation": {
+    "status": "known",
+    "allocation_id": "00000000000000000000000000000020"
+  },
+  "gate": "closed",
+  "stop": {
+    "stop_id": "00000000000000000000000000000021",
+    "reason": "controller_request",
+    "boot_sha256": "cf96c665581362fd7dbe14172fefc6582a7ec0a85e36ecdd2c4f98f87e744848",
+    "begun_ms": 4000,
+    "term_deadline_ms": 5000,
+    "kill_deadline_ms": 6000,
+    "term_action_id": "00000000000000000000000000000022",
+    "kill_action_id": "00000000000000000000000000000023",
+    "stage": "kill_intent"
+  }
+}

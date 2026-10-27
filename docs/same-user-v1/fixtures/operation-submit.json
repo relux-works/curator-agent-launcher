@@ -1,0 +1,9 @@
+{
+  "kind": "curator-run member-operation-intent/1",
+  "store_id": "00000000000000000000000000000002",
+  "controller_id": "00000000000000000000000000000001",
+  "sequence": 1,
+  "operation": "submit",
+  "invocation_id": "00000000000000000000000000000004",
+  "candidate_sha256": "3a5080f47c4d8af599c8ec654ae2d926924868938a882ed1c801b0978b928cbb"
+}

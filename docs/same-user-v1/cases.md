@@ -1,4 +1,4 @@
-# Source revision 1 — inert records and manual cases
+# Source revision 2 — inert records and manual cases
 
 These are **source examples and manual expected verdicts**, not an executable
 corpus, runtime qualification or proof that a parser rejects anything. No native
@@ -26,13 +26,13 @@ complete type/range/enum/conditional inventory, with no external `$ref`.
 
 | Root schema definition | Fixture / purpose |
 | --- | --- |
-| request: submit | `submit.json`: nine named objects, disabled network, one requested `patch` output, finite budgets; no history/native tail. |
+| request: submit | `submit.json`: ten named objects (nine logical inputs plus assignment binding), disabled network, one requested `patch` output, finite budgets; no history/native tail. |
 | request: inspect/reconcile/cancel/reserve/ack | `request-inspect.json`, `request-reconcile.json`, `request-cancel.json`, `request-reserve.json`, `request-ack.json`; typed distinct operations, not implicit resubmission. |
 | authorization | `authorization.json`: binds raw submit length/hash, controller/store; deliberately expired. A is a separate trusted handle, not part of O. |
 | owner / catalog | `owner.json` binds `catalog-empty.json`; catalog has zero entries. Neither supplied caller text nor valid digest creates compatibility. |
 | tuple | `tuple.json`: complete structural shape with synthetic exact source/binary/model/effort/profile/home/manager-absence inputs; no supported runtime. |
-| snapshot | `state-admitted.json`, `state-intent.json`, `state-spawned.json`, `state-running.json`, `state-final.json`: generations 1..5, one scope/start. `state-unknown.json` is an alternate uncertain generation5, never simultaneous with final5. |
-| head | `head.json`: binds final generation5's exact bytes, not a convenient earlier state. |
+| snapshot | `state-admitted.json`, `state-intent.json`, `state-spawned.json`, `state-running.json`, `state-final.json`: generations 1/4/5/7/8, one scope/start. Allocation generations2/3 and gate release-intent6 are below. `state-unknown.json` is an alternate uncertain generation8, never simultaneous with final8. |
+| head | `head.json`: binds final generation8's exact bytes, not a convenient earlier state. |
 | observation | `native-exit.json` / `native-signal.json`: separate synthetic actual wait observations, not 128+signal normalization. |
 | scopeProof | `scope-absent.json`: synthetic complete/matches/empty conjunction; flags require real owner-method evidence later. |
 | result | `result-exit.json`: complete patch/exit0/absence example; `result-signal.json`: alternate signal/missing-output example, not a replacement result for the same retained invocation. |
@@ -44,7 +44,7 @@ complete type/range/enum/conditional inventory, with no external `$ref`.
 
 `instruction.txt`, `source.txt`, `profile.txt`, `effective-config.txt`,
 `manager-absence.txt`, `curator-input.txt`, `runtime-input.txt`, `launcher-input.txt`
-are inert manifest objects. `tuple.json` is its ninth object. `patch.txt` and
+are inert manifest objects. `tuple.json` is its ninth logical input; `assignment.json` is the tenth manifest object. Assignment excludes itself from its logical array, avoiding a hash cycle. `patch.txt` and
 `receipt.txt` illustrate an output and separate ack input. File `ref.name` is
 these basenames without the extension; storage lookup uses its raw SHA-256, not
 that name. All JSON bytes are UTF-8, two-space indent, LF and final newline;
@@ -71,8 +71,7 @@ replace the required lexical rejection of `1000.0`.
 
 Each row has a nearby valid **conditional** control and a forbidden neighbor.
 "No child" also means no native/provider/tool effect, identity/presence operation,
-config/home/auth repair or history adoption. Before authorized store admission,
-refusal writes only a complete response if R is valid; no invocation is created.
+config/home/auth repair or history adoption. Before authorization/store custody, refusal writes only a complete response if R is valid. After that, a guarded refusal can append journal/conflict evidence but creates no native invocation attempt unless atomic assignment admission completed.
 There are no actual native pass/fail counts in this document.
 
 | Case | Conditional control / expected source verdict | Forbidden neighbor / exact expected verdict and effects |
@@ -102,23 +101,23 @@ Each source code must be preserved exactly when available, never arbitrary stder
 
 ## Durable transitions and crash windows
 
-The control chain is generation1 admitted → generation2 start_intent →
-generation3 spawned → generation4 running → generation5 terminal. Every edge
-requires the prior exact-byte publication barrier. The synthetic clock has
-intent/exec at tick0, wait at5000, absence at6000 and final delivery deadline7000;
-startup deadline5000 and runtime deadline10000 are independent phase budgets. The uncertain generation5 is
-an alternative branch after loss, not an additional generation with equal ID.
-All snapshots/results in this directory are synthetic structural illustrations;
-none overcomes the expired A/empty catalog in a real admission.
+The nominal chain is admitted1 → allocating2 → allocated3 → start_intent4 →
+spawned5 (gate held) → spawned6 (gate release_intent) → running7 → terminal8.
+Each edge requires durable publication including journal completion before its
+permitted task effect. All ticks are synthetic: allocation/intent/exec at0,
+wait at5000, absence at6000 and delivery deadline7000; startup5000/runtime10000.
+The uncertain8, cancel-won2, cancel-after-intent5, cancel-before-release6 and
+stopping8..12 are ALTERNATIVE branches, not competing publications in one store.
+All examples remain conditional on future source-supported tuples/fresh A.
 
 | Case | Positive ordering / observation | Negative crash/neighbor / required state and forbidden effects |
 | --- | --- | --- |
 | T01 exclusive creation | New directory and parent sync, fixed lock inodes, retained request/A/O, admitted1 sync | Crash/partial bootstrap before admitted: existing identity is uncertain/unreadable, never fresh; no auto-complete or child. |
-| T02 before intent | Valid admitted1 proves no start attempt; empty scratch may be disposed only with verified absence | Unexplained temporary/generation or missing/corrupt head: `store_unreadable`, preserve all bytes; do not select old admitted1 as convenient recovery. |
-| T03 intent | Empty recoverable scope and intent2 synced before gated spawn | Crash after intent2 before actual spawn: attempt consumed, native unknown; reconcile cannot respawn even if scope is empty. |
-| T04 gated child | Child contained and held; actual incarnation published in spawned3 before release | Crash between spawn and spawned3: gate EOF aborts child; reconcile exact scope, outcome unknown until evidence, no native replacement. No publication ⇒ no release. |
-| T05 release | Exact inputs/plan rechecked, exec ack observed, running4 synced | Crash across gate release/exec ack: start remains consumed; no fabricated exec/readiness/actual tuple. `uncertain`, no second spawn. |
-| T06 native exit | Real wait observation matches scope/root/boot; then full absence proof and result before final5 | Exit0 but escaped descendant lives: stopping/pending cleanup, no terminal-clean/import/scratch disposal. Timeout/PID disappearance is not absence. |
+| T02 before intent | Valid admitted1/not_requested proves no start AND no allocation; only verified owned scratch may be disposed | Unexplained temporary/generation or missing/corrupt head: `store_unreadable`, preserve all bytes; do not select old admitted1 as convenient recovery. |
+| T03 intent | Empty recoverable scope and intent4 synced before gated spawn | Crash after intent4 before actual spawn: attempt consumed, native unknown; reconcile cannot respawn even if scope is empty. |
+| T04 gated child | Child contained and held; actual incarnation published in spawned5 before release | Crash between spawn and spawned5: gate EOF aborts child; reconcile exact scope, outcome unknown until evidence, no native replacement. No publication ⇒ no release. |
+| T05 release | Exact inputs/plan rechecked, exec ack observed, running7 synced | Crash across gate release/exec ack: start remains consumed; no fabricated exec/readiness/actual tuple. `uncertain`, no second spawn. |
+| T06 native exit | Real wait observation matches scope/root/boot; then full absence proof and result before final8 | Exit0 but escaped descendant lives: stopping/pending cleanup, no terminal-clean/import/scratch disposal. Timeout/PID disappearance is not absence. |
 | T07 native signal | `native-signal.json` preserves observed signal15 separately from missing output | `negative-native-exit.json` code256, signal normalized to143 or mismatched raw wait: reject result_invalid; no invented native exit. |
 | T08 pre-exec failure | Actual spawn/exec OS error recorded, no native wait exit; verified scope cleanup | Generic wrapper exit1 presented as native exit1: invalid evidence; preserve spawn_failed and no task success. |
 | T09 controller loss | EOF/byte on C triggers durable cancel, bounded verified-scope TERM/KILL, retained result | Supervisor also dies: no promised detached survivor; caller retains orphan reconciliation obligation. Never claim guaranteed six-second cleanup after dead supervisor. |
@@ -127,7 +126,7 @@ none overcomes the expired A/empty catalog in a real admission.
 | T12 deadlines | Current monotonic phase deadline persisted; stop budgets finite and unchanged on recovery | Reboot, clock discontinuity, phase replay or renewed wall expiry cannot renew native budget; uncertain/refuse, no restart. |
 | T13 store failure | Prior bytes/generations retained; result synced before terminal/head/response refs | File/dir sync failure, full volume, missing result or pointer to partial bytes: no successful barrier/exit0 delivery claim without complete R; no trim/evict/old-head repair. |
 | T14 generation/state | One scope, monotonic consecutive generations and bound tuple/request/writer | Skipped/branched generation, changed identity/tuple, `negative-terminal-running.json`: schema_invalid or cross-record result_invalid, no consumption/restart. |
-| T15 cancellation | First cancel reason/ID synced; admitted may finalize no-start; intent+ never rewinds | Identical cancellation: retrieval only; changed cancellation: cancel_conflict. Already-terminal cancellation cannot erase outcome or reserve another effect. |
+| T15 cancellation | First cancel reason/ID synced under store→edit; cancel winning before intent forbids child, intent winning never rewinds | Identical cancellation: retrieval only; changed cancellation: cancel_conflict. Already-terminal cancellation cannot erase outcome or reserve another effect. |
 | T16 cleanup evidence | Exact complete/matches/empty proof with stable no-new-member scope | Any flag false/missing or failed enumeration: pending/unknown/failed; `scope_unknown` or `cleanup_failed`, no absence claim. |
 
 ## Replay, result collection and consumption
@@ -147,6 +146,42 @@ none overcomes the expired A/empty catalog in a real admission.
 | R11 external crash | Destination supports real idempotency/reconciliation with reserved effect ID | Crash after reserve/effect/before ack: effect_unknown; no repeat import merely because ack/reply is missing. No distributed exactly-once guarantee. |
 | R12 independent roles | Source-review consumer and later frozen-input recipient assessment get separate assignments/results | Producer result or source ACCEPT relabeled recipient/native witness: refuse identity_mismatch; original consumer obligation remains open. |
 
+## Revision 2 paired durable-order counterexamples
+
+These rows are **manual expected verdicts**, not a transition executor or native
+pass/fail count. JSON files named here are structurally valid unless listed as
+one of the four `negative-*` schema cases. In particular changed-input/second-first/
+unknown-predecessor submits and renewed stop deadlines are semantic negatives:
+Draft acceptance does not admit them. Every reference is to synthetic bytes.
+
+| Record group | Inert source examples / custody |
+| --- | --- |
+| assignment / attempt | `assignment.json`, `attempt-first.json`, `attempt-retry.json`; unchanged raw binding and ordinal1→2. `submit-retry.json` changes only request/invocation/predecessor, with the SAME binding. `assignment-changed.json` and `submit-changed-input.json` form a self-consistent changed logical request, rejected against retained binding. |
+| first/predecessor neighbors | `submit-second-first.json` claims null predecessor after ordinal1; `submit-unknown-predecessor.json` names an unowned ID. Neither is a second admitted attempt. |
+| journal | `operation-submit.json` + `operation-clear.json` are sequence1 admission. `operation-phase-2.json` through `operation-phase-8.json` and their `-clear.json` partners bind the nominal snapshot2..8 publications, giving a consecutive clear prefix before sequence9. `operation-reserve.json` + `operation-reserve-clear.json` are a conditional normal sequence9 reservation. ALTERNATIVE sequence9 `operation-result-conflict.json` precedes comparing `result-signal.json` to immutable `result-exit.json`. `operation-conflict.json` is only the successful conflict-publication branch; failed-create/no-temp has NO completion/conflict file. |
+| allocation | `state-allocating.json`, `state-allocated.json`, `state-allocation-unknown.json`: before-call and after-call-before-publication both retain the SAME intent until exact identity evidence exists. |
+| cancel / gate | `state-cancel-won.json` + `result-cancel-before-allocation.json`: no child/resource. `state-cancel-after-intent.json`: consumed attempt, scope pending, no rewind. `state-release-intent.json` and `state-cancel-before-release.json`: alternate gate decision6 after spawned5. |
+| stop | `state-stop-term-intent.json`, `state-stop-term-observe.json`, `state-stop-kill-intent.json`, `state-stop-kill-observe.json`, `state-stop-unknown.json`: begun4000, original TERM5000/KILL6000, stages8..12. `state-stop-renewed.json` is a structurally valid but forbidden deadline rewrite. |
+
+| Case / finding | Nearby conditional positive | Crash/race/negative and exact manual verdict |
+| --- | --- | --- |
+| D01 B1 normal reserve | Clear operations1..8, terminal8, no conflicts, sequence9 reserve intent → reservation → clear completion → response | No effect authorization before the final completion sync. Existing reservation with missing completion stays effect-unknown/unavailable, never assumed delivered. |
+| D02 B1 failed create/no temp | Sequence9 result-conflict intent synced BEFORE comparison | Conflict detected, conflict temporary creation leaves NO bytes, supervisor dies: sequence9 lacks completion. Every later reserve/start/gate sees unresolved intent ⇒ `store/store_interlocked`; original result unchanged, zero new import authorization. |
+| D03 B1 failed sync/temp | Same prior durable intent | Conflict temp exists but file/dir sync fails: unresolved intent + temp, same store-wide freeze. Recovery preserves both; it cannot select old terminal8 as clean or write speculative clear. |
+| D04 B1 initial-intent failure | Successful initial intent permits comparison | Failure before any initial intent/directory bytes: NO target comparison or conflict classification occurred, `store_unreadable`, no effect response. Partial directory instead freezes. A later clean reserve is allowed ONLY in the former no-comparison/no-bytes case, not D02. |
+| D05 B1 conflict completed | Exact differing bytes produce conflict + conflict completion | Completion succeeds or fails: conflict or unresolved entry blocks all subsequent consumption. A prior authorized effect/ack is retained, not erased or falsely revoked. |
+| D06 B2 same-input retry | First attempt terminal8/absent/no consumption, unchanged `assignment.json`, I2 predecessor I1 ⇒ ordinal2 under store lock | `submit-changed-input.json` uses self-consistent changed max_processes/binding: `admission/assignment_conflict`; preserve binding/attempt1, no new attempt or child. New assignment requires separate authorization. |
+| D07 B2 two firsts | First null-predecessor wins ordinal1 under store lock | `submit-second-first.json` waits then sees latest I1: assignment_conflict, no ordinal2/start. Its conflict interlock may stop winner/consumption; cannot authorize a second native attempt. |
+| D08 B2 predecessor/cross-store | Exact latest predecessor with durable no-allocation or complete absence | Unknown ID, older predecessor, ordinal gap, partial admission or allocation-unknown: assignment_conflict/store_unreadable, no retry. Different S/controller custody refuses; copying proof or issuing a second owner label cannot transfer ownership. |
+| D09 B3 cancel first | Cancel.json synced under store→edit before start_intent | Supervisor later gets locks and must refuse intent/spawn. With admitted1/not_requested, cancel-won2 finalizes not-started/no resource; polling is irrelevant. If cancel snapshot sync failed, durable cancel still wins; if cancel publication ambiguous, journal blocks start. |
+| D10 B3 intent first | Intent4 synced before cancel obtains locks; attempt consumed | Cancel then wins before gated spawn: no spawn, consumed/unknown attempt + exact scope cleanup; never not-attempted. Cancel after spawned5 but before release closes gate/cleanup, no native exec. |
+| D11 B3 gate/lost custody | Release intent6, immediate C/custody/cancel checks, actual gate release under store→edit | Cancel wins before critical section: no release. Death or C loss across final observation/release: ambiguous start, no replay of gate, bounded stop. Cancellation after release cannot claim retrospective zero effects. |
+| D12 S1 TERM crash | term_intent8 fixes begun4000, TERM5000, KILL6000 and action IDs | Crash before TERM and after TERM/before term_observe both recover ambiguous SAME action: idempotent reissue only if owner supports it and tick<5000; otherwise unknown. Never a new 1000ms grace. |
+| D13 S1 KILL crash | kill_intent10 precedes KILL, kill_observe11 preserves both deadlines | Crash before/after KILL stays in original kill stage. At5500 no return to TERM; at>=6000 observe/retain only then unknown absent proof. `state-stop-renewed.json` refuses result_invalid, not a renewed budget. |
+| D14 S1 recovered clock | Original boot and monotonic clock, original deadlines retained | Reboot/clock/scope mismatch: unknown; generation count and wall time cannot reconstruct a new stop stage or signal a recycled identity. |
+| D15 S2 before allocator | admitted1/no allocation intent ⇒ no allocation and no native start | Persist allocating2 then crash BEFORE call: possible allocation cannot be excluded from that durable state. Without exact evidence, allocation-unknown3, cleanup unknown, no replacement/consumption/scratch disposal. |
+| D16 S2 orphan empty scope | Allocator returns identity and allocated3 syncs ⇒ exact scope can be recovered | Allocator creates empty scope then dies BEFORE identity publication: same unresolved allocating2 as D15, no second allocation. Retain controller orphan duty; no assumption of automatic kernel disposal or available lookup primitive. |
+
 ## Next-phase admission packet (not execution authority)
 
 First supported tuple: **NONE**. Required source owners must name exact
@@ -157,7 +192,7 @@ recoverable scope method. The private catalog admission must bind those exact
 publications and tuple bytes; absence of any one is a bounded unsupported case.
 
 Stage2, after accepted published Stage1 **and a separately recorded assignment**,
-can implement descriptor/parser, immutable store, composition/admission, gated
+can implement descriptor/parser, immutable assignment/attempt and journal interlock, cancel/start gate ordering, durable allocation and stop stages, composition/admission, gated
 scope lifecycle and result/reservation in the existing binary. No parser/CLI or
 checker is implemented here. Source mismatch returns to the same independent
 review route. Local heavy-suite hold is not lifted by a hosted source check.

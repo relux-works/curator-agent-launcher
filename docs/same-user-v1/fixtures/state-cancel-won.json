@@ -1,0 +1,48 @@
+{
+  "kind": "curator-run member-snapshot/1",
+  "store_id": "00000000000000000000000000000002",
+  "identity": {
+    "controller_id": "00000000000000000000000000000001",
+    "assignment_id": "00000000000000000000000000000003",
+    "invocation_id": "00000000000000000000000000000004",
+    "member_id": "00000000000000000000000000000005",
+    "consumer_id": "00000000000000000000000000000006",
+    "role": "development",
+    "producer_member_id": null,
+    "predecessor_invocation_id": null
+  },
+  "request_sha256": "3a5080f47c4d8af599c8ec654ae2d926924868938a882ed1c801b0978b928cbb",
+  "tuple_sha256": "80fdb1ade7796542a4cf5bedbc6f490e7b7f16bc2379944b11b46a98af23c25c",
+  "authorization_sha256": "99965b37937380c1a38fd5e7070274f7a0b953b6b1f4b1a43e614e67584c27c4",
+  "generation": 2,
+  "phase": "terminal",
+  "writer": {
+    "role": "supervisor",
+    "id": "00000000000000000000000000000008",
+    "incarnation_sha256": "66ea9fa85734ed6b63216d5b10a965a24f53ac1edc8842daf30cbbc818259c6b",
+    "supervisor_id": "00000000000000000000000000000008"
+  },
+  "scope": null,
+  "boot_sha256": "cf96c665581362fd7dbe14172fefc6582a7ec0a85e36ecdd2c4f98f87e744848",
+  "deadline_monotonic_ms": 5000,
+  "start": {
+    "status": "not_attempted"
+  },
+  "native": {
+    "status": "not_started"
+  },
+  "cleanup": {
+    "status": "not_started"
+  },
+  "result": {
+    "name": "result-cancel-before-allocation",
+    "length": 1570,
+    "sha256": "b9336bb393df79955d2ac9ebd16adf5eac2e0802af30a30aaec9143499c832f2"
+  },
+  "error": null,
+  "allocation": {
+    "status": "not_requested"
+  },
+  "gate": "closed",
+  "stop": null
+}

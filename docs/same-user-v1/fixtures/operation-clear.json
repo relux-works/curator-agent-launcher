@@ -1,0 +1,12 @@
+{
+  "kind": "curator-run member-operation-completion/1",
+  "store_id": "00000000000000000000000000000002",
+  "sequence": 1,
+  "intent": {
+    "name": "operation-submit",
+    "length": 346,
+    "sha256": "99d2d990c13284fe7a1f2d7c6c2a3acf6d12d6b61801f90b87465cff94c6d952"
+  },
+  "disposition": "clear",
+  "conflict": null
+}

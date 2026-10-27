@@ -11,10 +11,10 @@
     "producer_member_id": null,
     "predecessor_invocation_id": null
   },
-  "request_sha256": "a199b5ad254437be01ac2a017eb810f72f201a57f76e7d5fcac5f9265177dae0",
+  "request_sha256": "3a5080f47c4d8af599c8ec654ae2d926924868938a882ed1c801b0978b928cbb",
   "tuple_sha256": "80fdb1ade7796542a4cf5bedbc6f490e7b7f16bc2379944b11b46a98af23c25c",
-  "authorization_sha256": "c49e7b826952fb5dec3d374893ec0da0215c97bbaddd1e64c80e4fb4d152c360",
-  "generation": 3,
+  "authorization_sha256": "99965b37937380c1a38fd5e7070274f7a0b953b6b1f4b1a43e614e67584c27c4",
+  "generation": 5,
   "phase": "spawned",
   "writer": {
     "role": "supervisor",
@@ -44,5 +44,11 @@
     "status": "pending"
   },
   "result": null,
-  "error": null
+  "error": null,
+  "allocation": {
+    "status": "known",
+    "allocation_id": "00000000000000000000000000000020"
+  },
+  "gate": "held",
+  "stop": null
 }
