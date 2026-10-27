@@ -62,9 +62,11 @@ HL21–HL24 adds launcher-owned reservation, replay and allocation obligations
 (§§5.3, 5.7, 6.2, 6.5, 11). This amendment specifies the consumer before code;
 it does not advertise an implemented lease capability. Initial implementation
 is **refuse-only, protection retained**: acquire/replay, attempted bind and lane
-allocation, with **no launcher release calls**. Exact-bind success, no-start
-release and every evidence-based release remain unqualified until an accepted
-observation v2 and session-host proof contract supplies OS process incarnation,
+allocation, with **no launcher release calls**. Only the **lease-capable route**
+of §5.2 is eligible; incompatible hosted routes refuse rather than bypass the
+lease. Exact-bind success, no-start release and every evidence-based release
+remain unqualified until an accepted observation v2 and session-host proof
+contract supplies OS process incarnation,
 independent no-start, descendant termination and ownership reconciliation. The
 closed observation v1 of §4.3 is unchanged. Review acceptance of this amendment
 precedes consumer code and the schema-first publication described in §5.7.
@@ -667,9 +669,11 @@ credential helpers. Each operation is one subprocess:
   - Because it is a lifetime terminal operation, it cannot serve a detached
     launch (`werkstatt up`) or return a session record.
   - Detached exact-plan launches stay unavailable until the CIP-0016
-    successor publishes a detached form. A launch that needs detach through
-    an exact-only manager refuses `session_host_capability_missing` (6),
-    with the detail `capability=launch-exact-detached`.
+    successor publishes a compatible detached form. More generally, the
+    home-lease gate (§5.2) refuses the current exact-plan transport with
+    `session_home_lease_unavailable`, `reason=route_not_lease_capable` (1).
+    Its legacy shape diagnostic `launch-exact-detached` does not admit it
+    through that gate or supply the missing session record.
 
 **Plugin environment and descriptors**
 
@@ -720,18 +724,26 @@ The v1 capability tokens are closed. An unknown token confers nothing.
   the same agents-management construction site, from the profile the request
   names. It is the accepted CIP-0016 amendment "delegated local launches",
   normative in curator-spec `cips/CIP-0016-local-hosted-launches.md` at `3a3e041b` (PR #163). The activation boundary is in §5.8.
-- **`launch-exact/2`.** The CIP-0016 exact-plan shape, with the jointly
-  published successor payload. The launcher prefers it **per runtime**: when
-  `describe` lists `launch-exact` for that env-id and the launch is attached
-  and requests no doorbell. Exact support for one runtime never retires
-  delegated support for another.
+- **`launch-exact/2` (proposal).** The CIP-0016 exact-plan target requires a
+  jointly accepted successor contract. The original route preference was
+  **per runtime**: when `describe` lists `launch-exact` for that env-id and the
+  launch is attached and requests no doorbell. The home-lease gate below
+  supersedes admission under that preference: the current lifetime terminal
+  transport supplies no started session record and is not lease-capable,
+  even if the manager also advertises status/admission. A compatible exact
+  reservation/recovery/session-record contract is future work, not supplied
+  by observation v2 alone. No fields are inferred into a closed exact request.
+  Exact support for one runtime never retires delegated support for another.
   - The `launch-exact/2` payload cannot carry a doorbell or return a
     session record. A launch that is detached or that requests a doorbell
     (`--a2a`, or a Werkstatt record with a doorbell) therefore uses the
     delegated route, and the §5.8 matrix applies to it.
-  - An exact-only manager refuses such a launch with
-    `session_host_capability_missing`, with `capability=launch-exact-doorbell`
-    for a doorbell, or `launch-exact-detached` for a detached launch.
+  - An exact-only launch is incompatible with the lease-capable route and
+    refuses with `route_not_lease_capable` (1), as below. The older
+    `launch-exact-doorbell` / `launch-exact-detached` shape diagnostics do not
+    override this fence. A dual-shape manager may use a delegated route when
+    the original doorbell/detach selection rules already choose it; a selected
+    incompatible exact route is not silently changed into delegated or native.
 - **`resume/1`, `attach/1`, `status/1`, `list/1`, `stop/1`.** A manager
   that advertises `stop/1` defines `busy` per runtime, as an observable
   state. The `not-busy` precondition and `state: busy` use the same
@@ -760,8 +772,9 @@ The v1 capability tokens are closed. An unknown token confers nothing.
 
 **Required capabilities**
 
-The launcher calls `describe` once per invocation, before composition, and
-computes the capabilities the launch needs:
+For fresh admission, the launcher calls `describe` once, before composition,
+and computes the capabilities the request needs. Pending-operation recovery
+instead follows the acquire-first and conditional-describe rules of §5.7:
 
 - a launch shape for the runtime;
 - `attach/1`, unless detached;
@@ -772,9 +785,56 @@ computes the capabilities the launch needs:
 - for Werkstätten, also `admission/1`, `labels/1`, `list/1`, `status/1` and
   `stop/1`.
 
-A missing token is `session_host_capability_missing` (6). A missing env-id
-is `session_host_provider_unsupported` (6). Both are checked before any
-`launch` or `resume`.
+**Lease-capable route (home-lease admission fence).** Every hosted launch
+or resume, plain or Werkstatt, additionally requires all of the following:
+
+- the selected runtime's request/response `launch` (`launch-delegated/1`)
+  or `resume` (`resume/1`) operation, as applicable to this request;
+- `status/1` with the §5.7 **operation outcomes**, not session-only status;
+- `admission/1`, including operation-id idempotency and `cancel` fencing,
+  even when `admission_key` is null; `status` and `cancel` must also be
+  advertised for that runtime. There is no invented `cancel/1` token;
+- on `started`, the §5.4 validated session record with its handle,
+  `operation_id` and generation, including when recovered by operation status.
+  A terminal-only exit stream is not that record.
+
+These are the **lease-capable route** requirements, evaluated per operation
+and runtime; advertising exact for another operation does not itself invalidate
+a compatible request/response resume. The other applicable attach/resume,
+credential, doorbell, board-goal and Werkstatt capabilities above still apply.
+On a fresh admission, one read-only `describe` is allowed to
+inspect the selected manager and evaluate this fence. **Describe is never a
+submission.** An incompatible route then refuses
+`session_home_lease_unavailable` (1), `reason=route_not_lease_capable`, with
+**zero acquire calls and zero further manager RPCs**, including list, status,
+cancel, launch, resume or terminal launch. This refusal covers plain managers
+without the required operation recovery and current exact-plan launches that
+return no session record. There is no lease bypass or fallback to native.
+The fence precedes lease reservation/acquire and other manager calls; the
+acquire-first recovery exception is defined in §5.7, not a second fresh admission.
+
+For a lease-capable route, a missing other required token remains
+`session_host_capability_missing` (6); lease-fence failures take the closed
+reason above instead. A missing env-id remains
+`session_host_provider_unsupported` (6). All are checked before submission.
+A malformed or poisoned claimed session record after submission is a protocol
+failure with retained protection, never retroactive proof of a safe start.
+
+**Route qualification pairs (required before code is advertised).**
+"Eligible" below means the lease sequence may proceed, not that bind succeeds
+or missing process proof has been qualified.
+
+| Input / positive control | Lease-fence result |
+| --- | --- |
+| Plain exact+attach only | `route_not_lease_capable`; one discovery describe, zero acquire/further RPCs |
+| Exact terminal route with status/admission/cancel also advertised | Same refusal: no started session record; compatible exact contract is future work |
+| Plain delegated+attach without operation status or admission/cancel | Same refusal; a new local journal cannot manufacture those remote capabilities |
+| Delegated with capability tokens but without the runtime's status/cancel operations | Same refusal; no capability inference across runtimes |
+| Rich delegated plain launch/resume with the full lease-capable set and other applicable needs | Eligible; durable reservation and acquire precede its one submission |
+| Rich delegated Werkstatt with that set plus labels/list/stop and applicable needs | Eligible under the same fence and the Werkstatt checks |
+| Native launch | No lease discovery/acquire; this hosted fence is not entered |
+
+These are specification obligations, not results from the unchanged client.
 
 **Rules on operations (from the task-board host review, TASK-261018-m9kukq).**
 
@@ -851,8 +911,11 @@ is `session_host_provider_unsupported` (6). Both are checked before any
 ### 5.3 Launch and resume requests
 
 **Home-lease precondition (HL21, L1/L6).** Before a hosted launch or resume,
-the launcher admits the resolved environment, profile and exact
-`profile.lock_sha256`, then follows the durable acquire sequence in §5.7.
+the launcher first requires the selected **lease-capable route** (§5.2),
+admits the resolved environment, profile and exact `profile.lock_sha256`, then
+follows the durable acquire sequence in §5.7. Incompatible hosted routes refuse
+with `route_not_lease_capable` after discovery describe, before acquire or any
+further manager RPC. Recovery instead follows the acquire-first rule below.
 Native launches take no lease. There is no hosted `--no-home-lease` bypass and
 no fallback to native after lease refusal. Lease correlation belongs to the
 launcher journal, not to invented members of the manager's closed request.
@@ -1358,7 +1421,11 @@ extends the existing journal. It supersedes the plain-hosted exception below
 and the unconditional clearing of lease-bearing operations above.
 Old journals without lease correlation retain their existing recovery format;
 they are not proof that a lease was acquired or that no manager call occurred.
-New hosted submissions always use the extended format.
+New hosted submissions always use the extended format. For fresh admission,
+first apply the §5.2 lease-capable-route fence using the one read-only discovery
+`describe`; incompatible routes make no acquire call or further manager RPC.
+For recovery, use the persisted admitted route/evidence and the acquire-first
+ordering in steps 3–4; do not run discovery before a terminal replay decision.
 
 1. **Probe, never guess a version.** Use the read-only
    `curator env lease list --format json` command as the capability probe.
@@ -1371,8 +1438,10 @@ New hosted submissions always use the extended format.
 2. **Reserve durably.** Before the first acquire, atomically write `op.json`
    with `phase: lease_requested`, a launcher-generated `request_id`, canonical
    environment, profile, admitted `lock_sha256`, exact manager registration,
-   nullable Werkstatt id and the identical prepared holder payload. Persist the
-   original validated launch/resume request too, so recovery never reconstructs
+   nullable Werkstatt id and the identical prepared holder payload. Persist
+   the admitted route and its validated per-runtime capability/operation
+   evidence, bound to that exact manager registration. Persist the original
+   validated launch/resume request too, so recovery never reconstructs
    a different payload from edited configuration. The request id is stable for
    this operation; a new admission uses a fresh id. No manager submission can
    precede this journal or successful acquire.
@@ -1390,9 +1459,16 @@ New hosted submissions always use the extended format.
    `session_home_lease_unavailable` carrying Curator's terminal reason. Do not
    revive the lease or generate a replacement request inside recovery.
    The paired positive is `acquired` with the same still-prepared lease and
-   `changed:false`: it permits exactly one manager launch/resume call. Require
-   matching current environment/profile/digest/holder identity, not just a
-   successful envelope or a historical prepared snapshot.
+   `changed:false`: after matching the current environment/profile/digest/
+   holder identity, it permits one read-only `describe` to revalidate the frozen
+   admitted route and capability/operation evidence before submission. Describe
+   is read-only, never a submission. If that evidence changed or the route is
+   now incompatible, retain the prepared lease, make no release call and
+   refuse `session_home_lease_unavailable`, `reason=route_not_lease_capable`;
+   make no further manager RPC or replacement admission. An unchanged,
+   lease-capable replay proceeds to exactly one launch/resume call. A successful
+   envelope or historical prepared snapshot alone never admits. Terminal replay
+   above skips even this describe and therefore makes zero manager RPCs.
 5. **Mark possible submission first.** After acquire and allocation (§6.2),
    durably mark that the manager call may occur, then send the persisted
    request exactly once. A crash in that window is uncertain; recover through
@@ -1560,23 +1636,32 @@ warning. `werkstatt up` prints the source it used.
 
 ### 6.2 `werkstatt up <id>`
 
-Ordered steps. Steps 1–7 start no process and change nothing at the
-manager. Two of them write locally, as stated: step 6 may let Curator repair
-the managed home, and step 7 writes the transitional hook file. Step 8 is
-the only call that starts anything. For Werkstätten the manager is described
-before the profile is resolved. That is a deliberate exception to §3.3: the
-`describe` call is read-only, and the already-up check must come before any
-local write.
+Ordered steps distinguish recovery from fresh admission. **Step 1 may
+submit the already persisted and admitted operation:** a still-prepared acquire
+replay proceeds to its single launch/resume under §5.7. It does not generate a
+new operation, replace the request/profile/digest or begin a second fresh
+admission. A terminal acquire replay makes zero manager calls and settles not
+started. If there is no pending operation, steps 2–7 start no provider and make
+no manager mutation; step 8 is the only fresh start. Step 6 may let Curator
+repair the managed home, and step 7 writes the transitional hook file.
+For fresh Werkstatt admission the manager is described before the profile is
+resolved. That is a deliberate exception to §3.3: `describe` is read-only, and
+the already-up check must precede fresh hook/journal writes.
 
 1. **Lock and reconcile.** Take the §5.7 lock. Reconcile any pending
-   `op.json` first. If that stays `unknown`, the result is
-   `session_liveness_unknown` (1).
+   `op.json` first, including its acquire replay and possible submission of
+   the original persisted request. Settle or report that existing operation
+   and end this invocation; do not continue into steps 2–8 as a new admission.
+   If recovery stays `unknown`, the result is `session_liveness_unknown` (1).
+   In particular, terminal replay retains its zero-manager-call refusal.
 2. **Record.** Load and validate it.
    - Missing: `werkstatt_not_found` (1).
    - Invalid: `werkstatt_record_invalid` (2).
 3. **Manager.** Resolve the selected manager (§4.2) and `describe` it. The
-   Werkstatt capability set is required (§5.2), and §5.8 gates the selected
-   delegated route.
+   lease-capable-route fence and Werkstatt capability set are required
+   (§5.2), and §5.8 gates the selected delegated route. Fresh discovery describe
+   is the only permitted manager RPC before the lease fence passes; an
+   incompatible route makes no acquire call or further manager RPC.
    - An empty or unselected registry is
      `werkstatt_session_manager_required` (1).
    - `up` is always hosted, whatever the machine mode is.
@@ -1689,15 +1774,34 @@ local write.
      blocking holder for that home must belong to the same Werkstatt.
      Different-Werkstatt or null ownership refuses
      `session_home_lease_unavailable`, `reason=allocation_conflict`; retain
-     the reservation, with no release or break. Same-lane independent holders
-     are allowed only for the exact admitted home/digest. Disjoint homes are
-     unaffected. Unreadable/incomplete allocation evidence refuses; profile
-     labels alone never establish physical disjointness. An ad-hoc hosted
-     acquire performs the same post-acquire check and refuses a home allocated
+     the reservation, with no release or break.
+     **Reverse allocation check:** over the same complete, unfiltered list,
+     every retained blocking allocation for this Werkstatt must agree with
+     the admitted environment, profile, actual home identity and lock digest,
+     regardless of its manager. Same-lane independent holders are allowed
+     only for that exact tuple; a second profile or disjoint home for the
+     same Werkstatt also refuses `allocation_conflict`. An operator down
+     override, abandon, manager switch, `up --new` or `recycle` cannot exempt
+     an older prepared, active or unknown allocation from this check.
+     **Safe transition:** a new profile/home/digest may be admitted for this
+     Werkstatt only after Curator's authoritative list shows no old blocking
+     allocation with a conflicting tuple. Terminal released/broken records
+     do not block; missing, unreadable or partial evidence is not terminal.
+     The launcher does not release/break those old leases itself. Any manual
+     operator break remains the separate deliberate action of step 4.4.
+     Disjoint homes are unaffected only for different lanes, subject to the
+     forward home-to-lane check. Unreadable/incomplete allocation evidence
+     refuses; profile labels alone never establish physical disjointness.
+     An ad-hoc hosted acquire performs the same post-acquire check and refuses a home allocated
      to a Werkstatt. Ordered acquire/list snapshots must enforce this rule
      across concurrent admissions; a pre-acquire-only check is insufficient.
      This allocation/read contract is part of the spec review gate and must
      be qualified with competing callers before advertising HL24 support.
+     Qualification pairs the same-lane/exact-tuple positive with the reverse
+     negative: a retained prepared lease on profile P/home HP, followed by
+     abandon, manager switch and `up --new` on Q/HQ, still refuses. After
+     authoritative terminal disposition of the old allocation, fresh admission
+     to Q/HQ is the safe-transition positive; no launcher release is implied.
    - Admit `model` and `effort` (SPEC §4.3).
    - Read the fragment's credential projection (§9). A node source refuses
      here until §9.2 allows it.
@@ -2382,7 +2486,8 @@ code vocabulary (HL20), including `usage`; raw stderr is never copied.
 replay `already_released`/`already_broken` or these launcher-owned tokens:
 `curator_lease_unsupported`, `curator_lease_protocol_error`,
 `curator_lease_unreachable`, `curator_lease_timeout`,
-`process_incarnation_unavailable`, `allocation_conflict`.
+`process_incarnation_unavailable`, `allocation_conflict`,
+`route_not_lease_capable` (including changed frozen capability evidence).
 The consumer validates the operation/exit/result/disposition relationship before
 using these details; unknown values are a protocol refusal. In particular
 `environment_lock_unavailable/mutation_lock_busy` is distinct from a holder
@@ -2502,14 +2607,19 @@ its refusals, next to positive controls.
 Asked of `ivmbp_curator_orch` in `#curator` › `curator-run`, and answered as
 Ivan's delegate.
 
-1. **Q1: transitional launch shape. Answer (b), signed off by Ivan on 2026-10-21.**
+1. **Q1: transitional launch shape (historical answer). Answer (b), signed off by Ivan on 2026-10-21.**
    - `launch-exact` remains the target.
    - `launch-delegated/1` is declared per manager and per runtime. It is
      retired for a runtime once the manager advertises an exact form for it
      that also covers detached launches (CIP-0016, `3a3e041b`).
    - It is the accepted CIP-0016 amendment in curator-spec `cips/CIP-0016-local-hosted-launches.md` at `3a3e041b` (PR #163), with the stated
-     limits. Two further conditions there, a home lease while a hosted session
-     runs and one profile per Werkstatt, wait for operator confirmation.
+     limits. At the time of that answer, two further conditions—a home lease
+     while a hosted session runs and one profile per Werkstatt—awaited operator
+     confirmation. **Superseded on 2026-10-27:** both conditions are confirmed;
+     see the one-profile and home-lease header amendments, §§5.7 and 6.2.
+     The home-lease route gate in §5.2 also supersedes the historical exact-route
+     preference/retirement above. These decisions do not activate unimplemented
+     lease behavior or claim a qualified exact-plan contract.
    - It needed Ivan's sign-off because it deviates from an accepted owner
      design. Since the sign-off it is the default route (§5.8).
 2. **Q2: upgrade without hang-up. Yes.** The machine mode replaces the
