@@ -640,6 +640,24 @@ Gatekeeper assessment may need network access. On Linux choose `linux_amd64`
 or `linux_arm64`, verify cosign and the checksum, and omit the macOS commands.
 After verification, place the binary in a trusted operator-owned directory.
 
+Linux `.deb` and `.rpm` packages for amd64 and arm64 are also generated as
+GitHub release artifacts. They wrap the same unsigned Linux binaries and
+install `curator-run` into `/usr/bin`. Choose the format and architecture for
+your host, download the package and verify its entry in the authenticated
+`checksums.txt` as above before installing, for example:
+
+```bash
+version=X.Y.Z
+sudo apt install "./curator-run_${version}_linux_amd64.deb"
+# Or on an RPM-based host:
+sudo dnf install "./curator-run_${version}_linux_amd64.rpm"
+```
+
+Use the actual downloaded filename; no apt or yum repository is published.
+Homebrew support is coming: the pipeline generates a `curator-run.rb`
+formula with upload disabled. The tap and repository are still being chosen,
+so no `brew tap` or tap-based installation is promised yet.
+
 Ensure `$(go env GOPATH)/bin` is on `PATH`, or set `GOBIN` to a dedicated
 trusted operator-owned directory on `PATH`. Do **not** install into Curator's
 user-bin shim directory (`~/.local/bin`), a managed skill bin directory, or
@@ -1060,7 +1078,8 @@ runs need their own explicit timeout budget, for example
 | Schema module parity | shallow-checkout-safe comparison of the in-repo contract against the published schema pin; excludes only its root README | `go test ./internal/schemaparity -count=1 -v`; included in `make check` and CI | stdout; comparison fixtures in `t.TempDir` |
 | `go` (build, vet, test, race) | build and behavioral suite | `make check` and the targets above | stdout; nothing written to the tree |
 | `make release-binary` | reproducible release binary for the Curator distribution | `make release-binary VERSION=<semver> [GOOS=… GOARCH=…] [DIST=dist]` | `dist/curator-run-<version>-<os>-<arch>` and `.sha256` (gitignored) |
-| GoReleaser v2.17.0 | four-platform GitHub artifacts; optional Darwin Developer ID signing/notarization, then checksum-only keyless cosign | `goreleaser check`; `goreleaser release --snapshot --clean --skip=sign,notarize,publish` | `dist/` (gitignored); snapshot is unsigned and never published |
+| GoReleaser v2.17.0 | four-platform archives, Linux deb/rpm and a Homebrew formula generated without tap upload; optional Darwin Developer ID signing/notarization, then checksum-only keyless cosign | `goreleaser check`; `goreleaser release --snapshot --clean --skip=sign,notarize,publish` | `dist/` (gitignored); snapshot is unsigned and never published |
+| Homebrew and package inspection | generated-formula style and read-only deb/rpm payload inspection; not needed on the release runner | `HOMEBREW_NO_AUTO_UPDATE=1 brew style dist/homebrew/Formula/curator-run.rb` (requires Homebrew's style gems); `dpkg-deb -c <package.deb>`; `rpm -qlp <package.rpm>` | stdout; extraction for byte comparison stays under `.temp/` |
 | `scripts/release-go.sh` | GoReleaser's Go tool pinned from go.mod, matching `release-binary` | `scripts/release-go.sh version`; invoked by `.goreleaser.yml` | stdout and GoReleaser's `dist/` |
 | `scripts/release-gate.sh` | require an annotated SSH-signed stable tag from `.github/release-signers`, its exact checkout and matching buildVersion | `scripts/release-gate.sh v<semver>`; tag-push-only `.github/workflows/release.yml` runs it before credentials reach GoReleaser | stdout; no mutations |
 | Release admission fixtures | trusted SSH positive control; unsigned, foreign, version, ref and checkout refusals with unchanged state | `make release-gate-test`; included in `make check` and CI | isolated `.temp/release-gate-test.*`, removed on exit |

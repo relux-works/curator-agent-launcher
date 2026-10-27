@@ -21,6 +21,45 @@ archives:
     name_template: '{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}'
     files: [LICENSE, NOTICE, README.md]
 
+# Generate the formula locally; the tap and repository are not chosen yet.
+# GoReleaser requires repository metadata to run the generator at all. Reuse
+# the source repository for that metadata only; skip_upload forbids writes.
+# This is not a tap selection and requires no tap credentials.
+brews:
+  - name: curator-run
+    ids: [default]
+    skip_upload: true
+    repository:
+      owner: relux-works
+      name: curator-agent-launcher
+    directory: Formula
+    homepage: https://github.com/relux-works/curator-agent-launcher
+    description: Interactive agent launcher for Curator
+    license: Apache-2.0
+    install: |
+      bin.install "curator-run"
+    test: |
+      assert_match version.to_s, shell_output("#{bin}/curator-run --version")
+
+# nFPM wraps only the Linux builds, without rebuilding or stripping them.
+# Packages are release assets; there is no apt/yum repository publisher.
+nfpms:
+  - id: packages
+    ids: [curator-run]
+    package_name: curator-run
+    vendor: Relux Works, LLC
+    homepage: https://github.com/relux-works/curator-agent-launcher
+    maintainer: Ivan Oparin <ivan@relux.works>
+    description: Interactive agent launcher for Curator
+    license: Apache-2.0
+    formats: [deb, rpm]
+    bindir: /usr/bin
+    contents:
+      - src: LICENSE
+        dst: /usr/share/licenses/curator-run/LICENSE
+      - src: NOTICE
+        dst: /usr/share/doc/curator-run/NOTICE
+
 checksum:
   name_template: checksums.txt
 
