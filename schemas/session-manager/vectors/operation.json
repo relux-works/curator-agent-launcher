@@ -223,5 +223,504 @@
       },
       "profile": "CON.txt"
     }
+  },
+  {
+    "name": "lease-prepared-control",
+    "valid": true,
+    "document": {
+      "operation_id": "11111111-1111-4111-8111-111111111111",
+      "kind": "launch",
+      "submitted_at": "2026-01-01T00:00:00Z",
+      "admission_key": null,
+      "manager": {
+        "id": "demo",
+        "executable": "/plugin",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "phase": "lease_requested",
+      "cwd": "/workspace",
+      "profile": "sample",
+      "request": {
+        "operation_id": "11111111-1111-4111-8111-111111111111",
+        "submitted_at": "2026-01-01T00:00:00Z",
+        "admission_key": null,
+        "runtime": "codex_cli",
+        "profile": {
+          "name": "sample",
+          "lock_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+          "fragment_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+        },
+        "cwd": "/workspace",
+        "model": null,
+        "effort": null,
+        "service_tier": null,
+        "weights_id": null,
+        "permissions": {
+          "mode": "native",
+          "source": "flag"
+        },
+        "system_prompt": null,
+        "sandbox": {
+          "mode": "none",
+          "writable_roots": []
+        },
+        "harness_memory": false,
+        "session_name": "example",
+        "labels": {},
+        "child_env": {},
+        "board_goal": "none",
+        "doorbell": null,
+        "credential_source": null,
+        "native_tail": [],
+        "detach": false
+      },
+      "lease": {
+        "route": "delegated",
+        "request_id": "11111111-1111-4111-8111-111111111111",
+        "environment": "codex_cli",
+        "lock_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+        "holder": {
+          "kind": "prepared",
+          "launcher": "curator-run",
+          "manager_id": "demo",
+          "manager_registered_at": "2026-01-01T00:00:00Z",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "werkstatt": null,
+          "session": null,
+          "generation": null,
+          "process": null
+        },
+        "capabilities": [
+          "admission/1",
+          "launch-delegated/1",
+          "status/1"
+        ],
+        "operations": [
+          "cancel",
+          "launch",
+          "status"
+        ],
+        "record": null
+      }
+    }
+  },
+  {
+    "name": "lease-missing-cwd",
+    "valid": false,
+    "document": {
+      "operation_id": "11111111-1111-4111-8111-111111111111",
+      "kind": "launch",
+      "submitted_at": "2026-01-01T00:00:00Z",
+      "admission_key": null,
+      "manager": {
+        "id": "demo",
+        "executable": "/plugin",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "phase": "lease_requested",
+      "profile": "sample",
+      "request": {
+        "operation_id": "11111111-1111-4111-8111-111111111111",
+        "submitted_at": "2026-01-01T00:00:00Z",
+        "admission_key": null,
+        "runtime": "codex_cli",
+        "profile": {
+          "name": "sample",
+          "lock_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+          "fragment_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+        },
+        "cwd": "/workspace",
+        "model": null,
+        "effort": null,
+        "service_tier": null,
+        "weights_id": null,
+        "permissions": {
+          "mode": "native",
+          "source": "flag"
+        },
+        "system_prompt": null,
+        "sandbox": {
+          "mode": "none",
+          "writable_roots": []
+        },
+        "harness_memory": false,
+        "session_name": "example",
+        "labels": {},
+        "child_env": {},
+        "board_goal": "none",
+        "doorbell": null,
+        "credential_source": null,
+        "native_tail": [],
+        "detach": false
+      },
+      "lease": {
+        "route": "delegated",
+        "request_id": "11111111-1111-4111-8111-111111111111",
+        "environment": "codex_cli",
+        "lock_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+        "holder": {
+          "kind": "prepared",
+          "launcher": "curator-run",
+          "manager_id": "demo",
+          "manager_registered_at": "2026-01-01T00:00:00Z",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "werkstatt": null,
+          "session": null,
+          "generation": null,
+          "process": null
+        },
+        "capabilities": [
+          "admission/1",
+          "launch-delegated/1",
+          "status/1"
+        ],
+        "operations": [
+          "cancel",
+          "launch",
+          "status"
+        ],
+        "record": null
+      }
+    }
+  },
+  {
+    "name": "lease-missing-lease",
+    "valid": false,
+    "document": {
+      "operation_id": "11111111-1111-4111-8111-111111111111",
+      "kind": "launch",
+      "submitted_at": "2026-01-01T00:00:00Z",
+      "admission_key": null,
+      "manager": {
+        "id": "demo",
+        "executable": "/plugin",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "phase": "lease_requested",
+      "cwd": "/workspace",
+      "profile": "sample",
+      "request": {
+        "operation_id": "11111111-1111-4111-8111-111111111111",
+        "submitted_at": "2026-01-01T00:00:00Z",
+        "admission_key": null,
+        "runtime": "codex_cli",
+        "profile": {
+          "name": "sample",
+          "lock_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+          "fragment_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+        },
+        "cwd": "/workspace",
+        "model": null,
+        "effort": null,
+        "service_tier": null,
+        "weights_id": null,
+        "permissions": {
+          "mode": "native",
+          "source": "flag"
+        },
+        "system_prompt": null,
+        "sandbox": {
+          "mode": "none",
+          "writable_roots": []
+        },
+        "harness_memory": false,
+        "session_name": "example",
+        "labels": {},
+        "child_env": {},
+        "board_goal": "none",
+        "doorbell": null,
+        "credential_source": null,
+        "native_tail": [],
+        "detach": false
+      }
+    }
+  },
+  {
+    "name": "lease-missing-request",
+    "valid": false,
+    "document": {
+      "operation_id": "11111111-1111-4111-8111-111111111111",
+      "kind": "launch",
+      "submitted_at": "2026-01-01T00:00:00Z",
+      "admission_key": null,
+      "manager": {
+        "id": "demo",
+        "executable": "/plugin",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "phase": "lease_requested",
+      "cwd": "/workspace",
+      "profile": "sample",
+      "lease": {
+        "route": "delegated",
+        "request_id": "11111111-1111-4111-8111-111111111111",
+        "environment": "codex_cli",
+        "lock_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+        "holder": {
+          "kind": "prepared",
+          "launcher": "curator-run",
+          "manager_id": "demo",
+          "manager_registered_at": "2026-01-01T00:00:00Z",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "werkstatt": null,
+          "session": null,
+          "generation": null,
+          "process": null
+        },
+        "capabilities": [
+          "admission/1",
+          "launch-delegated/1",
+          "status/1"
+        ],
+        "operations": [
+          "cancel",
+          "launch",
+          "status"
+        ],
+        "record": null
+      }
+    }
+  },
+  {
+    "name": "lease-missing-profile",
+    "valid": false,
+    "document": {
+      "operation_id": "11111111-1111-4111-8111-111111111111",
+      "kind": "launch",
+      "submitted_at": "2026-01-01T00:00:00Z",
+      "admission_key": null,
+      "manager": {
+        "id": "demo",
+        "executable": "/plugin",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "phase": "lease_requested",
+      "cwd": "/workspace",
+      "request": {
+        "operation_id": "11111111-1111-4111-8111-111111111111",
+        "submitted_at": "2026-01-01T00:00:00Z",
+        "admission_key": null,
+        "runtime": "codex_cli",
+        "profile": {
+          "name": "sample",
+          "lock_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+          "fragment_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+        },
+        "cwd": "/workspace",
+        "model": null,
+        "effort": null,
+        "service_tier": null,
+        "weights_id": null,
+        "permissions": {
+          "mode": "native",
+          "source": "flag"
+        },
+        "system_prompt": null,
+        "sandbox": {
+          "mode": "none",
+          "writable_roots": []
+        },
+        "harness_memory": false,
+        "session_name": "example",
+        "labels": {},
+        "child_env": {},
+        "board_goal": "none",
+        "doorbell": null,
+        "credential_source": null,
+        "native_tail": [],
+        "detach": false
+      },
+      "lease": {
+        "route": "delegated",
+        "request_id": "11111111-1111-4111-8111-111111111111",
+        "environment": "codex_cli",
+        "lock_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+        "holder": {
+          "kind": "prepared",
+          "launcher": "curator-run",
+          "manager_id": "demo",
+          "manager_registered_at": "2026-01-01T00:00:00Z",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "werkstatt": null,
+          "session": null,
+          "generation": null,
+          "process": null
+        },
+        "capabilities": [
+          "admission/1",
+          "launch-delegated/1",
+          "status/1"
+        ],
+        "operations": [
+          "cancel",
+          "launch",
+          "status"
+        ],
+        "record": null
+      }
+    }
+  },
+  {
+    "name": "lease-no-invented-process",
+    "valid": false,
+    "document": {
+      "operation_id": "11111111-1111-4111-8111-111111111111",
+      "kind": "launch",
+      "submitted_at": "2026-01-01T00:00:00Z",
+      "admission_key": null,
+      "manager": {
+        "id": "demo",
+        "executable": "/plugin",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "phase": "lease_requested",
+      "cwd": "/workspace",
+      "profile": "sample",
+      "request": {
+        "operation_id": "11111111-1111-4111-8111-111111111111",
+        "submitted_at": "2026-01-01T00:00:00Z",
+        "admission_key": null,
+        "runtime": "codex_cli",
+        "profile": {
+          "name": "sample",
+          "lock_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+          "fragment_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+        },
+        "cwd": "/workspace",
+        "model": null,
+        "effort": null,
+        "service_tier": null,
+        "weights_id": null,
+        "permissions": {
+          "mode": "native",
+          "source": "flag"
+        },
+        "system_prompt": null,
+        "sandbox": {
+          "mode": "none",
+          "writable_roots": []
+        },
+        "harness_memory": false,
+        "session_name": "example",
+        "labels": {},
+        "child_env": {},
+        "board_goal": "none",
+        "doorbell": null,
+        "credential_source": null,
+        "native_tail": [],
+        "detach": false
+      },
+      "lease": {
+        "route": "delegated",
+        "request_id": "11111111-1111-4111-8111-111111111111",
+        "environment": "codex_cli",
+        "lock_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+        "holder": {
+          "kind": "prepared",
+          "launcher": "curator-run",
+          "manager_id": "demo",
+          "manager_registered_at": "2026-01-01T00:00:00Z",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "werkstatt": null,
+          "session": null,
+          "generation": null,
+          "process": {
+            "pid": 123,
+            "started_at": "2026-01-01T00:00:00Z"
+          }
+        },
+        "capabilities": [
+          "admission/1",
+          "launch-delegated/1",
+          "status/1"
+        ],
+        "operations": [
+          "cancel",
+          "launch",
+          "status"
+        ],
+        "record": null
+      }
+    }
+  },
+  {
+    "name": "lease-unknown-phase",
+    "valid": false,
+    "document": {
+      "operation_id": "11111111-1111-4111-8111-111111111111",
+      "kind": "launch",
+      "submitted_at": "2026-01-01T00:00:00Z",
+      "admission_key": null,
+      "manager": {
+        "id": "demo",
+        "executable": "/plugin",
+        "registered_at": "2026-01-01T00:00:00Z"
+      },
+      "phase": "started",
+      "cwd": "/workspace",
+      "profile": "sample",
+      "request": {
+        "operation_id": "11111111-1111-4111-8111-111111111111",
+        "submitted_at": "2026-01-01T00:00:00Z",
+        "admission_key": null,
+        "runtime": "codex_cli",
+        "profile": {
+          "name": "sample",
+          "lock_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+          "fragment_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+        },
+        "cwd": "/workspace",
+        "model": null,
+        "effort": null,
+        "service_tier": null,
+        "weights_id": null,
+        "permissions": {
+          "mode": "native",
+          "source": "flag"
+        },
+        "system_prompt": null,
+        "sandbox": {
+          "mode": "none",
+          "writable_roots": []
+        },
+        "harness_memory": false,
+        "session_name": "example",
+        "labels": {},
+        "child_env": {},
+        "board_goal": "none",
+        "doorbell": null,
+        "credential_source": null,
+        "native_tail": [],
+        "detach": false
+      },
+      "lease": {
+        "route": "delegated",
+        "request_id": "11111111-1111-4111-8111-111111111111",
+        "environment": "codex_cli",
+        "lock_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+        "holder": {
+          "kind": "prepared",
+          "launcher": "curator-run",
+          "manager_id": "demo",
+          "manager_registered_at": "2026-01-01T00:00:00Z",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "werkstatt": null,
+          "session": null,
+          "generation": null,
+          "process": null
+        },
+        "capabilities": [
+          "admission/1",
+          "launch-delegated/1",
+          "status/1"
+        ],
+        "operations": [
+          "cancel",
+          "launch",
+          "status"
+        ],
+        "record": null
+      }
+    }
   }
 ]

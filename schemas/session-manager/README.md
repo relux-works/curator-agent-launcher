@@ -152,3 +152,23 @@ documents in this module, observations are closed and bounded to 64 KiB.
 Schema validation checks the original strict document, including every member.
 CCJ-1 signature omission applies to `CanonicalJSON` hashing only; it cannot
 make an unknown `sig` member acceptable to a closed protocol schema.
+
+### Lease-bearing operation journals
+
+`operation.schema.json` 1.1 preserves legacy journals (no `phase`). New
+journals require the original validated request, physical cwd, exact registration
+and closed lease correlation. `lease_requested` is written before acquire;
+`lease_prepared` retains the returned blocking record; `possibly_submitted` is
+written before the one manager submission; `bind_pending` retains correlation
+following authoritative `started`. Recovery never resubmits from the latter two
+phases. Terminal acquire replay settles `not_started`; confirmed failed/cancelled
+manager outcomes settle with their own outcome. Settlement is durable before
+pending removal. No phase or settlement authorizes release or invents OS proof.
+
+The `lease-{holder,record,result}` schemas snapshot the accepted Curator
+home-leases-v1 grammar at curator-spec `e8f0f6e`. References are resolved locally
+and fragment definitions are expanded; regex end assertions use Go's strict end
+anchor. These schemas validate consumer input, and grant no bind/release/break
+authority. Operation and settlement vectors pair valid retained correlation with
+missing correlation, invented process, unknown phase and release-assertion
+negatives (HL21/HL23; qualification L1/L3).

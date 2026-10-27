@@ -1,0 +1,161 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:relux:curator-run:lease-record-v1",
+  "title": "Home leases v1: record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "lease_id",
+    "manager_root_id",
+    "home_id",
+    "environment",
+    "profile",
+    "lock_sha256",
+    "revision",
+    "phase",
+    "acquired_at",
+    "holder",
+    "observation"
+  ],
+  "properties": {
+    "kind": {
+      "const": "home-lease/1"
+    },
+    "lease_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+    },
+    "manager_root_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+    },
+    "home_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+    },
+    "environment": {
+      "enum": [
+        "claude_code",
+        "codex_cli",
+        "muse"
+      ]
+    },
+    "profile": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+    },
+    "lock_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "phase": {
+      "enum": [
+        "prepared",
+        "active",
+        "unknown",
+        "released",
+        "broken"
+      ]
+    },
+    "acquired_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d(?:\\.\\d{1,9})?Z$"
+    },
+    "holder": {
+      "$ref": "urn:relux:curator-run:lease-holder-v1"
+    },
+    "observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "observed_at"
+      ],
+      "properties": {
+        "state": {
+          "enum": [
+            "not_observed",
+            "live",
+            "unknown",
+            "draining",
+            "manager_unavailable",
+            "manager_incarnation_changed",
+            "termination_unconfirmed",
+            "session_down",
+            "never_started",
+            "operator_break"
+          ]
+        },
+        "observed_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d(?:\\.\\d{1,9})?Z$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "phase": {
+            "const": "prepared"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "holder": {
+            "properties": {
+              "kind": {
+                "const": "prepared"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "phase": {
+            "const": "active"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "holder": {
+            "properties": {
+              "kind": {
+                "const": "bound"
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

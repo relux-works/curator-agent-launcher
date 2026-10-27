@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:relux:curator-run:werkstatt-operation-v1",
-  "title": "werkstatt-operation-v1 1.0.0",
+  "title": "werkstatt-operation-v1 1.1.0",
   "type": "object",
   "properties": {
     "operation_id": {
@@ -20,8 +20,36 @@
       "format": "date-time"
     },
     "admission_key": {
-      "type": "string",
-      "pattern": "^werkstatt:[a-z0-9][a-z0-9-]{0,47}$"
+      "anyOf": [
+        {
+          "anyOf": [
+            {
+              "anyOf": [
+                {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^werkstatt:[a-z0-9][a-z0-9-]{0,47}$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
     "manager": {
       "type": "object",
@@ -61,6 +89,91 @@
           }
         }
       ]
+    },
+    "phase": {
+      "enum": [
+        "lease_requested",
+        "lease_prepared",
+        "possibly_submitted",
+        "bind_pending"
+      ]
+    },
+    "cwd": {
+      "type": "string",
+      "pattern": "^/[^\u0000]*$"
+    },
+    "request": {
+      "oneOf": [
+        {
+          "$ref": "urn:relux:curator-run:delegated-launch"
+        },
+        {
+          "$ref": "urn:relux:curator-run:delegated-resume"
+        }
+      ]
+    },
+    "lease": {
+      "type": "object",
+      "required": [
+        "request_id",
+        "route",
+        "environment",
+        "lock_sha256",
+        "holder",
+        "capabilities",
+        "operations",
+        "record"
+      ],
+      "properties": {
+        "request_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "route": {
+          "const": "delegated"
+        },
+        "environment": {
+          "enum": [
+            "claude_code",
+            "codex_cli",
+            "muse"
+          ]
+        },
+        "lock_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "holder": {
+          "$ref": "urn:relux:curator-run:lease-holder-v1"
+        },
+        "capabilities": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "operations": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "record": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "urn:relux:curator-run:lease-record-v1"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
     }
   },
   "required": [
@@ -70,5 +183,38 @@
     "admission_key",
     "manager"
   ],
-  "additionalProperties": false
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "required": [
+          "phase"
+        ]
+      },
+      "then": {
+        "required": [
+          "profile",
+          "cwd",
+          "request",
+          "lease"
+        ]
+      },
+      "else": {
+        "properties": {
+          "admission_key": {
+            "type": "string"
+          },
+          "cwd": {
+            "not": {}
+          },
+          "request": {
+            "not": {}
+          },
+          "lease": {
+            "not": {}
+          }
+        }
+      }
+    }
+  ]
 }

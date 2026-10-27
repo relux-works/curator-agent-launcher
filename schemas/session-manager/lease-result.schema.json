@@ -1,0 +1,1564 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:relux:curator-run:lease-result-v1",
+  "title": "Home leases v1: result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "operation",
+    "ok",
+    "exit",
+    "code",
+    "reason",
+    "result",
+    "details"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "operation": {
+      "enum": [
+        "acquire",
+        "bind",
+        "release",
+        "list",
+        "break"
+      ]
+    },
+    "ok": {
+      "type": "boolean"
+    },
+    "exit": {
+      "enum": [
+        0,
+        1,
+        2
+      ]
+    },
+    "code": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "reason": {
+      "type": "string"
+    },
+    "result": {},
+    "details": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "lease_id",
+            "revision",
+            "holders",
+            "count"
+          ],
+          "properties": {
+            "lease_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "revision": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "holders": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:relux:curator-run:lease-record-v1"
+              }
+            },
+            "count": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "operation": {
+          "const": "acquire"
+        },
+        "ok": {
+          "const": true
+        },
+        "exit": {
+          "const": 0
+        },
+        "code": {
+          "type": "null"
+        },
+        "reason": {
+          "enum": [
+            "acquired"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "changed",
+            "lease"
+          ],
+          "properties": {
+            "changed": {
+              "type": "boolean"
+            },
+            "lease": {
+              "allOf": [
+                {
+                  "$ref": "urn:relux:curator-run:lease-record-v1"
+                },
+                {
+                  "properties": {
+                    "phase": {
+                      "enum": [
+                        "prepared",
+                        "active",
+                        "unknown"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "details": {
+          "type": "null"
+        }
+      }
+    },
+    {
+      "properties": {
+        "operation": {
+          "const": "bind"
+        },
+        "ok": {
+          "const": true
+        },
+        "exit": {
+          "const": 0
+        },
+        "code": {
+          "type": "null"
+        },
+        "reason": {
+          "enum": [
+            "bound"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "changed",
+            "lease"
+          ],
+          "properties": {
+            "changed": {
+              "type": "boolean"
+            },
+            "lease": {
+              "allOf": [
+                {
+                  "$ref": "urn:relux:curator-run:lease-record-v1"
+                },
+                {
+                  "properties": {
+                    "phase": {
+                      "enum": [
+                        "prepared",
+                        "active",
+                        "unknown"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "details": {
+          "type": "null"
+        }
+      }
+    },
+    {
+      "properties": {
+        "operation": {
+          "const": "release"
+        },
+        "ok": {
+          "const": true
+        },
+        "exit": {
+          "const": 0
+        },
+        "code": {
+          "type": "null"
+        },
+        "reason": {
+          "enum": [
+            "released",
+            "unknown_lease",
+            "already_released",
+            "already_broken"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "changed",
+            "lease"
+          ],
+          "properties": {
+            "changed": {
+              "type": "boolean"
+            },
+            "lease": {
+              "anyOf": [
+                {
+                  "$ref": "urn:relux:curator-run:lease-record-v1"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        },
+        "details": {
+          "type": "null"
+        }
+      }
+    },
+    {
+      "properties": {
+        "operation": {
+          "const": "break"
+        },
+        "ok": {
+          "const": true
+        },
+        "exit": {
+          "const": 0
+        },
+        "code": {
+          "type": "null"
+        },
+        "reason": {
+          "enum": [
+            "broken",
+            "already_broken"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "changed",
+            "lease"
+          ],
+          "properties": {
+            "changed": {
+              "type": "boolean"
+            },
+            "lease": {
+              "$ref": "urn:relux:curator-run:lease-record-v1"
+            }
+          }
+        },
+        "details": {
+          "type": "null"
+        }
+      }
+    },
+    {
+      "properties": {
+        "operation": {
+          "const": "list"
+        },
+        "ok": {
+          "const": true
+        },
+        "exit": {
+          "const": 0
+        },
+        "code": {
+          "type": "null"
+        },
+        "reason": {
+          "enum": [
+            "listed"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "leases"
+          ],
+          "properties": {
+            "leases": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:relux:curator-run:lease-record-v1"
+              }
+            }
+          }
+        },
+        "details": {
+          "type": "null"
+        }
+      }
+    },
+    {
+      "properties": {
+        "ok": {
+          "const": false
+        },
+        "exit": {
+          "const": 1
+        },
+        "code": {
+          "const": "environment_home_leased"
+        },
+        "reason": {
+          "enum": [
+            "blocking_holders"
+          ]
+        },
+        "result": {
+          "type": "null"
+        },
+        "details": {
+          "allOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "lease_id",
+                "revision",
+                "holders",
+                "count"
+              ],
+              "properties": {
+                "lease_id": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128,
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "revision": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 9007199254740991
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "holders": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "urn:relux:curator-run:lease-record-v1"
+                  }
+                },
+                "count": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                }
+              }
+            },
+            {
+              "properties": {
+                "count": {
+                  "minimum": 1
+                },
+                "holders": {
+                  "minItems": 1,
+                  "items": {
+                    "allOf": [
+                      {
+                        "$ref": "urn:relux:curator-run:lease-record-v1"
+                      },
+                      {
+                        "properties": {
+                          "phase": {
+                            "enum": [
+                              "prepared",
+                              "active",
+                              "unknown"
+                            ]
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "properties": {
+        "ok": {
+          "const": false
+        },
+        "exit": {
+          "const": 1
+        },
+        "code": {
+          "const": "environment_lease_lock_mismatch"
+        },
+        "reason": {
+          "enum": [
+            "profile_lock_changed"
+          ]
+        },
+        "result": {
+          "type": "null"
+        },
+        "details": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "lease_id",
+            "revision",
+            "holders",
+            "count"
+          ],
+          "properties": {
+            "lease_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "revision": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "holders": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:relux:curator-run:lease-record-v1"
+              }
+            },
+            "count": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          }
+        }
+      }
+    },
+    {
+      "properties": {
+        "ok": {
+          "const": false
+        },
+        "exit": {
+          "const": 1
+        },
+        "code": {
+          "const": "environment_lock_unavailable"
+        },
+        "reason": {
+          "enum": [
+            "mutation_lock_busy"
+          ]
+        },
+        "result": {
+          "type": "null"
+        },
+        "details": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "lease_id",
+            "revision",
+            "holders",
+            "count"
+          ],
+          "properties": {
+            "lease_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "revision": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "holders": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:relux:curator-run:lease-record-v1"
+              }
+            },
+            "count": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          }
+        }
+      }
+    },
+    {
+      "properties": {
+        "ok": {
+          "const": false
+        },
+        "exit": {
+          "const": 1
+        },
+        "code": {
+          "const": "environment_lease_unreadable"
+        },
+        "reason": {
+          "enum": [
+            "state_unreadable",
+            "invalid_record",
+            "ledger_missing"
+          ]
+        },
+        "result": {
+          "type": "null"
+        },
+        "details": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "lease_id",
+            "revision",
+            "holders",
+            "count"
+          ],
+          "properties": {
+            "lease_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "revision": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "holders": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:relux:curator-run:lease-record-v1"
+              }
+            },
+            "count": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          }
+        }
+      }
+    },
+    {
+      "properties": {
+        "ok": {
+          "const": false
+        },
+        "exit": {
+          "const": 1
+        },
+        "code": {
+          "const": "environment_lease_recovery_required"
+        },
+        "reason": {
+          "enum": [
+            "pending_mutation"
+          ]
+        },
+        "result": {
+          "type": "null"
+        },
+        "details": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "lease_id",
+            "revision",
+            "holders",
+            "count"
+          ],
+          "properties": {
+            "lease_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "revision": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "holders": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:relux:curator-run:lease-record-v1"
+              }
+            },
+            "count": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          }
+        }
+      }
+    },
+    {
+      "properties": {
+        "ok": {
+          "const": false
+        },
+        "exit": {
+          "const": 1
+        },
+        "code": {
+          "const": "environment_lease_release_unconfirmed"
+        },
+        "reason": {
+          "enum": [
+            "session_state_unknown",
+            "termination_unconfirmed"
+          ]
+        },
+        "result": {
+          "type": "null"
+        },
+        "details": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "lease_id",
+            "revision",
+            "holders",
+            "count"
+          ],
+          "properties": {
+            "lease_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "revision": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "holders": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:relux:curator-run:lease-record-v1"
+              }
+            },
+            "count": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          }
+        }
+      }
+    },
+    {
+      "properties": {
+        "ok": {
+          "const": false
+        },
+        "exit": {
+          "const": 1
+        },
+        "code": {
+          "const": "environment_lease_holder_mismatch"
+        },
+        "reason": {
+          "enum": [
+            "manager_incarnation_changed",
+            "session_generation_changed",
+            "request_conflict"
+          ]
+        },
+        "result": {
+          "type": "null"
+        },
+        "details": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "lease_id",
+            "revision",
+            "holders",
+            "count"
+          ],
+          "properties": {
+            "lease_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "revision": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "holders": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:relux:curator-run:lease-record-v1"
+              }
+            },
+            "count": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          }
+        }
+      }
+    },
+    {
+      "properties": {
+        "ok": {
+          "const": false
+        },
+        "exit": {
+          "const": 1
+        },
+        "code": {
+          "const": "environment_lease_revision_conflict"
+        },
+        "reason": {
+          "enum": [
+            "revision_changed"
+          ]
+        },
+        "result": {
+          "type": "null"
+        },
+        "details": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "lease_id",
+            "revision",
+            "holders",
+            "count"
+          ],
+          "properties": {
+            "lease_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "revision": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "holders": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:relux:curator-run:lease-record-v1"
+              }
+            },
+            "count": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          }
+        }
+      }
+    },
+    {
+      "properties": {
+        "ok": {
+          "const": false
+        },
+        "exit": {
+          "const": 1
+        },
+        "code": {
+          "const": "environment_lease_unknown"
+        },
+        "reason": {
+          "enum": [
+            "unknown_lease"
+          ]
+        },
+        "result": {
+          "type": "null"
+        },
+        "details": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "lease_id",
+            "revision",
+            "holders",
+            "count"
+          ],
+          "properties": {
+            "lease_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "revision": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "holders": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:relux:curator-run:lease-record-v1"
+              }
+            },
+            "count": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          }
+        },
+        "operation": {
+          "enum": [
+            "bind",
+            "break"
+          ]
+        }
+      }
+    },
+    {
+      "properties": {
+        "ok": {
+          "const": false
+        },
+        "exit": {
+          "const": 1
+        },
+        "code": {
+          "const": "environment_lease_authority_refused"
+        },
+        "reason": {
+          "enum": [
+            "unsupported_lease_kind",
+            "authority_unavailable"
+          ]
+        },
+        "result": {
+          "type": "null"
+        },
+        "details": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "lease_id",
+            "revision",
+            "holders",
+            "count"
+          ],
+          "properties": {
+            "lease_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "revision": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "holders": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:relux:curator-run:lease-record-v1"
+              }
+            },
+            "count": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          }
+        }
+      }
+    },
+    {
+      "properties": {
+        "ok": {
+          "const": false
+        },
+        "exit": {
+          "const": 1
+        },
+        "code": {
+          "const": "environment_lease_write_failed"
+        },
+        "reason": {
+          "enum": [
+            "publication_failed"
+          ]
+        },
+        "result": {
+          "type": "null"
+        },
+        "details": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "lease_id",
+            "revision",
+            "holders",
+            "count"
+          ],
+          "properties": {
+            "lease_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "revision": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "holders": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:relux:curator-run:lease-record-v1"
+              }
+            },
+            "count": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          }
+        }
+      }
+    },
+    {
+      "properties": {
+        "ok": {
+          "const": false
+        },
+        "exit": {
+          "const": 1
+        },
+        "code": {
+          "const": "environment_home_stale"
+        },
+        "reason": {
+          "enum": [
+            "home_not_current"
+          ]
+        },
+        "result": {
+          "type": "null"
+        },
+        "details": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "lease_id",
+            "revision",
+            "holders",
+            "count"
+          ],
+          "properties": {
+            "lease_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "revision": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "holders": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:relux:curator-run:lease-record-v1"
+              }
+            },
+            "count": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          }
+        }
+      }
+    },
+    {
+      "properties": {
+        "ok": {
+          "const": false
+        },
+        "exit": {
+          "const": 1
+        },
+        "code": {
+          "const": "profile_unknown"
+        },
+        "reason": {
+          "enum": [
+            "profile_absent"
+          ]
+        },
+        "result": {
+          "type": "null"
+        },
+        "details": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "lease_id",
+            "revision",
+            "holders",
+            "count"
+          ],
+          "properties": {
+            "lease_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "revision": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "holders": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:relux:curator-run:lease-record-v1"
+              }
+            },
+            "count": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          }
+        }
+      }
+    },
+    {
+      "properties": {
+        "ok": {
+          "const": false
+        },
+        "exit": {
+          "const": 1
+        },
+        "code": {
+          "const": "environment_unknown"
+        },
+        "reason": {
+          "enum": [
+            "environment_absent"
+          ]
+        },
+        "result": {
+          "type": "null"
+        },
+        "details": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "lease_id",
+            "revision",
+            "holders",
+            "count"
+          ],
+          "properties": {
+            "lease_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "revision": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "holders": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:relux:curator-run:lease-record-v1"
+              }
+            },
+            "count": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          }
+        }
+      }
+    },
+    {
+      "properties": {
+        "ok": {
+          "const": false
+        },
+        "exit": {
+          "const": 2
+        },
+        "code": {
+          "const": "usage"
+        },
+        "reason": {
+          "enum": [
+            "operator_confirmation_required",
+            "reason_required",
+            "revision_required",
+            "invalid_holder",
+            "invalid_selector",
+            "invalid_format",
+            "invalid_flags"
+          ]
+        },
+        "result": {
+          "type": "null"
+        },
+        "details": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "lease_id",
+            "revision",
+            "holders",
+            "count"
+          ],
+          "properties": {
+            "lease_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "revision": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "holders": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:relux:curator-run:lease-record-v1"
+              }
+            },
+            "count": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          }
+        }
+      }
+    },
+    {
+      "properties": {
+        "operation": {
+          "const": "acquire"
+        },
+        "ok": {
+          "const": true
+        },
+        "exit": {
+          "const": 0
+        },
+        "code": {
+          "type": "null"
+        },
+        "reason": {
+          "const": "already_released"
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "changed",
+            "lease"
+          ],
+          "properties": {
+            "changed": {
+              "const": false
+            },
+            "lease": {
+              "allOf": [
+                {
+                  "$ref": "urn:relux:curator-run:lease-record-v1"
+                },
+                {
+                  "properties": {
+                    "phase": {
+                      "const": "released"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "details": {
+          "type": "null"
+        }
+      }
+    },
+    {
+      "properties": {
+        "operation": {
+          "const": "acquire"
+        },
+        "ok": {
+          "const": true
+        },
+        "exit": {
+          "const": 0
+        },
+        "code": {
+          "type": "null"
+        },
+        "reason": {
+          "const": "already_broken"
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "changed",
+            "lease"
+          ],
+          "properties": {
+            "changed": {
+              "const": false
+            },
+            "lease": {
+              "allOf": [
+                {
+                  "$ref": "urn:relux:curator-run:lease-record-v1"
+                },
+                {
+                  "properties": {
+                    "phase": {
+                      "const": "broken"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "details": {
+          "type": "null"
+        }
+      }
+    }
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "ok": {
+            "const": true
+          },
+          "reason": {
+            "enum": [
+              "unknown_lease",
+              "already_released",
+              "already_broken"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "result": {
+            "properties": {
+              "changed": {
+                "const": false
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:relux:curator-run:lease-settlement-v1",
+  "type": "object",
+  "properties": {
+    "operation": {
+      "$ref": "urn:relux:curator-run:werkstatt-operation-v1"
+    },
+    "settled_at": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+      "format": "date-time"
+    },
+    "outcome": {
+      "enum": [
+        "not_started",
+        "failed",
+        "cancelled",
+        "abandoned"
+      ]
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  },
+  "required": [
+    "operation",
+    "settled_at",
+    "outcome",
+    "reason"
+  ],
+  "additionalProperties": false
+}
