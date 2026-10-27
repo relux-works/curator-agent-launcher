@@ -864,7 +864,18 @@ curator-run session-manager show <id> [--json]
 curator-run session-manager register --manifest <path|-> [--select | --no-select] [--scope user|system]
 curator-run session-manager use <id> [--scope user|system]
 curator-run session-manager unregister <id> [--scope user|system]
+curator-run session-manager observe <manager-id> --session <SES-handle> --json
 ```
+
+Observation requires both flags and uses the explicit registration, even with no
+selected manager. It sends only `describe` and one `status`, with the existing
+10 s per-call deadline. It emits the registration incarnation, the validated
+session record (without its RPC envelope), and a launcher UTC timestamp. Nulls,
+unknown and unreadable evidence remain unchanged; unknown never means down.
+Refusals leave stdout empty and print one closed diagnostic, with no plugin text.
+It never reads or writes launcher liveness, journals or Werkstatt state, and
+never locks or changes the registry. See [the contract](FRONT-DOOR.md#read-only-session-observation)
+and [the output schema](schemas/session-manager/session-observation.schema.json).
 
 `list --json` prints the registry object plus `layer`; `show --json` prints
 the entry plus `id` and `layer`. The CLI-only layer is `system`, `user` or
@@ -1054,6 +1065,7 @@ five signing secrets.
 | Tool | Purpose | Entry point | Output |
 |---|---|---|---|
 | `curator-run session-manager` | inspect and atomically update the manager registry | `curator-run session-manager list/show/register/use/unregister (deprecated alias: select)` (forms above) | stdout or JSON; `session-managers.json` in the effective target config home |
+| `curator-run session-manager observe` | read one registered session without local state changes or reconciliation | `curator-run session-manager observe <manager-id> --session <SES-handle> --json` | one closed `curator-run-session-observation-v1` JSON object on stdout; no files |
 | `curator-run werkstatt` | hosted station lifecycle and separate manager/a2a status | commands above; `go test ./cmd/curator-run -run TestWerkstattBinary -count=1 -v` | liveness and journal in the XDG state home; bounded test children in `t.TempDir` |
 | `.scripts/werkstatt-mutants.py` | owner, workspace, admission, CAS, stale output, evidence and dispatch negative controls | `python3 .scripts/werkstatt-mutants.py [evidence-dir]` | logs and `summary.tsv`, default `.temp/werkstatt-mutants/`; restores exact source bytes; run alone |
 | `.scripts/selector-mutants.py` | bounded selector config, response, transport, precedence and shadow controls | `python3 .scripts/selector-mutants.py [evidence-dir]` | per-probe logs and `summary.tsv`, default `.temp/selector-mutants/`; restores source bytes |

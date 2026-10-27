@@ -1,0 +1,5 @@
+usage: curator-run session-manager observe <manager-id> --session <SES-handle> --json
+
+Emits one closed JSON observation of a registered manager and session.
+Both flags are required. Calls describe and one status, without local writes
+or reconciliation. Unknown/unreadable records remain evidence, not down.

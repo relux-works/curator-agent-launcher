@@ -72,13 +72,16 @@ Reports every Werkstatt in the status row shape.
 
 const sessionManagerHelp = `usage: curator-run session-manager list [--json]
        curator-run session-manager show <id> [--json]
+       curator-run session-manager observe <manager-id> --session <SES-handle> --json
        curator-run session-manager register --manifest <path|-> [--select | --no-select] [--scope user|system]
        curator-run session-manager use <id> [--scope user|system]
        curator-run session-manager select <id> [--scope user|system] (deprecated)
        curator-run session-manager unregister <id> [--scope user|system]
 
-Manages the machine's session-manager registry. These commands never launch
-or contact a manager. list/show report the layer read (system, user or none).
+Manages the machine's session-manager registry. observe reads one session
+through describe and status; it never changes registry or launcher state.
+The other commands never contact a manager. list/show report the layer read
+(system, user or none).
 --scope chooses one write layer with no fallback. Without it, the writable
 system layer wins; otherwise user. A system registry shadows user mutations.
 select is deprecated in 0.6.0; removal no earlier than 0.8.0 (two releases).
@@ -92,6 +95,12 @@ Lists the layer read and registered managers, marking the selected one.
 	"show": `usage: curator-run session-manager show <id> [--json]
 
 Shows one registered manager and the layer read.
+`,
+	"observe": `usage: curator-run session-manager observe <manager-id> --session <SES-handle> --json
+
+Emits one closed JSON observation of a registered manager and session.
+Both flags are required. Calls describe and one status, without local writes
+or reconciliation. Unknown/unreadable records remain evidence, not down.
 `,
 	"register": `usage: curator-run session-manager register --manifest <path|-> [--select | --no-select] [--scope user|system]
 

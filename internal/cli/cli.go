@@ -31,6 +31,7 @@ const Usage = `usage: curator-run <env-id> [--hosted | --native | --untracked]
                    [--] <native args...>
        curator-run session-manager list [--json]
        curator-run session-manager show <id> [--json]
+       curator-run session-manager observe <manager-id> --session <SES-handle> --json
        curator-run session-manager register --manifest <path|-> [--select | --no-select] [--scope user|system]
        curator-run session-manager use <id> [--scope user|system]
        curator-run session-manager select <id> [--scope user|system] (deprecated)

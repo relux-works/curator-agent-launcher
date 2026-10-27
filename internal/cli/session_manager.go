@@ -1,6 +1,12 @@
 package cli
 
-import "github.com/relux-works/curator-agent-launcher/internal/sessionmanager"
+import (
+	"regexp"
+
+	"github.com/relux-works/curator-agent-launcher/internal/sessionmanager"
+)
+
+var observationHandle = regexp.MustCompile(`^SES-[A-Za-z0-9]{1,48}$`)
 
 // parseSessionManager admits the closed registry grammar. Each refusal names
 // the rule and the smallest help command. It quotes only grammar tokens
@@ -9,7 +15,7 @@ import "github.com/relux-works/curator-agent-launcher/internal/sessionmanager"
 func parseSessionManager(args []string) (sessionmanager.Command, error) {
 	var c sessionmanager.Command
 	if len(args) == 0 {
-		return c, usageErr("session-manager needs an operation: list, show, register, use or unregister%s", helpHint("session-manager", ""))
+		return c, usageErr("session-manager needs an operation: list, show, observe, register, use or unregister%s", helpHint("session-manager", ""))
 	}
 	c.Operation = args[0]
 	args = args[1:]
@@ -38,6 +44,34 @@ func parseSessionManager(args []string) (sessionmanager.Command, error) {
 	}
 
 	switch c.Operation {
+	case "observe":
+		if len(args) == 0 || !sessionmanager.ValidID(args[0]) {
+			return fail("a valid manager id is required")
+		}
+		c.ID = args[0]
+		for i := 1; i < len(args); i++ {
+			switch args[i] {
+			case "--json":
+				if c.JSON {
+					return fail("--json given twice")
+				}
+				c.JSON = true
+			case "--session":
+				if c.Session != "" {
+					return fail("--session given twice")
+				}
+				i++
+				if i == len(args) || !observationHandle.MatchString(args[i]) {
+					return fail("--session needs a SES handle")
+				}
+				c.Session = args[i]
+			default:
+				return fail("unexpected argument")
+			}
+		}
+		if c.Session == "" || !c.JSON {
+			return fail("--session and --json are required")
+		}
 	case "list":
 		if len(args) == 1 && args[0] == "--json" {
 			c.JSON = true
@@ -97,7 +131,7 @@ func parseSessionManager(args []string) (sessionmanager.Command, error) {
 			return fail("--select and --no-select are mutually exclusive")
 		}
 	default:
-		return sessionmanager.Command{}, usageErr("unknown session-manager operation; expected list, show, register, use or unregister%s", helpHint("session-manager", ""))
+		return sessionmanager.Command{}, usageErr("unknown session-manager operation; expected list, show, observe, register, use or unregister%s", helpHint("session-manager", ""))
 	}
 	return c, nil
 }

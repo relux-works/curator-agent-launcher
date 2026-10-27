@@ -198,12 +198,15 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, deps laun
 		}
 		return runWerkstatt(ctx, *inv.Werkstatt, stdout, stderr, configResolver, deps)
 	}
-	// Registry commands are administrative operations, independent of launch
-	// policy, fragments and manager transport. Normal launches do not load it yet.
+	// Registry administration and observation are independent of launch policy
+	// and fragments. Only observe contacts the registered manager.
 	if len(args) > 0 && args[0] == "session-manager" {
 		inv, err := cli.Parse(args)
 		if err != nil {
 			return emitFailure(stderr, diagnostics.CodeUsage, err)
+		}
+		if inv.SessionManager.Operation == "observe" {
+			return runManagerObservation(ctx, *inv.SessionManager, stdout, stderr, configResolver, deps)
 		}
 		service := sessionmanager.Service{}
 		if deps.managerService != nil {

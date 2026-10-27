@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-// Every reserved command has a closed grammar, with JSON only on list/show;
+// Every reserved command has a closed grammar, with optional JSON on list/show;
 // launch flags, duplicate flags and extra/native tails cannot change it.
 func TestSessionManagerGrammar(t *testing.T) {
 	for _, args := range [][]string{{"list"}, {"list", "--json"}, {"show", "board"}, {"show", "board", "--json"}, {"select", "board"}, {"unregister", "board"}, {"register", "--manifest", "-"}, {"register", "--select", "--manifest", "file"}, {"register", "--manifest", "file", "--no-select"}} {
@@ -203,7 +203,7 @@ func TestSessionManagerScopeGrammar(t *testing.T) {
 // Every nested registry help surface has reviewed exact bytes for canonical
 // use, scope, and the deprecated alias, independently of runtime configuration.
 func TestSessionManagerHelpGolden(t *testing.T) {
-	for _, verb := range []string{"", "list", "show", "register", "use", "select", "unregister"} {
+	for _, verb := range []string{"", "list", "show", "observe", "register", "use", "select", "unregister"} {
 		name := verb
 		args := []string{"session-manager"}
 		if verb == "" {
@@ -219,6 +219,36 @@ func TestSessionManagerHelpGolden(t *testing.T) {
 		}
 		if !ok || got != string(want) {
 			t.Fatalf("%s help differs: %q", name, got)
+		}
+	}
+}
+
+// Observation requires an explicit manager, handle and JSON, accepts either flag
+// order, and rejects neighbouring malformed/duplicate/native flags without echo.
+func TestObserveGrammar(t *testing.T) {
+	for _, handle := range []string{"SES-a", "SES-" + strings.Repeat("a", 48)} {
+		for _, tail := range [][]string{{"--session", handle, "--json"}, {"--json", "--session", handle}} {
+			got, err := Parse(append([]string{"session-manager", "observe", "board"}, tail...), Options{})
+			if err != nil || got.SessionManager == nil || got.SessionManager.Session != handle || !got.SessionManager.JSON {
+				t.Fatal(got, err)
+			}
+		}
+	}
+	for _, tail := range [][]string{
+		{}, {"--session", "SES-a"}, {"--json"}, {"--json", "--session"},
+		{"--session", "SES-", "--json"}, {"--session", "SES-" + strings.Repeat("a", 49), "--json"},
+		{"--session", "SENTINEL_SECRET", "--json"}, {"--session", "SES-a", "--json", "--json"},
+		{"--session", "SES-a", "--session", "SES-b", "--json"}, {"--session", "SES-a", "--json", "--scope", "user"},
+		{"--session", "SES-a", "--json", "--detach"}, {"--session", "SES-a", "--json", "--", "SENTINEL_SECRET"},
+	} {
+		got, err := Parse(append([]string{"session-manager", "observe", "board"}, tail...), Options{})
+		if !IsUsage(err) || got.SessionManager != nil || strings.Contains(err.Error(), "SENTINEL") {
+			t.Fatal(tail, got, err)
+		}
+	}
+	for _, id := range []string{"", "Bad", "SENTINEL_SECRET!"} {
+		if _, err := Parse([]string{"session-manager", "observe", id, "--session", "SES-a", "--json"}, Options{}); !IsUsage(err) || strings.Contains(err.Error(), "SENTINEL") {
+			t.Fatal(err)
 		}
 	}
 }

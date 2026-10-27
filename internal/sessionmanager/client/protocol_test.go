@@ -71,7 +71,7 @@ func TestDecodeResponse(t *testing.T) {
 			r, err := DecodeResponse(tc.op, []byte(tc.request), []byte(tc.body), tc.exit, "demo")
 			if tc.code != "" {
 				requireCode(t, err, tc.code)
-				if r.Session != nil || r.Outcome != nil || r.Page != nil || r.Describe != nil {
+				if r.Session != nil || r.SessionRecord != nil || r.Outcome != nil || r.Page != nil || r.Describe != nil {
 					t.Fatal("partial poisoned response")
 				}
 				return
@@ -280,5 +280,29 @@ func TestExactCapabilityRefusal(t *testing.T) {
 				t.Fatal("partial refusal response")
 			}
 		})
+	}
+}
+
+// Direct status exposes exactly the validated envelope-free members, preserving
+// optional members, explicit nulls and large integers; it never projects history.
+func TestStatusSessionRecord(t *testing.T) {
+	readable := sessionRow()
+	readable["generation"] = int64(9007199254740991)
+	readable["state"] = "draining"
+	readable["draining"] = map[string]string{"reason": "stop_intent_unsignalled_after_restart", "remediation": "stop_force"}
+	for _, row := range []map[string]any{readable, unreadableRow()} {
+		want := encoded(row)
+		row["protocol"], row["ok"] = Protocol, true
+		got, err := DecodeResponse("status", []byte(`{"session":"SES-example"}`), encoded(row), 0, "demo")
+		if err != nil || string(got.SessionRecord) != string(want) {
+			t.Fatalf("record changed: %s want %s: %v", got.SessionRecord, want, err)
+		}
+		if err := managerschema.Validate("session-record.schema.json", got.SessionRecord); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got, err := DecodeResponse("status", statusRequest(), []byte(outcome("started")), 0, "demo")
+	if err != nil || got.SessionRecord != nil {
+		t.Fatal("operation outcome became a session record", got, err)
 	}
 }

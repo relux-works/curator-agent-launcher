@@ -129,10 +129,13 @@ type ListPage struct {
 	NextCursor *string   `json:"next_cursor"`
 }
 type Response struct {
-	Session  *Session
-	Outcome  *Outcome
-	Describe *Describe
-	Page     *ListPage
+	Session *Session
+	// SessionRecord retains every validated session-status member, including
+	// explicit nulls, after removing only the RPC envelope's protocol and ok.
+	SessionRecord json.RawMessage
+	Outcome       *Outcome
+	Describe      *Describe
+	Page          *ListPage
 }
 
 func ValidateRequest(operation string, data []byte) error {
@@ -281,6 +284,15 @@ func DecodeResponse(operation string, request, body []byte, exit int, manager st
 		(correlation.Runtime != "" && record.Runtime != correlation.Runtime) ||
 		(correlation.ExpectedGeneration != 0 && record.Generation != correlation.ExpectedGeneration)) {
 		return Response{}, protocolError()
+	}
+	if operation == "status" && result.Session != nil {
+		var members map[string]json.RawMessage
+		if json.Unmarshal(body, &members) != nil {
+			return Response{}, protocolError()
+		}
+		delete(members, "protocol")
+		delete(members, "ok")
+		result.SessionRecord, _ = json.Marshal(members)
 	}
 	return result, nil
 }

@@ -28,6 +28,12 @@ amendment proposes to an accepted text.
 in the Werkstatt record pins the resolved profile lock (§§6.1–6.2). A mismatch
 refuses before hooks or launch/resume, without printing either hash (§11).
 
+**2026-10-27 observation amendment:** Curator's home-lease dependency uses
+`session-manager observe` (§4.3) for authoritative manager evidence without
+speaking the plugin protocol itself. The launcher returns one closed observation
+with the registration incarnation and the validated, envelope-free session record;
+unknown or unreadable evidence never implies that a session is down.
+
 **2026-10-27 registry CLI amendment (owner-approved):** `session-manager use`
 replaces `select`; the alias warns once on stderr, deprecated in 0.6.0 and
 removed no earlier than 0.8.0 (two releases). Mutations accept explicit
@@ -129,6 +135,7 @@ curator-run werkstatt list [--json]
 
 curator-run session-manager list [--json]
 curator-run session-manager show <id> [--json]
+curator-run session-manager observe <manager-id> --session <SES-handle> --json
 curator-run session-manager register --manifest <path|-> [--select | --no-select] [--scope user|system]
 curator-run session-manager use <id> [--scope user|system]
 curator-run session-manager unregister <id> [--scope user|system]
@@ -531,6 +538,65 @@ user-layer mutation while a system registry exists refuses
 imports the user registry. Unregistering the selected manager
 leaves `selected` absent, so the state becomes **unselected**, or **empty**
 if it was the last.
+
+#### Read-only session observation
+
+`curator-run session-manager observe <manager-id> --session <SES-handle> --json`
+requires both flags. Missing or malformed values, duplicate flags, scope flags
+and launch arguments refuse with `usage` (2), before any RPC. The explicit id is
+resolved through the normal machine/user registry precedence (§4.2); selection
+and write authority are irrelevant, and PATH is never searched.
+
+The only RPCs are one `describe` and one `status {session}`. `describe` must
+advertise `status/1`; otherwise the existing `session_host_capability_missing`
+(6) refuses. Both calls use §5.1 transport bounds, the 10 s per-call deadline
+and stderr discard. No registry lock, selection change or write occurs. No
+liveness, operation journal or Werkstatt state is read or written; there is no
+reconciliation or launch/resume/stop/cancel/attach.
+
+Success writes one JSON object and a newline, with no stderr output:
+
+```json
+{
+  "schema": "curator-run-session-observation-v1",
+  "manager": {
+    "id": "example",
+    "executable": "/opt/bin/session-manager",
+    "registered_at": "2026-01-01T00:00:00Z"
+  },
+  "session": {
+    "session": "SES-example",
+    "operation_id": "11111111-1111-4111-8111-111111111111",
+    "manager": "example",
+    "runtime": "codex_cli",
+    "native_id": null,
+    "readable": true,
+    "state": "unknown",
+    "labels": {},
+    "generation": 1,
+    "started_at": "2026-01-01T00:00:00Z",
+    "last_activity_at": null,
+    "doorbell": {"state": "off", "uncertain": false, "generation": null, "reason": null}
+  },
+  "observed_at": "2026-10-27T00:00:00Z"
+}
+```
+
+The `session` object is defined by `session-record.schema.json`. The executable
+and registration timestamp retain the registry's exact strings, so callers can compare the registration
+incarnation. The session retains every validated member and explicit null,
+removing only the RPC `protocol` and `ok` envelope. `observed_at` is the launcher's
+UTC clock at rendering, truncated to whole seconds. The closed output schema
+and vectors are published in the nested session-manager module as
+`session-observation.schema.json` and `vectors/session-observation.json`.
+
+A valid `readable:false` or `state:unknown` record is evidence and exits 0
+unchanged; it does not release a home lease. A missing valid record refuses with
+an existing closed code/exit (§11), including manager-returned not-found or
+liveness-unknown refusals. Invalid or unreachable managers, malformed responses
+and timeouts produce no stdout and one diagnostic line on stderr. Plugin text
+is never rendered, including on a legacy registry path. No new refusal code is
+introduced.
 
 ### 4.4 Install order
 

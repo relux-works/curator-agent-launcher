@@ -16,6 +16,7 @@ import (
 
 type Command struct {
 	Operation, ID, Manifest, Scope string
+	Session                        string
 	JSON, Select, NoSelect         bool
 }
 

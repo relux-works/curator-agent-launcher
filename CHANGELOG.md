@@ -13,6 +13,12 @@
 
 ### Added
 
+- Add read-only `session-manager observe <manager-id> --session <SES-handle>
+  --json`: one closed observation with the registration incarnation, validated
+  session record and launcher UTC timestamp, without local state access or
+  reconciliation. Unknown/unreadable evidence remains explicit. Publish the
+  observation schema and vectors in the standalone session-manager module.
+
 - Enforce one profile per Werkstatt conversation: a known profile change in
   continue mode refuses early with `werkstatt_profile_changed` (exit 1, `id`
   only). Recycle, `up --new` and fresh mode start new generations. Optional
