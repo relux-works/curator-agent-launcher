@@ -201,7 +201,7 @@ func TestLivenessFailureRecovery(t *testing.T) {
 	for _, mode := range []string{"success", "destination-directory", "unwritable-directory"} {
 		t.Run(mode, func(t *testing.T) {
 			tx := transaction(t)
-			p := Pending{OperationID: operationID, Kind: "launch", SubmittedAt: stamp, AdmissionKey: "werkstatt:example", Manager: Binding{ID: "demo", Executable: "/protocol", RegisteredAt: stamp}}
+			p := Pending{Profile: "sample", OperationID: operationID, Kind: "launch", SubmittedAt: stamp, AdmissionKey: "werkstatt:example", Manager: Binding{ID: "demo", Executable: "/protocol", RegisteredAt: stamp}}
 			path := filepath.Join(tx.dir, "example.json")
 			journal := filepath.Join(tx.dir, "example.op.json")
 			s := session()

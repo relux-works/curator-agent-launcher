@@ -47,6 +47,7 @@ var pluginDiagnostics = map[string]PluginDiagnostic{
 	"werkstatt_not_up":                         {1, "Werkstatt has no liveness record."},
 	"werkstatt_not_found":                      {1, "Werkstatt not found."},
 	"werkstatt_operation_unresolved":           {1, "Werkstatt operation unresolved."},
+	"werkstatt_profile_changed":                {1, "Werkstatt profile changed."},
 	"werkstatt_profile_lock_mismatch":          {1, "Werkstatt profile lock mismatch."},
 	"werkstatt_record_invalid":                 {2, "Werkstatt record invalid."},
 	"werkstatt_session_manager_required":       {1, "Werkstatt session manager required."},

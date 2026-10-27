@@ -48,6 +48,19 @@ and [vectors](schemas/session-manager/vectors/werkstatt-record.json) show its
 required fields and optional settings. The future board station source has
 an interface only.
 
+One profile belongs to each Werkstatt conversation. If a resumable target has
+known liveness `profile` evidence that differs from the edited record, `up`
+refuses `werkstatt_profile_changed` (exit 1, `id` only) before resolving the
+fragment, writing hooks or the operation journal, or calling launch/resume.
+Use `curator-run werkstatt recycle <id>` or
+`curator-run werkstatt up <id> --new` to start a new generation and thread under
+the new profile; fresh mode also starts a new generation. Liveness records the
+submitted profile and preserves it through status, stop and operator edits.
+The operation journal retains it for crash recovery even if the record changes.
+Older liveness without `profile` skips the early check and keeps the manager's
+existing resume-identity guard. Older journals settle with unknown profile
+evidence. Neither missing value is inferred; malformed present values refuse.
+
 Optional `profile_lock_sha256` pins the required profile lock as exactly 64
 lowercase hex characters without a prefix. After resolving the profile with
 repair, `up` compares it with the fragment’s `profile.lock_sha256`. A mismatch

@@ -23,6 +23,7 @@ type Binding struct {
 	RegisteredAt string `json:"registered_at"`
 }
 type Pending struct {
+	Profile      string  `json:"profile,omitempty"`
 	OperationID  string  `json:"operation_id"`
 	Kind         string  `json:"kind"`
 	SubmittedAt  string  `json:"submitted_at"`
@@ -34,6 +35,7 @@ type Abandoned struct {
 	AbandonedAt string `json:"abandoned_at"`
 }
 type Liveness struct {
+	Profile             string      `json:"profile,omitempty"`
 	ID                  string      `json:"id"`
 	State               string      `json:"state"`
 	Manager             Binding     `json:"manager"`
@@ -285,6 +287,9 @@ func (t *Transaction) compareAndSwap(expected Expected, next Liveness, sessionRe
 			if !sessionRead && next.OperationID != nil && a.OperationID == *next.OperationID {
 				return false, nil
 			}
+		}
+		if sessionRead || sameOperation(next.OperationID, old.OperationID) {
+			next.Profile = old.Profile
 		}
 		next.CurrentTask = old.CurrentTask
 		next.QueueDepth = old.QueueDepth

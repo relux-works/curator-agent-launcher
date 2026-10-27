@@ -455,6 +455,10 @@ func (s Service) up(ctx context.Context, c Command, tx *client.Transaction, reg 
 		}
 	}
 	if target != "" {
+		if l != nil && l.Profile != "" && l.Profile != r.Profile {
+			fmt.Fprintf(s.Stderr, "curator-run: change profile with curator-run werkstatt recycle %s or curator-run werkstatt up %s --new\n", r.ID, r.ID)
+			return 0, failure("werkstatt_profile_changed", map[string]string{"id": r.ID})
+		}
 		needs.Resume = true
 		if _, err = client.Required(*response.Describe, needs); err != nil {
 			return 0, err

@@ -43,6 +43,11 @@ func main() {
 		return
 	}
 	if filepath.Base(os.Args[0]) == "curator" {
+		if path := os.Getenv("FRONTDOOR_RESOLVE_LOG"); path != "" {
+			if os.WriteFile(path, []byte("resolved"), 0600) != nil {
+				os.Exit(1)
+			}
+		}
 		data, err := os.ReadFile("fragment.json")
 		if err != nil {
 			os.Exit(1)

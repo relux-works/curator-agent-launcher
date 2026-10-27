@@ -146,6 +146,7 @@ func TestScriptedSubmissionAndBinding(t *testing.T) {
 			c, traces := scripted(t, binary, steps...)
 			tx := transaction(t)
 			p := pending(c)
+			p.Profile = "sample"
 			r := reconciler(c)
 			if mode == "fractional-clock" {
 				base := r.now()

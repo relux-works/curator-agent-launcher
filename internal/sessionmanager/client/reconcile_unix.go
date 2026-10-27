@@ -59,10 +59,15 @@ func (r Reconciler) Submit(ctx context.Context, tx *Transaction, p Pending, requ
 		OperationID  string `json:"operation_id"`
 		SubmittedAt  string `json:"submitted_at"`
 		AdmissionKey string `json:"admission_key"`
+		Profile      struct {
+			Name string `json:"name"`
+		} `json:"profile"`
 	}
 	if json.Unmarshal(request, &correlation) != nil || correlation.OperationID != p.OperationID || correlation.SubmittedAt != p.SubmittedAt || correlation.AdmissionKey != p.AdmissionKey {
 		return nil, refusal("launch_plan_invalid", nil)
 	}
+	// Only the validated request supplies durable profile evidence.
+	p.Profile = correlation.Profile.Name
 	remote, err := r.owner(p)
 	if err != nil {
 		return nil, err
@@ -145,7 +150,7 @@ func (r Reconciler) finish(tx *Transaction, p Pending, expected Expected, outcom
 	case "started":
 		result = outcome.Session
 		op := p.OperationID
-		next := Liveness{ID: tx.id, State: result.State, Manager: p.Manager, OperationID: &op, StateSource: "manager", Session: result.Session, Generation: result.Generation, StartedAt: result.StartedAt, LastHeartbeatAt: r.now().UTC().Format(time.RFC3339), LastActivityAt: result.LastActivityAt, Doorbell: result.Doorbell.State, DoorbellUncertain: result.Doorbell.Uncertain}
+		next := Liveness{Profile: p.Profile, ID: tx.id, State: result.State, Manager: p.Manager, OperationID: &op, StateSource: "manager", Session: result.Session, Generation: result.Generation, StartedAt: result.StartedAt, LastHeartbeatAt: r.now().UTC().Format(time.RFC3339), LastActivityAt: result.LastActivityAt, Doorbell: result.Doorbell.State, DoorbellUncertain: result.Doorbell.Uncertain}
 		written, err := tx.CompareAndSwap(expected, next)
 		if err != nil {
 			resultErr = refusal("werkstatt_liveness_write_failed", map[string]string{"session": result.Session})

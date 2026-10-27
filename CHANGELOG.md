@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Added
+
+- Enforce one profile per Werkstatt conversation: a known profile change in
+  continue mode refuses early with `werkstatt_profile_changed` (exit 1, `id`
+  only). Recycle, `up --new` and fresh mode start new generations. Optional
+  liveness and journal profile evidence survives refresh and crash recovery;
+  older files retain unknown evidence and the manager's existing guard.
+
 ### Changed
 
 - Diagnose unwritable explicit registry scopes as

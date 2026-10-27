@@ -43,6 +43,13 @@ content or read access (§11).
 0.6.0, removed no earlier than 0.8.0, with one stderr warning per invocation.
 This applies the owner's decision to separate status, dispatch edits and recovery.
 
+**2026-10-27 one-profile amendment (owner-approved):** Ivan confirmed the
+CIP-0016 condition: one profile per Werkstatt conversation. A known profile
+change refuses early on continue/resume; `recycle`, `up --new` and fresh
+mode start a new conversation under the new profile (§§6.1–6.5, 11).
+Optional liveness and operation-journal profile evidence preserves old-file
+compatibility without inference (§5.7).
+
 ## 0. Sources and decisions applied
 
 | Source | What it fixes here |
@@ -1218,7 +1225,7 @@ lock:
 
 ```json
 { "operation_id": "…", "kind": "launch|resume", "submitted_at": "…Z",
-  "admission_key": "werkstatt:<id>",
+  "admission_key": "werkstatt:<id>", "profile": "sample",
   "manager": { "id": "task-board", "executable": "/abs/path", "registered_at": "…Z" } }
 ```
 
@@ -1235,9 +1242,14 @@ lock:
     `werkstatt recover <id> --abandon-operation`, clears the refusal.
     `--abandon-operation` is a manual decision: it clears `op.json` and
     records the abandoned id in the liveness record.
+- **Profile evidence.** Optional `profile` has the Werkstatt record's name
+  grammar and is copied from the validated launch/resume request before
+  submission. Settlement uses that value for liveness, even if the record
+  was edited meanwhile. Old journals without it settle with an absent
+  liveness `profile`, never inferred from the record or previous generation.
 - **No overlap.** No new operation is generated while one is pending.
 - **Schema.** `op.json` is `werkstatt-operation-v1`, closed, with exactly
-  the members shown.
+  the members shown (`profile` is optional for old-file compatibility).
   - `--abandon-operation` removes it.
   - It appends `{operation_id, abandoned_at}` to the liveness record's
     `abandoned_operations`, a list that keeps the newest 16 entries.
@@ -1316,6 +1328,10 @@ home, clone and identity. Its record is `werkstatt-record-v1`, closed. It
 carries `"schema": "werkstatt-record-v1"` as a required member, because a
 person edits the file. The launcher-internal `op.json` and liveness files
 carry no `schema` member; their file names and locations identify them.
+
+A Werkstatt's profile is fixed for its conversation, never changed in place.
+Changing it requires `recycle` (a new generation and thread) or a new record;
+`up --new` explicitly starts a new conversation under the record's profile.
 
 | Field | Meaning |
 | --- | --- |
@@ -1413,6 +1429,16 @@ local write.
         cross-manager resume: the launch is new. A manager switch is
         therefore the one case in which `continue` starts a new
         conversation (§6.4).
+      - Once a resume target is selected, if the liveness `profile` is known
+        and differs from the record's `profile`, refuse
+        `werkstatt_profile_changed` (1), with `id` only. The hint names
+        `curator-run werkstatt recycle <id>` or
+        `curator-run werkstatt up <id> --new`. Do not resolve the fragment,
+        install hooks, write `op.json` or liveness, or call launch/resume.
+        An absent liveness `profile` is unknown: skip this early check,
+        infer nothing, and retain the manager's resume-identity guard.
+        `fresh`, `--new`, `recycle` and paths without a resume target do
+        not make this refusal; they start a new generation.
    4. **Recovery.** Two explicit commands leave the fail-closed state.
       - `werkstatt recover <id> --rebind-manager`:
         - asks the current entry with the binding's id for `status
@@ -1479,7 +1505,9 @@ local write.
          label, because each manager numbers its own generations (§6.5).
    - Reconcile per §5.7.
 9. **Liveness.** Write the §6.5 record, including the owner binding copied
-   from `op.json`'s `manager` and the settled `operation_id`. Only then
+   from `op.json`'s `manager`, its submitted `profile` and the settled
+   `operation_id`. An old journal without `profile` installs unknown
+   (absent) evidence, never the current edited record's profile. Only then
    remove `op.json`.
    - If the liveness write fails, the session is still up: print the
      handle, and refuse `werkstatt_liveness_write_failed` (1).
@@ -1529,7 +1557,10 @@ Only public-key paths and socket paths appear here. Private keys never move.
   same thread, and the harness compacts natively. After a crash, a machine
   restart or `down`, the next `up` resumes the same native conversation
   (§6.2 steps 4 and 8). A new thread starts only through `--new`,
-  `recycle` or a manager switch (§6.2 step 4.3).
+  `recycle` or a manager switch (§6.2 step 4.3). To change the profile, use
+  `curator-run werkstatt recycle <id>` or
+  `curator-run werkstatt up <id> --new`; a known changed profile never
+  resumes the existing conversation.
 - **`fresh`:** the orchestrator runs `werkstatt recycle <id>` before each
   task.
 - Rework after review continues the task's thread in both modes. That is
@@ -1542,7 +1573,7 @@ The state file is
 schema `werkstatt-liveness-v1`, written atomically:
 
 ```json
-{ "id": "...", "state": "starting|idle|busy|draining|down|unknown",
+{ "id": "...", "profile": "sample", "state": "starting|idle|busy|draining|down|unknown",
   "manager": { "id": "task-board", "executable": "/abs/path", "registered_at": "…Z" },
   "operation_id": "…", "state_source": "manager|operator_override",
   "session": "SES-…", "generation": 3,
@@ -1559,6 +1590,12 @@ schema `werkstatt-liveness-v1`, written atomically:
   - `doorbell.state`, `doorbell.uncertain`.
 
   `state_source` is then `manager`.
+- **`profile`** is optional, with the same Curator profile-name grammar as
+  the Werkstatt record. `up` installs it from the validated submission when
+  a new generation settles, including recovery through the operation
+  journal (§5.7). Every other liveness write copies it forward unchanged.
+  Old files without it mean unknown; never infer it from the current record.
+  A malformed present value takes the existing liveness-read failure path.
 - **`manager`** is the owner binding: the registry entry the operation was
   submitted to, frozen at submission. It is immutable within a generation.
   It changes only two ways:
@@ -2080,6 +2117,7 @@ Detail vocabularies are closed (§5.6). Grammar names:
 | `session_board_goal_unavailable` | 1 | manager capable, no workspace board | none |
 | `werkstatt_not_found` | 1 | no record | `id` |
 | `werkstatt_record_invalid` | 2 | the record fails the schema | `id`, `field` |
+| `werkstatt_profile_changed` | 1 | continue would resume a target under a different known profile; before fragment resolve, hooks, journal, liveness or launch/resume (§6.2 step 4.3) | `id` only; hint: recycle or up --new |
 | `werkstatt_profile_lock_mismatch` | 1 | the record’s required profile lock differs from the resolved fragment | `id` |
 | `werkstatt_session_manager_required` | 1 | `up` with an empty or unselected registry | `state`: `empty`, `unselected` |
 | `werkstatt_already_up` | 1 | an active generation holds the key | `session`: `<handle>` |
