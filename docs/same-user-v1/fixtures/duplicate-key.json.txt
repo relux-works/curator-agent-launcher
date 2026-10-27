@@ -1,1 +1,1 @@
-{"kind":"curator-run member-request/1","operation":"inspect","operat\u0069on":"submit"}
+{"kind":"curator-run member-request/1","request_id":"14a60637758cb026afd2fe447f3648a0","operation":"inspect","invocation_id":"00000000000000000000000000000004","operat\u0069on":"inspect"}

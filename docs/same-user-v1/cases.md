@@ -63,7 +63,7 @@ adds an excluded history field; `negative-unknown-member.json` adds an unknown
 member; `negative-native-exit.json` uses code256; `negative-terminal-running.json`
 claims terminal with native running. They must fail structure, not crash.
 The three `.json.txt` files are raw parser cases: escape-equivalent duplicate
-key, fractional UID `1000.0` in otherwise valid owner shape, and a truncated
+key in an otherwise valid inspect (both values inspect), fractional UID `1000.0` in otherwise valid owner shape, and a truncated
 response prefix. Generic JSON Schema mathematical-integer acceptance cannot
 replace the required lexical rejection of `1000.0`.
 
