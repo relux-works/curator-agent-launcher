@@ -1301,12 +1301,16 @@ on deadline while admitted:
 A `cancel` that fails or is lost is not a confirmed cancellation. The
 operation stays pending.
 
-Two traces settle the review's cases:
+For legacy journals or a phase in which manager submission may already have
+occurred, two traces settle the review's cases. A `lease_requested` journal
+instead replays acquire first, under the home-lease rules below.
 
 - **Crash before send.** `status` answers `not_found`, `cancel` answers
-  `cancelled`, and `op.json` is cleared.
-- **Start that races the cancel.** The `cancel` answers `started`, and the
-  loop completes as success.
+  `cancelled`, and the operation settles. Lease-bearing settlement retains
+  correlation as described below; legacy `op.json` is cleared.
+- **Start that races the cancel.** The `cancel` answers `started`. That is a
+  manager start outcome; lease-bearing consumer settlement still runs the bind
+  gate below and is not automatically successful.
 
 **Durable correlation (existing format).** Before submitting a Werkstatt launch or resume,
 the launcher writes `<state>/werkstatt/<id>.op.json` atomically, under the
