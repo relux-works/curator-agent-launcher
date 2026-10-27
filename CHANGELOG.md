@@ -32,6 +32,11 @@
 
 ### Added
 
+- Add a signed-tag-gated artifact pipeline, with optional macOS signing and
+  notarization requiring all five configuration fields or none. Generate a
+  Homebrew formula without pushing a tap, and package Linux deb/rpm release
+  assets without publishing a package repository.
+
 - Add read-only `session-manager observe <manager-id> --session <SES-handle>
   --json`: one closed observation with the registration incarnation, validated
   session record and launcher UTC timestamp, without local state access or
