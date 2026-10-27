@@ -1113,6 +1113,7 @@ five signing secrets.
 
 | Tool | Purpose | Entry point | Output |
 |---|---|---|---|
+| `curator env lease` | public home-lease probe and reservation/recovery; the launcher never releases or breaks | `curator env lease list --format json`; hosted launch/resume invokes `acquire` with its persisted holder | closed JSON on stdout; launcher journals and settlements under the XDG state home, as described above |
 | `curator-run session-manager` | inspect and atomically update the manager registry | `curator-run session-manager list/show/register/use/unregister (deprecated alias: select)` (forms above) | stdout or JSON; `session-managers.json` in the effective target config home |
 | `curator-run session-manager observe` | read one registered session without local state changes or reconciliation | `curator-run session-manager observe <manager-id> --session <SES-handle> --json` | one closed `curator-run-session-observation-v1` JSON object on stdout; no files |
 | `curator-run werkstatt` | hosted station lifecycle and separate manager/a2a status | commands above; `go test ./cmd/curator-run -run TestWerkstattBinary -count=1 -v` | liveness and journal in the XDG state home; bounded test children in `t.TempDir` |
