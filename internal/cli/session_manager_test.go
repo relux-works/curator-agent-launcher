@@ -228,7 +228,7 @@ func TestSessionManagerHelpGolden(t *testing.T) {
 func TestObserveGrammar(t *testing.T) {
 	for _, handle := range []string{"SES-a", "SES-" + strings.Repeat("a", 48)} {
 		for _, tail := range [][]string{{"--session", handle, "--json"}, {"--json", "--session", handle}} {
-			got, err := Parse(append([]string{"session-manager", "observe", "board"}, tail...), Options{})
+			got, err := Parse(append([]string{"session-manager", "observe", "board"}, tail...))
 			if err != nil || got.SessionManager == nil || got.SessionManager.Session != handle || !got.SessionManager.JSON {
 				t.Fatal(got, err)
 			}
@@ -241,13 +241,13 @@ func TestObserveGrammar(t *testing.T) {
 		{"--session", "SES-a", "--session", "SES-b", "--json"}, {"--session", "SES-a", "--json", "--scope", "user"},
 		{"--session", "SES-a", "--json", "--detach"}, {"--session", "SES-a", "--json", "--", "SENTINEL_SECRET"},
 	} {
-		got, err := Parse(append([]string{"session-manager", "observe", "board"}, tail...), Options{})
+		got, err := Parse(append([]string{"session-manager", "observe", "board"}, tail...))
 		if !IsUsage(err) || got.SessionManager != nil || strings.Contains(err.Error(), "SENTINEL") {
 			t.Fatal(tail, got, err)
 		}
 	}
 	for _, id := range []string{"", "Bad", "SENTINEL_SECRET!"} {
-		if _, err := Parse([]string{"session-manager", "observe", id, "--session", "SES-a", "--json"}, Options{}); !IsUsage(err) || strings.Contains(err.Error(), "SENTINEL") {
+		if _, err := Parse([]string{"session-manager", "observe", id, "--session", "SES-a", "--json"}); !IsUsage(err) || strings.Contains(err.Error(), "SENTINEL") {
 			t.Fatal(err)
 		}
 	}
