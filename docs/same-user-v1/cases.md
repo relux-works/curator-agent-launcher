@@ -231,3 +231,40 @@ A06 handle/object custody, A07–A15 admission/compatibility and all durable lif
 replay, effect and cleanup rows remain unimplemented by this package. No output
 from this decoder authorizes any such operation; the first supported tuple remains
 **NONE**.
+
+
+## Bounded N/A handle-byte implementation coverage (nonnormative)
+
+`internal/memberinput.ReadPair` observes two explicit already-open request and
+authorization files on Darwin/Linux. It returns only untrusted immutable raw
+bytes/length/SHA-256. It does not decode, bind or authenticate A, and does not
+implement the six-descriptor gate, objects/store/response/controller custody,
+entry wiring or any runtime/admission path. Unsupported OS builds explicitly
+refuse without accessing the supplied handles.
+
+| Source obligation / neighbor | Ordinary executable source tests / precise boundary |
+| --- | --- |
+| N/A byte custody, fixed fixture digests, nonzero shared offsets, caller lifetime | `TestPublishedHandleSnapshots`; all six N fixtures and expired A as bytes only, caller originals/duplicate offsets and flags unchanged, independent retained snapshots after caller mutation/close. |
+| Inclusive raw byte ceilings, empty input vs JSON validity | `TestRawHandleBoundaries`; exact 64 KiB/4 KiB and empty/non-JSON bytes are intake positives; one-over metadata returns `parse/bounds_exceeded` before either read. No structural-validity claim. |
+| Types/access and validation before content | `TestHandleTypeAndAccessRefusals`, `TestLinuxPathOnlyRefusal` / `TestDarwinEventOnlyRefusal`; invalid neighbors in either position return `bootstrap/descriptor_invalid`, zero positional reads, no partial pair and caller handles/content/offsets/modes preserved. |
+| Actual owner/mode/one-link/distinct identity observations | `TestModesLinksAndAliases`; real mode/link/alias fixtures, distinct equal-byte files positive. `TestSyntheticMetadataRefusals` isolates wrong UID and negative size as synthetic predicate cases, not a foreign-owner/chown OS witness. Filesystems not retaining special bits are explicitly skipped. |
+| Bounded reads, short/growth/change/error and all-or-nothing result | `TestObservedChangesAndReadFailures`; per-call read seam delegates to real Pread with deterministic owned-file mutations, plus partial-progress positive. Exact static errors and no pair; explicit test mutations persist, with no additional input repair/write/offset/close effects. |
+| Honest freeze/lifetime limit | `TestLaterWriterDoesNotChangeSnapshot`; retained bytes survive a later same-UID writer, but no absence-of-writer/mapping, future freeze or complete custody is attested. |
+| Unsupported-platform source route | `TestUnsupportedRefusesWithoutInputEffects` is authored for unsupported OS builds; existing Darwin/Linux CI does not execute that branch. |
+
+Production uses no duplicate/reopen/close or descriptor-owning finalizer: it
+pins caller os.File lifetimes only during observation through SyscallConn Control.
+Thus there is no temporary descriptor to release or leak, including refusal
+paths. Metadata comparison covers native device/inode, UID/mode/link/size/access
+flags and observed mtime/ctime, excluding access time which reading may update.
+It does not detect every same-size transient mutation, prove no write mapping,
+freeze files, or promise a disk-I/O deadline. Cooperative frozen sources and
+stable caller handles remain caller preconditions. All six descriptors must be
+validated together before content in later entry integration, with renewed
+consumption/binding/custody checks; this primitive alone must not admit work.
+
+These ordinary tests execute only in genuine hosted PR CI during this unit;
+local Go/build/test/race/repro/parser/checker/mutation/native/cache operations
+remain held. Source cases above remain inert lifecycle expectations. Full A06
+object custody, all other descriptors/admission/lifecycle obligations and native
+qualification remain undelivered; first supported tuple remains **NONE**.
