@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"os"
-	"reflect"
 	"strings"
 	"testing"
 )
@@ -57,6 +56,8 @@ func requestBad(t *testing.T, raw []byte, code string) {
 // These published inert bytes exercise every request branch and the expired A's
 // structure only. Hard-coded Stage1 lengths/digests are independent raw-byte
 // expectations, not a second parser or any authority/expiry/tuple witness.
+// After caller mutation, both fresh and earlier snapshots must still match
+// independently frozen fixture values, including existing array elements.
 func TestPublishedStructuralSnapshots(t *testing.T) {
 	cases := []struct {
 		file, operation, digest string
@@ -103,7 +104,8 @@ func TestPublishedStructuralSnapshots(t *testing.T) {
 			if err := comparison.Decode(&expected); err != nil {
 				t.Fatal(err)
 			}
-			if !bytes.Equal(encode(t, r.Value()), encode(t, expected)) {
+			expectedBytes := encode(t, expected)
+			if !bytes.Equal(encode(t, r.Value()), expectedBytes) {
 				t.Fatal("decoded snapshot changed a published value, field, null or array")
 			}
 			before := r.Value()
@@ -116,9 +118,16 @@ func TestPublishedStructuralSnapshots(t *testing.T) {
 				changed["identity"].(map[string]any)["role"] = "changed"
 				changed["artifacts"].([]any)[0].(map[string]any)["object"].(map[string]any)["name"] = "changed"
 				changed["effects"].(map[string]any)["tools"] = append(changed["effects"].(map[string]any)["tools"].([]any), "changed")
+				changed["effects"].(map[string]any)["read_objects"].([]any)[0] = "changed"
 			}
-			if !bytes.Equal(r.Raw(), original) || r.SHA256() != sum || !reflect.DeepEqual(r.Value(), before) {
-				t.Fatal("caller mutation reached retained or earlier decoded state")
+			if !bytes.Equal(r.Raw(), original) || r.SHA256() != sum {
+				t.Fatal("caller mutation reached retained raw bytes")
+			}
+			if !bytes.Equal(encode(t, r.Value()), expectedBytes) {
+				t.Fatal("caller mutation reached retained decoded state")
+			}
+			if !bytes.Equal(encode(t, before), expectedBytes) {
+				t.Fatal("caller mutation reached earlier decoded snapshot")
 			}
 		})
 	}
