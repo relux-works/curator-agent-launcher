@@ -351,3 +351,35 @@ profile/home/origin/manager compatibility, store/admission, six-FD entry and
 native qualification remain separate. Local execution was held during authorship;
 new tests execute only in genuine ordinary hosted PR checks. The first supported
 native tuple remains **NONE**.
+
+
+## Untrusted lifecycle decoder coverage (nonnormative)
+
+`internal/memberwire.DecodeSnapshot`, `DecodeHead`, `DecodeCancel`,
+`DecodeObservation` and `DecodeScopeProof` check only their closed structural
+roots, bounded before copying/parsing at 16/16/4/64/16 KiB respectively. They
+reuse the strict parser and immutable `UntrustedRecord`; all earlier source,
+schema, fixtures and tests remain unchanged. No file, network, clock, process,
+store, admission or native observation effect follows from decoding these bytes.
+
+| Source obligation | Ordinary hosted executable source coverage / limit |
+| --- | --- |
+| Published lifecycle byte anchors and owned snapshots | `TestLifecyclePublishedSnapshots`; fixed lengths/digests for nineteen state snapshots, head, cancel, both observation examples, scope proof and the terminal-running structural negative. Complete independent raw/value expectations precede decoding and applied caller/Raw/nested-map/existing-array mutations; fresh and earlier Value views remain frozen. |
+| Per-root exact kinds, inclusive raw caps and framing | `TestLifecycleCapsAndRoots`; cap-1/cap padded positives, valid and malformed cap+1 bounds refusals, cross-kind and incomplete/nonobject inputs with exact nil/static tags. |
+| Every closed reachable union alternative and required null/type rule | `TestLifecycleRecursiveClosure`, `TestLifecycleUnionSelection`; deletion, unknown member, incompatible types and cross-branch fields, all start/native/cleanup/allocation/wait variants, required nullable fields, writer/identity roles and stop enums. |
+| Snapshot phase conditionals | `TestLifecyclePhaseConditionals`; all nine phases, all five gates, each property constrained by each published if/then independently violated with otherwise valid structure. Terminal native/cleanup alternatives and unconstrained phase properties remain positive controls; uncertain has no invented condition. |
+| All transitive grammar/range occurrences | `TestLifecycleGrammarsAndRanges`; IDs/digests/names/refs/revisions, generation1..256, raw_status0..4294967295, exit0..255/signal1..255, zero-permitted observation/begun ticks versus positive request/deadline ticks. |
+| Error records as data | `TestLifecycleErrorData`; all thirty allowed codes across eleven exact stages and forbidden cross-pairs, independently nullable source/evidence, source code ASCII1..128 including initial punctuation, with invalid neighbors. A valid error record is not a newly observed OS failure. |
+| Untrusted scope/wait fields | `TestLifecycleSignalsAndUntrustedProofs`; both boolean values, all eight proof-bit combinations, uppercase/digit signal names, and deliberately inconsistent boot/raw-status/deadline data that structural schema does not compare. False proof bits never establish absence. |
+| Null versus empty argv and Unicode/byte caps | `TestLifecycleObservationArguments`; null/empty/1/128 versus129 arguments, nonempty exact scalar strings and separate4096 decoded-byte ceiling including literal/escaped multibyte and astral values. Existing array elements are mutated against independently frozen full-value expectations; no real argv is observed. |
+| Each API's strict entry/refusal/privacy route | `TestLifecycleStrictEntryRefusals`; escaped and nested decoded duplicates, malformed UTF-8/BOM/NUL/surrogates, forbidden lexical numbers and unknown private markers, nil results/static parse tags and unchanged inputs. Existing depth16/node8192/decoded-byte suite is reused unchanged. |
+
+`state-stop-renewed.json` and other semantics-only-invalid states remain
+structurally positive. `negative-terminal-running.json` violates the snapshot
+conditional; `negative-native-exit.json` is an out-of-scope result whose native
+code256 is separately projected into a synthetic snapshot negative. None of
+these labels supplies a transition executor or native evidence. Required
+cross-record equality, deadline ordering/history, semantic roles, trusted proof
+origin, store/replay/supervisor actions and admission remain separate. Local
+execution was held during authorship; new tests run only in ordinary genuine
+hosted PR CI. No supported native tuple or usable executor is established.
