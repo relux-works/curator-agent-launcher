@@ -383,3 +383,32 @@ cross-record equality, deadline ordering/history, semantic roles, trusted proof
 origin, store/replay/supervisor actions and admission remain separate. Local
 execution was held during authorship; new tests run only in ordinary genuine
 hosted PR CI. No supported native tuple or usable executor is established.
+
+
+## Untrusted outcome decoder coverage (nonnormative)
+
+`internal/memberwire.DecodeResult`, `DecodeResponse`, `DecodeReservation`,
+`DecodeAck` and `DecodeConflict` check only closed untrusted record structure.
+Raw caps are 64/16/16/16/16 KiB respectively, before copying/parsing. Replay is
+fully validated inside the response cap; there is no standalone replay intake
+or separate replay ceiling. Existing parser, immutable copies and all previous
+source/tests/schema/fixtures remain unchanged.
+
+| Source obligation | Ordinary hosted executable source coverage / limit |
+| --- | --- |
+| Exact original byte anchors and immutable views | `TestOutcomePublishedBytes`; twelve fixed lengths/digests checked before decoding, including two replay examples embedded into responses, native-code256 structural negative and truncated-response encoding negative. The unchanged independent frozen-before-decode oracle changes caller/Raw bytes, all nested maps and existing argv/output array elements, then checks retained/fresh/earlier views against original expectations. |
+| Five raw caps/kinds and nested replay | `TestOutcomeCapsAndRoots`; cap-1/cap padded positives, valid/malformed cap+1 bounds-first negatives and wrong kind/root/framing refusals. Whitespace inside replay fills the complete response cap without a separate nested raw limit. |
+| Complete transitive closure | `TestOutcomeRecursiveClosure`, `TestOutcomeGrammarsAndRanges`; required deletion, null/type/unknown and all native/cleanup alternatives, output refs, stream/replay/error/source objects, IDs/digests/names/revisions/ref lengths and numeric boundary neighbors. |
+| Exact response conditionals | `TestOutcomeResponseConditionals`; all five outcomes and twenty-two individually violated then-properties. Refused/conflict snapshot and consumption ack remain nullable; correlation and operation combinations are structural data, not policy. |
+| Complete replay data | `TestOutcomeNestedReplay`; all four keys, four classifications and eight independent hash-null masks, including contradictory/equal/different hash examples. Nested kind/fields are validated; no actual replay or comparison is performed. |
+| Independent result/consumer axes | `TestOutcomeIndependentDataAxes`; all native/cleanup/worker-output choices with duplicate output refs and truncated streams, all conflict categories with equal hashes, writer/identity roles and signal spelling/boolean controls. Native running/unknown never becomes a terminal or consume capability. |
+| Required nullable values and arrays | `TestOutcomeArraysAndNulls`; five independent result nulls, argv/outputs0/1/128vs129, malformed first/last elements, ref closure, null versus empty argv, literal/escaped Unicode and the separate4096 decoded-byte cap. |
+| Shared errors and strict entry/refusal/privacy | `TestOutcomeErrorRoutes` checks both new error-bearing wrapper routes while reusing the unchanged complete lifecycle stage/code matrix. `TestOutcomeStrictEntryRefusals` covers every new API's encoding/decoded-duplicate/numeric/static-nil route. Conflict has no numeric field, so lexical-priority probes use an unknown member; no valid property is invented. |
+
+These are inert source cases until ordinary hosted PR CI executes them. No local
+Go/parser/schema/checker/mutation/native execution was used during authorship.
+A structural result may contain nonterminal native status, noncomplete output,
+truncated streams or independent cleanup data. Replay hashes need not agree;
+conflict hashes may be equal. None establishes evidence truth, result import,
+consumption/receipt authority, replay semantics, transition/store/supervisor work,
+a supported native tuple or a usable executor.
