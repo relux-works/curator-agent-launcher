@@ -37,8 +37,24 @@ func (s *Snapshot) SHA256() [32]byte { return s.digest }
 // UntrustedPair is all-or-nothing. Neither snapshot is a custody capability.
 type UntrustedPair struct{ request, authorization *Snapshot }
 
-func (p *UntrustedPair) Request() *Snapshot       { return p.request }
-func (p *UntrustedPair) Authorization() *Snapshot { return p.authorization }
+// Request returns a separate struct view: replacing the returned value cannot
+// overwrite the retained observation. Raw still copies its private byte slice.
+func (p *UntrustedPair) Request() *Snapshot {
+	if p.request == nil {
+		return nil
+	}
+	view := *p.request
+	return &view
+}
+
+// Authorization returns a separate struct view with the same byte-copy contract.
+func (p *UntrustedPair) Authorization() *Snapshot {
+	if p.authorization == nil {
+		return nil
+	}
+	view := *p.authorization
+	return &view
+}
 
 // ReadPair observes already-open N/A files on Darwin/Linux. Both must be distinct
 // read-only regular files, current UID, exact mode 0600, one link, within their
