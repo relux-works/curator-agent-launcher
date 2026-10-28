@@ -322,3 +322,32 @@ FDs must still be validated together before content in later integration.
 No A/request binding/expiry, semantic admission, entry wiring, supported tuple,
 full custody gate or overall executor is delivered here. Local execution remains
 held; these new tests run only in ordinary genuine hosted PR checks.
+
+
+## Untrusted owner/catalog/tuple decoder coverage (nonnormative)
+
+`internal/memberwire.DecodeOwner`, `DecodeCatalog` and `DecodeTuple` accept only
+these three closed structural roots, bounded before copying/parsing at 4 KiB,
+64 KiB and 64 KiB respectively. They reuse the existing strict parser and owned
+`UntrustedRecord` with fresh Raw copies and recursive Value copies. Exact raw
+whitespace, lengths, hashes and every required field are retained. No network,
+source resolution, UID/home observation, private verification, catalog admission,
+FD/store effect or native execution follows from a successful structural decode.
+
+| Source obligation | Ordinary hosted executable source coverage / limit |
+| --- | --- |
+| Published owner, empty catalog and synthetic tuple bytes; immutable observations | `TestCompatibilityPublishedSnapshots`; independently fixed fixture lengths/hashes and pre-mutation complete raw/value expectations; caller input, Raw, nested tuple document and existing catalog entry/owner-list elements are mutated, with fresh and earlier Value views checked independently. A synthetic nonempty catalog is memory-only test data. |
+| Per-root inclusive raw caps, exact kind and framing | `TestCompatibilityRawBoundsAndRoots`; padded valid records at each cap and one-over malformed/valid neighbors; no cross-kind acceptance or partial returned record. |
+| Every reachable closed shape and both manager/effort alternatives | `TestCompatibilityRecursiveClosureAndTypes`, `TestCompatibilityManagerAndEffortBranches`; missing/null/unknown/incompatible scalar/array/object fields, exact branches and forbidden cross-branch fields with nearby valid controls. Unavailable is not compatible absence. |
+| Grammar/range boundaries | `TestCompatibilityFieldGrammars`; UID1..4294967295, IDs/digests/names/refs, exact HTTPS ASCII repository grammar/2048 bound and 40-or-64 lowercase revisions with invalid neighbors. These are data checks, not actual source publications or host compatibility. |
+| Unicode scalar versus byte counts | `TestCompatibilityUnicodeStringBounds`; free strings at1/max versus0/max+1 for ASCII, multibyte and astral codepoints, including escaped surrogate pairs. The separate existing global4096 decoded-byte cap remains in force; no floating-model/fragment support policy is inferred. |
+| Owner coverage and array bounds, deliberate schema asymmetry | `TestCompatibilityOwnerCoverageAndCardinality`; tuple requires at least one curator/runtime/launcher, permits repeats with coverage and3..16 entries. Catalog entry owner_inputs has3..16 items but NO contains requirement: all-same known owners remain structurally valid. Catalog0..32 entries may repeat tuple refs. Admission must separately reject unapproved/duplicate/contradictory publications. |
+| Strict parser routing and static refusal privacy | `TestCompatibilityStrictEntryRefusals`; each API rejects duplicate escaped/nested names, malformed UTF-8/BOM/NUL/surrogates and forbidden number forms, with exact nil-result static parse tags and unchanged caller bytes. Existing depth16/node8192/decoded4096-byte boundary suite is reused unchanged. |
+
+All positives here establish untrusted structure only. The published native
+catalog still has zero positive entries; repeated refs and synthetic entries do
+not become authority. Cross-record binding/expiry, role policy, actual effective
+profile/home/origin/manager compatibility, store/admission, six-FD entry and
+native qualification remain separate. Local execution was held during authorship;
+new tests execute only in genuine ordinary hosted PR checks. The first supported
+native tuple remains **NONE**.
