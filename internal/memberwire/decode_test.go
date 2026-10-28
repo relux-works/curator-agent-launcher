@@ -94,6 +94,18 @@ func TestPublishedStructuralSnapshots(t *testing.T) {
 			if c.operation == "" && r.Value()["expires_at_ms"] != uint64(1) {
 				t.Fatal("expiry must be preserved, not admitted or rewritten")
 			}
+			// The immutable fixture hash establishes these independently published
+			// valid bytes. Standard JSON is used only to compare preservation of
+			// their complete values, never as the acceptance/refusal oracle.
+			var expected any
+			comparison := json.NewDecoder(bytes.NewReader(original))
+			comparison.UseNumber()
+			if err := comparison.Decode(&expected); err != nil {
+				t.Fatal(err)
+			}
+			if !bytes.Equal(encode(t, r.Value()), encode(t, expected)) {
+				t.Fatal("decoded snapshot changed a published value, field, null or array")
+			}
 			before := r.Value()
 			raw[0] = '!'
 			exported := r.Raw()
