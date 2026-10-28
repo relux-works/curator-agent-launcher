@@ -496,6 +496,11 @@ An explicit `root_context: {"exclusive":true}` supplies exactly
 exec or dry-run command. Module-level Exec and DryRun tests both require
 `--no-foreign-personal-context`. The fact is never inferred from files.
 Contradictory backend overlays and native exclusion overrides refuse.
+
+A [proposed invocation-policy contract](docs/muse-invocation-context-policy.md)
+describes an explicit native-interactive MIXED allowance. It is a source candidate;
+its proposed `--allow-foreign-personal-context` option is not implemented.
+
 Native adds no posture flag; yolo adds exactly one `--yolo` after bounded
 binary help evidence declares it. Malformed build evidence and mismatched
 binary attestations fail closed. For example:

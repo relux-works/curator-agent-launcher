@@ -2113,6 +2113,15 @@ schema `werkstatt-liveness-v1`, written atomically:
   - A launcher test changes only `root_context` and checks that the request
     digest changes.
 
+### 7.1 Proposed invocation-policy candidate
+
+The [managed Muse invocation context policy, revision 1](docs/muse-invocation-context-policy.md)
+proposes a separate native-interactive allowance while preserving the raw v4
+fact and strict default. It is unaccepted and unimplemented;
+`--allow-foreign-personal-context` is not a shipped option. The requirements
+above remain in force. Normative acceptance and compatible SAM publication
+precede any dependent launcher feature.
+
 ## 8. a2a doorbells for hosted sessions
 
 ### 8.1 Claude
