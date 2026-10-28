@@ -234,6 +234,13 @@ func TestSnapshotsAliasesAndLifetime(t *testing.T) {
 	alias.Raw()[0] = 'y'
 	checkSnapshot(t, snap, []byte("abc"))
 	checkSnapshot(t, alias, []byte("abc"))
+	*alias = Snapshot{} // Whole returned-view replacement must not touch custody.
+	fresh, err := c.Snapshot("alias")
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkSnapshot(t, fresh, []byte("abc"))
+	checkSnapshot(t, snap, []byte("abc"))
 	if !bytes.Equal(early, []byte("abc")) {
 		t.Fatal("earlier snapshot changed")
 	}

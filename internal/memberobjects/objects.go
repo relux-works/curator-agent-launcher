@@ -100,7 +100,10 @@ func (c *Collection) Snapshot(name string) (*Snapshot, *Error) {
 	}
 	for _, r := range c.refs {
 		if r.Name == name {
-			return c.snapshots[r.SHA256], nil
+			s := c.snapshots[r.SHA256]
+			// The caller can overwrite an exported Snapshot value wholesale; never
+			// expose the retained struct itself, even though its fields are private.
+			return &Snapshot{raw: s.raw, digest: s.digest}, nil
 		}
 	}
 	return nil, mismatchError()
