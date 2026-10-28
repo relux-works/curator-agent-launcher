@@ -205,3 +205,29 @@ effect alarm, including escaped descendants, lost supervision and failed sync.
 All native/recipient/provider/qualification rows remain **UNRUN**. If required
 semantics are unavailable, report exact source/platform constraint and clean
 owner alternatives rather than forcing a mock or weaker fallback to pass.
+
+
+## Bounded decoder implementation coverage (nonnormative)
+
+`internal/memberwire` implements only untrusted request/authorization syntax and
+closed structure, plus the six descriptor-number argument grammar. The earlier
+Stage1 inventory and manual transition verdicts remain source examples; this
+annotation does not turn them into an executor or native qualification corpus.
+The wire §2 counting clarification is reviewed with the decoder boundary tests;
+the frozen Stage1 baseline did not define that counting convention.
+
+| Source obligation | Executable source tests / exact limit |
+| --- | --- |
+| Six request branches, separate A, original bytes/length/SHA-256 and ownership | `TestPublishedStructuralSnapshots`, `TestAuthorizationStructure`; expired A remains structurally valid, never authenticated or current. |
+| A01 flag grammar | `TestDescriptorPermutations`, `TestDescriptorRefusals`; all720 orders, number endpoints and forbidden neighbors, no actual FD inspection. |
+| A02 complete object, raw ceilings and framing | `TestRawCeilingsAndFraming`, `TestLexicalNumbersAndFraming`; exact caps and typed nil-result refusals, no partial response or ID echo. |
+| A03 duplicate decoded keys, closure, null and branch selection | `TestDecodedNamesAndUnicode`, `TestRequestClosureAndStaticErrors`, `TestSchemaFieldBoundsAndBranches`; nested and escaped duplicates, recursive required fields, static nonreflecting tags. |
+| A04 numbers, depth16, nodes8192, decoded-string4096 bytes | `TestCountingAndDecodedByteBoundaries`, `TestLexicalNumbersAndFraming`; inclusive/over-limit controls, containers-only depth, every value once excluding keys. Synthetic lexical positives explicitly fail public request structure. |
+| Recursive bounds, enum/const, array cardinality/uniqueness and network conditions | `TestSchemaFieldBoundsAndBranches`, `TestEffectArraysAndNetworkBranches`; structurally permitted duplicate artifacts and role combinations do not prove semantic admission. |
+
+These tests run through ordinary hosted PR checks. Local Go/build/test/race and
+native/fixture-executor execution were held during authorship. A05 expiry/binding,
+A06 handle/object custody, A07–A15 admission/compatibility and all durable lifecycle,
+replay, effect and cleanup rows remain unimplemented by this package. No output
+from this decoder authorizes any such operation; the first supported tuple remains
+**NONE**.

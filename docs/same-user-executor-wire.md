@@ -80,6 +80,13 @@ fit the explicitly published POSIX observation types stay unknown/unsupported,
 not normalized into invented values. Maximum nesting is 16, maximum total value
 nodes 8192, maximum decoded string 4096 UTF-8 bytes. Schema limits may be smaller.
 
+Nesting counts object/array containers only: the required root object has depth1,
+and each child container adds one level; scalar/null children add no level.
+Total value nodes count each object, array, string, number, boolean or null once,
+including the root and empty containers, but exclude object member names. The
+16/8192 caps are inclusive; decoded member names still obey encoding, string-byte
+and duplicate-name rules.
+
 [JSON Schema Draft 2020-12](https://json-schema.org/draft/2020-12/json-schema-core)
 with its [validation vocabulary](https://json-schema.org/draft/2020-12/json-schema-validation)
 is the structural reference. Every object is closed; all listed fields are
