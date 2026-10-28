@@ -412,3 +412,33 @@ truncated streams or independent cleanup data. Replay hashes need not agree;
 conflict hashes may be equal. None establishes evidence truth, result import,
 consumption/receipt authority, replay semantics, transition/store/supervisor work,
 a supported native tuple or a usable executor.
+
+
+## Untrusted binding and operation record decoding coverage
+
+`internal/memberwire/bindings_test.go` adds source regressions for four pure
+structural APIs: assignment (64 KiB), attempt, operation intent and operation
+completion (16 KiB each). All original inert fixture bytes remain unchanged.
+Literal raw length/digest anchors precede decoding all assignment/attempt and
+operation publications, including changed assignments and conflict data.
+
+The cases cover closed required/null/type/unknown members, full artifact/ref/
+effects/deadline closure, ID/digest/name and numeric boundaries, array caps and
+invalid first/last elements. Artifact duplicates and all seven artifact roles
+are structurally valid; effects names must be unique after escape decoding.
+Both network alternatives have nearby valid controls and each of their three
+conditional properties is independently violated. Both completion dispositions
+have a valid control and the opposite conflict-null shape must refuse.
+
+Role/producer and ordinal/predecessor combinations, equal IDs and repeated
+artifact references remain untrusted data, without manifest or history policy.
+Frozen independent predecode raw/value/hash/length expectations check caller,
+returned Raw, deep maps and existing artifact/effects-name array mutations.
+Exact padded raw caps, malformed oversize priority, strict lexical/static nil
+refusals and unchanged caller bytes cover every entry; shared depth/node/string
+and request predicates retain their existing regression coverage.
+
+These are source tests for ordinary hosted PR CI, not executed schema-engine,
+mutation, native or qualification evidence. Success neither admits an assignment
+nor selects an attempt, compares records, publishes an intent, resolves an
+interlock or performs a journal/store/consumer effect. No executor is provided.
