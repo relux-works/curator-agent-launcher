@@ -268,3 +268,57 @@ local Go/build/test/race/repro/parser/checker/mutation/native/cache operations
 remain held. Source cases above remain inert lifecycle expectations. Full A06
 object custody, all other descriptors/admission/lifecycle obligations and native
 qualification remain undelivered; first supported tuple remains **NONE**.
+
+
+## Retained O object implementation coverage (nonnormative)
+
+`internal/memberobjects.Acquire` observes only an explicit already-open O handle
+and a typed untrusted reference projection on Darwin/Linux. It owns read-only
+CLOEXEC root/object handles, immutable exact bytes/length/SHA-256 and a private
+projection copy. `Snapshot` returns only an original byte observation with fresh
+`Raw` copies; `References` returns an independent copy. Digest basenames alone
+are used for descriptor-relative lookups. Same-digest/equal-length aliases count
+once. Empty refs require exactly empty O; this is not request validity or admission.
+
+| Source obligation / neighbor | Ordinary hosted source tests / precise boundary |
+| --- | --- |
+| Exact fixed bytes, aliases, independent views, caller and owned handle lifetimes | `TestSnapshotsAliasesAndLifetime`; fixed abc/empty digest oracles, caller reference/Raw mutations, retained nonzero file offsets, nonzero shared caller directory offset and flags; real CLOEXEC/EBADF checks. Caller closure leaves owned custody live; explicit repeated Close invalidates it. Prior snapshots remain only bytes. |
+| Inclusive caps and bounded declaration preflight | `TestInclusiveCapsAndEmpty`, `TestProjectionRefusalsBeforeAccess`; real 128-name alias and four distinct 4 MiB files/16 MiB positives; invalid name/digest/duplicate/conflicting-length, one-over count/length/total and uint64-max refuse before root open/content. Per-object and total caps count unique raw bytes; this layer does not enforce trusted-instruction/role policy. |
+| Actual O/root and flat-set contracts | `TestRootContractRefusals`, `TestObjectRefusals`; invalid roots, exact-mode/special-bit neighbors, missing/extra/noncanonical names, subdirectory, symlink to owned external fixture, FIFO, socket, file mode/link/size/hash negatives; no partial collection, source repair or external-target write. Nonblocking no-follow opening precedes regular-file validation. Unavailable special bits skip explicitly. |
+| Platform unreadable handles and UID predicates | `TestPlatformUnreadableHandles` opens actual O_PATH (Linux) / O_EVTONLY (Darwin) root/object handles and requires refusal before content; normal O is nearby. `TestSyntheticMetadataPredicates` labels UID/negative-size/writable-flag predicate cases synthetic, never a foreign-owner OS witness or chown. |
+| Bounded reads and all-or-nothing resource disposal | `TestReadFaultsAndAllOrNothing`, `TestOpenAndRecheckReadErrors`; deterministic actual short/growth/same-size writes and later read error must fire with exact static errors, nil collection and native EBADF for all owned descriptors. Late invalid object follows an earlier successful read. Positive partial progress excludes reject-everything. |
+| Consuming recheck, original snapshots and failure disposal | `TestConsumingRecheckAndFailureDisposal`; unchanged real reread positive, then actual bytes/rename-replacement/extra/mode/root-mode/link/missing changes refuse, close all owned custody, retain earlier bytes and never adopt or repair input. |
+| Explicit deterministic Close and ambiguous failure | `TestCloseFailureAndFDReuse`; injected error follows a real owned close, remaining handles still close, custody stays unavailable, and repeated Close cannot close an actually reused test-owned FD number. No system-wide FD scan. |
+| Unsupported source route | `TestUnsupportedNoInputAccess` is authored but unrun by the existing Darwin/Linux matrix; it refuses without accessing input, not platform qualification. |
+
+Projection count >128, length >4 MiB or unique total >16 MiB returns
+`parse/bounds_exceeded`; invalid declaration/collection/file/hash/observed change,
+closed custody or ambiguous disposal returns `admission/input_mismatch`.
+Invalid O contract/acquisition returns `bootstrap/descriptor_invalid`. All tags
+are static, bounded and nonreflecting, with no logging or stdout/stderr output.
+Enumeration uses a separate descriptor-relative open-file description and reads
+at most unique-count+one names, preserving caller offsets. Object reads use
+bounded positional byte0 reads and native metadata/hash checks; retained unique
+raw bytes stay within 16 MiB. Recheck temporarily reads at most one bounded
+object at a time in addition to originals. Every created descriptor is CLOEXEC;
+all are closed on acquisition/recheck refusal, never caller originals.
+
+Consumers must call `Recheck` immediately before each separately admitted use,
+retain the collection through it and `Close` afterwards. Recheck is not a
+continuous watch or atomic turn fence. Any recheck refusal invalidates custody;
+`Snapshot`, `References` and further rechecks then refuse. `Close` marks custody
+unavailable before attempting every close once; an ambiguous close error is
+retained on repeats and raw FD numbers are never retried. Snapshots obtained
+before disposal remain immutable observations, not handles or authority.
+
+Stable caller handles/flags and cooperative frozen directory/files, no other
+writer/mapping, remain preconditions. Native observations exclude atime, which
+reading may update; they cannot establish hostile same-UID write protection,
+every transient same-size write, coherent concurrent snapshot, future freeze
+or a wall-clock disk deadline. Opaque bytes are not archive-content, role or
+trusted-instruction validation. There is no extraction, materialization, path/
+HOME discovery, store/lock/response effect, child or native execution. All six
+FDs must still be validated together before content in later integration.
+No A/request binding/expiry, semantic admission, entry wiring, supported tuple,
+full custody gate or overall executor is delivered here. Local execution remains
+held; these new tests run only in ordinary genuine hosted PR checks.
