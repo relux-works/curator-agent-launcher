@@ -162,7 +162,7 @@ func checkCaller(t *testing.T, f *os.File, s callerState) {
 		t.Fatalf("caller handle/offset/flags/metadata changed: before=%+v after=%+v", s, now)
 	}
 }
-func refuse(t *testing.T, f fixture, tag string) {
+func refuse(t *testing.T, f fixture, tag string) int {
 	t.Helper()
 	before := saveCaller(t, f.dir)
 	s := track(t)
@@ -170,6 +170,7 @@ func refuse(t *testing.T, f fixture, tag string) {
 	expectTag(t, c, e, tag)
 	s.assertClosed(t)
 	checkCaller(t, f.dir, before)
+	return s.reads
 }
 
 // Real files prove independent fixed bytes, aliases counted once, explicit owned
@@ -449,7 +450,9 @@ func TestRootContractRefusals(t *testing.T) {
 			if info.Mode().Perm() != mode.Perm() || info.Mode()&(os.ModeSticky|os.ModeSetuid|os.ModeSetgid) != mode&(os.ModeSticky|os.ModeSetuid|os.ModeSetgid) {
 				t.Skip("fixture filesystem did not retain requested special bits")
 			}
-			refuse(t, f, "bootstrap/descriptor_invalid")
+			if reads := refuse(t, f, "bootstrap/descriptor_invalid"); reads != 0 {
+				t.Fatal("invalid root mode read content")
+			}
 		})
 	}
 	mustAcquire(t, f)
@@ -559,7 +562,14 @@ func TestObjectRefusals(t *testing.T) {
 				t.Fatal(readErr)
 			}
 			original = original[:n]
-			refuse(t, f, tag)
+			reads := refuse(t, f, tag)
+			if name == "hash" {
+				if reads == 0 {
+					t.Fatal("hash mismatch never read bytes")
+				}
+			} else if reads != 0 {
+				t.Fatal("invalid set/type/mode/link/size read object content before preflight refusal")
+			}
 			after, _ := observe(int(witness.Fd()))
 			if before != after {
 				t.Fatal("fixture metadata repaired/mutated")
