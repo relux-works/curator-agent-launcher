@@ -92,6 +92,17 @@ Same-user source trust is not an isolation boundary against an arbitrary
 malicious process already controlling that user's account. No peer message can
 change gates, register a replacement, approve a tool or grant restart authority.
 
+The a2a controller (Package E) reuses the source-owned issue107/PR111
+`detachedConsumerEnv` allowlist, not a second environment filter. Its inspected
+source candidate passes process basics, locale, proxy/CA settings and non-secret
+identity/routing selectors; config root and session binding are explicit
+controlled inputs. It must not wholesale inherit interactive/session messaging
+or registration secrets. Selectors are not authority. Any native adapter
+transport credential is separately scoped to its owning native session through
+the original source custodian, never a shared broad environment. Capability
+agreement must retain this dependency; it introduces no new public packet field
+or credential mechanism and does not claim PR111 is landed or installed.
+
 ### 2.1 Four responsibilities, one arbiter
 
 | Responsibility | Proposed composed mechanism and evidence | Forbidden substitution |
@@ -479,12 +490,14 @@ The caller freezes the expected policy revision and the controller consumes
 source-owned admission evidence. A copied label or later local heuristic cannot
 upgrade rejected history into an admitted identity-mailbox event.
 
-Proposed mute policy for source agreement: follow records explicit intent but
-preserves an active thread mute; removal requires an explicit unmute action in
-the final source-owned API. Expose effective state, not two competing follow/mute
-owners. This is a target policy, not a claim about the current `follow` command.
-A thread mute suppresses thread-only relevance, including that arising from an
-explicit covering subscription. Direct-to, existing mentions and pinned ordinary
+Consume source118's effective policy: the supported explicit follow operation
+clears the thread mute and records true intent/provenance. Expose and test that
+effect and effective state; no separate unmute API is required. Posting, replies,
+topic creation, attachments, history replay, restart/rebind and other implicit
+participation never lift a mute or infer follow. Broader explicit subscription
+scope and mute precedence remain governed by the published source-owned policy,
+not a launcher-invented alternative or second owner. An effective thread mute
+suppresses thread-only relevance under that policy. Direct-to, existing mentions and pinned ordinary
 owner delivery retain their independent existing routing/authority, with and
 without a follow; a thread mute cannot suppress them. Notification still grants
 no execution authority.
@@ -665,7 +678,7 @@ an adapter echo never mutates E. A token or both sides agreeing is insufficient.
 | C11 print/context crash | Ordinary unread=0 cannot clear incomplete opt-in intake; retain original batch/payload and replay as untrusted data, no application-result claim. | Persisted tool result plus exact batch disposition records intake while linked application work stays separate. |
 | C12 gate/retire race | Gate closure fences later admission; already admitted work remains visible. Deadline/abandon/off do not clear either ledger or transfer generation. | Both ledgers resolved plus proven owner release/death permits full retirement; a new generation requires explicit registration. |
 | C13 reboot/recovery | Old boot/PID/endpoint or parked identity cannot restart/rebind; no task-prompt replay, profile change or budget reset. | Persisted eligible exact saved session restores once through owner lifecycle with revalidated tuple/new generation after reconciliation. |
-| C14 throttle/budget | Exhaustion retains durable pending; no hook bypass, timer reset, extra turn or lost event. | After legitimate release one coalesced eligible notice uses the shared reservation, retaining oldest arrival time. |
+| C14 throttle/budget | Freeze a shared reservation at t0 and two admitted durable events at t0 and t0+15s within its 30s throttle window. Both obligations remain durable: holding/coalescing must never silently drop the second event or yield zero eventual notice. Exhaustion/stricter hourly budgets, human holds, one outstanding attempt and uncertainty fences remain; no timer reset or bypass. | Once the 30s reservation and any stricter holds legitimately release, one eventual coalesced eligible notice covers both retained obligations with their original ages. Pair with a second event just after the window (t0+30s+epsilon), otherwise clear gates/budget and a reconciled first attempt: it gets a separately eligible notice without loss. These are planned timing baselines, not executed real-time proof. |
 | C15 no mail | Empty mailbox without intake recovery obligation causes zero mail-induced model turns throughout prolonged idle. | A later durable addressed event awakens the qualified route without human Enter, through all separate receipt stages. |
 | C16 receipt/mirror | Native accepted, inbox printed, task handled and outbound mirrored cannot be substituted for each other; copied batch token cannot settle another generation. | Independently correlated exact event/intake/application/outbound evidence establishes only its corresponding leg. |
 | C17 upgrade/rollback | Unknown build or unreadable new journal pauses native dispatch; never discard uncertainty to downgrade or call restored terminal route native-ready. | Owner retains readable state and returns to an accepted exact tuple; any admitted legacy recovery is labeled legacy/degraded. |
@@ -684,7 +697,7 @@ an adapter echo never mutates E. A token or both sides agreeing is insufficient.
 | C30 soak reset | An ordinary genuine rescue/unmet need invalidates the qualifying soak; counter reset or hiding failed repairs cannot restore it. | Diagnose/fix and restart the qualifying soak; separately labeled planned controls prove recovery/counting without being disguised as ordinary traffic. |
 | C31 reply without follow | After a reply without explicit follow, a later unrelated thread-only arrival creates zero new identity-mailbox entries, obligations or wakes. | Explicit follow admits an in-scope thread arrival without duplicate delivery on repeated follow; an unrelated unfollowed thread remains excluded under the same classifier. |
 | C32 participation is not consent | Topic creation, attachment, required verdict, reference or authorship alone cannot grant future thread-only eligibility. No implicit follow side effect. | An explicit supported follow/subscription with retained scope/provenance admits only that scope; direct-to relevance remains independently valid. |
-| C33 mute and independent routes | Active thread mute suppresses thread-only relevance, including covering subscription; follow alone cannot silently unmute. Do not suppress independent direct-to, mention or pinned-owner delivery. | Explicit unmute plus retained follow permits thread delivery; direct/mention/owner controls pass with and without follow while muted thread-only delivery stays excluded. |
+| C33 mute and independent routes | Effective thread mute suppresses thread-only relevance under source policy; posting/history/restart/rebind/implicit participation cannot lift it or infer follow. Do not suppress independent direct-to, mention or pinned-owner delivery. | Supported explicit follow visibly clears mute, records intent/provenance and permits scoped thread delivery without a separate unmute API; direct/mention/owner controls pass with and without follow. Broader subscription precedence follows the published source policy. |
 | C34 history/restart/rebind | History replay, restart or generation transfer cannot reconstruct explicit consent from participation or resurrect rejected future mail. | Persisted explicit intent survives those transitions with its scope/mute/policy evidence; shared history remains explicitly retrievable. |
 | C35 visible migration and legacy tail | Implicit/unknown-origin follows cannot be relabeled explicit, and migration cannot delete/receipt/handle already-durable pending mail/intake to reach zero. | Visible inventory preserves verified explicit intent/mutes, removes implicit future eligibility, retains unknown-state gaps and drains the separate legacy tail honestly. |
 | C36 concurrent/crashed/repeated migration | Crash, repeat or concurrent follow/unfollow/mute cannot lose true intent or apply participation as consent; unfinished cutover stays visible. | Deterministic atomic/restartable checkpoint replay is idempotent and preserves explicitly ordered concurrent changes and retained pending state. |
@@ -700,6 +713,22 @@ the pre-cutover pending/intake inventory. An echoed policy label, rescue counter
 or migration-complete flag cannot supply its own expected verdict. Apply these
 plans to Claude, Codex and Muse separately; source, fixture, native and installed
 host evidence remain distinct and all execution columns are **not run** here.
+
+The controller environment control pairs a forbidden inherited interactive/
+session messaging or registration secret with valid allowlisted process/locale/
+proxy/CA essentials and explicit config-root/session inputs. The former must be
+absent from the detached controller environment; the latter must remain usable.
+A separately scoped owning-session adapter channel remains valid without broad
+secret inheritance. Freeze expected names/presence outside the filter; never
+record secret values or accept rejection of every valid transport as success.
+This is source-plan coverage, not an executed environment or credential probe.
+
+For C14, a future isolated control that silently drops the t0+15s event must
+trigger the intended retained-obligation/eventual-notice assertion, not merely
+a timeout or unrelated error. Compare both durable event references and eventual
+notice coverage against frozen expectations. The just-after-window control and
+unmodified inside-window coalescence must still pass. This supplements existing
+plans without adding an executable checker or weakening uncertainty/rate fences.
 
 Every refusal case asserts its intended reason and unchanged protected state,
 not merely any error. Future detector controls run only in separately admitted
@@ -717,7 +746,7 @@ isolated scratch copies; valid baseline and post-plant valid control must remain
 | P08 count discovery as rescue or disable instrumentation | C27/C28/C30 reject fabricated rescue/zero/soak evidence; causal controlled rescue and exercised healthy ordinary-traffic controls remain distinguishable. |
 | P09 fallback blindly resubmits uncertain attempt | C22 fails retained-uncertainty and zero second-submit/effect assertions; complete original-attempt reconciliation control passes. |
 | P10 infer follow from post/history | C31/C32/C34 fail zero new identity-entry/obligation/wake assertions for unfollowed future arrivals; explicit scoped follow and independent direct-to controls pass. |
-| P11 ignore mute or silently unmute on follow | C33 fails thread-only exclusion/effective-state assertions; explicit unmute and independent direct/mention/owner controls pass. |
+| P11 implicit mute lifting or ignored effective source policy | C33 fails thread-only exclusion/effective-state assertions for posting/history/implicit mute lifting; supported explicit follow clearing mute and independent direct/mention/owner controls pass. |
 | P12 corrupt migration ordering or legacy ledger | C35/C36/C37 fail preserved explicit intent/mute/pending-state and future-entry exclusion assertions; idempotent checkpoint replay and genuine legacy recovery controls pass. |
 | P13 treat prepared ports as accepted extracted API | C38 fails source dependency/admission evidence assertions; independent contract work and actually published accepted API controls remain distinct. |
 
