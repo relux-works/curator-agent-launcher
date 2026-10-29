@@ -183,6 +183,10 @@ process and independent observation contracts.
 
 The [reliable-inbox native composition candidate](docs/reliable-inbox-native-composition.md)
 proposes a versioned launcher/host/carrier contract and manual counterexamples.
+Revision 2 composes detection, context delivery, independent supervision and
+pre-model reconciliation through one arbiter, with shared explicit-only thread
+eligibility and measured fallback retirement. Host-specific implementation waits
+for actual session-host extraction and accepted exported API publication.
 It is docs only: current refusals and wire contracts remain unchanged, and no
 runtime or installed-host native delivery is qualified by that proposal.
 
