@@ -92,8 +92,10 @@ Same-user source trust is not an isolation boundary against an arbitrary
 malicious process already controlling that user's account. No peer message can
 change gates, register a replacement, approve a tool or grant restart authority.
 
-The a2a controller (Package E) reuses the source-owned issue107/PR111
-`detachedConsumerEnv` allowlist, not a second environment filter. Its inspected
+The a2a delivery controller reuses the source-owned
+[environment isolation dependency](https://github.com/relux-works/a2a-swarm/issues/107)
+and [PR111 `detachedConsumerEnv` allowlist](https://github.com/relux-works/a2a-swarm/pull/111),
+not a second environment filter. Its inspected
 source candidate passes process basics, locale, proxy/CA settings and non-secret
 identity/routing selectors; config root and session binding are explicit
 controlled inputs. It must not wholesale inherit interactive/session messaging
@@ -101,7 +103,14 @@ or registration secrets. Selectors are not authority. Any native adapter
 transport credential is separately scoped to its owning native session through
 the original source custodian, never a shared broad environment. Capability
 agreement must retain this dependency; it introduces no new public packet field
-or credential mechanism and does not claim PR111 is landed or installed.
+or credential mechanism. PR111 was open/unmerged at the inspected source
+checkpoint; no later publication or installed state is asserted here.
+
+Throughout this packet, ordinary pinned-owner delivery means only the
+independently enrolled active owner-DM room/binding under its source-owned policy.
+A pin, account or sender label gives no global all-room/all-thread relevance or
+execution authority. Direct-to and mention relevance remain independently scoped
+by their existing source contracts, including outside the owner-DM route.
 
 ### 2.1 Four responsibilities, one arbiter
 
@@ -110,7 +119,7 @@ or credential mechanism and does not claim PR111 is landed or installed.
 | Event detection | Native Monitor, supported event subscription/long-poll, hook opportunity or binding consumer signals a stable durable event/intake reference and source progress. | Receipt unseen mail, infer consent from participation, or treat a live PID as a healthy upstream connection. |
 | Native context delivery | Qualified native binding, channel, Monitor event or background completion supplies the fixed notice to the exact session; subsequent framed inbox intake is separate evidence. | Terminal input, approval/draft consumption, a second provider owner, or display-only output labeled context entry. |
 | Watcher supervision | An independently scheduled parent/service detects exit, lease expiry, missed health or stalled transport and requests authorized repair through the lifecycle owner. | Require a dead watcher to report or restart itself, or let the watched event stream be its only supervisor. |
-| Periodic reconciliation | A deterministic pre-model sweep compares bounded non-receipting metadata, attempts and intake journals, then upserts missing obligations. | Call ordinary inbox for the model, generate an empty report turn, or own a second dispatch queue/cursor. |
+| Periodic reconciliation | A deterministic pre-model sweep compares bounded non-receipting, non-mutating metadata, attempts and intake journals, then upserts missing obligations. | Call ordinary inbox for the model, generate an empty report turn, or own a second dispatch queue/cursor. |
 
 One mechanism may cover several rows; all four responsibilities must be covered
 for every qualified Claude/Codex/Muse tuple. Hooks, Monitor, native bind and
@@ -169,8 +178,8 @@ No secret, raw argv, mail body or arbitrary plugin error enters this packet.
 | `PolicyExpectation` | Canonical runtime (`claude_code`, `codex_cli`, `muse`); profile name, lock digest, fragment digest; effective home reference; resolved model/effort (nullable only as already admitted native defaults), permission and sandbox policy references; workspace reference. Freeze resolved values, not caller spelling alone. |
 | `CompositionRequirement` | `version=composition/1`, unique `request_id:Token`, `manager:ManagerIncarnation`, `policy:PolicyExpectation`, `identity` under the existing a2a grammar, `required_route:Token`, `required_tuple:NativeTuple`, `manifest_digest:Digest`, accepted qualification `Ref`, `launch_mode:Token`, `expected_native:Ref|null`, `previous_binding:BindingKey|null`, `restart_policy` (`eligible-saved-session` or `never`), `limits:DeliveryPolicy`, `supervision:SupervisionRequirement`, `eligibility:EligibilityRequirement`, `requirement_digest:Digest`. |
 | `DeliveryPolicy` | Shared minimum interval (at least 30s); explicit hourly limit (1–60, preserving any stricter existing limit); one outstanding logical wake; batch size at most 50; explicit owner gate reference. Existing six/hour callers are not silently raised to a recommended deployment budget. |
-| `SupervisionRequirement` | Versioned plan reference/digest; all four responsibility allocations; independent parent/scheduler owner and failure-domain evidence references; health tick, full reconciliation interval, total sweep timeout and scheduling-lateness bound; bounded non-receipting metadata capability reference; rescue-instrumentation and retirement-policy references. Missing concrete allocation is unresolved, not a default service name. |
-| `EligibilityRequirement` | Source-owned shared eligibility contract/policy revision and digest; explicit-only thread consent rule; canonical room/thread identity contract; explicit-follow provenance and scope contract; effective mute policy; migration checkpoint/revision and legacy-tail policy references. Direct/mention/pinned-owner rules retain their existing authority. No invented classifier RPC name. |
+| `SupervisionRequirement` | Versioned plan reference/digest; all four responsibility allocations; independent parent/scheduler owner and failure-domain evidence references; health tick, full reconciliation interval, total sweep timeout and scheduling-lateness bound; bounded non-receipting, non-mutating metadata capability reference; rescue-instrumentation and retirement-policy references. Missing concrete allocation is unresolved, not a default service name. |
+| `EligibilityRequirement` | Source-owned shared eligibility contract/policy revision and digest; explicit-only thread consent rule; canonical room/thread identity contract; proposed explicit-follow provenance and scope contract; effective mute policy; migration checkpoint/revision and legacy-tail policy references. Direct/mention rules retain their existing authority; ordinary pinned-owner relevance is bounded to the enrolled active owner-DM room/binding (§2). No invented classifier RPC name. |
 
 The caller freezes the full requirement before handoff and retains it outside
 the response. `required_route` names an agreed capability, not a string that
@@ -191,7 +200,7 @@ session creation; unknown build is unsupported. Later binding checks precede
 registration/submission. A launch operation ID is not a wake attempt ID.
 The supervision and eligibility requirements are included in the retained
 request/digest, not response-only labels. A source-owned capability must make
-the shared eligibility and bounded non-receipting metadata available; these
+the shared eligibility and bounded non-receipting, non-mutating metadata available; these
 publication seams are pending. No launcher-local classifier or receipting
 inbox fallback may compensate for their absence.
 
@@ -351,6 +360,18 @@ If neither conditional native admission nor equivalent host arbitration can
 preserve a concurrent draft/approval change, the row is unsupported for that
 state; observing idle before an RPC does not repair this race.
 
+This output boundary applies to every detector, Monitor, hook, native callback,
+background completion and combined stdout/stderr channel that can reach model
+context. Output must match the fixed versioned notice, any explicitly allowed
+counts and an independently correlated opaque obligation reference. Raw, escaped
+or encoded peer subject/body text is forbidden there, including text disguised
+as an opaque reference. The inspected a2a `wait`/`watch` `eventLine` includes
+subject/body excerpts: wrapping it in Monitor does not sanitize or frame intake.
+If a supported source-owned safe projection is absent, hold that composition;
+do not forward raw output or invent an endpoint. Actual peer content arrives
+only later through explicitly framed untrusted inbox/read/tool intake with its
+own exposure/disposition evidence. Empty sweeps still emit no notice/model turn.
+
 ## 6. Durable attempts, gates and recovery
 
 Before any possible native I/O, a2a persists the obligation/event references,
@@ -490,9 +511,16 @@ The caller freezes the expected policy revision and the controller consumes
 source-owned admission evidence. A copied label or later local heuristic cannot
 upgrade rejected history into an admitted identity-mailbox event.
 
-Consume source118's effective policy: the supported explicit follow operation
-clears the thread mute and records true intent/provenance. Expose and test that
-effect and effective state; no separate unmute API is required. Posting, replies,
+The source-selected policy for the
+[proposed explicit-follow successor](https://github.com/relux-works/a2a-swarm/issues/118)
+retains explicit follow clearing the thread mute and requires new durable true
+intent/provenance and visible effective policy. At the inspected shipped source,
+follow already clears mute but writes the same legacy thread list as participation;
+that list has no reliable provenance. Existing entries remain unknown-origin
+unless independent original intent is actually proved, never inferred from list
+membership or silently upgraded during migration. The successor provenance/policy
+is proposed, not published by this packet. Expose and test the selected effect;
+no separate unmute API is required. Posting, replies,
 topic creation, attachments, history replay, restart/rebind and other implicit
 participation never lift a mute or infer follow. Broader explicit subscription
 scope and mute precedence remain governed by the published source-owned policy,
@@ -504,7 +532,12 @@ no execution authority.
 
 Before each identity's cutover, a2a's migration owner records a readable inventory
 of verified explicit follows/subscriptions, participation-derived follows,
-unknown-origin state, mutes and already-durable pending mail/intake. Preserve
+unknown-origin state and mutes. Inventory each durable delivery stage separately:
+legacy pre-mailbox pending batches behind an unadvanced cursor, identity-mailbox
+entries, and intake/exposure journals with retained payloads. For each record
+retain actual event references, original ages, provenance/unknown origin,
+mute/policy/checkpoint and genuine drainability; never assume a pending batch
+already entered mailbox or intake. Preserve
 explicit provenance and mutes. Remove implicit future eligibility unless an
 authorized actor explicitly re-follows. Unknown origin is visibly unresolved,
 never silently relabeled explicit; absent verified intent, it cannot qualify a
@@ -527,6 +560,18 @@ arrivals cause zero new identity-mailbox entries, obligations and model wakes;
 they may remain in shared history for explicit retrieval. Hook/Monitor/bind/sweep
 must not resurrect rejected arrivals. Genuine prior durable obligations remain
 recoverable even if future eligibility has changed.
+
+In particular, inspected a2a legacy migration drops `LegacyPending` on first sync
+and reclassifies re-synced events. That cannot implement this cutover: an old
+participation-relevant reply must not disappear through the future-only classifier
+or an advancing cursor. Before cursor/classification transition, require an
+original-source-owned materialization/drainable labeled legacy-tail recovery for
+every such pre-mailbox event, or visibly HOLD cutover and cursor advancement
+while the exact primitive is unavailable. Retaining bytes behind a cursor without
+recoverable delivery is insufficient. Publish no completed migration until all
+three durable stages are genuinely drainable; a visible hold remains incomplete. No API or
+accepted corrected implementation is assumed here. A genuinely new post-checkpoint
+unfollowed thread-only arrival remains excluded; old recovery is not new consent.
 
 ### 8.2 Independent supervision and deterministic pre-model sweeps
 
@@ -560,9 +605,16 @@ host monitor when available. No local self-supervision guarantee fills that gap.
 Each bounded sweep performs this deterministic sequence before model activation:
 
 1. Acquire one generation-fenced sweep authority/checkpoint; serialize overlapping
-   ticks. Read supported non-receipting mailbox metadata and obligation/attempt/
+   ticks. Read supported non-receipting, non-mutating mailbox metadata and obligation/attempt/
    intake journals. Do not call ordinary inbox, pull peer bodies into instructions,
    create another transport cursor or infer mail absence from a failed read.
+   The metadata-read phase preserves shown/rung flags, cursors and receipts byte
+   for byte and cannot suppress the cooperative waiter. Inspected ordinary
+   wait/watch mark shown, so non-receipting alone does not qualify them as pure
+   metadata reads. If a supported pure read is unpublished, expose a source-owned
+   capability gap/hold. Later separately authorized arbiter upsert/action,
+   checkpoints and permitted health telemetry remain distinct from this read;
+   this does not forbid their legitimate journal writes or invent a read API.
 2. Validate recipient, generation, boot/birth/endpoint custody, active-set policy,
    gate, scheduler authority and shared eligibility evidence. Preserve paused,
    parked, retired and human-controlled state; source failure is a hold, not an
@@ -682,12 +734,12 @@ an adapter echo never mutates E. A token or both sides agreeing is insufficient.
 | C15 no mail | Empty mailbox without intake recovery obligation causes zero mail-induced model turns throughout prolonged idle. | A later durable addressed event awakens the qualified route without human Enter, through all separate receipt stages. |
 | C16 receipt/mirror | Native accepted, inbox printed, task handled and outbound mirrored cannot be substituted for each other; copied batch token cannot settle another generation. | Independently correlated exact event/intake/application/outbound evidence establishes only its corresponding leg. |
 | C17 upgrade/rollback | Unknown build or unreadable new journal pauses native dispatch; never discard uncertainty to downgrade or call restored terminal route native-ready. | Owner retains readable state and returns to an accepted exact tuple; any admitted legacy recovery is labeled legacy/degraded. |
-| C18 empty pre-model sweep | Empty supported metadata plus no incomplete intake yields zero model activations, notifications and receipts. A model-generated empty report fails even if brief. | Eligible mail under the same gate creates one stable obligation and one admitted notice; deterministic empty-check counters/logs remain allowed. |
+| C18 empty pre-model sweep | Empty supported pure metadata plus no incomplete intake yields zero model activations, notifications and receipts; shown/rung flags, cursors and receipt bytes remain identical across the read. A shown-marking wait/watch read or model-generated empty report fails. | Valid pure read leaves frozen protected bytes unchanged and does not suppress a cooperative waiter; later eligible mail still creates one stable obligation and admitted notice. Separate permitted health counters/logs are not delivery-state mutation. |
 | C19 dead or silently stalled watcher | A dead watcher or alive PID with expired progress cannot report healthy solely from PID/lease. An independent parent detects within its admitted bound and journals only owned repair. | Healthy event waiting with fresh authoritative progress remains idle without model polling; exit-triggered repair preserves generation and pending work. |
 | C20 heartbeat-live transport stall | Fresh local heartbeat with stale upstream sync/cursor evidence is stalled/unknown, not empty or healthy. No inbox receipt or invented reconnect success. | Quiet transport with fresh source-owned sync evidence passes without requiring new mail; a correlated repair restores progress separately. |
 | C21 redundant detector race | Hook, Monitor, bind reconciliation and sweep cannot reserve separate dispatches for the same durable obligation. Count coalescence; preserve oldest age and one rate reservation. | Any one detector alone upserts the same key and observes the original correlated attempt. |
 | C22 fallback after uncertain acceptance | A sweep encountering accepted-but-lost reply retains the original uncertain attempt in both ledgers; zero second submit, business effect or off-clear. | Complete same-attempt reconciliation resolves accepted, or authoritative no-submit permits a separately admitted attempt under existing rate limits. |
-| C23 print-crash sweep | Unread=0 with an incomplete intake batch is not an empty sweep; preserve exact retained payload and no handling claim. | Supported non-receipting intake metadata identifies the batch; persisted tool result/disposition completes intake without equating it to application result. |
+| C23 print-crash sweep | Unread=0 with an incomplete intake batch is not empty; preserve exact retained payload and no handling claim. Metadata read must leave shown/rung/cursor/receipt bytes unchanged, not suppress a waiter. | Supported pure non-receipting, non-mutating intake metadata identifies the batch; later admitted journal/disposition changes remain separate and do not imply application result. Missing pure-read capability visibly holds rather than using ordinary wait/watch. |
 | C24 overlap/crashed tick | Overlapping ticks or a crash after repair intent cannot duplicate repair/re-enqueue, lose substeps or renew rate budgets. Unknown action outcome remains unresolved. | One serialized sweep checkpoints action/result; restart reconciles that same action before another permitted repair. |
 | C25 held or stale sweep | Paused, parked, retired, human-controlled or wrong-generation state refuses new dispatch/repair outside its authority; no restart, steering or state erasure. | A current eligible binding with independently clear human state and owned repair permission proceeds once. |
 | C26 sleep/clock/reboot | Missed intervals do not cause a burst, age erasure, budget reset or retired-identity resurrection; wall-clock movement cannot create authority. | One bounded current-custody reconciliation after resume preserves attempts/ages and reports scheduler lateness honestly. |
@@ -697,14 +749,15 @@ an adapter echo never mutates E. A token or both sides agreeing is insufficient.
 | C30 soak reset | An ordinary genuine rescue/unmet need invalidates the qualifying soak; counter reset or hiding failed repairs cannot restore it. | Diagnose/fix and restart the qualifying soak; separately labeled planned controls prove recovery/counting without being disguised as ordinary traffic. |
 | C31 reply without follow | After a reply without explicit follow, a later unrelated thread-only arrival creates zero new identity-mailbox entries, obligations or wakes. | Explicit follow admits an in-scope thread arrival without duplicate delivery on repeated follow; an unrelated unfollowed thread remains excluded under the same classifier. |
 | C32 participation is not consent | Topic creation, attachment, required verdict, reference or authorship alone cannot grant future thread-only eligibility. No implicit follow side effect. | An explicit supported follow/subscription with retained scope/provenance admits only that scope; direct-to relevance remains independently valid. |
-| C33 mute and independent routes | Effective thread mute suppresses thread-only relevance under source policy; posting/history/restart/rebind/implicit participation cannot lift it or infer follow. Do not suppress independent direct-to, mention or pinned-owner delivery. | Supported explicit follow visibly clears mute, records intent/provenance and permits scoped thread delivery without a separate unmute API; direct/mention/owner controls pass with and without follow. Broader subscription precedence follows the published source policy. |
+| C33 mute and independent routes | Effective mute suppresses thread-only relevance; implicit participation/history/restart/rebind never lift it. An ordinary owner-sent message outside the enrolled active owner-DM room/binding, muted/unfollowed and without direct-to/mention, yields zero new entries/obligations/wakes; pin alone cannot bypass scope. | The SAME ordinary message inside the independently enrolled owner-DM route remains valid with/without follow/mute; genuine direct-to/mention remain independently valid in both locations. Explicit follow clears mute; durable provenance/effective-policy recording is a proposed successor obligation, not existing thread-list evidence. Broader subscription precedence stays source-owned. |
 | C34 history/restart/rebind | History replay, restart or generation transfer cannot reconstruct explicit consent from participation or resurrect rejected future mail. | Persisted explicit intent survives those transitions with its scope/mute/policy evidence; shared history remains explicitly retrievable. |
-| C35 visible migration and legacy tail | Implicit/unknown-origin follows cannot be relabeled explicit, and migration cannot delete/receipt/handle already-durable pending mail/intake to reach zero. | Visible inventory preserves verified explicit intent/mutes, removes implicit future eligibility, retains unknown-state gaps and drains the separate legacy tail honestly. |
+| C35 visible migration and legacy tail | Never relabel implicit/unknown follows explicit or delete/receipt/handle any durable stage. A pre-cutover legacy participation-thread reply behind an unadvanced cursor cannot be dropped/reclassified away as the cursor advances. | Inventory actual event references/ages/provenance/mutes/policy/checkpoint separately for legacy pre-mailbox batches, mailbox entries and intake/exposure journals. The SAME old reply is genuinely drainable as labeled legacy recovery through a source-owned primitive, or cutover/cursor visibly holds; retained bytes alone do not pass. New post-checkpoint unfollowed thread-only reply yields zero new entries/obligations/wakes. |
 | C36 concurrent/crashed/repeated migration | Crash, repeat or concurrent follow/unfollow/mute cannot lose true intent or apply participation as consent; unfinished cutover stays visible. | Deterministic atomic/restartable checkpoint replay is idempotent and preserves explicitly ordered concurrent changes and retained pending state. |
-| C37 shared pre-entry decision | Hook, Monitor, bind and sweep cannot create new identity entries/obligations/wakes for the same rejected future thread-only arrival or override source-owned eligibility. | All paths consume the same accepted explicit policy decision; genuine pre-cutover durable intake remains recoverable as a labeled legacy obligation. |
+| C37 shared pre-entry decision | Hook/Monitor/bind/sweep cannot resurrect a rejected NEW post-checkpoint unfollowed thread-only arrival: zero entries/obligations/wakes. Nor may applying that classifier erase an old pre-mailbox legacy reply during first-sync/cursor movement. | All paths consume the same source-owned policy. Separately inventoried pre-cutover legacy pending/mailbox/intake events retain original obligations/ages and genuine labeled drainability, or migration visibly holds until its source primitive exists; concurrent explicit intent and all durable stages stay preserved. |
 | C38 extraction-first boundary | Prepared in-tree lifecycle ports or a source proposal cannot authorize host-specific implementation or claim a shipped exported API before actual extraction. | Independent contracts/non-host-dependent adapters may progress; host-specific implementation becomes eligible only after actual extraction and accepted versioned API publication plus its separate implementation grant. |
+| C39 detector excerpt boundary | Freeze distinct instruction-like peer subject/body markers outside the adapter. Every detector/Monitor/hook/notice/callback/background/combined-output channel reaching context must match fixed versioned notice/allowed counts and independently correlated opaque reference; raw/escaped/encoded markers or fake references carrying peer text fail. No empty-sweep output/turn. | Unmodified fixed notice excludes peer text while preserving durable mail and one arbiter; SAME body arrives only later through explicitly framed inbox/read/tool intake with separate stage evidence. Unsupported safe projection holds visibly rather than forwarding wait/eventLine. |
 
-Extend frozen E for C18–C38 with independently supplied owner/parent/scheduler
+Extend frozen E for C18–C39 with independently supplied owner/parent/scheduler
 identities and failure domains, timing bounds, sync freshness, stable obligation
 and sweep substeps, ordinary-versus-controlled samples and durable counter
 history. For eligibility, freeze canonical room/thread, explicit intent/scope/
@@ -746,9 +799,20 @@ isolated scratch copies; valid baseline and post-plant valid control must remain
 | P08 count discovery as rescue or disable instrumentation | C27/C28/C30 reject fabricated rescue/zero/soak evidence; causal controlled rescue and exercised healthy ordinary-traffic controls remain distinguishable. |
 | P09 fallback blindly resubmits uncertain attempt | C22 fails retained-uncertainty and zero second-submit/effect assertions; complete original-attempt reconciliation control passes. |
 | P10 infer follow from post/history | C31/C32/C34 fail zero new identity-entry/obligation/wake assertions for unfollowed future arrivals; explicit scoped follow and independent direct-to controls pass. |
-| P11 implicit mute lifting or ignored effective source policy | C33 fails thread-only exclusion/effective-state assertions for posting/history/implicit mute lifting; supported explicit follow clearing mute and independent direct/mention/owner controls pass. |
-| P12 corrupt migration ordering or legacy ledger | C35/C36/C37 fail preserved explicit intent/mute/pending-state and future-entry exclusion assertions; idempotent checkpoint replay and genuine legacy recovery controls pass. |
+| P11 implicit mute lifting or pin-alone global relevance | C33 fails effective-mute/route-scope assertions for implicit lifting or an ordinary owner message in a muted/unfollowed foreign route without direct-to/mention. SAME message in enrolled owner-DM, explicit-follow-clears-mute and direct/mention controls in both locations must still pass; reject-everything is not detection. |
+| P12 corrupt migration or reclassify old pre-mailbox reply away | C35/C36/C37 fail retained-event/age/drainability-or-visible-hold assertions if LegacyPending is dropped behind an advancing cursor, even when bytes remain. Preserve concurrent explicit intent/mutes and each durable stage. Valid labeled legacy recovery/held cutover and zero-entry genuinely NEW post-checkpoint reply controls must pass. |
 | P13 treat prepared ports as accepted extracted API | C38 fails source dependency/admission evidence assertions; independent contract work and actually published accepted API controls remain distinct. |
+| P14 Monitor forwards raw wait/eventLine | C39 fails the exact output-boundary assertion for instruction-like subject/body markers, including escaped/encoded/combined-output leakage or fake opaque references. Fixed notice with independently correlated reference and later framed intake must still pass. |
+| P15 stale idle admits draft/approval | C01/C03 fail zero forbidden-submit and frozen original draft/approval-byte assertions when a stale idle observation admits despite human state. Clean current idle and held-state unchanged controls must pass; compare against pre-adapter expectations, not post-state echoes. |
+| P16 two detectors reserve two attempts | C09/C21 fail independently frozen single logical reservation/attempt count for one obligation. Either detector alone and legitimate coalescence must pass with retained event/age and one reservation. |
+| P17 tick overlap/crash/burst or renewed budget | C24/C26 fail same-action serialized/reconciled substeps, unchanged frozen rate reservation/budget and one bounded resume-check assertions. Overlap/crash cannot duplicate action; missed ticks cannot burst or renew budget. Healthy serialized tick, same-action recovery and bounded sleep/reboot reconciliation controls must pass. |
+
+For these instrument plans, freeze original human bytes, event identities,
+reservation/attempt counts, action/substep history, resume-check count and budget
+outside the adapter and harness echoes. A skipped/unapplied plant, setup error,
+crash, timeout or reject-everything path is not successful intended detection.
+Every plant requires its own specific invariant failure and passing nearby valid
+controls. All remain unexecuted source plans.
 
 No plant, parser, fixture, native session or checker is executed by this docs
 unit. Unknown native inputs stay explicit gaps rather than invented tuples.
@@ -810,7 +874,7 @@ publication and refusal mapping; native identity/endpoint bounds and local
 authentication; host safe admission and complete attempt reconciliation for each
 tuple; lifecycle cursor retention; exact a2a capability/adapter and intake payload
 retention migration; shared eligibility/provenance/mute and atomic consent
-migration publication; bounded non-receipting metadata and fairness/isolation
+migration publication; bounded non-receipting, non-mutating metadata and fairness/isolation
 primitives; actual extracted API and per-deployment independent supervisor/
 scheduler/failure-domain allocation; and host-owned serial qualification/adoption. Vendor API
 availability, a method name or a document cannot resolve any of those gates.
