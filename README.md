@@ -181,6 +181,11 @@ process and independent observation contracts.
 
 ## Hosted doorbells
 
+The [reliable-inbox native composition candidate](docs/reliable-inbox-native-composition.md)
+proposes a versioned launcher/host/carrier contract and manual counterexamples.
+It is docs only: current refusals and wire contracts remain unchanged, and no
+runtime or installed-host native delivery is qualified by that proposal.
+
 ```sh
 curator-run claude_code --hosted --a2a example.dev
 curator-run codex_cli --hosted --detach --a2a example.dev
