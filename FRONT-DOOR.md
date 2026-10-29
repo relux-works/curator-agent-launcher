@@ -71,6 +71,15 @@ independent no-start, descendant termination and ownership reconciliation. The
 closed observation v1 of §4.3 is unchanged. Review acceptance of this amendment
 precedes consumer code and the schema-first publication described in §5.7.
 
+**Proposed reliable-inbox amendment (source review only):**
+[Native launcher/carrier composition](docs/reliable-inbox-native-composition.md)
+specifies candidate capability/request/result/health records, single-session
+custody and manual counterexamples. Its explicit amendment map covers
+§§5.2–5.4, 6.4, 8 and 14, including independently supervised Claude idle input
+and a capability-gated future Muse route. It does not change current closed
+schemas, refusal behavior or native qualification; source-owner agreement and
+separate implementation/qualification remain required.
+
 ## 0. Sources and decisions applied
 
 | Source | What it fixes here |
