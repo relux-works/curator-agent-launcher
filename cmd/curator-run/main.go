@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/relux-works/skill-agents-management/pkg/agentic"
@@ -62,7 +63,7 @@ func main() {
 		workdir:         os.Getwd,
 		environ:         os.Environ,
 		availability:    processAvailability,
-		loadRegistry:    loadLaunchRegistry,
+		lazyRegistry:    newLazyRegistry(loadLaunchRegistry),
 	}
 	os.Exit(run(context.Background(), os.Args[1:], os.Stdout, os.Stderr, deps))
 }
@@ -79,16 +80,40 @@ func loadLaunchRegistry() (*vendorplugin.Registry, error) {
 	return defaults.NewRegistryWithCatalog(catalog)
 }
 
-// ensureRegistry resolves the launch registry once. An injected registry
-// (tests) is used as is; otherwise loadRegistry builds it.
+// lazyRegistry builds the launch registry at most once per process. Every
+// copy of launchDeps shares one, so its first result, a refusal included, is
+// the only result: a later call never rereads the catalog.
+type lazyRegistry struct {
+	once     sync.Once
+	load     func() (*vendorplugin.Registry, error)
+	registry *vendorplugin.Registry
+	err      error
+}
+
+func newLazyRegistry(load func() (*vendorplugin.Registry, error)) *lazyRegistry {
+	return &lazyRegistry{load: load}
+}
+
+func (l *lazyRegistry) get() (*vendorplugin.Registry, error) {
+	l.once.Do(func() {
+		l.registry, l.err = l.load()
+		if l.err == nil && l.registry == nil {
+			l.err = errors.New("the registry loader returned no registry")
+		}
+	})
+	return l.registry, l.err
+}
+
+// ensureRegistry resolves the launch registry. An injected registry (tests)
+// is used as is; otherwise the shared lazyRegistry builds it once.
 func (d *launchDeps) ensureRegistry() error {
 	if d.registry != nil {
 		return nil
 	}
-	if d.loadRegistry == nil {
+	if d.lazyRegistry == nil {
 		return errors.New("no spawn-plane registry is configured")
 	}
-	registry, err := d.loadRegistry()
+	registry, err := d.lazyRegistry.get()
 	if err != nil {
 		return err
 	}
@@ -183,8 +208,8 @@ type launchDeps struct {
 	resolver    fragmentResolver
 	defaults    defaults.Paths
 	registry    *vendorplugin.Registry
-	// loadRegistry builds registry lazily on launch paths (ensureRegistry).
-	loadRegistry func() (*vendorplugin.Registry, error)
+	// lazyRegistry builds registry once, on launch paths (ensureRegistry).
+	lazyRegistry *lazyRegistry
 	// systems is the agentic system registry for hosted resume elevation.
 	// Nil selects agentic.Default, populated by the plan package's plugin
 	// imports; tests inject an explicit registry.

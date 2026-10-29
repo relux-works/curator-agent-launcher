@@ -21,7 +21,9 @@
   refuses every launch with `plan_refused`, never falling back to the module's
   rows alone. The catalog is read only on launch paths, after help, version,
   flag grammar and `session-manager` administration, so a broken file never
-  takes those away. Selector candidates and Werkstatt admission use the same
+  takes those away; Werkstatt recycle checks it before it stops the running
+  session, and the first load result, a refusal included, holds for the whole
+  process. Selector candidates and Werkstatt admission use the same
   effective rows: catalog effort words on module models are offered, and a
   catalog model is offered only when `--model` names it. The session-manager README now states that model and effort are
   admitted once, by the launcher, and forwarded by the manager as opaque strings.

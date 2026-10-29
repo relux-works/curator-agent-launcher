@@ -49,6 +49,14 @@ func runWerkstatt(ctx context.Context, c werkstatt.Command, stdout, stderr io.Wr
 			return emitFailure(stderr, diagnostics.CodeDefaultsInvalid, err)
 		}
 	}
+	// Recycle stops the running session before it prepares the replacement, so
+	// a catalog the module refuses must refuse before that stop. Up checks in
+	// preparation, before any start; down, status and recovery never need it.
+	if c.Action == "recycle" {
+		if err := deps.ensureRegistry(); err != nil {
+			return emitFailure(stderr, diagnostics.CodePlanRefused, fmt.Errorf("cannot build the spawn-plane registry: %w", err))
+		}
+	}
 	env := os.Environ()
 	if deps.environ != nil {
 		env = deps.environ()
