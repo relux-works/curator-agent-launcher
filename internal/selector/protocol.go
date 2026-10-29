@@ -40,7 +40,19 @@ type Request struct {
 // Admission is the same registry/lineup used by defaults.Complete; no board or
 // alternative catalog is consulted. Call Encode after filling dispatch fields.
 func BuildRequest(env, profile, cwd string, flags Flags, reg *vendorplugin.Registry) (Request, error) {
-	candidates, err := defaults.SelectionCandidates(env, reg)
+	explicitModel := ""
+	if flags.Model != nil {
+		explicitModel = *flags.Model
+	}
+	return BuildRequestFor(env, profile, cwd, flags, explicitModel, reg)
+}
+
+// BuildRequestFor is BuildRequest with the explicitly chosen model given
+// separately from the flags sent to the selector, for callers (Werkstatt)
+// whose chosen model comes from a record rather than a flag. An
+// operator-catalog row joins the candidates only when it is that model.
+func BuildRequestFor(env, profile, cwd string, flags Flags, explicitModel string, reg *vendorplugin.Registry) (Request, error) {
+	candidates, err := defaults.SelectionCandidatesFor(env, reg, explicitModel)
 	if err != nil {
 		return Request{}, err
 	}

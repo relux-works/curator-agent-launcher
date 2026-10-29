@@ -56,25 +56,44 @@ func main() {
 		}
 		os.Exit(selector.RunWorker(input))
 	}
-	catalog, err := loadModelCatalog()
-	if err != nil {
-		_ = diagnostics.Emit(os.Stderr, diagnostics.CodePlanRefused, fmt.Sprintf("cannot read the model catalog: %v", err))
-		os.Exit(diagnostics.ExitForCode(diagnostics.CodePlanRefused))
-	}
-	registry, err := defaults.NewRegistryWithCatalog(catalog)
-	if err != nil {
-		_ = diagnostics.Emit(os.Stderr, diagnostics.CodePlanRefused, fmt.Sprintf("cannot build the spawn-plane registry: %v", err))
-		os.Exit(diagnostics.ExitForCode(diagnostics.CodePlanRefused))
-	}
 	deps := launchDeps{
 		resolver:        fragment.New(),
 		configLocations: processConfigLocations,
 		workdir:         os.Getwd,
 		environ:         os.Environ,
 		availability:    processAvailability,
-		registry:        registry,
+		loadRegistry:    loadLaunchRegistry,
 	}
 	os.Exit(run(context.Background(), os.Args[1:], os.Stdout, os.Stderr, deps))
+}
+
+// loadLaunchRegistry builds the spawn-plane registry with the operator model
+// catalog merged in. It runs only on paths that need model admission, after
+// static information and flag grammar, so a broken catalog never takes away
+// help, version, usage errors or session-manager administration.
+func loadLaunchRegistry() (*vendorplugin.Registry, error) {
+	catalog, err := loadModelCatalog()
+	if err != nil {
+		return nil, fmt.Errorf("cannot read the model catalog: %w", err)
+	}
+	return defaults.NewRegistryWithCatalog(catalog)
+}
+
+// ensureRegistry resolves the launch registry once. An injected registry
+// (tests) is used as is; otherwise loadRegistry builds it.
+func (d *launchDeps) ensureRegistry() error {
+	if d.registry != nil {
+		return nil
+	}
+	if d.loadRegistry == nil {
+		return errors.New("no spawn-plane registry is configured")
+	}
+	registry, err := d.loadRegistry()
+	if err != nil {
+		return err
+	}
+	d.registry = registry
+	return nil
 }
 
 // loadModelCatalog reads the operator model catalog from ~/.curator. A
@@ -164,6 +183,8 @@ type launchDeps struct {
 	resolver    fragmentResolver
 	defaults    defaults.Paths
 	registry    *vendorplugin.Registry
+	// loadRegistry builds registry lazily on launch paths (ensureRegistry).
+	loadRegistry func() (*vendorplugin.Registry, error)
 	// systems is the agentic system registry for hosted resume elevation.
 	// Nil selects agentic.Default, populated by the plan package's plugin
 	// imports; tests inject an explicit registry.
@@ -286,6 +307,11 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, deps laun
 		_ = diagnostics.Emit(stderr, diagnostics.CodeUsage, detail)
 		fmt.Fprintf(stderr, "\n%s", cli.Usage)
 		return diagnostics.ExitUsage
+	}
+	// Every path below is a launch: model admission needs the registry, and a
+	// catalog the module refuses fails the launch closed.
+	if err := deps.ensureRegistry(); err != nil {
+		return emitFailure(stderr, diagnostics.CodePlanRefused, fmt.Errorf("cannot build the spawn-plane registry: %w", err))
 	}
 	if path, err := configfile.RemovedAX(configResolver.Locations); err != nil || path != "" {
 		if path != "" {

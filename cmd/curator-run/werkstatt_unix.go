@@ -216,12 +216,19 @@ func prepareWerkstatt(ctx context.Context, r *werkstatt.Record, c werkstatt.Comm
 	if _, err = files.Resolve(r.Runtime, flags); err != nil {
 		return werkstatt.Prepared{}, err
 	}
+	if err := deps.ensureRegistry(); err != nil {
+		return werkstatt.Prepared{}, fmt.Errorf("cannot build the spawn-plane registry: %w", err)
+	}
 	resolved, err := files.Complete(r.Runtime, flags, deps.registry)
 	if err != nil {
 		return werkstatt.Prepared{}, err
 	}
 	if deps.selectorConfig.Mode != "" {
-		request, e := selector.BuildRequest(r.Runtime, r.Profile, r.Clone, selector.Flags{}, deps.registry)
+		explicitModel := ""
+		if r.Model != nil {
+			explicitModel = *r.Model
+		}
+		request, e := selector.BuildRequestFor(r.Runtime, r.Profile, r.Clone, selector.Flags{}, explicitModel, deps.registry)
 		if e != nil {
 			return werkstatt.Prepared{}, e
 		}

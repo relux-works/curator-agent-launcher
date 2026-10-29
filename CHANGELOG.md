@@ -19,7 +19,11 @@
   refuses `defaults_unresolvable` instead of choosing one. A missing catalog
   changes nothing; an unreadable, malformed, conflicting or unsupported one
   refuses every launch with `plan_refused`, never falling back to the module's
-  rows alone. The session-manager README now states that model and effort are
+  rows alone. The catalog is read only on launch paths, after help, version,
+  flag grammar and `session-manager` administration, so a broken file never
+  takes those away. Selector candidates and Werkstatt admission use the same
+  effective rows: catalog effort words on module models are offered, and a
+  catalog model is offered only when `--model` names it. The session-manager README now states that model and effort are
   admitted once, by the launcher, and forwarded by the manager as opaque strings.
 
 - Specify a proposed same-user executor entry, descriptor custody, closed

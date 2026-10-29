@@ -34,6 +34,16 @@ func AdmissionSource() string {
 	return "agents-management v0.5.74 lineup"
 }
 func SelectionCandidates(env string, reg *vendorplugin.Registry) ([]SelectionCandidate, error) {
+	return SelectionCandidatesFor(env, reg, "")
+}
+
+// SelectionCandidatesFor is SelectionCandidates for a launch whose explicit
+// model flag names explicitModel. Ranked rows offer their effective effort
+// vocabulary (module words plus operator-catalog additions). An
+// operator-declared catalog row is never ranked, so it joins the candidates
+// only when the explicit flag names it: an unconfigured selector can never
+// auto-select a catalog row, and an explicitly chosen one stays admissible.
+func SelectionCandidatesFor(env string, reg *vendorplugin.Registry, explicitModel string) ([]SelectionCandidate, error) {
 	target, err := mapping.Resolve(env)
 	if err != nil {
 		return nil, err
@@ -62,9 +72,18 @@ func SelectionCandidates(env string, reg *vendorplugin.Registry) ([]SelectionCan
 		if err != nil {
 			return nil, &Error{CodeUnresolvable, err}
 		}
+		rows := []vendorplugin.Model{}
 		for _, ranked := range vendorplugin.Lineup(models) {
-			row := ranked.Model
-			efforts := row.Effort.Vocabulary
+			rows = append(rows, ranked.Model)
+		}
+		for _, model := range models {
+			if model.OperatorDeclared && explicitModel != "" && string(model.ID) == explicitModel {
+				rows = append(rows, model)
+			}
+		}
+		for _, row := range rows {
+			vocabulary := append(append([]string(nil), row.Effort.Vocabulary...), row.Effort.OperatorAccepts...)
+			efforts := vocabulary
 			if row.Effort.Support == agentic.EffortSupportNone {
 				efforts = []string{""}
 			}
@@ -72,7 +91,7 @@ func SelectionCandidates(env string, reg *vendorplugin.Registry) ([]SelectionCan
 				// Reuse BuildLaunch's pure capability gate; do not infer native effort
 				// support from the vendor vocabulary (Pi admits only a subset).
 				if admitter, ok := system.(agentic.EffortAdmitter); ok {
-					if _, err := admitter.AdmitEffort(vendor, row.Launchable().LaunchIdentity(), effort, row.Effort.Vocabulary); err != nil {
+					if _, err := admitter.AdmitEffort(vendor, row.Launchable().LaunchIdentity(), effort, vocabulary); err != nil {
 						continue
 					}
 				}
