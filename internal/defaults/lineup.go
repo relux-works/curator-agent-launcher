@@ -41,6 +41,7 @@ import (
 	geminiSystem "github.com/relux-works/skill-agents-management/pkg/agentic/systems/gemini"
 	museSystem "github.com/relux-works/skill-agents-management/pkg/agentic/systems/muse"
 	pinativeSystem "github.com/relux-works/skill-agents-management/pkg/agentic/systems/pinative"
+	"github.com/relux-works/skill-agents-management/pkg/runtimecatalog"
 	"github.com/relux-works/skill-agents-management/pkg/vendorplugin"
 	"github.com/relux-works/skill-agents-management/pkg/vendorplugin/vendors/anthropic"
 	"github.com/relux-works/skill-agents-management/pkg/vendorplugin/vendors/google"
@@ -88,6 +89,16 @@ type Resolved struct {
 // its rows mention; the launcher maps nothing to them and launches
 // nothing through them.
 func NewRegistry() (*vendorplugin.Registry, error) {
+	return NewRegistryWithCatalog(runtimecatalog.ModelCatalog{})
+}
+
+// NewRegistryWithCatalog builds the same registry with the operator's model
+// catalog (~/.curator/catalog.toml, model-catalog/1) merged into the vendor
+// plugins. The catalog only adds rows and effort words; admission, ranking of
+// module rows and every refusal stay the module's. A catalog the module
+// refuses (typed runtimecatalog.Refusal) fails the registry, so no launch runs
+// on a partially applied catalog.
+func NewRegistryWithCatalog(catalog runtimecatalog.ModelCatalog) (*vendorplugin.Registry, error) {
 	systems := agentic.NewRegistry()
 	if err := systems.Register(claudeSystem.New()); err != nil {
 		return nil, fmt.Errorf("register claude-code system: %w", err)
@@ -111,14 +122,14 @@ func NewRegistry() (*vendorplugin.Registry, error) {
 	if err := vendorplugin.SeedFrozenRuntimes(registry); err != nil {
 		return nil, fmt.Errorf("seed frozen runtimes: %w", err)
 	}
-	if err := registry.Register(anthropic.New()); err != nil {
-		return nil, fmt.Errorf("register anthropic vendor: %w", err)
+	vendors, err := catalog.ApplyAll([]vendorplugin.Vendor{anthropic.New(), openai.New(), google.New()})
+	if err != nil {
+		return nil, fmt.Errorf("model catalog: %w", err)
 	}
-	if err := registry.Register(openai.New()); err != nil {
-		return nil, fmt.Errorf("register openai vendor: %w", err)
-	}
-	if err := registry.Register(google.New()); err != nil {
-		return nil, fmt.Errorf("register google vendor: %w", err)
+	for _, vendor := range vendors {
+		if err := registry.Register(vendor); err != nil {
+			return nil, fmt.Errorf("register %s vendor: %w", vendor.ID(), err)
+		}
 	}
 	return registry, nil
 }
@@ -198,10 +209,14 @@ func complete(environment string, target mapping.Target, partial Partial, reg *v
 	for _, cand := range cands {
 		models = append(models, cand.model)
 	}
-	// Candidates are non-empty here, so the lineup is non-empty too:
-	// the only empty gate is the candidate check above, and it stays
-	// in exactly that one place.
-	top := vendorplugin.Lineup(models)[0].Model
+	// Operator-declared catalog rows are never ranked, so a system whose
+	// candidates are all catalog rows has no lineup model: refuse rather
+	// than pick one the operator did not name.
+	lineup := vendorplugin.Lineup(models)
+	if len(lineup) == 0 {
+		return Resolved{}, &Error{CodeUnresolvable, fmt.Errorf("the lineup ranks no model for environment %q (system %q); name a catalog model explicitly", environment, target.System)}
+	}
+	top := lineup[0].Model
 	matches := contributorsFor(cands, string(top.ID))
 	if len(matches) != 1 {
 		return Resolved{}, &Error{CodeUnresolvable, fmt.Errorf("the lineup top model %q for environment %q is driven by several runtimes; the launcher binds none", string(top.ID), environment)}

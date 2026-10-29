@@ -13,6 +13,7 @@ import (
 	"github.com/relux-works/skill-agents-management/pkg/agentic"
 	museSystem "github.com/relux-works/skill-agents-management/pkg/agentic/systems/muse"
 	"github.com/relux-works/skill-agents-management/pkg/providerlimits"
+	"github.com/relux-works/skill-agents-management/pkg/runtimecatalog"
 	"github.com/relux-works/skill-agents-management/pkg/vendorplugin"
 
 	"github.com/relux-works/curator-agent-launcher/internal/cli"
@@ -55,7 +56,12 @@ func main() {
 		}
 		os.Exit(selector.RunWorker(input))
 	}
-	registry, err := defaults.NewRegistry()
+	catalog, err := loadModelCatalog()
+	if err != nil {
+		_ = diagnostics.Emit(os.Stderr, diagnostics.CodePlanRefused, fmt.Sprintf("cannot read the model catalog: %v", err))
+		os.Exit(diagnostics.ExitForCode(diagnostics.CodePlanRefused))
+	}
+	registry, err := defaults.NewRegistryWithCatalog(catalog)
 	if err != nil {
 		_ = diagnostics.Emit(os.Stderr, diagnostics.CodePlanRefused, fmt.Sprintf("cannot build the spawn-plane registry: %v", err))
 		os.Exit(diagnostics.ExitForCode(diagnostics.CodePlanRefused))
@@ -69,6 +75,18 @@ func main() {
 		registry:        registry,
 	}
 	os.Exit(run(context.Background(), os.Args[1:], os.Stdout, os.Stderr, deps))
+}
+
+// loadModelCatalog reads the operator model catalog from ~/.curator. A
+// missing file is the empty catalog; an unreadable, malformed, conflicting or
+// unsupported one refuses every launch rather than falling back to the
+// module's rows alone, so a typo in the catalog is never silently ignored.
+func loadModelCatalog() (runtimecatalog.ModelCatalog, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return runtimecatalog.ModelCatalog{}, fmt.Errorf("resolve the home directory: %w", err)
+	}
+	return runtimecatalog.LoadModelCatalog(filepath.Join(home, ".curator"))
 }
 
 // fragmentResolver is the context-plane boundary; main uses fragment.New.

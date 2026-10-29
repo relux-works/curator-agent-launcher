@@ -24,9 +24,12 @@ module**. The tail must remain unchanged and selector-free under that module's
 typed-intent elevation. The launcher applies this in
 `internal/sessionmanager/client.ValidateRequest` and returns the same
 `launch_plan_invalid` refusal for selectors; `Validate` alone grants no launch
-authority. The manager still admits model, effort,
-service tier, weights and credentials; structural validation grants no such
-authority. The independent exact-plan transport retains SPEC §4.9's 1 MiB,
+authority. Model and effort are
+admitted once, by the launcher, against the module registry and the operator
+model catalog (`~/.curator/catalog.toml`); the manager forwards them as opaque
+strings and checks framing only, keeping no model or vendor list of its own.
+The manager still admits service tier, weights and credentials; structural
+validation grants no such authority. The independent exact-plan transport retains SPEC §4.9's 1 MiB,
 depth-16 bounds.
 
 Nullable members remain required. A missing member and an explicit `null`

@@ -11,6 +11,17 @@
 
 ### Added
 
+- Read the operator model catalog `~/.curator/catalog.toml` (SAM
+  `model-catalog/1`) before building the spawn-plane registry, so a new model or
+  reasoning word is a configuration edit with no launcher or module release.
+  Catalog rows are admitted when named by flag or `defaults.json`, and never
+  picked by the lineup fallback; a system whose candidates are all catalog rows
+  refuses `defaults_unresolvable` instead of choosing one. A missing catalog
+  changes nothing; an unreadable, malformed, conflicting or unsupported one
+  refuses every launch with `plan_refused`, never falling back to the module's
+  rows alone. The session-manager README now states that model and effort are
+  admitted once, by the launcher, and forwarded by the manager as opaque strings.
+
 - Specify a proposed same-user executor entry, descriptor custody, closed
   records, immutable assignment/atomic attempt admission, failed-conflict interlock,
   cancel/start ordering, allocation recovery and original stop deadlines with
