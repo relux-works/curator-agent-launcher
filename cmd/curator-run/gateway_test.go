@@ -25,6 +25,9 @@ type e2eGateway struct {
 	socket string
 	mu     sync.Mutex
 	paths  []string
+	// persistFailures makes that many unregister calls answer 503
+	// persist_failed before the usual 204.
+	persistFailures int
 }
 
 func newE2EGateway(t *testing.T) *e2eGateway {
@@ -52,6 +55,17 @@ func newE2EGateway(t *testing.T) *e2eGateway {
 		case "/v1/activate", "/v1/renew":
 			io.WriteString(w, `{"api":"netproxy-control/1","active":true}`)
 		case "/v1/unregister":
+			g.mu.Lock()
+			fail := g.persistFailures != 0
+			if g.persistFailures > 0 {
+				g.persistFailures--
+			}
+			g.mu.Unlock()
+			if fail {
+				w.WriteHeader(503)
+				io.WriteString(w, `{"api":"netproxy-control/1","error":"persist_failed"}`)
+				return
+			}
 			w.WriteHeader(204)
 		}
 	})}
@@ -277,4 +291,100 @@ func TestGatewayInteractiveClaudeThroughRun(t *testing.T) {
 			}
 		})
 	}
+}
+
+// With the operator's default a filtering gateway and no --network, every
+// hosted route refuses network_scope_unsupported before any session
+// manager call and without a native start: explicit hosted, a hosted
+// resume, and the auto route with a selected manager. A catalog that
+// exists but cannot be read refuses every route alike. Real built binary;
+// the hosted front-door tests without a gateway default are the controls.
+func TestGatewayDefaultRefusesHostedRoutes(t *testing.T) {
+	bin := frontBuild(t)
+	gateway := "schema = \"relux-network-profiles-v1\"\ndefault = \"gw\"\n[networks.gw]\nkind = \"filtering-gateway\"\ncontrol = \"/tmp/absent-gw.sock\"\nsensitive_egress = true\n"
+	for _, tc := range []struct {
+		name, doc, diag string
+		args            []string
+		code            int
+	}{
+		{"hosted", gateway, "network_scope_unsupported", []string{"--hosted"}, 16},
+		{"hosted resume", gateway, "network_scope_unsupported", []string{"--hosted", "resume"}, 16},
+		{"auto with a selected manager", gateway, "network_scope_unsupported", nil, 16},
+		{"broken catalog", "schema = [\n", "network_file_unreadable", []string{"--hosted", "resume"}, 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newFront(t, bin)
+			f.policy("auto", true)
+			f.registry("selected")
+			if err := os.MkdirAll(filepath.Join(f.root, ".curator"), 0o700); err != nil {
+				t.Fatal(err)
+			}
+			writeFixture(t, filepath.Join(f.root, ".curator", "network.toml"), []byte(tc.doc), 0o600)
+			code, _, stderr := f.invoke(true, false, tc.args...)
+			f.require(t, code, tc.code, stderr, tc.diag, nil, 0, false)
+		})
+	}
+}
+
+// A dangling ~/.curator/network.toml symlink is a broken catalog, not an
+// absent one: the launch refuses with no child, instead of running without
+// the operator's default filter. Genuine absence is the control in every
+// other fixture here.
+func TestGatewayDanglingCatalogRefusesThroughRun(t *testing.T) {
+	f := printNetworkFixture(t)
+	if err := os.MkdirAll(filepath.Join(f.dir, ".curator"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(f.dir, "gone.toml"), filepath.Join(f.dir, ".curator", "network.toml")); err != nil {
+		t.Fatal(err)
+	}
+	code, _, stderr := f.run()
+	if code == 0 || !strings.Contains(string(stderr), "network_file_unreadable") {
+		t.Fatalf("exit=%d stderr=%s", code, stderr)
+	}
+	f.assertNoChild(t)
+}
+
+// A signal that arrives after registration and before the child starts
+// aborts the launch at the boundary: no child, no activation, and the
+// registration is ended.
+func TestGatewayInterruptBeforeStartUnregisters(t *testing.T) {
+	f := printNetworkFixture(t)
+	g := newE2EGateway(t)
+	writeGatewayCatalog(t, f, g.socket)
+	f.deps.leaseNotify = func(c chan<- os.Signal, _ ...os.Signal) { c <- os.Interrupt }
+	f.args = withNetworkFlag(f.args, "egress-a")
+	code, _, stderr := f.run()
+	if code == 0 || !strings.Contains(string(stderr), "interrupted before the runtime started") {
+		t.Fatalf("exit=%d stderr=%s", code, stderr)
+	}
+	if calls := g.calls(); calls != "/v1/health /v1/register /v1/unregister" {
+		t.Fatalf("gateway calls = %q", calls)
+	}
+	f.assertNoChild(t)
+}
+
+// The settings check repeats at the pre-spawn boundary: a project settings
+// file that appears after preparation (written here from the provenance
+// emission hook, which runs after registration) refuses the launch there,
+// ends the registration and starts no child.
+func TestGatewayBoundaryRechecksSettings(t *testing.T) {
+	f := printNetworkFixture(t)
+	g := newE2EGateway(t)
+	writeGatewayCatalog(t, f, g.socket)
+	f.deps.networkEmit = func(w io.Writer, p *adapterprobe.Provenance) error {
+		if err := os.MkdirAll(filepath.Join(f.dir, ".claude"), 0o700); err != nil {
+			return err
+		}
+		return os.WriteFile(filepath.Join(f.dir, ".claude", "settings.local.json"), []byte(`{"env":{"ANTHROPIC_BASE_URL":"https://late.example"}}`), 0o600)
+	}
+	f.args = withNetworkFlag(f.args, "egress-a")
+	code, _, stderr := f.run()
+	if code == 0 || !strings.Contains(string(stderr), "network_configuration_conflict") {
+		t.Fatalf("exit=%d stderr=%s", code, stderr)
+	}
+	if calls := g.calls(); calls != "/v1/health /v1/register /v1/unregister" {
+		t.Fatalf("gateway calls = %q", calls)
+	}
+	f.assertNoChild(t)
 }

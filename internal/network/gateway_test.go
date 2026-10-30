@@ -17,7 +17,9 @@ import (
 	"time"
 
 	"github.com/relux-works/curator-agent-launcher/internal/network"
+	"github.com/relux-works/curator-network-profiles/pkg/adapterprobe"
 	"github.com/relux-works/curator-network-profiles/pkg/netprofile"
+	"github.com/relux-works/curator-network-profiles/pkg/probe"
 	"github.com/relux-works/curator-network-profiles/pkg/refusal"
 )
 
@@ -127,6 +129,7 @@ func gatewayRequest(home string) network.Request {
 	req.ProjectRoot = "/Users/op/project"
 	req.SessionID = "env-20261030T160000Z-42"
 	req.GatewayTimeout = 300 * time.Millisecond
+	req.ManagedSettingsDir = filepath.Join(home, "managed-settings-absent")
 	return req
 }
 
@@ -417,5 +420,216 @@ func TestPrepareGatewayInteractiveNeedsItsOwnEntry(t *testing.T) {
 				t.Fatal(err)
 			}
 		})
+	}
+}
+
+// Round 2 of the settings check: managed settings and their drop-ins,
+// ancestor .claude discovery, provider-route and proxy names, the flags that
+// move settings sources, and a dangling settings link all refuse before any
+// gateway call; an absent managed directory is the valid control (every
+// case of TestPrepareGatewaySettingsEnvConflict passes it).
+func TestPrepareGatewaySettingsScopeRound2(t *testing.T) {
+	route := `{"env":{"CLAUDE_CODE_USE_BEDROCK":"1"}}`
+	for _, tc := range []struct {
+		name  string
+		setup func(t *testing.T, req *network.Request)
+	}{
+		{"managed settings file", func(t *testing.T, req *network.Request) {
+			dir := t.TempDir()
+			writeTestFile(t, filepath.Join(dir, "managed-settings.json"), `{"env":{"ANTHROPIC_BASE_URL":"https://x.example"}}`)
+			req.ManagedSettingsDir = dir
+		}},
+		{"managed drop-in", func(t *testing.T, req *network.Request) {
+			dir := t.TempDir()
+			os.MkdirAll(filepath.Join(dir, "managed-settings.d"), 0o700)
+			writeTestFile(t, filepath.Join(dir, "managed-settings.d", "10-route.json"), route)
+			req.ManagedSettingsDir = dir
+		}},
+		{"ancestor project settings", func(t *testing.T, req *network.Request) {
+			root := t.TempDir()
+			os.MkdirAll(filepath.Join(root, ".claude"), 0o700)
+			os.MkdirAll(filepath.Join(root, "a", "b"), 0o700)
+			writeTestFile(t, filepath.Join(root, ".claude", "settings.json"), route)
+			req.ProjectRoot = filepath.Join(root, "a", "b")
+		}},
+		{"provider route in user settings", func(t *testing.T, req *network.Request) {
+			dir := t.TempDir()
+			writeTestFile(t, filepath.Join(dir, "settings.json"), `{"env":{"anthropic_vertex_base_url":"https://v.example"}}`)
+			req.ChildEnv = []string{"CLAUDE_CONFIG_DIR=" + dir}
+		}},
+		{"proxy in user settings", func(t *testing.T, req *network.Request) {
+			dir := t.TempDir()
+			writeTestFile(t, filepath.Join(dir, "settings.json"), `{"env":{"HTTPS_PROXY":"http://127.0.0.1:9"}}`)
+			req.ChildEnv = []string{"CLAUDE_CONFIG_DIR=" + dir}
+		}},
+		{"dangling user settings link", func(t *testing.T, req *network.Request) {
+			dir := t.TempDir()
+			if err := os.Symlink(filepath.Join(dir, "gone.json"), filepath.Join(dir, "settings.json")); err != nil {
+				t.Fatal(err)
+			}
+			req.ChildEnv = []string{"CLAUDE_CONFIG_DIR=" + dir}
+		}},
+		{"--setting-sources", func(t *testing.T, req *network.Request) {
+			req.NativeArgs = []string{"--setting-sources", "user", "-p", "x"}
+		}},
+		{"--managed-settings=", func(t *testing.T, req *network.Request) { req.NativeArgs = []string{"--managed-settings=/tmp/m.json"} }},
+		{"--project-config-root", func(t *testing.T, req *network.Request) { req.NativeArgs = []string{"--project-config-root", "/tmp"} }},
+		{"overlay route selector", func(t *testing.T, req *network.Request) {
+			req.FragEnv = map[string]string{"CLAUDE_CODE_USE_VERTEX": "1"}
+		}},
+		{"MCP lookup of a route endpoint", func(t *testing.T, req *network.Request) {
+			req.MCPEnvNames = []string{"AWS_ENDPOINT_URL_BEDROCK_RUNTIME"}
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			g := newGateway(t)
+			req := gatewayRequest(gatewayHome(t, g, true))
+			req.Prober = forbiddenProber{t}
+			tc.setup(t, &req)
+			got, err := network.Prepare(context.Background(), req)
+			if err == nil || refusalCode(t, err) != refusal.CodeConfigurationConflict || got.Lease != nil || len(g.calls()) != 0 {
+				t.Fatalf("err = %v calls = %v", err, g.calls())
+			}
+		})
+	}
+}
+
+// Inherited provider-route selectors and endpoints are removed from the
+// child, so a parent environment cannot route the runtime around the
+// gateway; the gateway's own three names are set.
+func TestPrepareGatewayUnsetsRouteNames(t *testing.T) {
+	g := newGateway(t)
+	req := gatewayRequest(gatewayHome(t, g, true))
+	req.Prober = forbiddenProber{t}
+	got, err := network.Prepare(context.Background(), req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer got.Lease.Finish(context.Background())
+	unset := " " + strings.Join(got.Patch.Unset, " ") + " "
+	for _, n := range []string{"CLAUDE_CODE_USE_BEDROCK", "CLAUDE_CODE_USE_VERTEX", "CLAUDE_CODE_USE_FOUNDRY", "CLAUDE_CODE_USE_GATEWAY", "ANTHROPIC_API_URL", "ANTHROPIC_BEDROCK_BASE_URL", "AWS_ENDPOINT_URL_BEDROCK_RUNTIME"} {
+		if !strings.Contains(unset, " "+n+" ") {
+			t.Fatalf("patch does not unset %s", n)
+		}
+	}
+	if got.Recheck == nil || got.Recheck() != nil {
+		t.Fatal("recheck missing or refusing a clean launch")
+	}
+}
+
+// The pre-spawn recheck sees a settings file written after preparation.
+func TestPrepareGatewayRecheckSeesLateSettings(t *testing.T) {
+	g := newGateway(t)
+	req := gatewayRequest(gatewayHome(t, g, true))
+	req.Prober = forbiddenProber{t}
+	root := t.TempDir()
+	req.ProjectRoot = root
+	got, err := network.Prepare(context.Background(), req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer got.Lease.Finish(context.Background())
+	os.MkdirAll(filepath.Join(root, ".claude"), 0o700)
+	writeTestFile(t, filepath.Join(root, ".claude", "settings.local.json"), `{"env":{"ANTHROPIC_CUSTOM_HEADERS":"X: y"}}`)
+	if err := got.Recheck(); err == nil || refusalCode(t, err) != refusal.CodeConfigurationConflict {
+		t.Fatalf("recheck = %v", err)
+	}
+}
+
+// A network.toml entry that is present but unusable (a dangling symlink)
+// refuses instead of reading as absent; genuine absence and a valid default
+// are the controls in TestDefaultGatewaySelected.
+func TestDefaultGatewayDanglingCatalogRefuses(t *testing.T) {
+	home := t.TempDir()
+	os.MkdirAll(filepath.Join(home, ".curator"), 0o700)
+	if err := os.Symlink(filepath.Join(home, "gone.toml"), filepath.Join(home, ".curator", "network.toml")); err != nil {
+		t.Fatal(err)
+	}
+	got, err := network.DefaultGatewaySelected([]string{"HOME=" + home})
+	if got || err == nil || refusalCode(t, err) != refusal.CodeFileUnreadable {
+		t.Fatalf("got %v, %v", got, err)
+	}
+}
+
+// Explicit strict policy on a non-sensitive profile consults the operator's
+// qualified builds: a matching entry admits, another build refuses
+// strict_miss, an unreadable list refuses; optimistic policy never reads the
+// list (an unreadable one does not matter).
+func TestStrictPolicyReadsQualifiedOnNonSensitive(t *testing.T) {
+	sum := sha256.Sum256(unitArtifact)
+	match := qualifiedDoc(hex.EncodeToString(sum[:]))
+	other := qualifiedDoc(strings.Repeat("b", 64))
+	for _, tc := range []struct {
+		name   string
+		mode   adapterprobe.Mode
+		list   string // "" none; "dir" makes it unreadable
+		refuse bool
+	}{
+		{"strict matching entry", adapterprobe.Strict, match, false},
+		{"strict other build", adapterprobe.Strict, other, true},
+		{"strict unreadable list", adapterprobe.Strict, "dir", true},
+		{"optimistic ignores the list", adapterprobe.Optimistic, "dir", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			home := t.TempDir()
+			endpoint := writeCatalogEndpoint(t, home)
+			path := filepath.Join(home, ".curator", network.QualifiedFileName)
+			switch tc.list {
+			case "dir":
+				os.MkdirAll(path, 0o700)
+			case "":
+			default:
+				writeTestFile(t, path, tc.list)
+			}
+			req := baseRequest(home)
+			req.Mode = tc.mode
+			req.Prober = &scriptedProber{res: okResult(endpoint)}
+			_, err := network.Prepare(context.Background(), req)
+			if (err != nil) != tc.refuse {
+				t.Fatalf("err = %v", err)
+			}
+		})
+	}
+}
+
+// writeCatalogEndpoint stores the confirmed external-proxy fixture catalog
+// and returns its endpoint.
+func writeCatalogEndpoint(t *testing.T, home string) string {
+	t.Helper()
+	prof, _ := writeCatalog(t, home, true)
+	return prof.Endpoint
+}
+
+func okResult(endpoint string) probe.Result {
+	return probe.Result{Endpoint: endpoint, TCP: probe.StatusOK, Connect: probe.StatusSkipped, TLS: probe.StatusSkipped, CheckedAt: time.Now()}
+}
+
+// The activation window counts from when the register request started: a
+// register reply that arrives after a one-second window leaves a lease that
+// ends the token without any activate attempt.
+func TestPrepareGatewayWindowStartsAtRegisterRequest(t *testing.T) {
+	g := newGateway(t)
+	g.answer["/v1/register"] = func(w http.ResponseWriter) {
+		time.Sleep(1200 * time.Millisecond)
+		ok(200, strings.Replace(gwRegister, `"activation_seconds":120`, `"activation_seconds":1`, 1))(w)
+	}
+	req := gatewayRequest(gatewayHome(t, g, true))
+	req.GatewayTimeout = 5 * time.Second
+	req.Prober = forbiddenProber{t}
+	got, err := network.Prepare(context.Background(), req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got.Lease.Started(context.Background())
+	deadline := time.Now().Add(3 * time.Second)
+	for !strings.Contains(strings.Join(g.calls(), " "), "/v1/unregister") {
+		if time.Now().After(deadline) {
+			t.Fatalf("calls = %v", g.calls())
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	got.Lease.Finish(context.Background())
+	if strings.Contains(strings.Join(g.calls(), " "), "/v1/activate") {
+		t.Fatalf("activate attempted after the window: %v", g.calls())
 	}
 }

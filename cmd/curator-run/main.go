@@ -9,7 +9,6 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/relux-works/skill-agents-management/pkg/agentic"
@@ -101,6 +100,13 @@ func processConfigLocations() (configfile.Locations, error) {
 
 // Process boundaries are injectable; production uses the tagged builder and real execution.
 type launchDeps struct {
+	// gatewayDefault records, before host selection, that the operator's
+	// default network is a filtering gateway (G-C): every route that could
+	// start or resume a runtime must honour it.
+	gatewayDefault bool
+	// leaseNotify replaces signal.Notify for the gateway lease's signal
+	// ownership (tests deliver a signal through it).
+	leaseNotify     func(chan<- os.Signal, ...os.Signal)
 	configLocations func() (configfile.Locations, error)
 	// launcherConfig is validated machine policy for host resolution.
 	launcherConfig  launcherconfig.Config
@@ -457,6 +463,16 @@ func processAvailability() (plan.AvailabilityFunc, error) {
 }
 
 func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, target mapping.Target, resolved defaults.Resolved, files defaults.Files, stdout, stderr io.Writer, deps launchDeps) int {
+	// The operator's gateway default is resolved before any route is chosen,
+	// so a hosted launch or resume can never run without it, and a catalog
+	// that exists but cannot be read refuses every route alike.
+	if !inv.NetworkSet {
+		selectedDefault, err := network.DefaultGatewaySelected(deps.environ())
+		if err != nil {
+			return emitNetworkFailure(stderr, err)
+		}
+		deps.gatewayDefault = selectedDefault
+	}
 	selected, err := resolveHost(ctx, inv, frag, stderr, deps)
 	if err != nil {
 		return emitHostFailure(stderr, err)
@@ -593,13 +609,7 @@ func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, ta
 	}
 	// Without --network, an operator default that is a filtering gateway
 	// selects it (G-C); other defaults keep the explicit-only behaviour.
-	gatewayDefault := false
-	if !inv.NetworkSet {
-		gatewayDefault, err = network.DefaultGatewaySelected(parentEnv)
-		if err != nil {
-			return emitNetworkFailure(stderr, err)
-		}
-	}
+	gatewayDefault := deps.gatewayDefault
 	managedNetwork := inv.NetworkSet || gatewayDefault
 	entrypoint := ""
 	if managedNetwork {
@@ -627,6 +637,16 @@ func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, ta
 		artifact = snapshot.Bytes()
 		hostIdentity = binding.AdapterIdentity{Adapter: "generic-env-v1", Harness: target.System, Build: snapshot.BuildID(), Entrypoint: entrypoint}
 	}
+	// A filtering-gateway registration may be made below: hold the
+	// signals from before it until its unregister completes.
+	var owner *leaseOwner
+	if managedNetwork && sessionAllowed(isHosted) {
+		notify := deps.leaseNotify
+		if notify == nil {
+			notify = signal.Notify
+		}
+		owner = ownLeaseSignals(notify, signal.Stop)
+	}
 	preparedNet, err := network.Prepare(ctx, network.Request{
 		Explicit: inv.Network, ExplicitSet: inv.NetworkSet, DefaultGateway: gatewayDefault,
 		Hosted: !sessionAllowed(isHosted), Harness: target.System,
@@ -642,16 +662,20 @@ func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, ta
 		SessionID:   gatewaySessionID(inv.EnvID, time.Now()),
 		Alert:       stderr,
 	})
+	if owner != nil && (err != nil || preparedNet.Lease == nil) {
+		owner.release()
+		owner = nil
+	}
 	if err != nil {
 		return emitNetworkFailure(stderr, err)
 	}
 	// A registered gateway lease belongs to this process from here on:
 	// runNative hands it to the child's lifetime, and every refusal before
-	// spawn ends it here.
+	// spawn ends it here, still holding the signals.
 	if lease := preparedNet.Lease; lease != nil {
 		defer func() {
 			if !preparedNet.LeaseHandedOff() {
-				_ = lease.Finish(context.Background())
+				_ = owner.finish(lease)
 			}
 		}()
 	}
@@ -702,7 +726,7 @@ func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, ta
 		}
 		return runHosted(inv, frag, target, value, intent, inspection, admitted.Plan, decision, parentEnv, now(), stdout, stderr, deps, boundary, selected.terminal)
 	}
-	return runNative(value, decision, inspection, stdout, stderr, deps, boundary, &preparedNet)
+	return runNative(value, decision, inspection, stdout, stderr, deps, boundary, &preparedNet, owner)
 }
 
 // gatewaySessionID is the audit id a native launch registers with a
@@ -713,7 +737,7 @@ func gatewaySessionID(envID string, at time.Time) string {
 
 // runNative reports inspected policy and runs the composed value directly.
 // It performs zero manager contact; hosted failures never reach it.
-func runNative(value composition.Value, decision execution.PermissionDecision, inspection agentic.StoredPolicyInspection, stdout, stderr io.Writer, deps launchDeps, boundary func() error, net *network.Prepared) int {
+func runNative(value composition.Value, decision execution.PermissionDecision, inspection agentic.StoredPolicyInspection, stdout, stderr io.Writer, deps launchDeps, boundary func() error, net *network.Prepared, owner *leaseOwner) int {
 	if decision.Mode == agentic.PermissionModeNative {
 		execution.ReportEffectiveNativePolicy(stderr, inspection)
 	}
@@ -725,12 +749,24 @@ func runNative(value composition.Value, decision execution.PermissionDecision, i
 	}
 	// Duties 4 to 6: activate and renew while the child runs, and end the
 	// registration after it exits whatever its status. A refusal inside Run
-	// before the start ends it the same way.
+	// before the start ends it the same way. The boundary also refuses a
+	// launch interrupted before the start and repeats the gateway's settings
+	// check just before the child is created.
+	opts.Boundary = func() error {
+		if err := boundary(); err != nil {
+			return err
+		}
+		if owner.interrupted() {
+			return errors.New(diagnostics.CodePlanRefused + ": interrupted before the runtime started")
+		}
+		if net.Recheck != nil {
+			return net.Recheck()
+		}
+		return nil
+	}
 	opts.Started = func() { lease.Started(context.Background()) }
 	code := prepared.Run(opts)
-	finish, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
-	_ = lease.Finish(finish)
+	_ = owner.finish(lease)
 	return code
 }
 

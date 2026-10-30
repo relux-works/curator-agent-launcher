@@ -799,7 +799,8 @@ optimistic or pinned policy; a flag cannot downgrade it.
 The legacy N-B version-label list is retired, not migrated: it has no SHA-256
 provenance. Under strict or sensitive-egress policy the only qualified builds
 are the operator's entries in `~/.curator/network-qualified.toml`; other
-launches never read that file. Each entry names an exact build by the SHA-256
+launches never read that file. An explicit `--network-policy strict` or
+`pinned:` reads it on any profile. Each entry names an exact build by the SHA-256
 of its executable, never by a version label, together with its qualification
 evidence and date:
 
@@ -833,24 +834,43 @@ directory, an audit session id, runtime `claude-code`) over
 unfiltered fallback. The child then gets `ANTHROPIC_BASE_URL` set to the
 gateway's base, `ANTHROPIC_CUSTOM_HEADERS` carrying the launch token in the
 gateway's header, and `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1`, in its
-launch-private environment only. A composed overlay that sets one of these
-names refuses `network_configuration_conflict`, and so does a Claude Code
-settings source the launcher can read that sets one in `env`: an explicit
-`--settings` value or file, the child's user settings
-(`CLAUDE_CONFIG_DIR/settings.json`, else `~/.claude/settings.json`), and the
-project's `.claude/settings.json` and `.claude/settings.local.json`. Claude
-applies settings `env` to its own process environment, so such an entry could
-replace the gateway's base URL or token header. A source that exists but
-cannot be read or decoded refuses as well. Managed and policy settings are
-outside this check, and the files are read once, before spawn. Once the child has started,
-the launcher activates the registration and renews it hourly. After the child
-exits, whatever its status, the launcher unregisters it, retrying and alerting
-on stderr until the gateway confirms; a refusal between registration and spawn
-unregisters as well. The token never appears in argv, the binding Record or
+launch-private environment only. Inherited provider-route selectors and
+endpoints (`CLAUDE_CODE_USE_BEDROCK`, `_VERTEX`, `_FOUNDRY`, `_MANTLE`,
+`_ANTHROPIC_AWS`, `_ANTHROPIC_GOOGLE_CLOUD` and `_GATEWAY`, the matching
+`ANTHROPIC_*_BASE_URL` names, `ANTHROPIC_FOUNDRY_RESOURCE`, `ANTHROPIC_API_URL`
+and the Bedrock `AWS_ENDPOINT_URL` names) are removed from the child.
+
+Claude Code applies the `env` block of its settings over its process
+environment, so a settings entry would send the conversation, with the token
+header, wherever it points. Before registering, and again at the pre-spawn
+boundary, the launcher therefore refuses `network_configuration_conflict` when
+a composed overlay, an MCP lookup, or any settings source it can read sets one
+of the gateway's names, a provider-route name above or a proxy-family name
+(compared without case). The settings sources are an explicit `--settings`
+value or file, the child's user settings (`CLAUDE_CONFIG_DIR/settings.json`,
+else `~/.claude/settings.json`), every `.claude/settings.json` and
+`.claude/settings.local.json` from the project root up to the filesystem root,
+and the managed settings (`/Library/Application Support/ClaudeCode` on macOS,
+`/etc/claude-code` on Linux: `managed-settings.json` and the
+`managed-settings.d` drop-ins). A source that exists but cannot be read or
+decoded, a dangling settings link included, refuses too, and so do
+`--setting-sources`, `--managed-settings` and `--project-config-root`. MDM
+profiles and server-managed settings cannot be read here. Once the child has started,
+the launcher activates the registration within its activation window (no
+attempt starts or outlasts it; on expiry the launcher alerts and ends the
+registration) and renews it hourly. After the child exits, whatever its
+status, the launcher unregisters it, retrying and alerting on stderr until the
+gateway confirms; a refusal between registration and spawn unregisters as
+well. From registration until the unregister completes, curator-run holds
+SIGINT and SIGTERM: one before the child starts aborts the launch, those while
+it runs reach the child, and one during the unregister retries abandons them
+with an alert that the registration ends at the gateway's idle bound. The token never appears in argv, the binding Record or
 any diagnostic. Without `--network`, an operator `default` that names a
-filtering gateway selects it with origin `operator-default`; defaults of the
-other kinds still need `--network`, and a `network.toml` that exists but
-cannot be read refuses every launch. Codex launches through a gateway are
+filtering gateway selects it with origin `operator-default`, and every hosted
+route, resume included, then refuses `network_scope_unsupported` before any
+session-manager call. Defaults of the other kinds still need `--network`. A
+`network.toml` that exists but cannot be read, a dangling link included,
+refuses every launch. Codex launches through a gateway are
 refused in this revision.
 
 The operator known-bad list is `~/.curator/adapter-knownbad.json`, or the path

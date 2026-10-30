@@ -23,8 +23,17 @@
   `~/.curator/network-qualified.toml`: exact executables by SHA-256, with
   their qualification evidence and date.
 - Honour an operator `default` that names a filtering gateway for launches
-  without `--network`. Other defaults keep the explicit-only behaviour; a
-  present but unreadable `network.toml` now refuses every launch.
+  without `--network`; hosted routes, resume included, refuse under it before
+  any session-manager call. Other defaults keep the explicit-only behaviour;
+  a present but unreadable `network.toml`, a dangling link included, now
+  refuses every launch.
+- Refuse a gateway launch when any Claude Code settings source the launcher
+  can read (explicit, user, project and ancestors, managed) sets a gateway,
+  provider-route or proxy name in `env`, or when settings-source flags are
+  given; the check repeats at the pre-spawn boundary, and inherited
+  provider-route names are removed from the child.
+- Read the qualified builds under an explicit strict or pinned policy on any
+  profile.
 
 - Specify a proposed same-user executor entry, descriptor custody, closed
   records, immutable assignment/atomic attempt admission, failed-conflict interlock,

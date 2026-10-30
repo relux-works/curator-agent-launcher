@@ -213,6 +213,9 @@ type Request struct {
 	// reads the Claude settings sources they name.
 	ChildEnv   []string
 	NativeArgs []string
+	// ManagedSettingsDir overrides where managed Claude settings are read
+	// (tests); empty means the platform location.
+	ManagedSettingsDir string
 	// gatewayKind is set by Prepare for a filtering-gateway selection.
 	gatewayKind    bool
 	Alert          io.Writer
@@ -230,7 +233,10 @@ type Prepared struct {
 	// Started after spawn and Finish after the child exits, and Finish on
 	// every path that refuses before spawn.
 	Lease *netproxy.Lease
-	taken bool
+	// Recheck repeats the filtering gateway's settings check; the owner runs
+	// it at the pre-spawn boundary to narrow the window for a settings change.
+	Recheck func() error
+	taken   bool
 }
 
 // TakeLease hands the lease to the process owner that runs the child; after
@@ -377,9 +383,10 @@ func Admit(ctx context.Context, req Request, sensitive bool) (binding.AdapterIde
 	known, knownErr := adapterprobe.LoadKnownBad(adapterprobe.SafeKnownBadRead, root, req.KnownBadPath)
 	policy := adapterprobe.Policy{Mode: req.Mode, PinnedBuild: req.PinnedBuild,
 		SensitiveEgress: sensitive, KnownBad: known, KnownBadErr: knownErr}
-	// Strict admission (sensitive egress) admits only the operator's
-	// qualified builds; other launches never read the list.
-	if sensitive {
+	// Strict admission (sensitive egress, or an explicit strict or pinned
+	// policy) consults the operator's qualified builds; an optimistic launch
+	// on a non-sensitive profile never reads the list.
+	if sensitive || req.Mode == adapterprobe.Strict || req.Mode == adapterprobe.Pinned {
 		allowed, err := loadQualified(adapterprobe.SafeKnownBadRead, root)
 		if err != nil {
 			return binding.AdapterIdentity{}, nil, err

@@ -23,14 +23,15 @@ type reply struct {
 	status int
 	body   string
 	hang   bool
+	delay  time.Duration
 }
 
 var (
-	okActive   = reply{200, `{"api":"netproxy-control/1","active":true}`, false}
-	noContent  = reply{204, "", false}
-	gone       = reply{404, `{"api":"netproxy-control/1","error":"unknown_token"}`, false}
-	persist    = reply{503, `{"api":"netproxy-control/1","error":"persist_failed"}`, false}
-	notActive  = reply{409, `{"api":"netproxy-control/1","error":"not_active"}`, false}
+	okActive   = reply{200, `{"api":"netproxy-control/1","active":true}`, false, 0}
+	noContent  = reply{204, "", false, 0}
+	gone       = reply{404, `{"api":"netproxy-control/1","error":"unknown_token"}`, false, 0}
+	persist    = reply{503, `{"api":"netproxy-control/1","error":"persist_failed"}`, false, 0}
+	notActive  = reply{409, `{"api":"netproxy-control/1","error":"not_active"}`, false, 0}
 	noAnswer   = reply{hang: true}
 	leaseReg   = Registration{Token: testToken, TokenHeader: "X-Netproxy-Token", ActivationSeconds: 120}
 	shortRetry = 10 * time.Millisecond
@@ -64,6 +65,13 @@ func (s *script) serve(w http.ResponseWriter, r *http.Request, _ []byte) {
 		<-r.Context().Done()
 		return
 	}
+	if rep.delay > 0 {
+		select {
+		case <-time.After(rep.delay):
+		case <-r.Context().Done():
+			return
+		}
+	}
 	w.Header().Set(VersionHeader, APIVersion)
 	w.WriteHeader(rep.status)
 	io.WriteString(w, rep.body)
@@ -92,7 +100,7 @@ func newLease(t *testing.T, s *script, reg Registration) (*Lease, *syncBuffer) {
 	c := New(f.socket)
 	c.Timeout = 100 * time.Millisecond
 	alerts := &syncBuffer{}
-	l := NewLease(c, reg, alerts)
+	l := NewLease(c, reg, alerts, time.Now())
 	l.Retry = shortRetry
 	return l, alerts
 }
@@ -240,5 +248,108 @@ func TestLeaseNeverRendersToken(t *testing.T) {
 	}
 	if alerts.String() == "" || strings.Contains(alerts.String(), testToken) || strings.Contains(l.String(), testToken) {
 		t.Fatalf("alerts = %q", alerts.String())
+	}
+}
+
+// slow answers after a delay, as a service whose reply crosses the window.
+func slow(d time.Duration, r reply) reply {
+	return reply{status: r.status, body: r.body, hang: false, delay: d}
+}
+
+// Duty 4 at the window's edge: an attempt that hangs is cut off by the
+// window, and a reply that would arrive after the deadline is not accepted.
+// Either way the lease alerts and ends the token at about the window, with
+// no attempt after it. The 1 s window is the test's.
+func TestLeaseActivateBoundedByWindow(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		reply reply
+	}{
+		{"hanging attempt", noAnswer},
+		{"success after the deadline", slow(1500*time.Millisecond, okActive)},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s := newScript()
+			s.fallback["/v1/activate"] = tc.reply
+			reg := leaseReg
+			reg.ActivationSeconds = 1
+			f := newFake(t, s.serve)
+			c := New(f.socket)
+			c.Timeout = 8 * time.Second
+			alerts := &syncBuffer{}
+			start := time.Now()
+			l := NewLease(c, reg, alerts, start)
+			l.Retry = 50 * time.Millisecond
+			l.Started(context.Background())
+			waitFor(t, func() bool { return s.calls("/v1/unregister") >= 1 })
+			if took := time.Since(start); took > 1400*time.Millisecond {
+				t.Fatalf("token ended after %v, past the 1 s window", took)
+			}
+			if !strings.Contains(alerts.String(), "within the activation window") {
+				t.Fatalf("alerts = %q", alerts.String())
+			}
+			calls := s.calls("/v1/activate")
+			if err := l.Finish(context.Background()); err != nil {
+				t.Fatal(err)
+			}
+			if s.calls("/v1/activate") != calls {
+				t.Fatal("an activate attempt started after the window")
+			}
+		})
+	}
+}
+
+// The window starts when registration was requested, not when the lease
+// was built: a registration requested a full window ago is already expired,
+// and the lease ends it without any activate attempt.
+func TestLeaseWindowCountsFromRegisterRequest(t *testing.T) {
+	s := newScript()
+	reg := leaseReg
+	reg.ActivationSeconds = 1
+	f := newFake(t, s.serve)
+	alerts := &syncBuffer{}
+	l := NewLease(New(f.socket), reg, alerts, time.Now().Add(-2*time.Second))
+	l.Retry = shortRetry
+	l.Started(context.Background())
+	waitFor(t, func() bool { return s.calls("/v1/unregister") >= 1 })
+	if s.calls("/v1/activate") != 0 {
+		t.Fatalf("activate attempted after the window: %d", s.calls("/v1/activate"))
+	}
+	l.Finish(context.Background())
+}
+
+// Renew 409 activates first; if that activate is refused 404, the session
+// has ended: the lease alerts, ends the token at once and stops renewing.
+func TestLeaseRenewActivateRefused(t *testing.T) {
+	s := newScript().then("/v1/renew", notActive).then("/v1/activate", okActive, gone)
+	l, alerts := newLease(t, s, leaseReg)
+	l.Renew = 15 * time.Millisecond
+	l.Started(context.Background())
+	waitFor(t, func() bool { return s.calls("/v1/unregister") >= 1 })
+	time.Sleep(60 * time.Millisecond)
+	if s.calls("/v1/renew") != 1 || !strings.Contains(alerts.String(), "activate was refused") {
+		t.Fatalf("renew=%d alerts=%q", s.calls("/v1/renew"), alerts.String())
+	}
+	if err := l.Finish(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// Finish is safe to call twice, and Started after Finish starts nothing.
+func TestLeaseFinishIdempotent(t *testing.T) {
+	s := newScript()
+	l, _ := newLease(t, s, leaseReg)
+	l.Started(context.Background())
+	waitFor(t, func() bool { return s.calls("/v1/activate") >= 1 })
+	if err := l.Finish(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if err := l.Finish(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	l.Started(context.Background())
+	time.Sleep(30 * time.Millisecond)
+	if s.calls("/v1/activate") != 1 {
+		t.Fatalf("activate=%d after Finish", s.calls("/v1/activate"))
 	}
 }

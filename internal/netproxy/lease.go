@@ -31,20 +31,23 @@ type Lease struct {
 	// Renew is the renewal period; RenewInterval unless a test shortens it.
 	Renew time.Duration
 
-	mu      sync.Mutex
-	stopped chan struct{}
-	done    chan struct{}
+	mu       sync.Mutex
+	stopped  chan struct{}
+	done     chan struct{}
+	finished bool
 }
 
-// NewLease binds a registration to the client that made it. Alerts go to
-// alert, one line each, naming the operation and outcome only.
-func NewLease(c *Client, reg Registration, alert io.Writer) *Lease {
+// NewLease binds a registration to the client that made it. requested is
+// when the register request was started: the service's window began no
+// earlier, so the lease's window is never later than the service's. Alerts
+// go to alert, one line each, naming the operation and outcome only.
+func NewLease(c *Client, reg Registration, alert io.Writer, requested time.Time) *Lease {
 	if alert == nil {
 		alert = io.Discard
 	}
 	return &Lease{
 		client: c, token: reg.Token, window: time.Duration(reg.ActivationSeconds) * time.Second,
-		registered: time.Now(), alert: alert, Retry: 2 * time.Second, Renew: RenewInterval,
+		registered: requested, alert: alert, Retry: 2 * time.Second, Renew: RenewInterval,
 	}
 }
 
@@ -55,7 +58,7 @@ func (l *Lease) String() string { return "netproxy lease" }
 // the window (duty 4), then renew every period until Finish (duty 5).
 func (l *Lease) Started(ctx context.Context) {
 	l.mu.Lock()
-	if l.stopped != nil {
+	if l.stopped != nil || l.finished {
 		l.mu.Unlock()
 		return
 	}
@@ -80,8 +83,17 @@ func (l *Lease) Started(ctx context.Context) {
 // Finish unregisters. It reports whether the session became active.
 func (l *Lease) activate(ctx context.Context, stopped <-chan struct{}) bool {
 	deadline := l.registered.Add(l.window)
+	last := "no attempt"
 	for {
-		err := l.client.Activate(ctx, l.token)
+		// No attempt starts once the window has passed, and every attempt
+		// ends with it, so no reply can arrive outside the window.
+		if !time.Now().Before(deadline) {
+			l.alertf("activate did not succeed within the activation window (%s); requests will fail until the runtime exits", last)
+			return false
+		}
+		actx, cancel := context.WithDeadline(ctx, deadline)
+		err := l.client.Activate(actx, l.token)
+		cancel()
 		if err == nil {
 			return true
 		}
@@ -89,12 +101,11 @@ func (l *Lease) activate(ctx context.Context, stopped <-chan struct{}) bool {
 			l.alertf("activate refused: the session ended before activation; requests will fail until the runtime exits")
 			return false
 		}
-		if !time.Now().Before(deadline) {
-			l.alertf("activate did not succeed within the activation window (%v); requests will fail until the runtime exits", errClass(err))
-			return false
-		}
-		if !l.pause(ctx, stopped, minDuration(l.Retry, time.Until(deadline))) {
-			return false
+		last = errClass(err)
+		if remaining := time.Until(deadline); remaining > 0 {
+			if !l.pause(ctx, stopped, minDuration(l.Retry, remaining)) {
+				return false
+			}
 		}
 	}
 }
@@ -110,7 +121,13 @@ func (l *Lease) renew(ctx context.Context, stopped <-chan struct{}) {
 			l.alertf("renew refused: the session has ended; requests will fail until the runtime exits")
 			return
 		case IsCode(err, http.StatusConflict, "not_active"):
-			if err := l.client.Activate(ctx, l.token); err != nil {
+			err := l.client.Activate(ctx, l.token)
+			if IsCode(err, http.StatusNotFound, "unknown_token") {
+				l.alertf("renew found the session pending and activate was refused; the session has ended")
+				l.end(ctx, stopped)
+				return
+			}
+			if err != nil {
 				l.alertf("renew found the session pending and activate failed (%v); retrying at the next renewal", errClass(err))
 			}
 		default:
@@ -125,13 +142,14 @@ func (l *Lease) renew(ctx context.Context, stopped <-chan struct{}) {
 // unknown and its idle bound ends it at the latest.
 func (l *Lease) Finish(ctx context.Context) error {
 	l.mu.Lock()
-	if l.stopped != nil {
+	if l.stopped != nil && !l.finished {
 		close(l.stopped)
-		done := l.done
-		l.mu.Unlock()
+	}
+	l.finished = true
+	done := l.done
+	l.mu.Unlock()
+	if done != nil {
 		<-done
-	} else {
-		l.mu.Unlock()
 	}
 	for attempt := 1; ; attempt++ {
 		err := l.client.Unregister(ctx, l.token)
