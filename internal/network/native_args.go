@@ -139,16 +139,17 @@ func nativeArgsConflict(name string, args []string) error {
 			return refuse(i, "is a word Claude Code dispatches on outside its option parser")
 		}
 	}
-	variadic := false
+	// Words that do not look like options were all checked above, so only
+	// options remain to admit. A value matters here only when it looks like
+	// an option and the parser still takes it as a value: the next argument
+	// after an option with a required value or a list. An optional value, and
+	// the further items of a list, are taken only when they do not look like
+	// options, so they never hide one.
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
 		if arg == "--" {
 			return nil
 		}
-		if variadic && !looksLikeOption(arg) {
-			continue
-		}
-		variadic = false
 		if !looksLikeOption(arg) {
 			continue
 		}
@@ -171,13 +172,6 @@ func nativeArgsConflict(name string, args []string) error {
 				if i+1 >= len(args) {
 					return refuse(i, "has no value")
 				}
-				i++
-				// Only the spaced form keeps taking values: the parser
-				// ends a "--option=value" at its own argument.
-				variadic = shape == argVariadic
-			}
-		case argOptional:
-			if !inline && i+1 < len(args) && !looksLikeOption(args[i+1]) {
 				i++
 			}
 		}
