@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -221,6 +222,43 @@ func TestPrepareGatewayRecheckStopsAfterRegister(t *testing.T) {
 			}
 			if err == nil || refusalCode(t, err) != refusal.CodeConfigurationConflict {
 				t.Fatalf("recheck = %v", err)
+			}
+		})
+	}
+}
+
+// R3-5: the managed drop-ins read by one check are bounded: more than the cap
+// refuses before any gateway call, and a few harmless drop-ins are admitted
+// (the control).
+func TestPrepareGatewayManagedDropInCap(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		count int
+		admit bool
+	}{
+		{"over the cap", 65, false},
+		{"control: a few drop-ins", 3, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			g := newGateway(t)
+			req := gatewayRequest(gatewayHome(t, g, true))
+			req.Prober = forbiddenProber{t}
+			dir := t.TempDir()
+			os.MkdirAll(filepath.Join(dir, "managed-settings.d"), 0o700)
+			for i := 0; i < tc.count; i++ {
+				writeTestFile(t, filepath.Join(dir, "managed-settings.d", strings.Repeat("a", i%5+1)+"-"+strconv.Itoa(i)+".json"), `{"model":"x"}`)
+			}
+			req.ManagedSettingsDir = dir
+			got, err := network.Prepare(context.Background(), req)
+			if tc.admit {
+				if err != nil || got.Lease == nil {
+					t.Fatalf("valid control refused: %v", err)
+				}
+				got.Lease.Finish(context.Background())
+				return
+			}
+			if err == nil || refusalCode(t, err) != refusal.CodeConfigurationConflict || len(g.calls()) != 0 {
+				t.Fatalf("err = %v calls = %v", err, g.calls())
 			}
 		})
 	}
