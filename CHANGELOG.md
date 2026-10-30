@@ -42,6 +42,13 @@
   the residual. The settings check now reads the environment the child is
   composed with, so a managed home set by the profile fragment is the user
   settings source.
+- Hold a gateway launch's native tail to an allowlist of Claude Code options
+  that stay local to the session, parsed with the runtime's value rules, and
+  refuse a first operand that names a Claude Code command; cloud and remote
+  placement (`--environment`, `--pool`, `--attach-serve`, ...) and any option
+  not yet reviewed refuse. Require an ASCII managed home path, admit the two
+  local-tool `CLAUDE_CODE_USE_` selectors, and read only the global
+  `.claude.json` the runtime selects.
 
 - Specify a proposed same-user executor entry, descriptor custody, closed
   records, immutable assignment/atomic attempt admission, failed-conflict interlock,

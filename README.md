@@ -839,8 +839,10 @@ launch-private environment only. Inherited endpoint selectors are removed
 from the child: every `ANTHROPIC_*`, `CLAUDE_*` or `CLAUDE_CODE_*` name ending
 in `_URL`, `_URLS`, `_SOCKET`, `_ENDPOINT`, `_HOST`, `_BASE`, `_RESOURCE`,
 `_PROXY` or `_GATEWAY` (Claude Code reads dozens, `ANTHROPIC_UNIX_SOCKET` and
-`CLAUDE_CODE_API_BASE_URL` among them), every `CLAUDE_CODE_USE_*` route
-selector and the `AWS_ENDPOINT_URL` names.
+`CLAUDE_CODE_API_BASE_URL` among them), every `CLAUDE_CODE_USE_*` selector
+except the two that pick a local tool (`CLAUDE_CODE_USE_POWERSHELL_TOOL`,
+`CLAUDE_CODE_USE_NATIVE_FILE_SEARCH`, which are kept), and the
+`AWS_ENDPOINT_URL` names.
 
 Claude Code applies the `env` block of its settings over its process
 environment, so a settings entry would send the conversation, with the token
@@ -848,11 +850,12 @@ header, wherever it points. Before registering, and again at the pre-spawn
 boundary, the launcher therefore refuses `network_configuration_conflict` when
 a composed overlay, an MCP lookup, or any settings source it can read sets one
 of those names, the gateway's own names or a proxy-family name (compared
-without case). The sources are an explicit `--settings` value or file; the
+without case). The sources are the
 child's user settings (`CLAUDE_CONFIG_DIR`, else `~/.claude`), both
 `settings.json` and `cowork_settings.json`; the legacy global configuration
-(`.config.json` there, and `.claude*.json` in `CLAUDE_CONFIG_DIR` or the home
-directory), whose `env` Claude applies first; every `.claude/settings.json`
+(`.config.json` there, and the `.claude.json` Claude selects in
+`CLAUDE_CONFIG_DIR` or the home directory; other `.claude-*.json` files are not
+sources), whose `env` Claude applies first; every `.claude/settings.json`
 and `.claude/settings.local.json` from the project root up to `/`, along the
 given and the resolved physical path; and the managed settings
 (`/Library/Application Support/ClaudeCode` on macOS, `/etc/claude-code` on
@@ -860,11 +863,27 @@ Linux: `managed-settings.json` and the `managed-settings.d` drop-ins), which
 also refuse when they carry a policy helper or default policy payload. A
 source that exists but is not a readable regular file (a dangling link, a
 directory, a FIFO) or does not decode refuses; sources are read non-blocking.
-Flags that change the settings sources, the working directory or where the
-session runs refuse too: `--setting-sources`, `--managed-settings`,
-`--project-config-root`, `-w`/`--worktree`, `-r`/`--resume`, `-c`/`--continue`,
-`--from-pr`, `--fork-session`, `--resume-session-at`, `--teleport`, `--cloud`
-and `--remote`. Claude Code's own settings sources are read from the
+The native tail after `--` is held to an allowlist of Claude Code options
+that stay local to the session they start, parsed with the runtime's own
+value rules: `-p`/`--print`, `--verbose`, `-d`/`--debug`, `--debug-file`,
+`--output-format`, `--input-format`, `--json-schema`, `--include-hook-events`,
+`--include-partial-messages`, `--replay-user-messages`, the two
+`--dangerously-skip-permissions` switches, `--permission-mode`,
+`--permission-prompt-tool`, `--thinking`, `--thinking-display`,
+`--max-thinking-tokens`, `--max-turns`, `--max-budget-usd`, the allowed and
+disallowed tool lists, `--tools`, `--mcp-config`, `--strict-mcp-config`, the
+four system-prompt options, `--exclude-dynamic-system-prompt-sections`,
+`--model`, `--fallback-model`, `--effort`, `--agent`, `--betas`, `--session-id`,
+`-n`/`--name`, `--no-session-persistence` and `--disable-slash-commands`.
+Every other option refuses `network_configuration_conflict`: settings sources
+(`--settings`, `--setting-sources`, ...), directories (`--add-dir`,
+`-w`/`--worktree`, ...), stored sessions (`-r`, `-c`, `--from-pr`, ...), plugins,
+and cloud or remote placement (`--cloud`, `--remote`, `--environment`, `--pool`,
+`--attach-serve`, `--teleport`, `--remote-control`, `--sdk-url`, ...), as do
+short-option clusters and an option the runtime adds later. A first operand that
+names a Claude Code command (`doctor`, `mcp`, `ultrareview`, `remote-control`,
+...) refuses too, since the runtime would run that command instead of a
+session. Claude Code's own settings sources are read from the
 environment the child is composed with, the profile fragment's
 `CLAUDE_CONFIG_DIR` included. Once the child has started,
 the launcher activates the registration within its activation window (no
@@ -890,8 +909,9 @@ checked before registering and again at the pre-spawn boundary. A launch that
 fails it refuses `network_scope_unsupported` with no gateway call:
 
 - the build is an exact qualified build (above);
-- the child runs in a managed home: `CLAUDE_CONFIG_DIR` is an absolute path,
-  its `settings.json` exists, and it, `cowork_settings.json` and the legacy
+- the child runs in a managed home: `CLAUDE_CONFIG_DIR` is an absolute ASCII
+  path (so it equals the NFC form Claude Code reads settings from), its
+  `settings.json` exists, and it, `cowork_settings.json` and the legacy
   `.config.json`, where present, are regular files with no write bit;
   `.claude.json`, which Claude Code writes itself, is read but may be
   writable;
@@ -899,7 +919,7 @@ fails it refuses `network_scope_unsupported` with no gateway call:
   inside one of the operator's `project_roots` in
   `~/.curator/network-qualified.toml` (absolute, clean, existing paths; none
   listed admits no gateway launch);
-- worktree, resume, continue and remote-session flags refuse (above);
+- the native tail holds only allowlisted options, so worktree, resume, cloud and remote placement refuse (above);
 - the host has no Claude Code managed preferences
   (`/Library/Managed Preferences/com.anthropic.claudecode.plist`, machine-wide
   or for the current user) and the managed home holds no cached server policy

@@ -28,6 +28,17 @@ const (
 // instead of a list that a new release could outgrow.
 var endpointSuffixes = []string{"_URL", "_URLS", "_SOCKET", "_ENDPOINT", "_HOST", "_BASE", "_RESOURCE", "_PROXY", "_GATEWAY"}
 
+// claudeFeatureSelectors are the CLAUDE_CODE_USE_ names in the 2.1.314
+// bundle that select a local tool, not a provider, transport or settings
+// source; they are admitted and kept. Every other CLAUDE_CODE_USE_ name,
+// including one a later release adds, refuses: BEDROCK, VERTEX, FOUNDRY,
+// MANTLE, GATEWAY, ANTHROPIC_AWS, ANTHROPIC_GOOGLE_CLOUD and CCR_V2 route the
+// conversation, and COWORK_PLUGINS selects another settings document.
+var claudeFeatureSelectors = map[string]bool{
+	"CLAUDE_CODE_USE_POWERSHELL_TOOL":    true,
+	"CLAUDE_CODE_USE_NATIVE_FILE_SEARCH": true,
+}
+
 // gatewayRefusedName reports whether a variable name, compared without case,
 // is one an overlay or settings source must not set under the gateway, and
 // that is removed from an inherited environment: the gateway's own names,
@@ -43,7 +54,10 @@ func gatewayRefusedName(name string) bool {
 			}
 		}
 	}
-	if strings.HasPrefix(upper, "CLAUDE_CODE_USE_") || strings.HasPrefix(upper, "AWS_ENDPOINT_URL") {
+	if strings.HasPrefix(upper, "CLAUDE_CODE_USE_") {
+		return !claudeFeatureSelectors[upper]
+	}
+	if strings.HasPrefix(upper, "AWS_ENDPOINT_URL") {
 		return true
 	}
 	if strings.HasPrefix(upper, "ANTHROPIC_") || strings.HasPrefix(upper, "CLAUDE_") {
@@ -72,20 +86,6 @@ func inheritedRouteNames(envs ...[]string) []string {
 	}
 	return out
 }
-
-// refusedSettingsFlags change which settings sources load, where they are
-// read from, the directory Claude runs in, or move the session elsewhere.
-// Under the gateway they refuse rather than leave the effective
-// configuration outside the check.
-var refusedSettingsFlags = []string{
-	"--setting-sources", "--managed-settings", "--project-config-root",
-	"--worktree", "--resume", "--continue", "--from-pr", "--fork-session",
-	"--resume-session-at", "--teleport", "--cloud", "--remote",
-}
-
-// refusedShortFlags are the single-letter forms of the flags above
-// (-w worktree, -r resume, -c continue), alone or inside a short cluster.
-const refusedShortFlags = "wrc"
 
 // managedSettingsDir is where Claude Code reads machine-managed settings on
 // this platform (managed-settings.json and the managed-settings.d drop-ins),
@@ -168,7 +168,7 @@ func settingsDirs(dir string) []string {
 // sources are: an explicit --settings value or file; the child's user
 // settings (CLAUDE_CONFIG_DIR, else HOME/.claude) and its cowork_settings
 // alternative; the legacy global configuration (.config.json in that
-// directory, and .claude*.json in CLAUDE_CONFIG_DIR or HOME), whose `env`
+// directory, and the selected .claude.json in CLAUDE_CONFIG_DIR or HOME), whose `env`
 // Claude applies first; every .claude/settings.json and settings.local.json
 // from the project root to the filesystem root along both the given and the
 // physical path; and the managed-settings file and drop-ins, which also
@@ -232,17 +232,13 @@ func settingsConflict(name string, req Request) error {
 			return err
 		}
 	}
+	// The runtime's global configuration is <dir>/.claude.json: its suffix
+	// comes only from CLAUDE_CODE_CUSTOM_OAUTH_URL, a name the gateway
+	// refuses and removes, so other .claude-*.json files are never selected
+	// and are not read.
 	if globalDir != "" {
-		entries, err := os.ReadDir(globalDir)
-		if err != nil && !errors.Is(err, os.ErrNotExist) {
-			return conflict("global", "directory cannot be listed for the filtering-gateway check")
-		}
-		for _, entry := range entries {
-			if n := entry.Name(); strings.HasPrefix(n, ".claude") && strings.HasSuffix(n, ".json") {
-				if err := read("global", filepath.Join(globalDir, n), maxGlobalBytes, false); err != nil {
-					return err
-				}
-			}
+		if err := read("global", filepath.Join(globalDir, ".claude.json"), maxGlobalBytes, false); err != nil {
+			return err
 		}
 	}
 	for _, dir := range settingsDirs(req.ProjectRoot) {
@@ -273,42 +269,8 @@ func settingsConflict(name string, req Request) error {
 			}
 		}
 	}
-	for i := 0; i < len(req.NativeArgs); i++ {
-		arg := req.NativeArgs[i]
-		if arg == "--" {
-			break
-		}
-		for _, flag := range refusedSettingsFlags {
-			if arg == flag || strings.HasPrefix(arg, flag+"=") {
-				return conflict(flag, "changes the settings sources or the working directory, which the filtering gateway refuses")
-			}
-		}
-		if len(arg) > 1 && arg[0] == '-' && arg[1] != '-' && strings.ContainsAny(strings.SplitN(arg[1:], "=", 2)[0], refusedShortFlags) {
-			return conflict(arg, "changes the working directory or resumes elsewhere, which the filtering gateway refuses")
-		}
-		value, ok := "", false
-		if v, cut := strings.CutPrefix(arg, "--settings="); cut {
-			value, ok = v, true
-		} else if arg == "--settings" && i+1 < len(req.NativeArgs) {
-			value, ok = req.NativeArgs[i+1], true
-			i++
-		}
-		if !ok {
-			continue
-		}
-		if strings.HasPrefix(strings.TrimSpace(value), "{") {
-			if err := check("--settings", []byte(value), false); err != nil {
-				return err
-			}
-			continue
-		}
-		path := value
-		if !filepath.IsAbs(path) {
-			path = filepath.Join(req.ProjectRoot, path)
-		}
-		if err := read("--settings", path, maxSettingsBytes, false); err != nil {
-			return err
-		}
+	if err := nativeArgsConflict(name, req.NativeArgs); err != nil {
+		return err
 	}
 	return nil
 }
@@ -339,7 +301,8 @@ const mdmDomain = "com.anthropic.claudecode"
 // admissionContract applies admission contract A for Claude Code under a
 // filtering gateway (the pilot contract; settings reloaded during a session
 // remain the written residual):
-//   - the launch runs in a managed home (CLAUDE_CONFIG_DIR) whose settings.json
+//   - the launch runs in a managed home (CLAUDE_CONFIG_DIR, an absolute ASCII
+//     path, so the runtime's NFC-normalized path is the same) whose settings.json
 //     exists and, like any cowork, global or legacy settings file there, is
 //     not writable;
 //   - its physical working directory is inside an operator project root;
@@ -356,6 +319,14 @@ func admissionContract(name string, req Request, roots []string, mdmDir string, 
 	home := childEnv(req)["CLAUDE_CONFIG_DIR"]
 	if home == "" || !filepath.IsAbs(home) {
 		return refuse("the launch does not run in a managed Claude home (CLAUDE_CONFIG_DIR)")
+	}
+	// Claude Code reads user settings from the NFC form of this path but the
+	// global file from the raw one; an ASCII path is its own NFC form, so
+	// every check here inspects the directories the runtime uses.
+	for i := 0; i < len(home); i++ {
+		if home[i] >= 0x80 {
+			return refuse("the managed Claude home path must be ASCII")
+		}
 	}
 	for _, file := range []string{"settings.json", "cowork_settings.json", ".config.json"} {
 		info, err := os.Lstat(filepath.Join(home, file))

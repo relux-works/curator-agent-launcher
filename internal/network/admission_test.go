@@ -54,6 +54,15 @@ func TestPrepareGatewayAdmissionContract(t *testing.T) {
 		{"relative managed home", false, func(t *testing.T, _ string, req *network.Request) {
 			req.ChildEnv = []string{"CLAUDE_CONFIG_DIR=managed"}
 		}},
+		{"R3-4 composed non-ASCII managed home", false, func(t *testing.T, _ string, req *network.Request) {
+			req.ChildEnv = []string{"CLAUDE_CONFIG_DIR=" + contractHome(t, "caf\u00e9")}
+		}},
+		{"R3-4 decomposed non-ASCII managed home", false, func(t *testing.T, _ string, req *network.Request) {
+			req.ChildEnv = []string{"CLAUDE_CONFIG_DIR=" + contractHome(t, "cafe\u0301")}
+		}},
+		{"control: ASCII managed home made the same way", true, func(t *testing.T, _ string, req *network.Request) {
+			req.ChildEnv = []string{"CLAUDE_CONFIG_DIR=" + contractHome(t, "cafe")}
+		}},
 		{"settings.json missing", false, func(t *testing.T, _ string, req *network.Request) {
 			req.ChildEnv = []string{"CLAUDE_CONFIG_DIR=" + t.TempDir()}
 		}},
@@ -296,6 +305,19 @@ func TestPrepareGatewayGuardInsideTheContract(t *testing.T) {
 			}
 		})
 	}
+}
+
+// contractHome makes a managed home named leaf that otherwise satisfies
+// contract A: a read-only settings.json.
+func contractHome(t *testing.T, leaf string) string {
+	t.Helper()
+	dir := filepath.Join(t.TempDir(), leaf)
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	writeTestFile(t, filepath.Join(dir, "settings.json"), "{}")
+	readOnly(t, filepath.Join(dir, "settings.json"))
+	return dir
 }
 
 func physical(t *testing.T, path string) string {
