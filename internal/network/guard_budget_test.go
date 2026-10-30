@@ -427,8 +427,8 @@ func TestPrepareGatewayDropInListingIsBounded(t *testing.T) {
 			var mu sync.Mutex
 			var limits []int
 			returned := 0
-			defer network.SetListDropIns(func(d string, n int) ([]os.DirEntry, error) {
-				entries, err := network.ListDropIns(d, n)
+			defer network.SetListDropIns(func(d string, n int, step func() error) ([]os.DirEntry, error) {
+				entries, err := network.ListDropIns(d, n, step)
 				mu.Lock()
 				limits = append(limits, n)
 				returned += len(entries)
@@ -456,6 +456,91 @@ func TestPrepareGatewayDropInListingIsBounded(t *testing.T) {
 			}
 			if err == nil || refusalCode(t, err) != refusal.CodeConfigurationConflict || len(g.calls()) != 0 {
 				t.Fatalf("err = %v calls = %v", err, g.calls())
+			}
+		})
+	}
+}
+
+// R5-2: a source is read in chunks with the clock checked before each one. A
+// cancellation after the first chunk of a large selected .claude.json stops
+// the read: no later chunk is read, and the check refuses as interrupted.
+// The same file read without the cancellation is read to the end, in several
+// chunks, and admitted (the control).
+func TestPrepareGatewayReadStopsBetweenChunks(t *testing.T) {
+	for _, cancelAfterFirst := range []bool{true, false} {
+		t.Run(map[bool]string{true: "cancelled after the first chunk", false: "control: read to the end"}[cancelAfterFirst], func(t *testing.T) {
+			g := newGateway(t)
+			req := gatewayRequest(gatewayHome(t, g, true))
+			req.Prober = forbiddenProber{t}
+			global := filepath.Join(managedHome(req), ".claude.json")
+			writeTestFile(t, global, `{"projects":{"pad":"`+strings.Repeat("x", 1<<20)+`"}}`)
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			var mu sync.Mutex
+			reads := 0
+			defer network.SetReadSettingsChunk(func(f *os.File, p []byte) (int, error) {
+				if f.Name() == global {
+					mu.Lock()
+					reads++
+					mu.Unlock()
+					if cancelAfterFirst {
+						defer cancel()
+					}
+				}
+				return network.ReadSettingsChunk(f, p)
+			})()
+			got, err := network.Prepare(ctx, req)
+			if !cancelAfterFirst {
+				if err != nil || got.Lease == nil || reads < 2 {
+					t.Fatalf("valid control refused: %v reads = %d", err, reads)
+				}
+				got.Lease.Finish(context.Background())
+				return
+			}
+			if err == nil || refusalCode(t, err) != refusal.CodeConfigurationConflict || !strings.Contains(err.Error(), "interrupted") || reads != 1 || len(g.calls()) != 0 {
+				t.Fatalf("err = %v reads = %d calls = %v", err, reads, g.calls())
+			}
+		})
+	}
+}
+
+// R5-2: a cancellation during the first policy inspection stops the policy
+// lookups: no later candidate is inspected. Without it, all four candidates
+// (machine and user preferences, both policy caches) are inspected and the
+// launch is admitted (the control).
+func TestPrepareGatewayPolicyLookupsStopAfterCancel(t *testing.T) {
+	for _, cancelAtFirst := range []bool{true, false} {
+		t.Run(map[bool]string{true: "cancelled at the first candidate", false: "control: every candidate inspected"}[cancelAtFirst], func(t *testing.T) {
+			g := newGateway(t)
+			req := gatewayRequest(gatewayHome(t, g, true))
+			req.Prober = forbiddenProber{t}
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			var mu sync.Mutex
+			var inspected []string
+			defer network.SetInspectPath(func(path string) (os.FileInfo, error) {
+				base := filepath.Base(path)
+				if base == "com.anthropic.claudecode.plist" || base == "remote-settings.json" || base == "policy-limits.json" {
+					mu.Lock()
+					inspected = append(inspected, path)
+					first := len(inspected) == 1
+					mu.Unlock()
+					if cancelAtFirst && first {
+						cancel()
+					}
+				}
+				return os.Lstat(path)
+			})()
+			got, err := network.Prepare(ctx, req)
+			if !cancelAtFirst {
+				if err != nil || got.Lease == nil || len(inspected) != 4 {
+					t.Fatalf("valid control refused: %v inspected = %v", err, inspected)
+				}
+				got.Lease.Finish(context.Background())
+				return
+			}
+			if err == nil || !strings.Contains(err.Error(), "interrupted") || len(inspected) != 1 || len(g.calls()) != 0 {
+				t.Fatalf("err = %v inspected = %v calls = %v", err, inspected, g.calls())
 			}
 		})
 	}

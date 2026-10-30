@@ -26,13 +26,27 @@ func SetInspectPath(inspect func(string) (os.FileInfo, error)) (restore func()) 
 }
 
 // SetListDropIns replaces how a managed drop-in directory is listed.
-func SetListDropIns(list func(string, int) ([]os.DirEntry, error)) (restore func()) {
+func SetListDropIns(list func(string, int, func() error) ([]os.DirEntry, error)) (restore func()) {
 	previous := listDropIns
 	listDropIns = list
 	return func() { listDropIns = previous }
 }
 
 // ListDropIns is the production lister, for wrapping.
-func ListDropIns(dir string, n int) ([]os.DirEntry, error) { return productionListDropIns(dir, n) }
+func ListDropIns(dir string, n int, step func() error) ([]os.DirEntry, error) {
+	return productionListDropIns(dir, n, step)
+}
+
+// SetReadSettingsChunk replaces one read of a settings source.
+func SetReadSettingsChunk(read func(*os.File, []byte) (int, error)) (restore func()) {
+	previous := readSettingsChunk
+	readSettingsChunk = read
+	return func() { readSettingsChunk = previous }
+}
+
+// ReadSettingsChunk is the production read, for wrapping.
+func ReadSettingsChunk(f *os.File, p []byte) (int, error) { return productionReadSettingsChunk(f, p) }
+
+var productionReadSettingsChunk = readSettingsChunk
 
 var productionListDropIns = listDropIns

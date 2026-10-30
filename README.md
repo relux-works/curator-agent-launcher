@@ -867,10 +867,11 @@ source that exists but is not a readable regular file (a dangling link, a
 directory, a FIFO) or does not decode refuses; sources are read non-blocking,
 a special file is refused from its inspection without being opened, and a
 file replaced between inspection and open refuses. Each check runs under a
-time budget (5 s) that is checked before every file operation, inside each
-source read, and once more before the check admits; the managed drop-in
-directory is opened as a directory and read for at most 65 entries, and more
-than 64 refuse. A held SIGINT or SIGTERM cancels the check; either ends it
+time budget (5 s) that is checked before every file operation, including
+each 64 KiB read of a source, the listing of the managed drop-in directory
+and each lookup of the global-file selection, and once more before the check
+admits; the drop-in directory is opened as a directory and read for at most
+65 entries, and more than 64 refuse. A held SIGINT or SIGTERM cancels the check; either ends it
 with a refusal. Registration itself is never cut short, so its outcome
 is always known and ended. The operator catalog and its confirmation ledger
 are read the same non-blocking way, whether the gateway is selected

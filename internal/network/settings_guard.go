@@ -144,26 +144,39 @@ var errAbsent = errors.New("absent")
 // CLAUDE_CODE_CUSTOM_OAUTH_URL, which the gateway refuses and removes. Both
 // lookups follow links, as the runtime's do. Only the selected file is a
 // source; the other is not read.
-func selectedGlobalFile(configDir, globalDir string) string {
+func selectedGlobalFile(clock guardClock, name, configDir, globalDir string) (string, error) {
 	selected := filepath.Join(globalDir, ".claude.json")
 	if configDir == "" {
-		return selected
+		return selected, nil
 	}
 	legacy := filepath.Join(configDir, ".config.json")
+	if err := clock.step(name); err != nil {
+		return "", err
+	}
 	info, err := os.Stat(legacy)
 	if err != nil || !info.Mode().IsRegular() {
-		return selected
+		return selected, nil
 	}
 	if info.Size() > 0 {
-		return legacy
+		return legacy, nil
 	}
 	if info.Mode().Perm()&0o222 != 0 {
+		if err := clock.step(name); err != nil {
+			return "", err
+		}
 		if _, err := os.Stat(selected); err != nil {
-			return legacy
+			return legacy, nil
 		}
 	}
-	return selected
+	return selected, nil
 }
+
+// settingsChunk is the size of one read of a settings source.
+const settingsChunk = 64 << 10
+
+// readSettingsChunk performs one read of an open settings source; tests
+// replace it to act between reads.
+var readSettingsChunk = func(f *os.File, p []byte) (int, error) { return f.Read(p) }
 
 // clockStop carries a check's interruption or spent budget out of a helper,
 // so the refusal says that and not that the source was unreadable.
@@ -177,12 +190,15 @@ var inspectPath = os.Lstat
 // must be a directory: it is opened as one, without blocking, so a FIFO or
 // file there refuses, and a huge directory is never read beyond n entries.
 // Tests replace it to observe n.
-var listDropIns = func(dir string, n int) ([]os.DirEntry, error) {
+var listDropIns = func(dir string, n int, step func() error) ([]os.DirEntry, error) {
 	f, err := os.OpenFile(dir, os.O_RDONLY|syscall.O_NONBLOCK|syscall.O_DIRECTORY, 0)
 	if err != nil {
 		return nil, err
 	}
 	defer f.Close()
+	if err := step(); err != nil {
+		return nil, err
+	}
 	entries, err := f.ReadDir(n)
 	if errors.Is(err, io.EOF) {
 		err = nil
@@ -242,12 +258,28 @@ func readRegular(clock guardClock, name, path string, limit int64) ([]byte, erro
 	if err != nil || !opened.Mode().IsRegular() || !os.SameFile(target, opened) {
 		return nil, errors.New("changed while being opened")
 	}
+	// Read in chunks, checking the clock before each one, so a check that is
+	// interrupted or out of time stops between reads.
+	var doc []byte
+	buf := make([]byte, settingsChunk)
+	for {
+		if err := step(); err != nil {
+			return nil, err
+		}
+		n, err := readSettingsChunk(f, buf)
+		doc = append(doc, buf[:n]...)
+		if int64(len(doc)) > limit {
+			return nil, errors.New("not readable within its limit")
+		}
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return nil, errors.New("not readable within its limit")
+		}
+	}
 	if err := step(); err != nil {
 		return nil, err
-	}
-	doc, err := io.ReadAll(io.LimitReader(f, limit+1))
-	if err != nil || int64(len(doc)) > limit {
-		return nil, errors.New("not readable within its limit")
 	}
 	return doc, nil
 }
@@ -387,7 +419,11 @@ func settingsConflict(clock guardClock, name string, req Request) error {
 		if err := clock.step(name); err != nil {
 			return err
 		}
-		if err := read("global", selectedGlobalFile(userDir, globalDir), maxGlobalBytes, false); err != nil {
+		global, err := selectedGlobalFile(clock, name, userDir, globalDir)
+		if err != nil {
+			return err
+		}
+		if err := read("global", global, maxGlobalBytes, false); err != nil {
 			return err
 		}
 	}
@@ -417,7 +453,16 @@ func settingsConflict(clock guardClock, name string, req Request) error {
 		if err := clock.step(name); err != nil {
 			return err
 		}
-		entries, err := listDropIns(drop, maxManagedDropIns+1)
+		entries, err := listDropIns(drop, maxManagedDropIns+1, func() error {
+			if err := clock.step(name); err != nil {
+				return clockStop{err}
+			}
+			return nil
+		})
+		var stop clockStop
+		if errors.As(err, &stop) {
+			return stop.error
+		}
 		if err != nil && !errors.Is(err, os.ErrNotExist) {
 			return conflict("managed", "drop-ins cannot be listed for the filtering-gateway check")
 		}
