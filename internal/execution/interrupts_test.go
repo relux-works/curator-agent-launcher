@@ -1,12 +1,16 @@
 package execution
 
 import (
+	"bytes"
 	"errors"
 	"os"
 	"os/exec"
+	"strings"
 	"syscall"
 	"testing"
 	"time"
+
+	"github.com/relux-works/curator-agent-launcher/internal/composition"
 )
 
 // A SIGTERM held by the caller before the child exists (queued on the
@@ -33,5 +37,29 @@ func TestRunForwardsInterruptsQueuedBeforeStart(t *testing.T) {
 	empty := make(chan os.Signal, 1)
 	if err := run(exec.Command(sleep, "0.2"), nil, empty); err != nil {
 		t.Fatalf("control child: %v", err)
+	}
+}
+
+// Through the public Run, the caller's Options.Interrupts is the channel the
+// child's signals come from: a SIGTERM queued there before the launch ends
+// the child (exit 128+15). The same launch with an empty channel runs to
+// its own exit (the control).
+func TestLaunchRunForwardsCallerInterrupts(t *testing.T) {
+	launch := func(seconds string, interrupts <-chan os.Signal) int {
+		l := Prepare(composition.Value{Binary: "/bin/sleep", Argv: []string{seconds}, WorkDir: t.TempDir(), Env: []string{"PATH=/bin"}})
+		var out, stderr bytes.Buffer
+		return l.Run(Options{Boundary: func() error { return nil }, IO: IO{Stdin: strings.NewReader(""), Stdout: &out, Stderr: &stderr}, Interrupts: interrupts})
+	}
+	queued := make(chan os.Signal, 1)
+	queued <- syscall.SIGTERM
+	start := time.Now()
+	if code := launch("5", queued); code != 128+int(syscall.SIGTERM) {
+		t.Fatalf("exit = %d, want the child ended by SIGTERM", code)
+	}
+	if time.Since(start) > 3*time.Second {
+		t.Fatal("the queued signal was not forwarded at the start")
+	}
+	if code := launch("0.2", make(chan os.Signal, 1)); code != 0 {
+		t.Fatalf("control exit = %d", code)
 	}
 }

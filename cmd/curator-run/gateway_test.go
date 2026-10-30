@@ -11,7 +11,9 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"syscall"
 	"testing"
+	"time"
 
 	"github.com/relux-works/curator-network-profiles/pkg/adapterprobe"
 	"github.com/relux-works/curator-network-profiles/pkg/netprofile"
@@ -28,6 +30,9 @@ type e2eGateway struct {
 	// persistFailures makes that many unregister calls answer 503
 	// persist_failed before the usual 204.
 	persistFailures int
+	// onActivate, when set, runs on each activate request, after the child
+	// has started.
+	onActivate func()
 }
 
 func newE2EGateway(t *testing.T) *e2eGateway {
@@ -53,6 +58,9 @@ func newE2EGateway(t *testing.T) *e2eGateway {
 		case "/v1/register":
 			io.WriteString(w, `{"api":"netproxy-control/1","token":"`+e2eToken+`","token_header":"X-Netproxy-Token","anthropic_base":"http://127.0.0.1:47811/anthropic","openai_base":"http://127.0.0.1:47811/openai/v1","chatgpt_base":"http://127.0.0.1:47811/chatgpt/backend-api/codex","activation_seconds":120}`)
 		case "/v1/activate", "/v1/renew":
+			if r.URL.Path == "/v1/activate" && g.onActivate != nil {
+				g.onActivate()
+			}
 			io.WriteString(w, `{"api":"netproxy-control/1","active":true}`)
 		case "/v1/unregister":
 			g.mu.Lock()
@@ -391,4 +399,42 @@ func TestGatewayBoundaryRechecksSettings(t *testing.T) {
 		t.Fatalf("gateway calls = %q", calls)
 	}
 	f.assertNoChild(t)
+}
+
+// A signal that the lease owner holds while the child runs reaches the
+// child through curator-run's real run path: SIGTERM queued on the held
+// channel once the child has started (seen as its activation) ends a child
+// that would otherwise wait forever, with exit 143, and the registration is
+// then ended. The lifecycle test above, whose child exits by itself, is the
+// control. Signal delivery from the OS into the held channel is not part of
+// this test; the channel is injected.
+func TestGatewayForwardsHeldSignalToRunningChild(t *testing.T) {
+	f := printNetworkFixture(t)
+	g := newE2EGateway(t)
+	writeGatewayCatalog(t, f, g.socket)
+	writeFixture(t, filepath.Join(f.dir, "behavior"), []byte("waitsignal"), 0o600)
+	held := make(chan chan<- os.Signal, 1)
+	f.deps.leaseNotify = func(c chan<- os.Signal, _ ...os.Signal) { held <- c }
+	g.onActivate = func() { (<-held) <- syscall.SIGTERM }
+	f.args = withNetworkFlag(f.args, "egress-a")
+	type result struct {
+		code   int
+		stderr []byte
+	}
+	done := make(chan result, 1)
+	go func() {
+		code, _, stderr := f.run()
+		done <- result{code, stderr}
+	}()
+	select {
+	case r := <-done:
+		if r.code != 128+int(syscall.SIGTERM) {
+			t.Fatalf("exit=%d stderr=%s", r.code, r.stderr)
+		}
+	case <-time.After(20 * time.Second):
+		t.Fatal("the held signal never reached the running child")
+	}
+	if calls := g.calls(); calls != "/v1/health /v1/register /v1/activate /v1/unregister" {
+		t.Fatalf("gateway calls = %q", calls)
+	}
 }
