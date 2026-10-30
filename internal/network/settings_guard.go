@@ -359,9 +359,13 @@ const mdmDomain = "com.anthropic.claudecode"
 //   - no Claude Code managed preferences (MDM) and no server-managed policy
 //     cache is present on the host.
 //
-// Worktree and resume flags are refused by settingsConflict. A same-uid
-// process can still change file modes back; the contract narrows, it does
-// not isolate.
+// "Exact model" is the exact qualified build, enforced by the strict tuple;
+// the LLM model is not checked. Worktree, resume and remote placement are
+// refused by the native-tail allowlist. The contract narrows, it does not
+// isolate; its residual (README) is a settings reload during the session,
+// same-uid file modes, the writable .claude.json the runtime itself writes,
+// and server policy fetched at start or refresh, of which only the local
+// traces are checked.
 func admissionContract(clock guardClock, name string, req Request, roots []string, mdmDir string, username string) error {
 	refuse := func(detail string) error {
 		return refusal.New(refusal.CodeScopeUnsupported, name, "filtering-gateway admission: "+detail)

@@ -917,7 +917,9 @@ Claude Code under a filtering gateway is also held to admission contract A,
 checked before registering and again at the pre-spawn boundary. A launch that
 fails it refuses `network_scope_unsupported` with no gateway call:
 
-- the build is an exact qualified build (above);
+- "exact model" is the exact qualified Claude Code build: its binary
+  SHA-256 in the strict tuple (above). Routing does not depend on the LLM
+  model, so the model is not checked;
 - the child runs in a managed home: `CLAUDE_CONFIG_DIR` is an absolute ASCII
   path (so it equals the NFC form Claude Code reads settings from), its
   `settings.json` exists, and it, `cowork_settings.json` and the legacy
@@ -942,8 +944,13 @@ Contract A narrows the launch; it does not isolate it. Its written residual:
 - "not writable" is checked on file modes; while a session runs as the same
   OS user as its managed home, it can change those modes, and the managed
   home directory itself stays writable because Claude Code writes there;
-- MDM profiles and server-managed policy cannot be read by the launcher; the
-  check sees only their local traces named above;
+- `<CLAUDE_CONFIG_DIR>/.claude.json` stays writable, because Claude Code
+  writes it; the guard refuses a route-bearing `env` in it before spawn, and
+  an edit after the check is the same reroute as the first item;
+- MDM profiles and server-managed policy cannot be read by the launcher. The
+  gate is the absence of their local traces named above (the MDM plists and
+  the policy-cache files); policy a runtime fetches from its server at start
+  or refresh is not checked;
 - the launch token is usable only at the gateway's same-host loopback
   listener.
 
