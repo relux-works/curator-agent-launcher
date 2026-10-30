@@ -296,3 +296,86 @@ func TestDefaultGatewaySelected(t *testing.T) {
 		})
 	}
 }
+
+// A Claude Code settings source that names a gateway variable in `env`
+// refuses before any gateway call: Claude applies settings env into its
+// process environment, so the entry could replace the base URL or the
+// token header. Harmless settings, the same names after `--`, and absent
+// files are the valid controls.
+func TestPrepareGatewaySettingsEnvConflict(t *testing.T) {
+	bad := `{"env":{"ANTHROPIC_BASE_URL":"https://elsewhere.example"}}`
+	for _, tc := range []struct {
+		name   string
+		setup  func(t *testing.T, req *network.Request)
+		refuse bool
+	}{
+		{"harmless user settings", func(t *testing.T, req *network.Request) {
+			dir := t.TempDir()
+			writeTestFile(t, filepath.Join(dir, "settings.json"), `{"env":{"DISABLE_AUTOUPDATER":"1"},"model":"x"}`)
+			req.ChildEnv = []string{"CLAUDE_CONFIG_DIR=" + dir}
+		}, false},
+		{"user settings in CLAUDE_CONFIG_DIR", func(t *testing.T, req *network.Request) {
+			dir := t.TempDir()
+			writeTestFile(t, filepath.Join(dir, "settings.json"), bad)
+			req.ChildEnv = []string{"CLAUDE_CONFIG_DIR=" + dir}
+		}, true},
+		{"user settings under HOME", func(t *testing.T, req *network.Request) {
+			home := t.TempDir()
+			os.MkdirAll(filepath.Join(home, ".claude"), 0o700)
+			writeTestFile(t, filepath.Join(home, ".claude", "settings.json"), `{"env":{"anthropic_custom_headers":"X: y"}}`)
+			req.ChildEnv = []string{"HOME=" + home}
+		}, true},
+		{"project settings.json", func(t *testing.T, req *network.Request) {
+			root := t.TempDir()
+			os.MkdirAll(filepath.Join(root, ".claude"), 0o700)
+			writeTestFile(t, filepath.Join(root, ".claude", "settings.json"), bad)
+			req.ProjectRoot = root
+		}, true},
+		{"project settings.local.json", func(t *testing.T, req *network.Request) {
+			root := t.TempDir()
+			os.MkdirAll(filepath.Join(root, ".claude"), 0o700)
+			writeTestFile(t, filepath.Join(root, ".claude", "settings.local.json"), `{"env":{"CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC":"0"}}`)
+			req.ProjectRoot = root
+		}, true},
+		{"undecodable project settings", func(t *testing.T, req *network.Request) {
+			root := t.TempDir()
+			os.MkdirAll(filepath.Join(root, ".claude"), 0o700)
+			writeTestFile(t, filepath.Join(root, ".claude", "settings.json"), `{"env":`)
+			req.ProjectRoot = root
+		}, true},
+		{"inline --settings", func(t *testing.T, req *network.Request) {
+			req.NativeArgs = []string{"--settings", bad, "-p", "hi"}
+		}, true},
+		{"--settings= file", func(t *testing.T, req *network.Request) {
+			path := filepath.Join(t.TempDir(), "s.json")
+			writeTestFile(t, path, bad)
+			req.NativeArgs = []string{"--settings=" + path}
+		}, true},
+		{"settings text after --", func(t *testing.T, req *network.Request) {
+			req.NativeArgs = []string{"-p", "--", "--settings", bad}
+		}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			g := newGateway(t)
+			req := gatewayRequest(gatewayHome(t, g, true))
+			req.Prober = forbiddenProber{t}
+			tc.setup(t, &req)
+			got, err := network.Prepare(context.Background(), req)
+			if !tc.refuse {
+				if err != nil {
+					t.Fatalf("valid control refused: %v", err)
+				}
+				if got.Lease != nil {
+					got.Lease.Finish(context.Background())
+				}
+				return
+			}
+			if err == nil || refusalCode(t, err) != refusal.CodeConfigurationConflict || got.Lease != nil {
+				t.Fatalf("err = %v", err)
+			}
+			if calls := g.calls(); len(calls) != 0 {
+				t.Fatalf("gateway calls = %v", calls)
+			}
+		})
+	}
+}

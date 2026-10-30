@@ -2,8 +2,12 @@ package network
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -51,6 +55,9 @@ func prepareGateway(ctx context.Context, req Request, result *resolve.Result, id
 				return Prepared{}, refusal.New(refusal.CodeConfigurationConflict, name, "an MCP lookup names "+n+", which the filtering gateway owns")
 			}
 		}
+	}
+	if err := settingsConflict(name, req); err != nil {
+		return Prepared{}, err
 	}
 	register := netproxy.RegisterRequest{Root: req.ProjectRoot, Session: req.SessionID, Runtime: runtime}
 	if err := register.Validate(); err != nil {
@@ -133,4 +140,103 @@ func DefaultGatewaySelected(parentEnv []string) (bool, error) {
 	}
 	p, ok := cat.File.Lookup(cat.File.Default)
 	return ok && p.Kind == netprofile.KindFilteringGateway, nil
+}
+
+// maxSettingsBytes bounds each settings document the gateway check reads.
+const maxSettingsBytes = 1 << 20
+
+// settingsConflict refuses a gateway launch when a Claude Code settings
+// source the launcher can see sets one of the gateway's names in `env`:
+// an explicit --settings value or file, the child's user settings
+// (CLAUDE_CONFIG_DIR/settings.json, else HOME/.claude/settings.json), and
+// the project's .claude/settings.json and settings.local.json. Claude
+// applies settings env into its process environment, so such an entry could
+// replace the gateway's base URL or token header. A source that exists but
+// cannot be read or decoded refuses too. Managed and policy settings are
+// outside this check, and the files are read before spawn only.
+func settingsConflict(name string, req Request) error {
+	conflict := func(source, detail string) error {
+		return refusal.New(refusal.CodeConfigurationConflict, name, "Claude Code settings ("+source+") "+detail)
+	}
+	check := func(source string, doc []byte) error {
+		var settings struct {
+			Env map[string]json.RawMessage `json:"env"`
+		}
+		if err := json.Unmarshal(doc, &settings); err != nil {
+			return conflict(source, "cannot be decoded for the filtering-gateway check")
+		}
+		for key := range settings.Env {
+			for _, n := range gatewayClaudeNames {
+				if strings.EqualFold(key, n) {
+					return conflict(source, "set "+n+", which the filtering gateway owns")
+				}
+			}
+		}
+		return nil
+	}
+	readFile := func(source, path string) error {
+		f, err := os.Open(path)
+		if err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				return nil
+			}
+			return conflict(source, "cannot be read for the filtering-gateway check")
+		}
+		defer f.Close()
+		doc, err := io.ReadAll(io.LimitReader(f, maxSettingsBytes+1))
+		if err != nil || len(doc) > maxSettingsBytes {
+			return conflict(source, "cannot be read for the filtering-gateway check")
+		}
+		return check(source, doc)
+	}
+	env := map[string]string{}
+	for _, e := range req.ChildEnv {
+		if k, v, ok := strings.Cut(e, "="); ok {
+			env[k] = v
+		}
+	}
+	userDir := env["CLAUDE_CONFIG_DIR"]
+	if userDir == "" && env["HOME"] != "" {
+		userDir = filepath.Join(env["HOME"], ".claude")
+	}
+	if userDir != "" {
+		if err := readFile("user", filepath.Join(userDir, "settings.json")); err != nil {
+			return err
+		}
+	}
+	for _, file := range []string{"settings.json", "settings.local.json"} {
+		if err := readFile("project", filepath.Join(req.ProjectRoot, ".claude", file)); err != nil {
+			return err
+		}
+	}
+	for i := 0; i < len(req.NativeArgs); i++ {
+		arg := req.NativeArgs[i]
+		if arg == "--" {
+			break
+		}
+		value, ok := "", false
+		if v, cut := strings.CutPrefix(arg, "--settings="); cut {
+			value, ok = v, true
+		} else if arg == "--settings" && i+1 < len(req.NativeArgs) {
+			value, ok = req.NativeArgs[i+1], true
+			i++
+		}
+		if !ok {
+			continue
+		}
+		if strings.HasPrefix(strings.TrimSpace(value), "{") {
+			if err := check("--settings", []byte(value)); err != nil {
+				return err
+			}
+			continue
+		}
+		path := value
+		if !filepath.IsAbs(path) {
+			path = filepath.Join(req.ProjectRoot, path)
+		}
+		if err := readFile("--settings", path); err != nil {
+			return err
+		}
+	}
+	return nil
 }

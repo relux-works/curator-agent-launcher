@@ -637,6 +637,8 @@ func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, ta
 		FragEnv: frag.Env, PromptEnv: prompt.Env, MCPEnvNames: mcpNames,
 		EngineHosts: deps.networkEngineHosts,
 		ProjectRoot: filepath.Clean(admitted.Plan.WorkDir),
+		ChildEnv:    admitted.Plan.Env,
+		NativeArgs:  inv.Native,
 		SessionID:   gatewaySessionID(inv.EnvID, time.Now()),
 		Alert:       stderr,
 	})

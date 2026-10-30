@@ -199,6 +199,11 @@ type Request struct {
 	DefaultGateway bool
 	ProjectRoot    string
 	SessionID      string
+	// ChildEnv is the admitted plan environment before the network patch
+	// and NativeArgs the caller's native tail; the gateway's settings check
+	// reads the Claude settings sources they name.
+	ChildEnv       []string
+	NativeArgs     []string
 	Alert          io.Writer
 	GatewayTimeout time.Duration
 }

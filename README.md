@@ -831,7 +831,15 @@ unfiltered fallback. The child then gets `ANTHROPIC_BASE_URL` set to the
 gateway's base, `ANTHROPIC_CUSTOM_HEADERS` carrying the launch token in the
 gateway's header, and `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1`, in its
 launch-private environment only. A composed overlay that sets one of these
-names refuses `network_configuration_conflict`. Once the child has started,
+names refuses `network_configuration_conflict`, and so does a Claude Code
+settings source the launcher can read that sets one in `env`: an explicit
+`--settings` value or file, the child's user settings
+(`CLAUDE_CONFIG_DIR/settings.json`, else `~/.claude/settings.json`), and the
+project's `.claude/settings.json` and `.claude/settings.local.json`. Claude
+applies settings `env` to its own process environment, so such an entry could
+replace the gateway's base URL or token header. A source that exists but
+cannot be read or decoded refuses as well. Managed and policy settings are
+outside this check, and the files are read once, before spawn. Once the child has started,
 the launcher activates the registration and renews it hourly. After the child
 exits, whatever its status, the launcher unregisters it, retrying and alerting
 on stderr until the gateway confirms; a refusal between registration and spawn
