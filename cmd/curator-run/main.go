@@ -467,7 +467,11 @@ func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, ta
 	// so a hosted launch or resume can never run without it, and a catalog
 	// that exists but cannot be read refuses every route alike.
 	if !inv.NetworkSet {
-		selectedDefault, err := network.DefaultGatewaySelected(deps.environ())
+		environ := deps.environ
+		if environ == nil {
+			environ = os.Environ
+		}
+		selectedDefault, err := network.DefaultGatewaySelected(environ())
 		if err != nil {
 			return emitNetworkFailure(stderr, err)
 		}
