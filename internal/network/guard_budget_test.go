@@ -309,3 +309,154 @@ func TestPrepareGatewayRefusesSelectorBeforeReads(t *testing.T) {
 		})
 	}
 }
+
+// R4-3: the check stops at its last operation too. A cancellation, or a
+// spent budget, that arrives during the final policy-path inspection (the
+// last metadata operation of the contract) refuses instead of admitting; the
+// same inspection without either is admitted (the control).
+func TestPrepareGatewayGuardStopsAtTheLastOperation(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		act    string
+		admit  bool
+		detail string
+	}{
+		{"cancelled during the last inspection", "cancel", false, "interrupted"},
+		{"budget spent during the last inspection", "sleep", false, "time budget"},
+		{"control: nothing happens", "", true, ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			g := newGateway(t)
+			req := gatewayRequest(gatewayHome(t, g, true))
+			req.Prober = forbiddenProber{t}
+			req.GuardBudget = time.Second
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			defer network.SetInspectPath(func(path string) (os.FileInfo, error) {
+				info, err := os.Lstat(path)
+				if strings.HasSuffix(path, "policy-limits.json") {
+					switch tc.act {
+					case "cancel":
+						cancel()
+					case "sleep":
+						time.Sleep(1100 * time.Millisecond)
+					}
+				}
+				return info, err
+			})()
+			got, err := network.Prepare(ctx, req)
+			if tc.admit {
+				if err != nil || got.Lease == nil {
+					t.Fatalf("valid control refused: %v", err)
+				}
+				got.Lease.Finish(context.Background())
+				return
+			}
+			if err == nil || refusalCode(t, err) != refusal.CodeConfigurationConflict || !strings.Contains(err.Error(), tc.detail) || len(g.calls()) != 0 {
+				t.Fatalf("err = %v calls = %v", err, g.calls())
+			}
+		})
+	}
+}
+
+// R4-3: the clock is checked between the operations of one source read. A
+// cancellation that arrives while a route-bearing settings file is being
+// opened refuses as an interruption, before its contents are read; the same
+// file without the cancellation refuses on its route (the control).
+func TestPrepareGatewayReadStopsBetweenItsSteps(t *testing.T) {
+	for _, cancelAtOpen := range []bool{true, false} {
+		t.Run(map[bool]string{true: "cancelled at the open", false: "control: read to the end"}[cancelAtOpen], func(t *testing.T) {
+			g := newGateway(t)
+			req := gatewayRequest(gatewayHome(t, g, true))
+			req.Prober = forbiddenProber{t}
+			os.MkdirAll(filepath.Join(req.ProjectRoot, ".claude"), 0o700)
+			source := filepath.Join(req.ProjectRoot, ".claude", "settings.local.json")
+			writeTestFile(t, source, `{"env":{"ANTHROPIC_BASE_URL":"https://x"}}`)
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			defer network.SetOpenSettingsFile(func(path string) (*os.File, error) {
+				if path == source && cancelAtOpen {
+					cancel()
+				}
+				return network.OpenSettingsFile(path)
+			})()
+			_, err := network.Prepare(ctx, req)
+			want := "set ANTHROPIC_BASE_URL"
+			if cancelAtOpen {
+				want = "interrupted"
+			}
+			if err == nil || refusalCode(t, err) != refusal.CodeConfigurationConflict || !strings.Contains(err.Error(), want) || len(g.calls()) != 0 {
+				t.Fatalf("err = %v calls = %v", err, g.calls())
+			}
+		})
+	}
+}
+
+// R4-3: a managed drop-in directory is listed with a bound of the cap plus
+// one entry, so a huge directory is not read beyond it, and a FIFO in its
+// place refuses without blocking. A few drop-ins listed with the same bound
+// are admitted (the control).
+func TestPrepareGatewayDropInListingIsBounded(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		count int
+		fifo  bool
+		admit bool
+	}{
+		{"many entries", 500, false, false},
+		{"FIFO in place of the directory", 0, true, false},
+		{"control: a few drop-ins", 3, false, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			g := newGateway(t)
+			req := gatewayRequest(gatewayHome(t, g, true))
+			req.Prober = forbiddenProber{t}
+			dir := t.TempDir()
+			drop := filepath.Join(dir, "managed-settings.d")
+			if tc.fifo {
+				if err := syscall.Mkfifo(drop, 0o600); err != nil {
+					t.Fatal(err)
+				}
+			} else {
+				os.MkdirAll(drop, 0o700)
+				for i := 0; i < tc.count; i++ {
+					writeTestFile(t, filepath.Join(drop, "d"+strconv.Itoa(i)+".json"), `{"model":"x"}`)
+				}
+			}
+			req.ManagedSettingsDir = dir
+			var mu sync.Mutex
+			var limits []int
+			returned := 0
+			defer network.SetListDropIns(func(d string, n int) ([]os.DirEntry, error) {
+				entries, err := network.ListDropIns(d, n)
+				mu.Lock()
+				limits = append(limits, n)
+				returned += len(entries)
+				mu.Unlock()
+				return entries, err
+			})()
+			done := make(chan struct{})
+			var got network.Prepared
+			var err error
+			go func() { got, err = network.Prepare(context.Background(), req); close(done) }()
+			select {
+			case <-done:
+			case <-time.After(5 * time.Second):
+				t.Fatal("Prepare blocked")
+			}
+			if len(limits) != 1 || limits[0] != 65 || returned > 65 {
+				t.Fatalf("listing limits = %v returned = %d", limits, returned)
+			}
+			if tc.admit {
+				if err != nil || got.Lease == nil {
+					t.Fatalf("valid control refused: %v", err)
+				}
+				got.Lease.Finish(context.Background())
+				return
+			}
+			if err == nil || refusalCode(t, err) != refusal.CodeConfigurationConflict || len(g.calls()) != 0 {
+				t.Fatalf("err = %v calls = %v", err, g.calls())
+			}
+		})
+	}
+}

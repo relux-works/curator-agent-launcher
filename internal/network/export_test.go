@@ -17,3 +17,22 @@ var productionOpenSettingsFile = openSettingsFile
 
 // OpenSettingsFile is the production opener, for wrapping.
 func OpenSettingsFile(path string) (*os.File, error) { return productionOpenSettingsFile(path) }
+
+// SetInspectPath replaces how settings and policy paths are inspected.
+func SetInspectPath(inspect func(string) (os.FileInfo, error)) (restore func()) {
+	previous := inspectPath
+	inspectPath = inspect
+	return func() { inspectPath = previous }
+}
+
+// SetListDropIns replaces how a managed drop-in directory is listed.
+func SetListDropIns(list func(string, int) ([]os.DirEntry, error)) (restore func()) {
+	previous := listDropIns
+	listDropIns = list
+	return func() { listDropIns = previous }
+}
+
+// ListDropIns is the production lister, for wrapping.
+func ListDropIns(dir string, n int) ([]os.DirEntry, error) { return productionListDropIns(dir, n) }
+
+var productionListDropIns = listDropIns

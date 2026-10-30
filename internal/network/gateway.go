@@ -95,7 +95,12 @@ func prepareGateway(ctx context.Context, req Request, result *resolve.Result, id
 		if err := settingsConflict(clock, name, req); err != nil {
 			return err
 		}
-		return admissionContract(clock, name, req, roots, mdmDir, username)
+		if err := admissionContract(clock, name, req, roots, mdmDir, username); err != nil {
+			return err
+		}
+		// The last inspection may have run past the budget or been
+		// interrupted: a check that did not finish in time never admits.
+		return clock.step(name)
 	}
 	if err := guard(ctx); err != nil {
 		return Prepared{}, err

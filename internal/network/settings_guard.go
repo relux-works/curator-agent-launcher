@@ -128,6 +128,31 @@ func managedSettingsDir() string {
 // errAbsent marks a source with no directory entry at all.
 var errAbsent = errors.New("absent")
 
+// clockStop carries a check's interruption or spent budget out of a helper,
+// so the refusal says that and not that the source was unreadable.
+type clockStop struct{ error }
+
+// inspectPath inspects a settings or policy path without following a final
+// link; tests replace it to act at an exact inspection.
+var inspectPath = os.Lstat
+
+// listDropIns lists at most n entries of a managed drop-in directory, which
+// must be a directory: it is opened as one, without blocking, so a FIFO or
+// file there refuses, and a huge directory is never read beyond n entries.
+// Tests replace it to observe n.
+var listDropIns = func(dir string, n int) ([]os.DirEntry, error) {
+	f, err := os.OpenFile(dir, os.O_RDONLY|syscall.O_NONBLOCK|syscall.O_DIRECTORY, 0)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	entries, err := f.ReadDir(n)
+	if errors.Is(err, io.EOF) {
+		err = nil
+	}
+	return entries, err
+}
+
 // openSettingsFile opens a settings source without blocking on a FIFO; tests
 // replace it to stage a replacement or a slow open.
 var openSettingsFile = func(path string) (*os.File, error) {
@@ -139,11 +164,23 @@ var openSettingsFile = func(path string) (*os.File, error) {
 // opened non-blocking, and the opened file must be the inspected regular
 // file. A missing directory entry is errAbsent; anything else that is not a
 // readable regular file within limit is an error.
-func readRegular(path string, limit int64) ([]byte, error) {
-	if _, err := os.Lstat(path); err != nil {
+func readRegular(clock guardClock, name, path string, limit int64) ([]byte, error) {
+	step := func() error {
+		if err := clock.step(name); err != nil {
+			return clockStop{err}
+		}
+		return nil
+	}
+	if err := step(); err != nil {
+		return nil, err
+	}
+	if _, err := inspectPath(path); err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return nil, errAbsent
 		}
+		return nil, err
+	}
+	if err := step(); err != nil {
 		return nil, err
 	}
 	target, err := os.Stat(path)
@@ -153,14 +190,23 @@ func readRegular(path string, limit int64) ([]byte, error) {
 	if !target.Mode().IsRegular() {
 		return nil, errors.New("not a regular file")
 	}
+	if err := step(); err != nil {
+		return nil, err
+	}
 	f, err := openSettingsFile(path)
 	if err != nil {
 		return nil, err
 	}
 	defer f.Close()
+	if err := step(); err != nil {
+		return nil, err
+	}
 	opened, err := f.Stat()
 	if err != nil || !opened.Mode().IsRegular() || !os.SameFile(target, opened) {
 		return nil, errors.New("changed while being opened")
+	}
+	if err := step(); err != nil {
+		return nil, err
 	}
 	doc, err := io.ReadAll(io.LimitReader(f, limit+1))
 	if err != nil || int64(len(doc)) > limit {
@@ -273,7 +319,11 @@ func settingsConflict(clock guardClock, name string, req Request) error {
 		if err := clock.step(name); err != nil {
 			return err
 		}
-		doc, err := readRegular(path, limit)
+		doc, err := readRegular(clock, name, path, limit)
+		var stop clockStop
+		if errors.As(err, &stop) {
+			return stop.error
+		}
 		if errors.Is(err, errAbsent) {
 			return nil
 		}
@@ -308,7 +358,14 @@ func settingsConflict(clock guardClock, name string, req Request) error {
 			return err
 		}
 	}
-	for _, dir := range settingsDirs(req.ProjectRoot) {
+	if err := clock.step(name); err != nil {
+		return err
+	}
+	dirs := settingsDirs(req.ProjectRoot)
+	if err := clock.step(name); err != nil {
+		return err
+	}
+	for _, dir := range dirs {
 		for _, file := range []string{"settings.json", "settings.local.json"} {
 			if err := read("project", filepath.Join(dir, ".claude", file), maxSettingsBytes, false); err != nil {
 				return err
@@ -327,7 +384,7 @@ func settingsConflict(clock guardClock, name string, req Request) error {
 		if err := clock.step(name); err != nil {
 			return err
 		}
-		entries, err := os.ReadDir(drop)
+		entries, err := listDropIns(drop, maxManagedDropIns+1)
 		if err != nil && !errors.Is(err, os.ErrNotExist) {
 			return conflict("managed", "drop-ins cannot be listed for the filtering-gateway check")
 		}
@@ -423,7 +480,10 @@ func admissionContract(clock guardClock, name string, req Request, roots []strin
 		return err
 	}
 	for _, file := range []string{"settings.json", "cowork_settings.json", ".config.json"} {
-		info, err := os.Lstat(filepath.Join(home, file))
+		if err := clock.step(name); err != nil {
+			return err
+		}
+		info, err := inspectPath(filepath.Join(home, file))
 		if errors.Is(err, os.ErrNotExist) {
 			if file == "settings.json" {
 				return refuse("the managed home has no settings.json; it must exist and be read-only")
@@ -441,6 +501,9 @@ func admissionContract(clock guardClock, name string, req Request, roots []strin
 	if err != nil {
 		return refuse("the working directory does not resolve")
 	}
+	if err := clock.step(name); err != nil {
+		return err
+	}
 	inside := false
 	for _, root := range roots {
 		if rel, err := filepath.Rel(root, physical); err == nil && rel != ".." && !strings.HasPrefix(rel, "../") {
@@ -456,11 +519,11 @@ func admissionContract(clock guardClock, name string, req Request, roots []strin
 		candidates = append(candidates, filepath.Join(mdmDir, username, mdmDomain+".plist"))
 	}
 	candidates = append(candidates, filepath.Join(home, "remote-settings.json"), filepath.Join(home, "policy-limits.json"))
-	if err := clock.step(name); err != nil {
-		return err
-	}
 	for _, path := range candidates {
-		if _, err := os.Lstat(path); err == nil {
+		if err := clock.step(name); err != nil {
+			return err
+		}
+		if _, err := inspectPath(path); err == nil {
 			return refuse("managed preferences or a server-managed policy is present (" + filepath.Base(path) + ")")
 		} else if !errors.Is(err, os.ErrNotExist) {
 			return refuse("managed preferences cannot be inspected")
