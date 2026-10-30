@@ -33,6 +33,9 @@ type e2eGateway struct {
 	// onActivate, when set, runs on each activate request, after the child
 	// has started.
 	onActivate func()
+	// beforeReply, when set, runs on every request before its reply: a
+	// phase barrier for tests that signal the launcher at that call.
+	beforeReply func(path string)
 }
 
 func newE2EGateway(t *testing.T) *e2eGateway {
@@ -50,7 +53,11 @@ func newE2EGateway(t *testing.T) *e2eGateway {
 	srv := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		g.mu.Lock()
 		g.paths = append(g.paths, r.URL.Path)
+		hook := g.beforeReply
 		g.mu.Unlock()
+		if hook != nil {
+			hook(r.URL.Path)
+		}
 		w.Header().Set("Netproxy-Control-Api", "netproxy-control/1")
 		switch r.URL.Path {
 		case "/v1/health":

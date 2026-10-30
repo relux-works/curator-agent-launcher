@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -93,6 +94,16 @@ func main() {
 	}
 	if os.WriteFile("native-called", []byte("called"), 0600) != nil {
 		os.Exit(1)
+	}
+	// With a native-wait marker the runtime records its PID and waits until a
+	// signal ends it, for tests that signal the launcher while it runs.
+	if _, err := os.Stat("native-wait"); err == nil {
+		if os.WriteFile("native-pid", []byte(strconv.Itoa(os.Getpid())), 0600) != nil {
+			os.Exit(1)
+		}
+		for {
+			time.Sleep(time.Hour)
+		}
 	}
 	fmt.Println("native fixture")
 }
