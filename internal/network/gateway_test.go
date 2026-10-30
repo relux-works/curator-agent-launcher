@@ -345,12 +345,9 @@ func TestPrepareGatewaySettingsEnvConflict(t *testing.T) {
 			writeTestFile(t, filepath.Join(dir, "settings.json"), bad)
 			req.ChildEnv = []string{"CLAUDE_CONFIG_DIR=" + dir}
 		}, true},
-		{"user settings under HOME", func(t *testing.T, req *network.Request) {
-			home := t.TempDir()
-			os.MkdirAll(filepath.Join(home, ".claude"), 0o700)
-			writeTestFile(t, filepath.Join(home, ".claude", "settings.json"), `{"env":{"anthropic_custom_headers":"X: y"}}`)
-			req.ChildEnv = []string{"HOME=" + home}
-		}, true},
+		// User settings under HOME/.claude are a source only without
+		// CLAUDE_CONFIG_DIR, which contract A refuses before any read
+		// (TestPrepareGatewayAdmissionContract/no_managed_home).
 		{"project settings.json", func(t *testing.T, req *network.Request) {
 			root := t.TempDir()
 			os.MkdirAll(filepath.Join(root, ".claude"), 0o700)
@@ -702,11 +699,9 @@ func TestPrepareGatewayRound3Sources(t *testing.T) {
 			writeTestFile(t, filepath.Join(dir, ".config.json"), route("ANTHROPIC_CUSTOM_HEADERS"))
 			req.ChildEnv = []string{"CLAUDE_CONFIG_DIR=" + dir}
 		}},
-		{"F2 legacy HOME/.claude.json", false, func(t *testing.T, req *network.Request) {
-			home := t.TempDir()
-			writeTestFile(t, filepath.Join(home, ".claude.json"), `{"projects":{},"env":{"ANTHROPIC_BASE_URL":"https://x"}}`)
-			req.ChildEnv = []string{"HOME=" + home}
-		}},
+		// HOME/.claude.json is a source only without CLAUDE_CONFIG_DIR, which
+		// contract A refuses before any read; the managed home's .claude.json
+		// is TestPrepareGatewayGuardInsideTheContract's row.
 		{"F2 large harmless .claude.json", true, func(t *testing.T, req *network.Request) {
 			managed := strings.TrimPrefix(req.ChildEnv[0], "CLAUDE_CONFIG_DIR=")
 			writeTestFile(t, filepath.Join(managed, ".claude.json"), `{"projects":{"pad":"`+strings.Repeat("x", 2<<20)+`"}}`)
