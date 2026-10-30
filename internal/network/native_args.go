@@ -81,15 +81,23 @@ var gatewayNativeShortOptions = map[string]argShape{
 // in argv (remote-control, rc, mcp serve, plugin eval, agents --json, the
 // background verbs, import), the first-position modes (remote, sync, bridge,
 // daemon, self-hosted-runner, update, forward-home-settings and the dashed
-// helper modes), and the raw tokens it searches for anywhere (--handle-uri,
-// --session-tunnel, --bg, --background, --tmux, --worktree, -w, --bare).
-// Because those searches see option values and arguments after "--" too, a
-// native argument equal to any of these refuses wherever it stands; a prompt
-// that is exactly such a word refuses as well.
+// helper modes, --gh-standin and the version shortcuts), and the raw tokens
+// it or a later mode getter searches for anywhere in argv (--handle-uri,
+// --session-tunnel, --agent-teams, --hard-fail, --bg, --background, --tmux,
+// --worktree, -w, and -c, --continue, -r, --resume, --from-pr). Because
+// those searches see option values and arguments after "--" too, a native
+// argument equal to any of these refuses wherever it stands; a prompt that is
+// exactly such a word refuses as well.
 var claudeReservedArgs = map[string]bool{}
 
+// claudeReservedBeforeTerminator are the raw tokens the runtime looks for
+// only before the first standalone "--" (its mode getters for safe mode and
+// bare mode): they refuse anywhere before a "--" in the native tail, values
+// included, and are ordinary operands after it.
+var claudeReservedBeforeTerminator = map[string]bool{"--safe-mode": true, "--bare": true}
+
 // claudeReservedPrefixes are reserved tokens in their "=value" form.
-var claudeReservedPrefixes = []string{"--handle-uri=", "--worktree=", "--tmux=", "--runner-declares=", "--session-tunnel="}
+var claudeReservedPrefixes = []string{"--handle-uri=", "--worktree=", "--tmux=", "--runner-declares=", "--session-tunnel=", "--resume=", "-r=", "--from-pr="}
 
 func init() {
 	for _, n := range strings.Fields(`help attach logs stop kill respawn rm
@@ -102,7 +110,8 @@ func init() {
 		i autoremove remote sync bridge daemon self-hosted-runner forward-home-settings
 		--handle-uri --session-tunnel --runner-declares --eval-mock-server --claude-in-chrome-mcp
 		--chrome-native-host --computer-use-mcp --daemon-worker --bg-pty-host --bg-spare --preload
-		--update --upgrade --bg --background --tmux --worktree -w --bare`) {
+		--update --upgrade --bg --background --tmux --worktree -w
+		--agent-teams --hard-fail -c --continue -r --resume --from-pr --gh-standin --version -v -V`) {
 		claudeReservedArgs[n] = true
 	}
 }
@@ -132,10 +141,16 @@ func nativeArgsConflict(name string, args []string) error {
 	refuse := func(i int, detail string) error {
 		return refusal.New(refusal.CodeConfigurationConflict, name, "native argument "+strconv.Itoa(i+1)+" "+detail+", which the filtering gateway refuses")
 	}
-	// The runtime's entry path searches the raw argv before its option
-	// parser runs, so values and arguments after "--" count too.
+	// The runtime's entry path and mode getters search the raw argv outside
+	// its option parser, so option values count, and so do arguments after
+	// "--" except for the tokens it looks for only before the first one.
+	terminated := false
 	for i, arg := range args {
-		if reservedArg(arg) {
+		if arg == "--" && !terminated {
+			terminated = true
+			continue
+		}
+		if reservedArg(arg) || (!terminated && claudeReservedBeforeTerminator[arg]) {
 			return refuse(i, "is a word Claude Code dispatches on outside its option parser")
 		}
 	}

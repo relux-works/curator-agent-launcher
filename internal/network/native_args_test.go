@@ -86,6 +86,19 @@ func TestPrepareGatewayNativeTailAllowlist(t *testing.T) {
 		{"R4-1 dashed helper mode", []string{"--daemon-worker"}, false},
 		{"R4-1 --runner-declares= form", []string{"--runner-declares=x", "-p", "hi"}, false},
 		{"control: prompt containing a reserved word", []string{"-p", "please run --handle-uri later"}, true},
+		{"R5-1 --safe-mode as a required value", []string{"-p", "--append-system-prompt", "--safe-mode", "hello"}, false},
+		{"R5-1 --bare as a required value", []string{"-p", "--system-prompt", "--bare", "hello"}, false},
+		{"R5-1 --agent-teams after --", []string{"-p", "--", "--agent-teams"}, false},
+		{"R5-1 --hard-fail as a value", []string{"-p", "--system-prompt", "--hard-fail", "hi"}, false},
+		{"R5-1 -c as a value", []string{"-p", "--system-prompt", "-c", "hi"}, false},
+		{"R5-1 --resume= after --", []string{"-p", "--", "--resume=abc"}, false},
+		{"R5-1 --from-pr as a value", []string{"-p", "--system-prompt", "--from-pr", "hi"}, false},
+		{"R5-1 --gh-standin", []string{"-p", "--", "--gh-standin"}, false},
+		{"R5-1 version shortcut as a value", []string{"-p", "--system-prompt", "-V", "hi"}, false},
+		{"control: --safe-mode after --, which the runtime ignores there", []string{"-p", "--", "--safe-mode"}, true},
+		{"control: --bare after --, which the runtime ignores there", []string{"-p", "hi", "--", "--bare"}, true},
+		{"control: --safe-mode inside an inline value", []string{"-p", "--append-system-prompt=--safe-mode", "hi"}, true},
+		{"control: --safe-mode inside a prompt", []string{"-p", "explain --safe-mode"}, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			g := newGateway(t)
@@ -210,7 +223,8 @@ func rewriteReadOnly(t *testing.T, path, data string) {
 // families) refuse in an overlay and are removed when inherited; a harmless
 // inherited name is kept (the control).
 func TestPrepareGatewayDispatchEnvironment(t *testing.T) {
-	for _, n := range []string{"__CFBundleIdentifier", "CLAUDE_INTERNAL_FC_OVERRIDES", "CLAUDE_CODE_SESSION_KIND", "CLAUDE_CODE_PLUGIN_DIRS", "CCR_PROXY", "CCR_AGENT_PROXY_ENABLED", "CLAUDE_CODE_REMOTE_SETTINGS_PATH"} {
+	for _, n := range []string{"__CFBundleIdentifier", "CLAUDE_INTERNAL_FC_OVERRIDES", "CLAUDE_CODE_SESSION_KIND", "CLAUDE_CODE_PLUGIN_DIRS", "CCR_PROXY", "CCR_AGENT_PROXY_ENABLED", "CLAUDE_CODE_REMOTE_SETTINGS_PATH",
+		"CLAUDE_CODE_SAFE_MODE", "CLAUDE_CODE_SIMPLE", "CLAUDE_CODE_RESTRICTED", "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS", "CLAUDE_CODE_ACTION", "CLAUDE_CODE_ENTRYPOINT"} {
 		t.Run("overlay "+n, func(t *testing.T) {
 			g := newGateway(t)
 			req := gatewayRequest(gatewayHome(t, g, true))
@@ -226,15 +240,15 @@ func TestPrepareGatewayDispatchEnvironment(t *testing.T) {
 		g := newGateway(t)
 		req := gatewayRequest(gatewayHome(t, g, true))
 		req.Prober = forbiddenProber{t}
-		req.ParentEnv = append(req.ParentEnv, "__CFBundleIdentifier=com.anthropic.claude-code-url-handler", "CCR_PROXY=http://x", "CLAUDE_CODE_REMOTE=1", "LANG=C")
+		req.ParentEnv = append(req.ParentEnv, "__CFBundleIdentifier=com.anthropic.claude-code-url-handler", "CCR_PROXY=http://x", "CLAUDE_CODE_REMOTE=1", "CLAUDE_CODE_SAFE_MODE=1", "LANG=C")
 		got, err := network.Prepare(context.Background(), req)
 		if err != nil {
 			t.Fatal(err)
 		}
 		defer got.Lease.Finish(context.Background())
-		env := got.Patch.Apply([]string{"__CFBundleIdentifier=com.anthropic.claude-code-url-handler", "CCR_PROXY=http://x", "CLAUDE_CODE_REMOTE=1", "LANG=C"})
+		env := got.Patch.Apply([]string{"__CFBundleIdentifier=com.anthropic.claude-code-url-handler", "CCR_PROXY=http://x", "CLAUDE_CODE_REMOTE=1", "CLAUDE_CODE_SAFE_MODE=1", "LANG=C"})
 		joined := " " + strings.Join(env, " ") + " "
-		for _, n := range []string{"__CFBundleIdentifier=", "CCR_PROXY=", "CLAUDE_CODE_REMOTE="} {
+		for _, n := range []string{"__CFBundleIdentifier=", "CCR_PROXY=", "CLAUDE_CODE_REMOTE=", "CLAUDE_CODE_SAFE_MODE="} {
 			if strings.Contains(joined, " "+n) {
 				t.Fatalf("%s reaches the child: %v", n, env)
 			}

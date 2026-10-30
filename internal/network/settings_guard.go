@@ -44,14 +44,22 @@ var claudeFeatureSelectors = map[string]bool{
 // claudeDispatchNames and claudeDispatchPrefixes are environment names the
 // 2.1.314 runtime reads to choose another mode, session or source before or
 // beside its settings: the deep-link URL handler (__CFBundleIdentifier),
-// feature-flag overrides, background session kind, plugin directories, and
-// the remote-session families (CCR_, CLAUDE_CODE_REMOTE), whose names
-// include proxies, relays and egress gateways. Under the filtering gateway
+// feature-flag overrides, background session kind, the environment halves
+// of the safe, bare, restricted and agent-teams mode getters, the entrypoint
+// selectors, plugin directories, and the remote-session families (CCR_,
+// CLAUDE_CODE_REMOTE), whose names include proxies, relays and egress
+// gateways. Under the filtering gateway
 // they refuse like routes, and inherited values are removed.
 var claudeDispatchNames = map[string]bool{
-	"__CFBUNDLEIDENTIFIER":         true,
-	"CLAUDE_INTERNAL_FC_OVERRIDES": true,
-	"CLAUDE_CODE_SESSION_KIND":     true,
+	"__CFBUNDLEIDENTIFIER":                 true,
+	"CLAUDE_INTERNAL_FC_OVERRIDES":         true,
+	"CLAUDE_CODE_SESSION_KIND":             true,
+	"CLAUDE_CODE_SAFE_MODE":                true,
+	"CLAUDE_CODE_SIMPLE":                   true,
+	"CLAUDE_CODE_RESTRICTED":               true,
+	"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": true,
+	"CLAUDE_CODE_ACTION":                   true,
+	"CLAUDE_CODE_ENTRYPOINT":               true,
 }
 
 var claudeDispatchPrefixes = []string{"CCR_", "CLAUDE_CODE_REMOTE", "CLAUDE_CODE_PLUGIN_"}

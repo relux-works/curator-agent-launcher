@@ -99,6 +99,20 @@ func main() {
 			return
 		}
 	}
+	// An inert stand-in for the runtime's safe-mode getter, which searches
+	// the raw argv for --safe-mode before the first standalone "--": it
+	// records that the mode would have been selected, and runs on.
+	for _, arg := range os.Args[1:] {
+		if arg == "--" {
+			break
+		}
+		if arg == "--safe-mode" {
+			if os.WriteFile("safe-mode", []byte("selected"), 0600) != nil {
+				os.Exit(1)
+			}
+			break
+		}
+	}
 	capture, _ := json.Marshal(map[string]any{"Argv": os.Args[1:], "Env": os.Environ()})
 	if err := os.WriteFile("native.json", capture, 0600); err != nil {
 		os.Exit(1)

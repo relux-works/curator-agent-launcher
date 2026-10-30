@@ -900,14 +900,22 @@ equal to a word it dispatches on refuses wherever it stands. These are every
 command name and alias (`doctor`, `mcp`, `ultrareview`, `remote-control`,
 `i`, `autoremove`, ...), the entry path's own modes (`remote`, `sync`,
 `bridge`, `daemon`, `self-hosted-runner`, the background verbs, `import`),
-and its raw tokens (`--handle-uri`, `--session-tunnel`, `--worktree`, `-w`,
-`--tmux`, `--bg`, `--background`, `--bare` and the dashed helper modes). A
-prompt that is exactly such a word refuses too. The environment names the
-runtime reads to pick another mode or session (the deep-link URL handler's
-`__CFBundleIdentifier`, `CLAUDE_INTERNAL_FC_OVERRIDES`,
-`CLAUDE_CODE_SESSION_KIND`, `CLAUDE_CODE_PLUGIN_*`, and the remote-session
-families `CCR_*` and `CLAUDE_CODE_REMOTE*`) refuse like routes and are removed
-when inherited. Claude Code's own settings sources are read from the
+and the raw tokens it or a later mode getter searches for (`--handle-uri`,
+`--session-tunnel`, `--agent-teams`, `--hard-fail`, `--worktree`, `-w`,
+`--tmux`, `--bg`, `--background`, `-c`, `--continue`, `-r`, `--resume`,
+`--from-pr`, `--gh-standin`, the version shortcuts and the dashed helper
+modes). `--safe-mode` and `--bare` are searched for only before the first
+standalone `--`, so they refuse before it and are ordinary operands after
+it. A prompt that is exactly such a word refuses too. The environment names
+the runtime reads to pick another mode or session (the deep-link URL
+handler's `__CFBundleIdentifier`, `CLAUDE_INTERNAL_FC_OVERRIDES`,
+`CLAUDE_CODE_SESSION_KIND`, `CLAUDE_CODE_SAFE_MODE`, `CLAUDE_CODE_SIMPLE`,
+`CLAUDE_CODE_RESTRICTED`, `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`,
+`CLAUDE_CODE_ACTION`, `CLAUDE_CODE_ENTRYPOINT`, `CLAUDE_CODE_PLUGIN_*`, and
+the remote-session families `CCR_*` and `CLAUDE_CODE_REMOTE*`) refuse like
+routes and are removed when inherited. The color flags the runtime also
+reads from the raw argument list change only output colouring and are not
+reserved. Claude Code's own settings sources are read from the
 environment the child is composed with, the profile fragment's
 `CLAUDE_CONFIG_DIR` included. Once the child has started,
 the launcher activates the registration within its activation window (no
