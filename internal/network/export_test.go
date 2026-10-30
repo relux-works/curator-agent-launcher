@@ -25,6 +25,13 @@ func SetInspectPath(inspect func(string) (os.FileInfo, error)) (restore func()) 
 	return func() { inspectPath = previous }
 }
 
+// SetCloseSettingsFile replaces how a read source is closed.
+func SetCloseSettingsFile(close func(*os.File) error) (restore func()) {
+	previous := closeSettingsFile
+	closeSettingsFile = close
+	return func() { closeSettingsFile = previous }
+}
+
 // SetStatPath replaces the link-following lookup of the global selection.
 func SetStatPath(stat func(string) (os.FileInfo, error)) (restore func()) {
 	previous := statPath

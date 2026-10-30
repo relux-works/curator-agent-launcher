@@ -644,3 +644,107 @@ func TestPrepareGatewayChecksBeforeDecoding(t *testing.T) {
 		})
 	}
 }
+
+// R6-2: the clock is checked after a source is closed and before it is
+// decoded. A cancellation, or a spent budget, during the close of a
+// route-bearing source refuses as that, not on the route; the same source
+// closed without either refuses on its route (the control, which shows it was
+// decoded).
+func TestPrepareGatewayChecksAfterTheClose(t *testing.T) {
+	for _, tc := range []struct {
+		name, act, want string
+	}{
+		{"cancelled during the close", "cancel", "interrupted"},
+		{"budget spent during the close", "sleep", "time budget"},
+		{"control: decoded after the close", "", "set ANTHROPIC_BASE_URL"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			g := newGateway(t)
+			req := gatewayRequest(gatewayHome(t, g, true))
+			req.Prober = forbiddenProber{t}
+			req.GuardBudget = 2 * time.Second
+			os.MkdirAll(filepath.Join(req.ProjectRoot, ".claude"), 0o700)
+			source := filepath.Join(req.ProjectRoot, ".claude", "settings.local.json")
+			writeTestFile(t, source, `{"env":{"ANTHROPIC_BASE_URL":"https://x"}}`)
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			defer network.SetCloseSettingsFile(func(f *os.File) error {
+				name := f.Name()
+				err := f.Close()
+				if name == source {
+					switch tc.act {
+					case "cancel":
+						cancel()
+					case "sleep":
+						time.Sleep(2200 * time.Millisecond)
+					}
+				}
+				return err
+			})()
+			_, err := network.Prepare(ctx, req)
+			if err == nil || !strings.Contains(err.Error(), tc.want) || len(g.calls()) != 0 {
+				t.Fatalf("err = %v calls = %v", err, g.calls())
+			}
+		})
+	}
+}
+
+// R6-2, expiry: a budget spent during the first chunk of a large source
+// stops the read after that chunk (exactly one read) and refuses on the
+// budget; a budget spent during the first policy inspection stops the
+// lookups there (exactly one candidate inspected). The cancellation variants
+// and complete-operation controls are the tests above.
+func TestPrepareGatewayStopsAfterExpiry(t *testing.T) {
+	t.Run("after the first chunk", func(t *testing.T) {
+		g := newGateway(t)
+		req := gatewayRequest(gatewayHome(t, g, true))
+		req.Prober = forbiddenProber{t}
+		req.GuardBudget = 2 * time.Second
+		global := filepath.Join(managedHome(req), ".claude.json")
+		writeTestFile(t, global, `{"projects":{"pad":"`+strings.Repeat("x", 1<<20)+`"}}`)
+		var mu sync.Mutex
+		reads := 0
+		defer network.SetReadSettingsChunk(func(f *os.File, p []byte) (int, error) {
+			n, err := network.ReadSettingsChunk(f, p)
+			if f.Name() == global {
+				mu.Lock()
+				reads++
+				first := reads == 1
+				mu.Unlock()
+				if first {
+					time.Sleep(2200 * time.Millisecond)
+				}
+			}
+			return n, err
+		})()
+		_, err := network.Prepare(context.Background(), req)
+		if err == nil || !strings.Contains(err.Error(), "time budget") || reads != 1 || len(g.calls()) != 0 {
+			t.Fatalf("err = %v reads = %d calls = %v", err, reads, g.calls())
+		}
+	})
+	t.Run("at the first policy candidate", func(t *testing.T) {
+		g := newGateway(t)
+		req := gatewayRequest(gatewayHome(t, g, true))
+		req.Prober = forbiddenProber{t}
+		req.GuardBudget = 2 * time.Second
+		var mu sync.Mutex
+		var inspected []string
+		defer network.SetInspectPath(func(path string) (os.FileInfo, error) {
+			base := filepath.Base(path)
+			if base == "com.anthropic.claudecode.plist" || base == "remote-settings.json" || base == "policy-limits.json" {
+				mu.Lock()
+				inspected = append(inspected, path)
+				first := len(inspected) == 1
+				mu.Unlock()
+				if first {
+					time.Sleep(2200 * time.Millisecond)
+				}
+			}
+			return os.Lstat(path)
+		})()
+		_, err := network.Prepare(context.Background(), req)
+		if err == nil || !strings.Contains(err.Error(), "time budget") || len(inspected) != 1 || len(g.calls()) != 0 {
+			t.Fatalf("err = %v inspected = %v calls = %v", err, inspected, g.calls())
+		}
+	})
+}

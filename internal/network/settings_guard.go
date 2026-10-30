@@ -178,6 +178,10 @@ const settingsChunk = 64 << 10
 // replace it to act between reads.
 var readSettingsChunk = func(f *os.File, p []byte) (int, error) { return f.Read(p) }
 
+// closeSettingsFile closes a source after it is read; tests replace it to act
+// during the close.
+var closeSettingsFile = func(f *os.File) error { return f.Close() }
+
 // clockStop carries a check's interruption or spent budget out of a helper,
 // so the refusal says that and not that the source was unreadable.
 type clockStop struct{ error }
@@ -254,7 +258,7 @@ func readRegular(clock guardClock, name, path string, limit int64) ([]byte, erro
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer closeSettingsFile(f)
 	if err := step(); err != nil {
 		return nil, err
 	}
@@ -402,6 +406,12 @@ func settingsConflict(clock guardClock, name string, req Request) error {
 		}
 		if err != nil {
 			return conflict(source, "is present but is not a readable regular file for the filtering-gateway check")
+		}
+		// The reader's own last check comes before its file is closed; check
+		// again once that has returned, so nothing is decoded after an
+		// interruption or a spent budget.
+		if err := clock.step(name); err != nil {
+			return err
 		}
 		return check(source, doc, managed)
 	}
