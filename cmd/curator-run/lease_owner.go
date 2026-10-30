@@ -38,6 +38,10 @@ func (o *leaseOwner) interrupted() bool {
 	}
 }
 
+// interrupts is the held channel, for execution to forward from while the
+// child runs; signals queued since the boundary check reach the child.
+func (o *leaseOwner) interrupts() <-chan os.Signal { return o.sigs }
+
 // release stops holding the signals; used when no registration was made.
 func (o *leaseOwner) release() { o.stop(o.sigs) }
 

@@ -2,13 +2,10 @@ package network
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
-	"io"
 	"net/http"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"time"
 
@@ -40,25 +37,6 @@ var claudeRouteNames = []string{
 	"ANTHROPIC_FOUNDRY_BASE_URL", "ANTHROPIC_FOUNDRY_RESOURCE", "ANTHROPIC_AWS_BASE_URL", "ANTHROPIC_GOOGLE_CLOUD_BASE_URL",
 	"AWS_ENDPOINT_URL", "AWS_ENDPOINT_URL_BEDROCK", "AWS_ENDPOINT_URL_BEDROCK_RUNTIME",
 }
-
-// gatewayRefusedName reports whether a variable name, compared without case,
-// is one an overlay or settings source must not set under the gateway: the
-// gateway's own names, a provider route or endpoint, or the proxy family.
-func gatewayRefusedName(name string) bool {
-	for _, set := range [][]string{gatewayClaudeNames, claudeRouteNames, envpatch.UnsetNames()} {
-		for _, n := range set {
-			if strings.EqualFold(name, n) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-// refusedSettingsFlags change which Claude settings sources load or where
-// they are read from; under the gateway they refuse rather than move the
-// effective configuration outside the check.
-var refusedSettingsFlags = []string{"--setting-sources", "--managed-settings", "--project-config-root"}
 
 // prepareGateway binds a filtering-gateway profile for a native launch:
 // the gateway's health and a registration come before any spawn, and every
@@ -111,6 +89,7 @@ func prepareGateway(ctx context.Context, req Request, result *resolve.Result, id
 	}
 	unset := append(envpatch.UnsetNames(), "ANTHROPIC_BASE_URL", "ANTHROPIC_CUSTOM_HEADERS")
 	unset = append(unset, claudeRouteNames...)
+	unset = append(unset, inheritedRouteNames(req.ParentEnv, req.ChildEnv)...)
 	patch := envpatch.Patch{
 		Unset: unset,
 		Set: []envpatch.Pair{
@@ -179,6 +158,13 @@ func DefaultGatewaySelected(parentEnv []string) (bool, error) {
 		return false, refusal.New(refusal.CodeFileUnreadable, netprofile.FileName, "cannot inspect the operator network catalog")
 	}
 	present := statErr == nil
+	// The library reads the catalog with a blocking read; a present entry
+	// that is not a regular file (a FIFO, a device) refuses before that.
+	if present {
+		if info, err := os.Stat(path); err != nil || !info.Mode().IsRegular() {
+			return false, refusal.New(refusal.CodeFileUnreadable, netprofile.FileName, "the operator network catalog is present but is not a regular file")
+		}
+	}
 	cat, err := catalog.Load(parentEnv)
 	if err != nil {
 		return false, err
@@ -191,150 +177,4 @@ func DefaultGatewaySelected(parentEnv []string) (bool, error) {
 	}
 	p, ok := cat.File.Lookup(cat.File.Default)
 	return ok && p.Kind == netprofile.KindFilteringGateway, nil
-}
-
-// maxSettingsBytes bounds each settings document the gateway check reads.
-const maxSettingsBytes = 1 << 20
-
-// managedSettingsDir is where Claude Code reads machine-managed settings on
-// this platform (managed-settings.json and the managed-settings.d drop-ins),
-// as named in the 2.1.312 and 2.1.314 bundles.
-func managedSettingsDir() string {
-	switch runtime.GOOS {
-	case "darwin":
-		return "/Library/Application Support/ClaudeCode"
-	case "linux":
-		return "/etc/claude-code"
-	}
-	return ""
-}
-
-// settingsConflict refuses a gateway launch when a Claude Code settings
-// source the launcher can read could move the child off the gateway: an
-// `env` entry naming a gateway, provider-route or proxy variable (compared
-// without case), or a flag that changes which sources load. The sources are
-// an explicit --settings value or file, the child's user settings
-// (CLAUDE_CONFIG_DIR, else HOME/.claude), every .claude/settings.json and
-// settings.local.json from the project root up to the filesystem root, and
-// the managed-settings file and drop-ins. A source that exists but cannot
-// be read or decoded refuses too. MDM profiles and server-managed settings
-// cannot be read here; the check runs at preparation and again at the
-// pre-spawn boundary.
-func settingsConflict(name string, req Request) error {
-	conflict := func(source, detail string) error {
-		return refusal.New(refusal.CodeConfigurationConflict, name, "Claude Code settings ("+source+") "+detail)
-	}
-	check := func(source string, doc []byte) error {
-		var settings struct {
-			Env map[string]json.RawMessage `json:"env"`
-		}
-		if err := json.Unmarshal(doc, &settings); err != nil {
-			return conflict(source, "cannot be decoded for the filtering-gateway check")
-		}
-		for key := range settings.Env {
-			if gatewayRefusedName(key) {
-				return conflict(source, "set "+key+", which the filtering gateway refuses")
-			}
-		}
-		return nil
-	}
-	readFile := func(source, path string) error {
-		f, err := os.Open(path)
-		if err != nil {
-			if errors.Is(err, os.ErrNotExist) {
-				if _, lerr := os.Lstat(path); lerr == nil {
-					return conflict(source, "is present but cannot be read for the filtering-gateway check")
-				}
-				return nil
-			}
-			return conflict(source, "cannot be read for the filtering-gateway check")
-		}
-		defer f.Close()
-		doc, err := io.ReadAll(io.LimitReader(f, maxSettingsBytes+1))
-		if err != nil || len(doc) > maxSettingsBytes {
-			return conflict(source, "cannot be read for the filtering-gateway check")
-		}
-		return check(source, doc)
-	}
-	env := map[string]string{}
-	for _, e := range req.ChildEnv {
-		if k, v, ok := strings.Cut(e, "="); ok {
-			env[k] = v
-		}
-	}
-	userDir := env["CLAUDE_CONFIG_DIR"]
-	if userDir == "" && env["HOME"] != "" {
-		userDir = filepath.Join(env["HOME"], ".claude")
-	}
-	if userDir != "" {
-		if err := readFile("user", filepath.Join(userDir, "settings.json")); err != nil {
-			return err
-		}
-	}
-	for dir := req.ProjectRoot; ; dir = filepath.Dir(dir) {
-		for _, file := range []string{"settings.json", "settings.local.json"} {
-			if err := readFile("project", filepath.Join(dir, ".claude", file)); err != nil {
-				return err
-			}
-		}
-		if parent := filepath.Dir(dir); parent == dir {
-			break
-		}
-	}
-	managed := req.ManagedSettingsDir
-	if managed == "" {
-		managed = managedSettingsDir()
-	}
-	if managed != "" {
-		if err := readFile("managed", filepath.Join(managed, "managed-settings.json")); err != nil {
-			return err
-		}
-		drop := filepath.Join(managed, "managed-settings.d")
-		entries, err := os.ReadDir(drop)
-		if err != nil && !errors.Is(err, os.ErrNotExist) {
-			return conflict("managed", "drop-ins cannot be listed for the filtering-gateway check")
-		}
-		for _, entry := range entries {
-			if strings.HasSuffix(entry.Name(), ".json") {
-				if err := readFile("managed", filepath.Join(drop, entry.Name())); err != nil {
-					return err
-				}
-			}
-		}
-	}
-	for i := 0; i < len(req.NativeArgs); i++ {
-		arg := req.NativeArgs[i]
-		if arg == "--" {
-			break
-		}
-		for _, flag := range refusedSettingsFlags {
-			if arg == flag || strings.HasPrefix(arg, flag+"=") {
-				return conflict(flag, "changes which settings sources load, which the filtering gateway refuses")
-			}
-		}
-		value, ok := "", false
-		if v, cut := strings.CutPrefix(arg, "--settings="); cut {
-			value, ok = v, true
-		} else if arg == "--settings" && i+1 < len(req.NativeArgs) {
-			value, ok = req.NativeArgs[i+1], true
-			i++
-		}
-		if !ok {
-			continue
-		}
-		if strings.HasPrefix(strings.TrimSpace(value), "{") {
-			if err := check("--settings", []byte(value)); err != nil {
-				return err
-			}
-			continue
-		}
-		path := value
-		if !filepath.IsAbs(path) {
-			path = filepath.Join(req.ProjectRoot, path)
-		}
-		if err := readFile("--settings", path); err != nil {
-			return err
-		}
-	}
-	return nil
 }

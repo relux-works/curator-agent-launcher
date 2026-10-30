@@ -466,12 +466,13 @@ func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, ta
 	// The operator's gateway default is resolved before any route is chosen,
 	// so a hosted launch or resume can never run without it, and a catalog
 	// that exists but cannot be read refuses every route alike.
+	// One environment reader for the whole launch: production injects
+	// os.Environ, and a caller that leaves it unset gets the same.
+	if deps.environ == nil {
+		deps.environ = os.Environ
+	}
 	if !inv.NetworkSet {
-		environ := deps.environ
-		if environ == nil {
-			environ = os.Environ
-		}
-		selectedDefault, err := network.DefaultGatewaySelected(environ())
+		selectedDefault, err := network.DefaultGatewaySelected(deps.environ())
 		if err != nil {
 			return emitNetworkFailure(stderr, err)
 		}
@@ -769,6 +770,7 @@ func runNative(value composition.Value, decision execution.PermissionDecision, i
 		return nil
 	}
 	opts.Started = func() { lease.Started(context.Background()) }
+	opts.Interrupts = owner.interrupts()
 	code := prepared.Run(opts)
 	_ = owner.finish(lease)
 	return code

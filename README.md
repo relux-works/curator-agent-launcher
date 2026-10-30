@@ -834,37 +834,48 @@ directory, an audit session id, runtime `claude-code`) over
 unfiltered fallback. The child then gets `ANTHROPIC_BASE_URL` set to the
 gateway's base, `ANTHROPIC_CUSTOM_HEADERS` carrying the launch token in the
 gateway's header, and `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1`, in its
-launch-private environment only. Inherited provider-route selectors and
-endpoints (`CLAUDE_CODE_USE_BEDROCK`, `_VERTEX`, `_FOUNDRY`, `_MANTLE`,
-`_ANTHROPIC_AWS`, `_ANTHROPIC_GOOGLE_CLOUD` and `_GATEWAY`, the matching
-`ANTHROPIC_*_BASE_URL` names, `ANTHROPIC_FOUNDRY_RESOURCE`, `ANTHROPIC_API_URL`
-and the Bedrock `AWS_ENDPOINT_URL` names) are removed from the child.
+launch-private environment only. Inherited endpoint selectors are removed
+from the child: every `ANTHROPIC_*`, `CLAUDE_*` or `CLAUDE_CODE_*` name ending
+in `_URL`, `_URLS`, `_SOCKET`, `_ENDPOINT`, `_HOST`, `_BASE`, `_RESOURCE`,
+`_PROXY` or `_GATEWAY` (Claude Code reads dozens, `ANTHROPIC_UNIX_SOCKET` and
+`CLAUDE_CODE_API_BASE_URL` among them), every `CLAUDE_CODE_USE_*` route
+selector and the `AWS_ENDPOINT_URL` names.
 
 Claude Code applies the `env` block of its settings over its process
 environment, so a settings entry would send the conversation, with the token
 header, wherever it points. Before registering, and again at the pre-spawn
 boundary, the launcher therefore refuses `network_configuration_conflict` when
 a composed overlay, an MCP lookup, or any settings source it can read sets one
-of the gateway's names, a provider-route name above or a proxy-family name
-(compared without case). The settings sources are an explicit `--settings`
-value or file, the child's user settings (`CLAUDE_CONFIG_DIR/settings.json`,
-else `~/.claude/settings.json`), every `.claude/settings.json` and
-`.claude/settings.local.json` from the project root up to the filesystem root,
-and the managed settings (`/Library/Application Support/ClaudeCode` on macOS,
-`/etc/claude-code` on Linux: `managed-settings.json` and the
-`managed-settings.d` drop-ins). A source that exists but cannot be read or
-decoded, a dangling settings link included, refuses too, and so do
-`--setting-sources`, `--managed-settings` and `--project-config-root`. MDM
-profiles and server-managed settings cannot be read here. Once the child has started,
+of those names, the gateway's own names or a proxy-family name (compared
+without case). The sources are an explicit `--settings` value or file; the
+child's user settings (`CLAUDE_CONFIG_DIR`, else `~/.claude`), both
+`settings.json` and `cowork_settings.json`; the legacy global configuration
+(`.config.json` there, and `.claude*.json` in `CLAUDE_CONFIG_DIR` or the home
+directory), whose `env` Claude applies first; every `.claude/settings.json`
+and `.claude/settings.local.json` from the project root up to `/`, along the
+given and the resolved physical path; and the managed settings
+(`/Library/Application Support/ClaudeCode` on macOS, `/etc/claude-code` on
+Linux: `managed-settings.json` and the `managed-settings.d` drop-ins), which
+also refuse when they carry a policy helper or default policy payload. A
+source that exists but is not a readable regular file (a dangling link, a
+directory, a FIFO) or does not decode refuses; sources are read non-blocking.
+Flags that change the settings sources, the working directory or where the
+session runs refuse too: `--setting-sources`, `--managed-settings`,
+`--project-config-root`, `-w`/`--worktree`, `-r`/`--resume`, `-c`/`--continue`,
+`--from-pr`, `--fork-session`, `--resume-session-at`, `--teleport`, `--cloud`
+and `--remote`. MDM profiles and server-managed settings cannot be read here,
+and Claude Code re-reads watched settings during a session, so a settings
+edit after the launch is outside this check. Once the child has started,
 the launcher activates the registration within its activation window (no
 attempt starts or outlasts it; on expiry the launcher alerts and ends the
 registration) and renews it hourly. After the child exits, whatever its
 status, the launcher unregisters it, retrying and alerting on stderr until the
 gateway confirms; a refusal between registration and spawn unregisters as
 well. From registration until the unregister completes, curator-run holds
-SIGINT and SIGTERM: one before the child starts aborts the launch, those while
-it runs reach the child, and one during the unregister retries abandons them
-with an alert that the registration ends at the gateway's idle bound. The token never appears in argv, the binding Record or
+SIGINT and SIGTERM: one before the boundary check aborts the launch, one after
+it reaches the child as soon as the child starts, those while it runs reach
+the child, and one during the unregister retries abandons them with an alert
+that the registration ends at the gateway's idle bound. The token never appears in argv, the binding Record or
 any diagnostic. Without `--network`, an operator `default` that names a
 filtering gateway selects it with origin `operator-default`, and every hosted
 route, resume included, then refuses `network_scope_unsupported` before any

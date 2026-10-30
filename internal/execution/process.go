@@ -24,9 +24,17 @@ func terminalGroup(fd uintptr, request uintptr, group *int32) error {
 
 // One waited child group owns the terminal. The launcher never receives the
 // child's terminal-generated signals, so forwarding cannot duplicate them.
-func run(cmd *exec.Cmd, started func()) error {
+// interrupts, when set, already carries SIGINT and SIGTERM from a caller that
+// held them before the child existed; those are forwarded from it, so a
+// signal that arrived before the start reaches the child instead of being
+// lost, and run registers only the remaining signals itself.
+func run(cmd *exec.Cmd, started func(), interrupts <-chan os.Signal) error {
 	signals := make(chan os.Signal, 8)
-	signal.Notify(signals, os.Interrupt, syscall.SIGTERM, syscall.SIGHUP, syscall.SIGQUIT, syscall.SIGCONT)
+	if interrupts != nil {
+		signal.Notify(signals, syscall.SIGHUP, syscall.SIGQUIT, syscall.SIGCONT)
+	} else {
+		signal.Notify(signals, os.Interrupt, syscall.SIGTERM, syscall.SIGHUP, syscall.SIGQUIT, syscall.SIGCONT)
+	}
 	defer signal.Stop(signals)
 	tty, _ := os.OpenFile("/dev/tty", os.O_RDWR, 0)
 	var original int32
@@ -63,6 +71,8 @@ func run(cmd *exec.Cmd, started func()) error {
 				if s == syscall.SIGCONT && tty != nil {
 					_ = terminalGroup(tty.Fd(), syscall.TIOCSPGRP, &group)
 				}
+				_ = syscall.Kill(-int(group), s.(syscall.Signal))
+			case s := <-interrupts:
 				_ = syscall.Kill(-int(group), s.(syscall.Signal))
 			case <-done:
 				return

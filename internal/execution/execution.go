@@ -33,6 +33,9 @@ type Options struct {
 	IO       IO
 	Boundary Boundary
 	Started  func()
+	// Interrupts, when set, is the caller's channel of SIGINT and SIGTERM,
+	// held since before the launch; Run forwards them to the child from it.
+	Interrupts <-chan os.Signal
 }
 
 // Launch is a prepared native execution snapshot. Run rechecks files.
@@ -100,7 +103,7 @@ func (l Launch) Run(opts Options) int {
 		return fail(err)
 	}
 	cmd.Path = binary
-	err = run(cmd, opts.Started)
+	err = run(cmd, opts.Started, opts.Interrupts)
 	if err == nil {
 		return 0
 	}

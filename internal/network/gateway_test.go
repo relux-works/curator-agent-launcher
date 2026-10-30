@@ -13,6 +13,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"syscall"
 	"testing"
 	"time"
 
@@ -631,5 +632,196 @@ func TestPrepareGatewayWindowStartsAtRegisterRequest(t *testing.T) {
 	got.Lease.Finish(context.Background())
 	if strings.Contains(strings.Join(g.calls(), " "), "/v1/activate") {
 		t.Fatalf("activate attempted after the window: %v", g.calls())
+	}
+}
+
+// Round 3, F1–F4 and F6: every source and selector the round-2 review named
+// refuses before any gateway call, and each refusal has a nearby admitted
+// control in the same table (the rows marked admit).
+func TestPrepareGatewayRound3Sources(t *testing.T) {
+	harmless := `{"env":{"DISABLE_AUTOUPDATER":"1","ANTHROPIC_MODEL":"claude-x","ANTHROPIC_API_KEY_HELPER_TTL_MS":"1"}}`
+	route := func(name string) string { return `{"env":{"` + name + `":"x"}}` }
+	for _, tc := range []struct {
+		name  string
+		admit bool
+		setup func(t *testing.T, req *network.Request)
+	}{
+		{"harmless user settings", true, func(t *testing.T, req *network.Request) {
+			dir := t.TempDir()
+			writeTestFile(t, filepath.Join(dir, "settings.json"), harmless)
+			req.ChildEnv = []string{"CLAUDE_CONFIG_DIR=" + dir}
+		}},
+		{"F1 unix socket in user settings", false, func(t *testing.T, req *network.Request) {
+			dir := t.TempDir()
+			writeTestFile(t, filepath.Join(dir, "settings.json"), route("ANTHROPIC_UNIX_SOCKET"))
+			req.ChildEnv = []string{"CLAUDE_CONFIG_DIR=" + dir}
+		}},
+		{"F1 api base in an overlay", false, func(t *testing.T, req *network.Request) {
+			req.FragEnv = map[string]string{"CLAUDE_CODE_API_BASE_URL": "http://x"}
+		}},
+		{"F1 bridge url in project settings", false, func(t *testing.T, req *network.Request) {
+			root := t.TempDir()
+			os.MkdirAll(filepath.Join(root, ".claude"), 0o700)
+			writeTestFile(t, filepath.Join(root, ".claude", "settings.json"), route("CLAUDE_BRIDGE_BASE_URL"))
+			req.ProjectRoot = root
+		}},
+		{"F2 cowork settings", false, func(t *testing.T, req *network.Request) {
+			dir := t.TempDir()
+			writeTestFile(t, filepath.Join(dir, "settings.json"), harmless)
+			writeTestFile(t, filepath.Join(dir, "cowork_settings.json"), route("ANTHROPIC_BASE_URL"))
+			req.ChildEnv = []string{"CLAUDE_CONFIG_DIR=" + dir}
+		}},
+		{"F2 cowork selector in an overlay", false, func(t *testing.T, req *network.Request) {
+			req.PromptEnv = map[string]string{"CLAUDE_CODE_USE_COWORK_PLUGINS": "1"}
+		}},
+		{"F2 legacy .config.json", false, func(t *testing.T, req *network.Request) {
+			dir := t.TempDir()
+			writeTestFile(t, filepath.Join(dir, ".config.json"), route("ANTHROPIC_CUSTOM_HEADERS"))
+			req.ChildEnv = []string{"CLAUDE_CONFIG_DIR=" + dir}
+		}},
+		{"F2 legacy HOME/.claude.json", false, func(t *testing.T, req *network.Request) {
+			home := t.TempDir()
+			writeTestFile(t, filepath.Join(home, ".claude.json"), `{"projects":{},"env":{"ANTHROPIC_BASE_URL":"https://x"}}`)
+			req.ChildEnv = []string{"HOME=" + home}
+		}},
+		{"F2 large harmless .claude.json", true, func(t *testing.T, req *network.Request) {
+			home := t.TempDir()
+			writeTestFile(t, filepath.Join(home, ".claude.json"), `{"projects":{"pad":"`+strings.Repeat("x", 2<<20)+`"}}`)
+			req.ChildEnv = []string{"HOME=" + home}
+		}},
+		{"F3 managed policy helpers", false, func(t *testing.T, req *network.Request) {
+			dir := t.TempDir()
+			writeTestFile(t, filepath.Join(dir, "managed-settings.json"), `{"policyHelpers":{"default":{"defaultSettings":{"env":{"ANTHROPIC_BASE_URL":"https://x"}}}}}`)
+			req.ManagedSettingsDir = dir
+		}},
+		{"F3 managed policy helper in a drop-in", false, func(t *testing.T, req *network.Request) {
+			dir := t.TempDir()
+			os.MkdirAll(filepath.Join(dir, "managed-settings.d"), 0o700)
+			writeTestFile(t, filepath.Join(dir, "managed-settings.d", "10.json"), `{"policyHelper":{"command":"/bin/true"}}`)
+			req.ManagedSettingsDir = dir
+		}},
+		{"F3 harmless managed settings", true, func(t *testing.T, req *network.Request) {
+			dir := t.TempDir()
+			writeTestFile(t, filepath.Join(dir, "managed-settings.json"), harmless)
+			req.ManagedSettingsDir = dir
+		}},
+		{"F4 physical ancestor behind a symlink", false, func(t *testing.T, req *network.Request) {
+			real := t.TempDir()
+			os.MkdirAll(filepath.Join(real, "repo", ".claude"), 0o700)
+			os.MkdirAll(filepath.Join(real, "repo", "sub"), 0o700)
+			writeTestFile(t, filepath.Join(real, "repo", ".claude", "settings.json"), route("ANTHROPIC_BASE_URL"))
+			link := filepath.Join(t.TempDir(), "shortcut")
+			if err := os.Symlink(filepath.Join(real, "repo", "sub"), link); err != nil {
+				t.Fatal(err)
+			}
+			req.ProjectRoot = link
+		}},
+		{"F4 worktree", false, func(t *testing.T, req *network.Request) { req.NativeArgs = []string{"-w", "feature"} }},
+		{"F4 --worktree=", false, func(t *testing.T, req *network.Request) { req.NativeArgs = []string{"--worktree=feature"} }},
+		{"F4 resume", false, func(t *testing.T, req *network.Request) { req.NativeArgs = []string{"--resume", "abc"} }},
+		{"F4 -r in a short cluster", false, func(t *testing.T, req *network.Request) { req.NativeArgs = []string{"-pr", "abc"} }},
+		{"F4 continue", false, func(t *testing.T, req *network.Request) { req.NativeArgs = []string{"-c"} }},
+		{"F4 remote", false, func(t *testing.T, req *network.Request) { req.NativeArgs = []string{"--remote"} }},
+		{"print flag alone", true, func(t *testing.T, req *network.Request) { req.NativeArgs = []string{"-p", "hello"} }},
+		{"F6 FIFO settings", false, func(t *testing.T, req *network.Request) {
+			root := t.TempDir()
+			os.MkdirAll(filepath.Join(root, ".claude"), 0o700)
+			if err := syscall.Mkfifo(filepath.Join(root, ".claude", "settings.json"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			req.ProjectRoot = root
+		}},
+		{"F6 directory as settings", false, func(t *testing.T, req *network.Request) {
+			root := t.TempDir()
+			os.MkdirAll(filepath.Join(root, ".claude", "settings.local.json"), 0o700)
+			req.ProjectRoot = root
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			g := newGateway(t)
+			req := gatewayRequest(gatewayHome(t, g, true))
+			req.Prober = forbiddenProber{t}
+			tc.setup(t, &req)
+			done := make(chan struct{})
+			var got network.Prepared
+			var err error
+			go func() { got, err = network.Prepare(context.Background(), req); close(done) }()
+			select {
+			case <-done:
+			case <-time.After(5 * time.Second):
+				t.Fatal("Prepare blocked")
+			}
+			if tc.admit {
+				if err != nil || got.Lease == nil {
+					t.Fatalf("valid control refused: %v", err)
+				}
+				got.Lease.Finish(context.Background())
+				return
+			}
+			if err == nil || refusalCode(t, err) != refusal.CodeConfigurationConflict || got.Lease != nil || len(g.calls()) != 0 {
+				t.Fatalf("err = %v calls = %v", err, g.calls())
+			}
+		})
+	}
+}
+
+// F1: an inherited endpoint selector (here the Unix socket transport and the
+// API base) is removed from the child, by name as inherited.
+func TestPrepareGatewayUnsetsInheritedEndpointNames(t *testing.T) {
+	g := newGateway(t)
+	req := gatewayRequest(gatewayHome(t, g, true))
+	req.Prober = forbiddenProber{t}
+	req.ParentEnv = append(req.ParentEnv, "ANTHROPIC_UNIX_SOCKET=/tmp/x.sock", "CLAUDE_CODE_API_BASE_URL=http://x")
+	req.ChildEnv = []string{"anthropic_unix_socket=/tmp/y.sock"}
+	got, err := network.Prepare(context.Background(), req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer got.Lease.Finish(context.Background())
+	unset := " " + strings.Join(got.Patch.Unset, " ") + " "
+	for _, n := range []string{"ANTHROPIC_UNIX_SOCKET", "CLAUDE_CODE_API_BASE_URL", "anthropic_unix_socket"} {
+		if !strings.Contains(unset, " "+n+" ") {
+			t.Fatalf("patch does not unset %s: %s", n, unset)
+		}
+	}
+	env := got.Patch.Apply([]string{"ANTHROPIC_UNIX_SOCKET=/tmp/x.sock", "PATH=/bin"})
+	if strings.Contains(strings.Join(env, " "), "UNIX_SOCKET") {
+		t.Fatalf("applied env keeps the socket: %v", env)
+	}
+}
+
+// F6: a network.toml that is a FIFO refuses promptly instead of blocking
+// the default lookup on a read.
+func TestDefaultGatewayFIFOCatalogRefuses(t *testing.T) {
+	home := t.TempDir()
+	os.MkdirAll(filepath.Join(home, ".curator"), 0o700)
+	if err := syscall.Mkfifo(filepath.Join(home, ".curator", "network.toml"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan error, 1)
+	go func() { _, err := network.DefaultGatewaySelected([]string{"HOME=" + home}); done <- err }()
+	select {
+	case err := <-done:
+		if err == nil || refusalCode(t, err) != refusal.CodeFileUnreadable {
+			t.Fatalf("err = %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("the default lookup blocked on a FIFO")
+	}
+}
+
+// P2-6 follow-up: an explicit pinned policy consults the qualified list too,
+// so an unreadable list refuses a pinned launch (optimistic is the control in
+// TestStrictPolicyReadsQualifiedOnNonSensitive).
+func TestPinnedPolicyReadsQualified(t *testing.T) {
+	home := t.TempDir()
+	endpoint := writeCatalogEndpoint(t, home)
+	os.MkdirAll(filepath.Join(home, ".curator", network.QualifiedFileName), 0o700)
+	req := baseRequest(home)
+	req.Mode = adapterprobe.Pinned
+	req.PinnedBuild = unitBuild()
+	req.Prober = &scriptedProber{res: okResult(endpoint)}
+	if _, err := network.Prepare(context.Background(), req); err == nil {
+		t.Fatal("pinned launch ignored an unreadable qualified list")
 	}
 }
