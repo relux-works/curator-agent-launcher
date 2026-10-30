@@ -11,6 +11,21 @@
 
 ### Added
 
+- Launch Claude Code through a local filtering gateway: a
+  `filtering-gateway` network profile registers each launch on the
+  gateway's `netproxy-control/1` socket before spawn and hands the child
+  only the gateway's base URL and the launch token in a request header.
+  Health and registration failures refuse `network_proxy_unreachable` with
+  no unfiltered fallback; the launcher activates after start, renews
+  hourly, and unregisters after exit or on any refusal before spawn. The
+  token never reaches argv, records or diagnostics.
+- Read the operator's qualified builds for strict admission from
+  `~/.curator/network-qualified.toml`: exact executables by SHA-256, with
+  their qualification evidence and date.
+- Honour an operator `default` that names a filtering gateway for launches
+  without `--network`. Other defaults keep the explicit-only behaviour; a
+  present but unreadable `network.toml` now refuses every launch.
+
 - Specify a proposed same-user executor entry, descriptor custody, closed
   records, immutable assignment/atomic attempt admission, failed-conflict interlock,
   cancel/start ordering, allocation recovery and original stop deadlines with

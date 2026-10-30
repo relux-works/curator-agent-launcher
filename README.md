@@ -797,12 +797,50 @@ unqualified. `sensitive_egress = true` requires qualification even under
 optimistic or pinned policy; a flag cannot downgrade it.
 
 The legacy N-B version-label list is retired, not migrated: it has no SHA-256
-provenance. `Policy.Allowlist` stays empty until independently qualified
-`AllowedBuild` records exist. Thus every known-vendor build is unqualified
-under optimistic policy and refuses under strict or sensitive-egress policy,
-including the previously listed release. Central qualification (A) is outside
-this revision. Qualification never widens the independent child-scope ceiling;
-interactive and hosted network launches remain unsupported.
+provenance. Under strict or sensitive-egress policy the only qualified builds
+are the operator's entries in `~/.curator/network-qualified.toml`; other
+launches never read that file. Each entry names an exact build by the SHA-256
+of its executable, never by a version label, together with its qualification
+evidence and date:
+
+```toml
+schema = "curator-network-qualified-v1"
+
+[[builds]]
+harness       = "claude-code"
+entrypoint    = "exec"
+binary_sha256 = "<64 lowercase hex: sha256 of the executable>"
+platform      = "darwin"
+evidence      = "<the qualification record this entry rests on>"
+qualified_on  = "2026-10-29"
+```
+
+An absent file is an empty list, so strict admission refuses every build as
+before. A present file that cannot be read or does not validate refuses the
+launch. Claude Code is the only harness the file admits in this revision.
+Qualification never widens the independent child-scope ceiling; interactive
+and hosted network launches remain unsupported.
+
+A `kind = "filtering-gateway"` profile (curator-network-profiles N14) names a
+local filtering gateway by its control socket and requires
+`sensitive_egress = true`. Before the child starts, the launcher checks the
+gateway's health and registers the launch (project root = the launch working
+directory, an audit session id, runtime `claude-code`) over
+`netproxy-control/1`. Any failure refuses `network_proxy_unreachable` with no
+unfiltered fallback. The child then gets `ANTHROPIC_BASE_URL` set to the
+gateway's base, `ANTHROPIC_CUSTOM_HEADERS` carrying the launch token in the
+gateway's header, and `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1`, in its
+launch-private environment only. A composed overlay that sets one of these
+names refuses `network_configuration_conflict`. Once the child has started,
+the launcher activates the registration and renews it hourly. After the child
+exits, whatever its status, the launcher unregisters it, retrying and alerting
+on stderr until the gateway confirms; a refusal between registration and spawn
+unregisters as well. The token never appears in argv, the binding Record or
+any diagnostic. Without `--network`, an operator `default` that names a
+filtering gateway selects it with origin `operator-default`; defaults of the
+other kinds still need `--network`, and a `network.toml` that exists but
+cannot be read refuses every launch. Codex launches through a gateway are
+refused in this revision.
 
 The operator known-bad list is `~/.curator/adapter-knownbad.json`, or the path
 selected by `--network-known-bad <path>`. The library reads it through

@@ -24,7 +24,7 @@ func terminalGroup(fd uintptr, request uintptr, group *int32) error {
 
 // One waited child group owns the terminal. The launcher never receives the
 // child's terminal-generated signals, so forwarding cannot duplicate them.
-func run(cmd *exec.Cmd) error {
+func run(cmd *exec.Cmd, started func()) error {
 	signals := make(chan os.Signal, 8)
 	signal.Notify(signals, os.Interrupt, syscall.SIGTERM, syscall.SIGHUP, syscall.SIGQUIT, syscall.SIGCONT)
 	defer signal.Stop(signals)
@@ -48,6 +48,9 @@ func run(cmd *exec.Cmd) error {
 	}
 	if err := cmd.Start(); err != nil {
 		return err
+	}
+	if started != nil {
+		started()
 	}
 	group := int32(cmd.Process.Pid)
 	done := make(chan struct{})

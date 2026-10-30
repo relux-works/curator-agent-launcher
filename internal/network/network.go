@@ -9,9 +9,11 @@
 // destination.
 //
 // The independent child-scope ceiling covers Claude print only. The package
-// consumes curator-network-profiles v0.3.1 by tag, without replace, and never
-// qualifies release labels. Evaluate alone decides artifact admission. The
-// qualification allowlist is empty pending central qualification (A).
+// consumes curator-network-profiles without replace and never qualifies
+// release labels. Evaluate alone decides artifact admission; under strict
+// policy its allowlist is the operator's qualified-builds file. A
+// filtering-gateway profile registers the launch with the gateway instead of
+// probing a proxy (gateway.go).
 package network
 
 import (
@@ -33,6 +35,8 @@ import (
 	"github.com/relux-works/curator-network-profiles/pkg/refusal"
 	"github.com/relux-works/curator-network-profiles/pkg/resolve"
 	"github.com/relux-works/skill-agents-management/pkg/agentic"
+
+	"github.com/relux-works/curator-agent-launcher/internal/netproxy"
 )
 
 // EntrypointExec is the one-shot entrypoint: the `claude -p` shape, the
@@ -186,6 +190,17 @@ type Request struct {
 	PromptEnv     map[string]string
 	MCPEnvNames   []string
 	EngineHosts   []string
+	// ProjectRoot and SessionID register a filtering-gateway launch: the
+	// gateway's namespace and audit id. Alert receives the lease's
+	// post-spawn alerts. GatewayTimeout bounds each gateway call (tests).
+	// DefaultGateway selects the operator default when no explicit
+	// selection exists; DefaultGatewaySelected decides it, and it is set
+	// only when that default is a filtering gateway.
+	DefaultGateway bool
+	ProjectRoot    string
+	SessionID      string
+	Alert          io.Writer
+	GatewayTimeout time.Duration
 }
 
 // Prepared is the outcome of one network stage: the patch for final
@@ -195,7 +210,25 @@ type Prepared struct {
 	Patch      envpatch.Patch
 	Record     *binding.Record
 	Provenance *adapterprobe.Provenance
+	// Lease is set for a filtering-gateway binding only. Its owner runs
+	// Started after spawn and Finish after the child exits, and Finish on
+	// every path that refuses before spawn.
+	Lease *netproxy.Lease
+	taken bool
 }
+
+// TakeLease hands the lease to the process owner that runs the child; after
+// it, LeaseHandedOff reports true and the refusal path leaves it alone.
+func (p *Prepared) TakeLease() *netproxy.Lease {
+	if p == nil {
+		return nil
+	}
+	p.taken = true
+	return p.Lease
+}
+
+// LeaseHandedOff reports whether TakeLease has run.
+func (p *Prepared) LeaseHandedOff() bool { return p != nil && p.taken }
 
 // Prepare resolves, validates, preflights and binds one explicit
 // selection. Without an explicit selection it returns the unmanaged
@@ -223,14 +256,18 @@ type Prepared struct {
 // never reaches this function, so a refused plan invokes neither the
 // prober here nor the workload.
 func Prepare(ctx context.Context, req Request) (Prepared, error) {
-	if !req.ExplicitSet {
+	if !req.ExplicitSet && !req.DefaultGateway {
 		return Prepared{}, nil
 	}
-	if strings.TrimSpace(req.Explicit) == "" {
+	if req.ExplicitSet && strings.TrimSpace(req.Explicit) == "" {
 		return Prepared{}, refusal.New(refusal.CodeProfileInvalid, req.Explicit, "profile name must not be blank")
 	}
+	subject := req.Explicit
+	if !req.ExplicitSet {
+		subject = "default"
+	}
 	if req.Hosted {
-		return Prepared{}, refusal.New(refusal.CodeScopeUnsupported, req.Explicit, "hosted launches cannot carry a network profile in this revision; the destination does not enforce it")
+		return Prepared{}, refusal.New(refusal.CodeScopeUnsupported, subject, "hosted launches cannot carry a network profile in this revision; the destination does not enforce it")
 	}
 	cat, err := catalog.Load(req.ParentEnv)
 	if err != nil {
@@ -244,7 +281,12 @@ func Prepare(ctx context.Context, req Request) (Prepared, error) {
 		// Unreachable through the production parser: a non-blank
 		// explicit selection always selects. Fail closed rather than
 		// launching unmanaged under --network.
-		return Prepared{}, refusal.New(refusal.CodeScopeUnsupported, req.Explicit, "no network binding was resolved")
+		return Prepared{}, refusal.New(refusal.CodeScopeUnsupported, subject, "no network binding was resolved")
+	}
+	// The operator default is honoured for a filtering gateway only; a
+	// file that changed kind since DefaultGatewaySelected refuses.
+	if !req.ExplicitSet && result.Profile.Kind != netprofile.KindFilteringGateway {
+		return Prepared{}, refusal.New(refusal.CodeConfigurationConflict, subject, "the operator default is no longer a filtering gateway")
 	}
 	identity, provenance, err := Admit(ctx, req, result.Profile.SensitiveEgress)
 	if err != nil {
@@ -252,6 +294,9 @@ func Prepare(ctx context.Context, req Request) (Prepared, error) {
 	}
 	if err := CheckOverlays(req.FragEnv, req.PromptEnv, req.MCPEnvNames); err != nil {
 		return Prepared{}, err
+	}
+	if result.Profile.Kind == netprofile.KindFilteringGateway {
+		return prepareGateway(ctx, req, result, identity, provenance)
 	}
 	// A direct profile has no endpoint to probe: every probe step is
 	// skipped and the prober is not invoked. The Record below carries
@@ -314,14 +359,17 @@ func Admit(ctx context.Context, req Request, sensitive bool) (binding.AdapterIde
 	known, knownErr := adapterprobe.LoadKnownBad(adapterprobe.SafeKnownBadRead, root, req.KnownBadPath)
 	policy := adapterprobe.Policy{Mode: req.Mode, PinnedBuild: req.PinnedBuild,
 		SensitiveEgress: sensitive, KnownBad: known, KnownBadErr: knownErr}
-	id := adapterprobe.Identity{Adapter: envpatch.AdapterGeneric, Harness: req.Harness, Entrypoint: req.Entrypoint}
-	recipe := "claude-exec-v1"
-	switch req.Harness {
-	case "codex-cli":
-		recipe = "codex-exec-v1"
-	case "muse":
-		recipe = "muse-exec-v1"
+	// Strict admission (sensitive egress) admits only the operator's
+	// qualified builds; other launches never read the list.
+	if sensitive {
+		allowed, err := loadQualified(adapterprobe.SafeKnownBadRead, root)
+		if err != nil {
+			return binding.AdapterIdentity{}, nil, err
+		}
+		policy.Allowlist = allowed
 	}
+	id := adapterprobe.Identity{Adapter: envpatch.AdapterGeneric, Harness: req.Harness, Entrypoint: req.Entrypoint}
+	recipe := recipeFor(req.Harness)
 	evaluate := req.Evaluate
 	if evaluate == nil {
 		evaluate = adapterprobe.Evaluate
@@ -331,7 +379,7 @@ func Admit(ctx context.Context, req Request, sensitive bool) (binding.AdapterIde
 	case adapterprobe.OutcomeRefused:
 		detail := d.Reason
 		if d.Reason == "strict_miss" {
-			detail += ": no qualified builds until central qualification (A) ships"
+			detail += ": this build is not in " + QualifiedFileName
 		}
 		return binding.AdapterIdentity{}, nil, refusal.New(refusal.CodeScopeUnsupported, "adapter", detail)
 	case adapterprobe.OutcomeQualified, adapterprobe.OutcomeUnqualified:

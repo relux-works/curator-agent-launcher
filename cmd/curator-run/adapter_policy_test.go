@@ -230,7 +230,7 @@ func TestOptionCEmptyAllowlistReason(t *testing.T) {
 			} else {
 				insertLauncherArgs(f, "--network-policy", "strict")
 			}
-			expectPolicyRefusal(t, f, "no qualified builds until central qualification (A) ships")
+			expectPolicyRefusal(t, f, "this build is not in network-qualified.toml")
 		})
 	}
 }

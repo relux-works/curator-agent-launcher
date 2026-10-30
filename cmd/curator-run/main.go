@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/relux-works/skill-agents-management/pkg/agentic"
@@ -589,8 +591,18 @@ func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, ta
 	if frag.MCP != nil {
 		mcpNames = frag.MCP.EnvNames
 	}
+	// Without --network, an operator default that is a filtering gateway
+	// selects it (G-C); other defaults keep the explicit-only behaviour.
+	gatewayDefault := false
+	if !inv.NetworkSet {
+		gatewayDefault, err = network.DefaultGatewaySelected(parentEnv)
+		if err != nil {
+			return emitNetworkFailure(stderr, err)
+		}
+	}
+	managedNetwork := inv.NetworkSet || gatewayDefault
 	entrypoint := ""
-	if inv.NetworkSet {
+	if managedNetwork {
 		var merr error
 		entrypoint, merr = network.EffectiveEntrypoint(admitted.Plan, target.System, inv.Native)
 		if merr != nil {
@@ -602,7 +614,7 @@ func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, ta
 		sessionAllowed = func(hosted bool) bool { return !hosted }
 	}
 	var snapshot *execution.ArtifactSnapshot
-	if inv.NetworkSet && sessionAllowed(isHosted) {
+	if managedNetwork && sessionAllowed(isHosted) {
 		snapshot, err = execution.SnapshotArtifact(admitted.Plan.Binary, admitted.Plan.WorkDir, admitted.Plan.Env)
 		if err != nil {
 			return emitNetworkFailure(stderr, err)
@@ -616,7 +628,7 @@ func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, ta
 		hostIdentity = binding.AdapterIdentity{Adapter: "generic-env-v1", Harness: target.System, Build: snapshot.BuildID(), Entrypoint: entrypoint}
 	}
 	preparedNet, err := network.Prepare(ctx, network.Request{
-		Explicit: inv.Network, ExplicitSet: inv.NetworkSet,
+		Explicit: inv.Network, ExplicitSet: inv.NetworkSet, DefaultGateway: gatewayDefault,
 		Hosted: !sessionAllowed(isHosted), Harness: target.System,
 		Entrypoint: entrypoint,
 		ParentEnv:  parentEnv, Prober: deps.prober,
@@ -624,9 +636,22 @@ func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, ta
 		PinnedBuild: inv.NetworkPin, KnownBadPath: inv.NetworkKnownBad, ScopeCheck: deps.networkScopeCheck, Evaluate: deps.networkEvaluate, MatchIdentity: deps.networkMatchIdentity,
 		FragEnv: frag.Env, PromptEnv: prompt.Env, MCPEnvNames: mcpNames,
 		EngineHosts: deps.networkEngineHosts,
+		ProjectRoot: filepath.Clean(admitted.Plan.WorkDir),
+		SessionID:   gatewaySessionID(inv.EnvID, time.Now()),
+		Alert:       stderr,
 	})
 	if err != nil {
 		return emitNetworkFailure(stderr, err)
+	}
+	// A registered gateway lease belongs to this process from here on:
+	// runNative hands it to the child's lifetime, and every refusal before
+	// spawn ends it here.
+	if lease := preparedNet.Lease; lease != nil {
+		defer func() {
+			if !preparedNet.LeaseHandedOff() {
+				_ = lease.Finish(context.Background())
+			}
+		}()
 	}
 	inspection := agentic.InspectStoredPolicy(system, admitted.Plan)
 	value, err := composition.ComposeAdmittedPlanWithNetwork(admitted.Plan, admitted.OwnedEnv, *frag, prompt, tail, preparedNet.Patch)
@@ -675,17 +700,36 @@ func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, ta
 		}
 		return runHosted(inv, frag, target, value, intent, inspection, admitted.Plan, decision, parentEnv, now(), stdout, stderr, deps, boundary, selected.terminal)
 	}
-	return runNative(value, decision, inspection, stdout, stderr, deps, boundary)
+	return runNative(value, decision, inspection, stdout, stderr, deps, boundary, &preparedNet)
+}
+
+// gatewaySessionID is the audit id a native launch registers with a
+// filtering gateway: the environment, the start time and this process.
+func gatewaySessionID(envID string, at time.Time) string {
+	return fmt.Sprintf("%s-%s-%d", envID, at.UTC().Format("20060102T150405Z"), os.Getpid())
 }
 
 // runNative reports inspected policy and runs the composed value directly.
 // It performs zero manager contact; hosted failures never reach it.
-func runNative(value composition.Value, decision execution.PermissionDecision, inspection agentic.StoredPolicyInspection, stdout, stderr io.Writer, deps launchDeps, boundary func() error) int {
+func runNative(value composition.Value, decision execution.PermissionDecision, inspection agentic.StoredPolicyInspection, stdout, stderr io.Writer, deps launchDeps, boundary func() error, net *network.Prepared) int {
 	if decision.Mode == agentic.PermissionModeNative {
 		execution.ReportEffectiveNativePolicy(stderr, inspection)
 	}
 	prepared := execution.Prepare(value)
-	return prepared.Run(execution.Options{IO: execution.IO{Stdin: deps.stdin, Stdout: stdout, Stderr: stderr}, Boundary: boundary})
+	opts := execution.Options{IO: execution.IO{Stdin: deps.stdin, Stdout: stdout, Stderr: stderr}, Boundary: boundary}
+	lease := net.TakeLease()
+	if lease == nil {
+		return prepared.Run(opts)
+	}
+	// Duties 4 to 6: activate and renew while the child runs, and end the
+	// registration after it exits whatever its status. A refusal inside Run
+	// before the start ends it the same way.
+	opts.Started = func() { lease.Started(context.Background()) }
+	code := prepared.Run(opts)
+	finish, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	_ = lease.Finish(finish)
+	return code
 }
 
 // runHosted sends the sealed exact plan through the selected plugin. The caller
