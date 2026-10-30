@@ -19,6 +19,7 @@ import (
 	"github.com/relux-works/curator-network-profiles/pkg/refusal"
 	"github.com/relux-works/curator-network-profiles/pkg/resolve"
 
+	"github.com/relux-works/curator-agent-launcher/internal/gatewayphase"
 	"github.com/relux-works/curator-agent-launcher/internal/netproxy"
 )
 
@@ -152,7 +153,10 @@ func prepareGateway(ctx context.Context, req Request, result *resolve.Result, id
 		TCP: "skipped", Connect: "skipped", TLS: "skipped", CheckedAt: time.Now().UTC(),
 	})
 	lease := netproxy.NewLease(client, reg, req.Alert, requested)
-	recheck := guard
+	recheck := func(ctx context.Context) error {
+		gatewayphase.Reach("recheck")
+		return guard(ctx)
+	}
 	return Prepared{Patch: patch, Record: &record, Provenance: provenance, Lease: lease, Recheck: recheck}, nil
 }
 

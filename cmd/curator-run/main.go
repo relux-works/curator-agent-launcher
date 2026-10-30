@@ -23,6 +23,7 @@ import (
 	"github.com/relux-works/curator-agent-launcher/internal/diagnostics"
 	"github.com/relux-works/curator-agent-launcher/internal/execution"
 	"github.com/relux-works/curator-agent-launcher/internal/fragment"
+	"github.com/relux-works/curator-agent-launcher/internal/gatewayphase"
 	"github.com/relux-works/curator-agent-launcher/internal/hosted"
 	"github.com/relux-works/curator-agent-launcher/internal/launcherconfig"
 	"github.com/relux-works/curator-agent-launcher/internal/mapping"
@@ -685,6 +686,7 @@ func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, ta
 	if lease := preparedNet.Lease; lease != nil {
 		defer func() {
 			if !preparedNet.LeaseHandedOff() {
+				gatewayphase.Reach("cleanup")
 				_ = owner.finish(lease)
 			}
 		}()
@@ -773,16 +775,26 @@ func runNative(value composition.Value, decision execution.PermissionDecision, i
 			recheckCtx, stopWatch := owner.cancelOnSignal(context.Background())
 			err := net.Recheck(recheckCtx)
 			stopWatch()
+			// A refusal from the recheck itself, an interruption it saw
+			// included, is reported as such; the signal stays held and is
+			// drained when the registration is ended.
+			if err != nil {
+				return err
+			}
 			if owner.interrupted() {
 				return errors.New(diagnostics.CodePlanRefused + ": interrupted before the runtime started")
 			}
-			return err
+			return nil
 		}
 		return nil
 	}
-	opts.Started = func() { lease.Started(context.Background()) }
+	opts.Started = func() {
+		lease.Started(context.Background())
+		gatewayphase.Reach("started")
+	}
 	opts.Interrupts = owner.interrupts()
 	code := prepared.Run(opts)
+	gatewayphase.Reach("exited")
 	_ = owner.finish(lease)
 	return code
 }

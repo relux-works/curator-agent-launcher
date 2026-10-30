@@ -1268,6 +1268,12 @@ intentional deadline controls and slower race runners; the hosted race job
 retains its separate 15-minute overall limit. Repeated standalone conformance
 runs need their own explicit timeout budget, for example
 `go test ./internal/sessionmanager/conformance -race -count=2 -timeout=20m`.
+The filtering-gateway signal tests build a second launcher with the
+`gatewayphases` build tag (`go test ./cmd/curator-run -run
+TestGatewayRealSignalBarriers`). In that build only, the launcher waits at
+named phases of a gateway launch (the final recheck, the child's start and
+exit) while the test sends it a real signal; in every other build the phase
+marks do nothing. Release binaries are built without the tag.
 
 ### Tools
 
