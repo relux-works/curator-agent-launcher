@@ -128,6 +128,35 @@ func managedSettingsDir() string {
 // errAbsent marks a source with no directory entry at all.
 var errAbsent = errors.New("absent")
 
+// selectedGlobalFile mirrors the 2.1.314 runtime's choice of its global
+// configuration file (y_ and XSr in the bundle) for a launch that is not
+// diskless: the legacy <config dir>/.config.json when it is a regular file
+// that is non-empty, or writable while <dir>/.claude.json does not exist;
+// otherwise <dir>/.claude.json. Its suffix comes only from
+// CLAUDE_CODE_CUSTOM_OAUTH_URL, which the gateway refuses and removes. Both
+// lookups follow links, as the runtime's do. Only the selected file is a
+// source; the other is not read.
+func selectedGlobalFile(configDir, globalDir string) string {
+	selected := filepath.Join(globalDir, ".claude.json")
+	if configDir == "" {
+		return selected
+	}
+	legacy := filepath.Join(configDir, ".config.json")
+	info, err := os.Stat(legacy)
+	if err != nil || !info.Mode().IsRegular() {
+		return selected
+	}
+	if info.Size() > 0 {
+		return legacy
+	}
+	if info.Mode().Perm()&0o222 != 0 {
+		if _, err := os.Stat(selected); err != nil {
+			return legacy
+		}
+	}
+	return selected
+}
+
 // clockStop carries a check's interruption or spent budget out of a helper,
 // so the refusal says that and not that the source was unreadable.
 type clockStop struct{ error }
@@ -345,16 +374,12 @@ func settingsConflict(clock guardClock, name string, req Request) error {
 				return err
 			}
 		}
-		if err := read("global", filepath.Join(userDir, ".config.json"), maxGlobalBytes, false); err != nil {
+	}
+	if globalDir != "" {
+		if err := clock.step(name); err != nil {
 			return err
 		}
-	}
-	// The runtime's global configuration is <dir>/.claude.json: its suffix
-	// comes only from CLAUDE_CODE_CUSTOM_OAUTH_URL, a name the gateway
-	// refuses and removes, so other .claude-*.json files are never selected
-	// and are not read.
-	if globalDir != "" {
-		if err := read("global", filepath.Join(globalDir, ".claude.json"), maxGlobalBytes, false); err != nil {
+		if err := read("global", selectedGlobalFile(userDir, globalDir), maxGlobalBytes, false); err != nil {
 			return err
 		}
 	}

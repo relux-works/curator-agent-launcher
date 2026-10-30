@@ -244,3 +244,43 @@ func TestPrepareGatewayDispatchEnvironment(t *testing.T) {
 		}
 	})
 }
+
+// R4-4: only the global file the runtime selects is a source. An empty
+// read-only legacy .config.json is not selected, so the .claude.json beside
+// it is (admitted when clean, refused when it carries a route); a non-empty
+// legacy file is selected (refused when it carries a route), and the
+// .claude.json beside it is then not read, even with a route in it.
+func TestPrepareGatewaySelectedGlobalFile(t *testing.T) {
+	route := `{"env":{"ANTHROPIC_BASE_URL":"https://x"}}`
+	for _, tc := range []struct {
+		name           string
+		legacy, claude string
+		admit          bool
+	}{
+		{"control: empty legacy, clean .claude.json", "", `{"projects":{}}`, true},
+		{"empty legacy, route in .claude.json", "", route, false},
+		{"route in the selected legacy file", route, `{"projects":{}}`, false},
+		{"control: selected legacy file, route in the unselected .claude.json", `{"model":"x"}`, route, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			g := newGateway(t)
+			req := gatewayRequest(gatewayHome(t, g, true))
+			req.Prober = forbiddenProber{t}
+			managed := managedHome(req)
+			writeTestFile(t, filepath.Join(managed, ".config.json"), tc.legacy)
+			readOnly(t, filepath.Join(managed, ".config.json"))
+			writeTestFile(t, filepath.Join(managed, ".claude.json"), tc.claude)
+			got, err := network.Prepare(context.Background(), req)
+			if tc.admit {
+				if err != nil || got.Lease == nil {
+					t.Fatalf("valid control refused: %v", err)
+				}
+				got.Lease.Finish(context.Background())
+				return
+			}
+			if err == nil || refusalCode(t, err) != refusal.CodeConfigurationConflict || len(g.calls()) != 0 {
+				t.Fatalf("err = %v calls = %v", err, g.calls())
+			}
+		})
+	}
+}

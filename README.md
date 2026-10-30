@@ -853,9 +853,11 @@ of those names, the gateway's own names or a proxy-family name (compared
 without case). The sources are the
 child's user settings (`CLAUDE_CONFIG_DIR`, else `~/.claude`), both
 `settings.json` and `cowork_settings.json`; the legacy global configuration
-(`.config.json` there, and the `.claude.json` Claude selects in
-`CLAUDE_CONFIG_DIR` or the home directory; other `.claude-*.json` files are not
-sources), whose `env` Claude applies first; every `.claude/settings.json`
+(the one file Claude selects: the legacy `.config.json` there when it is a
+regular file that is non-empty, or writable while `.claude.json` is absent,
+else `.claude.json` in `CLAUDE_CONFIG_DIR` or the home directory; the other
+file and any `.claude-*.json` are not sources), whose `env` Claude applies
+first; every `.claude/settings.json`
 and `.claude/settings.local.json` from the project root up to `/`, along the
 given and the resolved physical path; and the managed settings
 (`/Library/Application Support/ClaudeCode` on macOS, `/etc/claude-code` on
