@@ -862,7 +862,16 @@ given and the resolved physical path; and the managed settings
 Linux: `managed-settings.json` and the `managed-settings.d` drop-ins), which
 also refuse when they carry a policy helper or default policy payload. A
 source that exists but is not a readable regular file (a dangling link, a
-directory, a FIFO) or does not decode refuses; sources are read non-blocking.
+directory, a FIFO) or does not decode refuses; sources are read non-blocking,
+a special file is refused from its inspection without being opened, and a
+file replaced between inspection and open refuses. Each check runs under a
+time budget (5 s) that is checked before every file operation, with at most
+64 managed drop-ins, and a held SIGINT or SIGTERM cancels it; either ends the
+check with a refusal. Registration itself is never cut short, so its outcome
+is always known and ended. The operator catalog and its confirmation ledger
+are read the same non-blocking way, whether the gateway is selected
+explicitly or by default. A single system call that stalls inside the kernel
+(a hung network filesystem) is not interrupted.
 The native tail after `--` is held to an allowlist of Claude Code options
 that stay local to the session they start, parsed with the runtime's own
 value rules: `-p`/`--print`, `--verbose`, `-d`/`--debug`, `--debug-file`,

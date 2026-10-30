@@ -652,7 +652,11 @@ func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, ta
 		}
 		owner = ownLeaseSignals(notify, signal.Stop)
 	}
-	preparedNet, err := network.Prepare(ctx, network.Request{
+	prepareCtx, stopWatch := ctx, func() {}
+	if owner != nil {
+		prepareCtx, stopWatch = owner.cancelOnSignal(ctx)
+	}
+	preparedNet, err := network.Prepare(prepareCtx, network.Request{
 		Explicit: inv.Network, ExplicitSet: inv.NetworkSet, DefaultGateway: gatewayDefault,
 		Hosted: !sessionAllowed(isHosted), Harness: target.System,
 		Entrypoint: entrypoint,
@@ -667,6 +671,7 @@ func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, ta
 		SessionID:   gatewaySessionID(inv.EnvID, time.Now()),
 		Alert:       stderr,
 	})
+	stopWatch()
 	if owner != nil && (err != nil || preparedNet.Lease == nil) {
 		owner.release()
 		owner = nil
@@ -765,7 +770,13 @@ func runNative(value composition.Value, decision execution.PermissionDecision, i
 			return errors.New(diagnostics.CodePlanRefused + ": interrupted before the runtime started")
 		}
 		if net.Recheck != nil {
-			return net.Recheck()
+			recheckCtx, stopWatch := owner.cancelOnSignal(context.Background())
+			err := net.Recheck(recheckCtx)
+			stopWatch()
+			if owner.interrupted() {
+				return errors.New(diagnostics.CodePlanRefused + ": interrupted before the runtime started")
+			}
+			return err
 		}
 		return nil
 	}

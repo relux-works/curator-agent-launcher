@@ -357,23 +357,48 @@ func TestGatewayDanglingCatalogRefusesThroughRun(t *testing.T) {
 	f.assertNoChild(t)
 }
 
-// A signal that arrives after registration and before the child starts
-// aborts the launch at the boundary: no child, no activation, and the
-// registration is ended.
+// A held signal aborts the launch with no child at either phase. One that
+// arrives before preparation stops it before any registration (health and
+// register are never called). One that arrives after registration and
+// before the child starts (sent here from the provenance emission, which
+// runs after register) is refused at the boundary, and the registration is
+// ended. The lifecycle test above is the control.
 func TestGatewayInterruptBeforeStartUnregisters(t *testing.T) {
-	f := printNetworkFixture(t)
-	g := newE2EGateway(t)
-	writeGatewayCatalog(t, f, g.socket)
-	f.deps.leaseNotify = func(c chan<- os.Signal, _ ...os.Signal) { c <- os.Interrupt }
-	f.args = withNetworkFlag(f.args, "egress-a")
-	code, _, stderr := f.run()
-	if code == 0 || !strings.Contains(string(stderr), "interrupted before the runtime started") {
-		t.Fatalf("exit=%d stderr=%s", code, stderr)
-	}
-	if calls := g.calls(); calls != "/v1/health /v1/register /v1/unregister" {
-		t.Fatalf("gateway calls = %q", calls)
-	}
-	f.assertNoChild(t)
+	t.Run("before preparation", func(t *testing.T) {
+		f := printNetworkFixture(t)
+		g := newE2EGateway(t)
+		writeGatewayCatalog(t, f, g.socket)
+		f.deps.leaseNotify = func(c chan<- os.Signal, _ ...os.Signal) { c <- os.Interrupt }
+		f.args = withNetworkFlag(f.args, "egress-a")
+		code, _, stderr := f.run()
+		if code == 0 {
+			t.Fatalf("exit=%d stderr=%s", code, stderr)
+		}
+		if calls := g.calls(); strings.Contains(calls, "/v1/register") {
+			t.Fatalf("gateway calls = %q", calls)
+		}
+		f.assertNoChild(t)
+	})
+	t.Run("after registration", func(t *testing.T) {
+		f := printNetworkFixture(t)
+		g := newE2EGateway(t)
+		writeGatewayCatalog(t, f, g.socket)
+		var held chan<- os.Signal
+		f.deps.leaseNotify = func(c chan<- os.Signal, _ ...os.Signal) { held = c }
+		f.deps.networkEmit = func(io.Writer, *adapterprobe.Provenance) error {
+			held <- os.Interrupt
+			return nil
+		}
+		f.args = withNetworkFlag(f.args, "egress-a")
+		code, _, stderr := f.run()
+		if code == 0 || !strings.Contains(string(stderr), "interrupted before the runtime started") {
+			t.Fatalf("exit=%d stderr=%s", code, stderr)
+		}
+		if calls := g.calls(); calls != "/v1/health /v1/register /v1/unregister" {
+			t.Fatalf("gateway calls = %q", calls)
+		}
+		f.assertNoChild(t)
+	})
 }
 
 // The settings check repeats at the pre-spawn boundary: a project settings

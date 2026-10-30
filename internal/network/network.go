@@ -224,6 +224,9 @@ type Request struct {
 	gatewayKind    bool
 	Alert          io.Writer
 	GatewayTimeout time.Duration
+	// GuardBudget bounds each settings and contract check (tests); zero
+	// means guardBudget.
+	GuardBudget time.Duration
 }
 
 // Prepared is the outcome of one network stage: the patch for final
@@ -239,7 +242,8 @@ type Prepared struct {
 	Lease *netproxy.Lease
 	// Recheck repeats the filtering gateway's settings check; the owner runs
 	// it at the pre-spawn boundary to narrow the window for a settings change.
-	Recheck func() error
+	// Cancelling ctx (a held signal) ends it with a refusal.
+	Recheck func(ctx context.Context) error
 	taken   bool
 }
 

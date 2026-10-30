@@ -213,13 +213,13 @@ func TestPrepareGatewayRecheckRepeatsContract(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer got.Lease.Finish(context.Background())
-	if err := got.Recheck(); err != nil {
+	if err := got.Recheck(context.Background()); err != nil {
 		t.Fatalf("unchanged recheck = %v", err)
 	}
 	if err := os.Chmod(filepath.Join(managedHome(req), "settings.json"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := got.Recheck(); err == nil || refusalCode(t, err) != refusal.CodeScopeUnsupported {
+	if err := got.Recheck(context.Background()); err == nil || refusalCode(t, err) != refusal.CodeScopeUnsupported {
 		t.Fatalf("recheck = %v", err)
 	}
 }

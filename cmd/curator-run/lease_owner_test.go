@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"os"
 	"strings"
 	"sync"
@@ -107,4 +108,35 @@ func TestLeaseOwnerInterruptedBeforeStart(t *testing.T) {
 		t.Fatal("a pending signal is not seen")
 	}
 	owner.release()
+}
+
+// R3-5: a held signal that arrives while a check runs cancels the check's
+// context and stays held, so the boundary still sees it; with no signal the
+// watch ends when stopped, leaving the context cancelled only by stop and no
+// signal held (the control). stop returns only after the watch goroutine
+// has exited.
+func TestLeaseOwnerCancelOnSignal(t *testing.T) {
+	f := &fakeSignals{}
+	o := ownLeaseSignals(f.notify, f.stop)
+	ctx, stop := o.cancelOnSignal(context.Background())
+	f.send(syscall.SIGTERM)
+	select {
+	case <-ctx.Done():
+	case <-time.After(5 * time.Second):
+		t.Fatal("the signal did not cancel the check")
+	}
+	stop()
+	if !o.interrupted() {
+		t.Fatal("the signal was not kept for the boundary")
+	}
+
+	ctx, stop = o.cancelOnSignal(context.Background())
+	if ctx.Err() != nil {
+		t.Fatal("cancelled with no signal")
+	}
+	stop()
+	if o.interrupted() {
+		t.Fatal("a signal appeared with none sent")
+	}
+	o.release()
 }

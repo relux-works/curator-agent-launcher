@@ -49,6 +49,12 @@
   not yet reviewed refuse. Require an ASCII managed home path, admit the two
   local-tool `CLAUDE_CODE_USE_` selectors, and read only the global
   `.claude.json` the runtime selects.
+- Bound the gateway's settings and contract checks by a time budget checked
+  before every file operation and by a cap on managed drop-ins, and cancel
+  them on a held SIGINT or SIGTERM, before registration and at the final
+  recheck; registration itself completes so it can be ended. Pin
+  curator-network-profiles at the commit that reads the catalog and ledger
+  without blocking on special files.
 
 - Specify a proposed same-user executor entry, descriptor custody, closed
   records, immutable assignment/atomic attempt admission, failed-conflict interlock,

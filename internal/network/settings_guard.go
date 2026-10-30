@@ -1,6 +1,7 @@
 package network
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -9,6 +10,7 @@ import (
 	"runtime"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/relux-works/curator-network-profiles/pkg/envpatch"
 	"github.com/relux-works/curator-network-profiles/pkg/refusal"
@@ -103,6 +105,12 @@ func managedSettingsDir() string {
 // errAbsent marks a source with no directory entry at all.
 var errAbsent = errors.New("absent")
 
+// openSettingsFile opens a settings source without blocking on a FIFO; tests
+// replace it to stage a replacement or a slow open.
+var openSettingsFile = func(path string) (*os.File, error) {
+	return os.OpenFile(path, os.O_RDONLY|syscall.O_NONBLOCK, 0)
+}
+
 // readRegular reads a settings source without blocking on a special file:
 // a final symbolic link is followed only to a regular file, the file is
 // opened non-blocking, and the opened file must be the inspected regular
@@ -122,7 +130,7 @@ func readRegular(path string, limit int64) ([]byte, error) {
 	if !target.Mode().IsRegular() {
 		return nil, errors.New("not a regular file")
 	}
-	f, err := os.OpenFile(path, os.O_RDONLY|syscall.O_NONBLOCK, 0)
+	f, err := openSettingsFile(path)
 	if err != nil {
 		return nil, err
 	}
@@ -177,7 +185,40 @@ func settingsDirs(dir string) []string {
 // readable regular file or does not decode, and any flag that changes the
 // source set or the working directory refuse. MDM profiles and
 // server-managed settings cannot be read here.
-func settingsConflict(name string, req Request) error {
+// guardBudget bounds one settings and contract check, before register or at
+// the pre-spawn recheck; maxManagedDropIns bounds the drop-ins it reads.
+const (
+	guardBudget       = 5 * time.Second
+	maxManagedDropIns = 64
+)
+
+// guardClock is checked before every file operation of a check: a cancelled
+// context (a held signal) or a spent budget ends the check with a refusal
+// instead of letting it run on. A single system call that stalls inside the
+// kernel (a hung network filesystem) is not interrupted.
+type guardClock struct {
+	ctx      context.Context
+	deadline time.Time
+}
+
+func newGuardClock(ctx context.Context, budget time.Duration) guardClock {
+	if budget <= 0 {
+		budget = guardBudget
+	}
+	return guardClock{ctx: ctx, deadline: time.Now().Add(budget)}
+}
+
+func (c guardClock) step(name string) error {
+	if c.ctx.Err() != nil {
+		return refusal.New(refusal.CodeConfigurationConflict, name, "the filtering-gateway settings check was interrupted")
+	}
+	if time.Now().After(c.deadline) {
+		return refusal.New(refusal.CodeConfigurationConflict, name, "the filtering-gateway settings check did not finish within its time budget")
+	}
+	return nil
+}
+
+func settingsConflict(clock guardClock, name string, req Request) error {
 	conflict := func(source, detail string) error {
 		return refusal.New(refusal.CodeConfigurationConflict, name, "Claude Code settings ("+source+") "+detail)
 	}
@@ -206,6 +247,9 @@ func settingsConflict(name string, req Request) error {
 		return checkEnv(source, settings.Env)
 	}
 	read := func(source, path string, limit int64, managed bool) error {
+		if err := clock.step(name); err != nil {
+			return err
+		}
 		doc, err := readRegular(path, limit)
 		if errors.Is(err, errAbsent) {
 			return nil
@@ -257,9 +301,15 @@ func settingsConflict(name string, req Request) error {
 			return err
 		}
 		drop := filepath.Join(managed, "managed-settings.d")
+		if err := clock.step(name); err != nil {
+			return err
+		}
 		entries, err := os.ReadDir(drop)
 		if err != nil && !errors.Is(err, os.ErrNotExist) {
 			return conflict("managed", "drop-ins cannot be listed for the filtering-gateway check")
+		}
+		if len(entries) > maxManagedDropIns {
+			return conflict("managed", "has more drop-ins than the filtering-gateway check reads")
 		}
 		for _, entry := range entries {
 			if strings.HasSuffix(entry.Name(), ".json") {
@@ -312,9 +362,12 @@ const mdmDomain = "com.anthropic.claudecode"
 // Worktree and resume flags are refused by settingsConflict. A same-uid
 // process can still change file modes back; the contract narrows, it does
 // not isolate.
-func admissionContract(name string, req Request, roots []string, mdmDir string, username string) error {
+func admissionContract(clock guardClock, name string, req Request, roots []string, mdmDir string, username string) error {
 	refuse := func(detail string) error {
 		return refusal.New(refusal.CodeScopeUnsupported, name, "filtering-gateway admission: "+detail)
+	}
+	if err := clock.step(name); err != nil {
+		return err
 	}
 	home := childEnv(req)["CLAUDE_CONFIG_DIR"]
 	if home == "" || !filepath.IsAbs(home) {
@@ -340,6 +393,9 @@ func admissionContract(name string, req Request, roots []string, mdmDir string, 
 			return refuse("the managed home's " + file + " must be a read-only regular file")
 		}
 	}
+	if err := clock.step(name); err != nil {
+		return err
+	}
 	physical, err := filepath.EvalSymlinks(req.ProjectRoot)
 	if err != nil {
 		return refuse("the working directory does not resolve")
@@ -359,6 +415,9 @@ func admissionContract(name string, req Request, roots []string, mdmDir string, 
 		candidates = append(candidates, filepath.Join(mdmDir, username, mdmDomain+".plist"))
 	}
 	candidates = append(candidates, filepath.Join(home, "remote-settings.json"), filepath.Join(home, "policy-limits.json"))
+	if err := clock.step(name); err != nil {
+		return err
+	}
 	for _, path := range candidates {
 		if _, err := os.Lstat(path); err == nil {
 			return refuse("managed preferences or a server-managed policy is present (" + filepath.Base(path) + ")")

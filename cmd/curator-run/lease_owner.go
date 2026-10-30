@@ -42,6 +42,34 @@ func (o *leaseOwner) interrupted() bool {
 // child runs; signals queued since the boundary check reach the child.
 func (o *leaseOwner) interrupts() <-chan os.Signal { return o.sigs }
 
+// cancelOnSignal returns a context that is cancelled when a held signal
+// arrives, so the settings check stops promptly instead of running on. The
+// signal goes back on the held channel, so the boundary still refuses the
+// launch and the registration is still ended. stop ends the watch and waits
+// for its goroutine.
+func (o *leaseOwner) cancelOnSignal(parent context.Context) (context.Context, func()) {
+	ctx, cancel := context.WithCancel(parent)
+	done := make(chan struct{})
+	exited := make(chan struct{})
+	go func() {
+		defer close(exited)
+		select {
+		case s := <-o.sigs:
+			cancel()
+			select {
+			case o.sigs <- s:
+			default:
+			}
+		case <-done:
+		}
+	}()
+	return ctx, func() {
+		close(done)
+		<-exited
+		cancel()
+	}
+}
+
 // release stops holding the signals; used when no registration was made.
 func (o *leaseOwner) release() { o.stop(o.sigs) }
 

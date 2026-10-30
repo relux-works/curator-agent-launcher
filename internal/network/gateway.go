@@ -87,13 +87,14 @@ func prepareGateway(ctx context.Context, req Request, result *resolve.Result, id
 			username = u.Username
 		}
 	}
-	guard := func() error {
-		if err := settingsConflict(name, req); err != nil {
+	guard := func(ctx context.Context) error {
+		clock := newGuardClock(ctx, req.GuardBudget)
+		if err := settingsConflict(clock, name, req); err != nil {
 			return err
 		}
-		return admissionContract(name, req, roots, mdmDir, username)
+		return admissionContract(clock, name, req, roots, mdmDir, username)
 	}
-	if err := guard(); err != nil {
+	if err := guard(ctx); err != nil {
 		return Prepared{}, err
 	}
 	register := netproxy.RegisterRequest{Root: req.ProjectRoot, Session: req.SessionID, Runtime: runtime}
@@ -107,8 +108,11 @@ func prepareGateway(ctx context.Context, req Request, result *resolve.Result, id
 	if err := client.Health(ctx); err != nil {
 		return Prepared{}, refusal.New(refusal.CodeProxyUnreachable, name, "filtering gateway health: "+gatewayDetail(err))
 	}
+	// Registration is not cut short by the caller's cancellation: once sent,
+	// its outcome must be known so that it is ended. The client's own
+	// timeout bounds it.
 	requested := time.Now()
-	reg, err := client.Register(ctx, register)
+	reg, err := client.Register(context.WithoutCancel(ctx), register)
 	if err != nil {
 		if netproxy.IsCode(err, http.StatusUnprocessableEntity, "config_invalid") {
 			return Prepared{}, refusal.New(refusal.CodeProxyUnreachable, name, "the filtering gateway refused registration: the project's gateway configuration is invalid; its owner fixes it")

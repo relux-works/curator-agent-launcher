@@ -535,7 +535,7 @@ func TestPrepareGatewayUnsetsRouteNames(t *testing.T) {
 			t.Fatalf("patch does not unset %s", n)
 		}
 	}
-	if got.Recheck == nil || got.Recheck() != nil {
+	if got.Recheck == nil || got.Recheck(context.Background()) != nil {
 		t.Fatal("recheck missing or refusing a clean launch")
 	}
 }
@@ -554,7 +554,7 @@ func TestPrepareGatewayRecheckSeesLateSettings(t *testing.T) {
 	defer got.Lease.Finish(context.Background())
 	os.MkdirAll(filepath.Join(root, ".claude"), 0o700)
 	writeTestFile(t, filepath.Join(root, ".claude", "settings.local.json"), `{"env":{"ANTHROPIC_CUSTOM_HEADERS":"X: y"}}`)
-	if err := got.Recheck(); err == nil || refusalCode(t, err) != refusal.CodeConfigurationConflict {
+	if err := got.Recheck(context.Background()); err == nil || refusalCode(t, err) != refusal.CodeConfigurationConflict {
 		t.Fatalf("recheck = %v", err)
 	}
 }

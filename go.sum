@@ -2,12 +2,8 @@ github.com/pelletier/go-toml/v2 v2.4.3 h1:GTRvJQutkOSftxIFD5xw9aepkYNuPWmVJpffdD
 github.com/pelletier/go-toml/v2 v2.4.3/go.mod h1:2gIqNv+qfxSVS7cM2xJQKtLSTLUE9V8t9Stt+h56mCY=
 github.com/relux-works/curator-agent-launcher/schemas/session-manager v0.0.0-20261027144606-c15548f68c7f h1:6kDpqO/ooyMkfWa2iL/j+bN7PLfgaFBimJHz40gQ2aw=
 github.com/relux-works/curator-agent-launcher/schemas/session-manager v0.0.0-20261027144606-c15548f68c7f/go.mod h1:gVV9OQTCR5EItZ1EcETtNyHsGsc52JX+za15xVKaW3M=
-github.com/relux-works/curator-network-profiles v0.3.1 h1:ERyAQNyvswAaDImOs91HQgBs3IUPSH61YyB+JzeaSO0=
-github.com/relux-works/curator-network-profiles v0.3.1/go.mod h1:KlPpVwgH45EtLFWodP1ofqWc+amLHGuftUVoZ1rsWhg=
-github.com/relux-works/curator-network-profiles v0.3.2-0.20261030152832-c64a9cb89fd7 h1:0S1tgWIr371WrTEODLPPGleBQ+uUnbmoi1Asu0VAOGg=
-github.com/relux-works/curator-network-profiles v0.3.2-0.20261030152832-c64a9cb89fd7/go.mod h1:KlPpVwgH45EtLFWodP1ofqWc+amLHGuftUVoZ1rsWhg=
-github.com/relux-works/curator-network-profiles v0.3.2-0.20261030161631-03905ee26b2b h1:Ml6kH60hzDqOPByoDKQ+Z//ucKffyzr9Crf6gD++74o=
-github.com/relux-works/curator-network-profiles v0.3.2-0.20261030161631-03905ee26b2b/go.mod h1:KlPpVwgH45EtLFWodP1ofqWc+amLHGuftUVoZ1rsWhg=
+github.com/relux-works/curator-network-profiles v0.3.2-0.20261030182306-2cda004a65d9 h1:pguGqyJeP3+DRyc3ix84oBsjE0GZJ4Ep4mEZJ6eZkNo=
+github.com/relux-works/curator-network-profiles v0.3.2-0.20261030182306-2cda004a65d9/go.mod h1:KlPpVwgH45EtLFWodP1ofqWc+amLHGuftUVoZ1rsWhg=
 github.com/relux-works/skill-agents-management v0.5.74 h1:Us+L2uMpE8ZNoYF4uygnmgw8NtSZW7eBQr+y26GVcCY=
 github.com/relux-works/skill-agents-management v0.5.74/go.mod h1:GzykgRxR/59WB+VXfqHGlmJ+kLR09DZJmApaKCScctw=
 golang.org/x/sys v0.47.0 h1:o7XGOvZQCADBQQ4Y7VNq2dRWQR7JmOUW8Kxx4ZsNgWs=
