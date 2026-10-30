@@ -41,6 +41,21 @@ var claudeFeatureSelectors = map[string]bool{
 	"CLAUDE_CODE_USE_NATIVE_FILE_SEARCH": true,
 }
 
+// claudeDispatchNames and claudeDispatchPrefixes are environment names the
+// 2.1.314 runtime reads to choose another mode, session or source before or
+// beside its settings: the deep-link URL handler (__CFBundleIdentifier),
+// feature-flag overrides, background session kind, plugin directories, and
+// the remote-session families (CCR_, CLAUDE_CODE_REMOTE), whose names
+// include proxies, relays and egress gateways. Under the filtering gateway
+// they refuse like routes, and inherited values are removed.
+var claudeDispatchNames = map[string]bool{
+	"__CFBUNDLEIDENTIFIER":         true,
+	"CLAUDE_INTERNAL_FC_OVERRIDES": true,
+	"CLAUDE_CODE_SESSION_KIND":     true,
+}
+
+var claudeDispatchPrefixes = []string{"CCR_", "CLAUDE_CODE_REMOTE", "CLAUDE_CODE_PLUGIN_"}
+
 // gatewayRefusedName reports whether a variable name, compared without case,
 // is one an overlay or settings source must not set under the gateway, and
 // that is removed from an inherited environment: the gateway's own names,
@@ -61,6 +76,14 @@ func gatewayRefusedName(name string) bool {
 	}
 	if strings.HasPrefix(upper, "AWS_ENDPOINT_URL") {
 		return true
+	}
+	if claudeDispatchNames[upper] {
+		return true
+	}
+	for _, prefix := range claudeDispatchPrefixes {
+		if strings.HasPrefix(upper, prefix) {
+			return true
+		}
 	}
 	if strings.HasPrefix(upper, "ANTHROPIC_") || strings.HasPrefix(upper, "CLAUDE_") {
 		for _, suffix := range endpointSuffixes {

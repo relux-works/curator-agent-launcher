@@ -12,8 +12,10 @@ import (
 )
 
 // Under a filtering gateway the native tail admits only the allowlisted
-// options, with the value shapes Claude Code's parser uses, and refuses a
-// first operand that names a Claude Code command. Each refusal comes before
+// options, with the value shapes Claude Code's parser uses, and refuses any
+// argument, in any position, equal to a word the runtime dispatches on
+// before or outside that parser (R4-1: its entry path searches the raw argv,
+// option values and arguments after "--" included). Each refusal comes before
 // any gateway call, inside a fixture that otherwise satisfies contract A;
 // the admitted rows are the controls, including values that only look like
 // refused options and operands after "--". The parser's behaviour is read
@@ -57,13 +59,33 @@ func TestPrepareGatewayNativeTailAllowlist(t *testing.T) {
 		{"control: model and effort", []string{"-p", "--model", "claude-opus-5-5", "--effort", "high", "hi"}, true},
 		{"control: inline value", []string{"--output-format=json", "-p", "hi"}, true},
 		{"control: variadic then option", []string{"--allowedTools", "Bash", "Edit", "-p", "hi"}, true},
-		{"control: variadic absorbs a command word", []string{"--allowedTools", "Bash", "doctor", "-p", "hi"}, true},
+		{"command word absorbed by a variadic list", []string{"--allowedTools", "Bash", "doctor", "-p", "hi"}, false},
 		{"control: required value that looks refused", []string{"-p", "--append-system-prompt", "--environment", "hi"}, true},
 		{"control: optional debug value", []string{"-d", "api", "-p", "hi"}, true},
 		{"control: bare -d", []string{"-d", "-p", "hi"}, true},
 		{"control: operand after -- that is not a command", []string{"-p", "--", "--environment"}, true},
 		{"control: prompt starting with a command word", []string{"-p", "doctor please"}, true},
-		{"control: second operand is a command word", []string{"-p", "hello", "doctor"}, true},
+		{"command word as a later operand", []string{"-p", "hello", "doctor"}, false},
+		{"R4-1 --handle-uri as a required value", []string{"-p", "--append-system-prompt", "--handle-uri", "claude-cli://open?cwd=/tmp"}, false},
+		{"R4-1 --handle-uri after --", []string{"-p", "--", "--handle-uri", "claude-cli://open?cwd=/tmp"}, false},
+		{"R4-1 --handle-uri= form", []string{"-p", "--", "--handle-uri=claude-cli://open"}, false},
+		{"R4-1 --session-tunnel as a value", []string{"-p", "--system-prompt", "--session-tunnel", "hi"}, false},
+		{"R4-1 --worktree as a value", []string{"-p", "--append-system-prompt", "--worktree", "hi"}, false},
+		{"R4-1 --worktree= after --", []string{"-p", "--", "--worktree=x"}, false},
+		{"R4-1 -w as a value", []string{"-p", "--system-prompt", "-w", "hi"}, false},
+		{"R4-1 --tmux as a value", []string{"-p", "--system-prompt", "--tmux", "hi"}, false},
+		{"R4-1 --bg as a value", []string{"-p", "--system-prompt", "--bg", "hi"}, false},
+		{"R4-1 --bare as a value", []string{"-p", "--system-prompt", "--bare", "hi"}, false},
+		{"R4-1 remote-control as a later operand", []string{"-p", "hi", "remote-control"}, false},
+		{"R4-1 background verb as a value", []string{"-p", "--system-prompt", "logs", "hi"}, false},
+		{"R4-1 mcp serve after --", []string{"-p", "--", "mcp", "serve"}, false},
+		{"R4-1 plugin alias i", []string{"i"}, false},
+		{"R4-1 plugin alias autoremove", []string{"-p", "autoremove"}, false},
+		{"R4-1 early word sync", []string{"sync"}, false},
+		{"R4-1 daemon after the permission switches", []string{"--dangerously-skip-permissions", "daemon"}, false},
+		{"R4-1 dashed helper mode", []string{"--daemon-worker"}, false},
+		{"R4-1 --runner-declares= form", []string{"--runner-declares=x", "-p", "hi"}, false},
+		{"control: prompt containing a reserved word", []string{"-p", "please run --handle-uri later"}, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			g := newGateway(t)
@@ -180,4 +202,45 @@ func rewriteReadOnly(t *testing.T, path, data string) {
 	os.Chmod(path, 0o600)
 	writeTestFile(t, path, data)
 	readOnly(t, path)
+}
+
+// R4-1, environment: names the runtime reads to choose another mode or
+// session before its settings (the deep-link URL handler, feature-flag
+// overrides, background kind, plugin directories, the remote-session
+// families) refuse in an overlay and are removed when inherited; a harmless
+// inherited name is kept (the control).
+func TestPrepareGatewayDispatchEnvironment(t *testing.T) {
+	for _, n := range []string{"__CFBundleIdentifier", "CLAUDE_INTERNAL_FC_OVERRIDES", "CLAUDE_CODE_SESSION_KIND", "CLAUDE_CODE_PLUGIN_DIRS", "CCR_PROXY", "CCR_AGENT_PROXY_ENABLED", "CLAUDE_CODE_REMOTE_SETTINGS_PATH"} {
+		t.Run("overlay "+n, func(t *testing.T) {
+			g := newGateway(t)
+			req := gatewayRequest(gatewayHome(t, g, true))
+			req.Prober = forbiddenProber{t}
+			req.FragEnv = map[string]string{n: "x"}
+			got, err := network.Prepare(context.Background(), req)
+			if err == nil || refusalCode(t, err) != refusal.CodeConfigurationConflict || got.Lease != nil || len(g.calls()) != 0 {
+				t.Fatalf("err = %v calls = %v", err, g.calls())
+			}
+		})
+	}
+	t.Run("inherited", func(t *testing.T) {
+		g := newGateway(t)
+		req := gatewayRequest(gatewayHome(t, g, true))
+		req.Prober = forbiddenProber{t}
+		req.ParentEnv = append(req.ParentEnv, "__CFBundleIdentifier=com.anthropic.claude-code-url-handler", "CCR_PROXY=http://x", "CLAUDE_CODE_REMOTE=1", "LANG=C")
+		got, err := network.Prepare(context.Background(), req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer got.Lease.Finish(context.Background())
+		env := got.Patch.Apply([]string{"__CFBundleIdentifier=com.anthropic.claude-code-url-handler", "CCR_PROXY=http://x", "CLAUDE_CODE_REMOTE=1", "LANG=C"})
+		joined := " " + strings.Join(env, " ") + " "
+		for _, n := range []string{"__CFBundleIdentifier=", "CCR_PROXY=", "CLAUDE_CODE_REMOTE="} {
+			if strings.Contains(joined, " "+n) {
+				t.Fatalf("%s reaches the child: %v", n, env)
+			}
+		}
+		if !strings.Contains(joined, " LANG=C ") {
+			t.Fatalf("the harmless name is removed: %v", env)
+		}
+	})
 }

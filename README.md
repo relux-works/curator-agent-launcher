@@ -889,10 +889,21 @@ Every other option refuses `network_configuration_conflict`: settings sources
 `-w`/`--worktree`, ...), stored sessions (`-r`, `-c`, `--from-pr`, ...), plugins,
 and cloud or remote placement (`--cloud`, `--remote`, `--environment`, `--pool`,
 `--attach-serve`, `--teleport`, `--remote-control`, `--sdk-url`, ...), as do
-short-option clusters and an option the runtime adds later. A first operand that
-names a Claude Code command (`doctor`, `mcp`, `ultrareview`, `remote-control`,
-...) refuses too, since the runtime would run that command instead of a
-session. Claude Code's own settings sources are read from the
+short-option clusters and an option the runtime adds later. Claude Code's
+entry path also dispatches on the raw argument list before its option parser
+runs, so option values and arguments after `--` count: any native argument
+equal to a word it dispatches on refuses wherever it stands. These are every
+command name and alias (`doctor`, `mcp`, `ultrareview`, `remote-control`,
+`i`, `autoremove`, ...), the entry path's own modes (`remote`, `sync`,
+`bridge`, `daemon`, `self-hosted-runner`, the background verbs, `import`),
+and its raw tokens (`--handle-uri`, `--session-tunnel`, `--worktree`, `-w`,
+`--tmux`, `--bg`, `--background`, `--bare` and the dashed helper modes). A
+prompt that is exactly such a word refuses too. The environment names the
+runtime reads to pick another mode or session (the deep-link URL handler's
+`__CFBundleIdentifier`, `CLAUDE_INTERNAL_FC_OVERRIDES`,
+`CLAUDE_CODE_SESSION_KIND`, `CLAUDE_CODE_PLUGIN_*`, and the remote-session
+families `CCR_*` and `CLAUDE_CODE_REMOTE*`) refuse like routes and are removed
+when inherited. Claude Code's own settings sources are read from the
 environment the child is composed with, the profile fragment's
 `CLAUDE_CONFIG_DIR` included. Once the child has started,
 the launcher activates the registration within its activation window (no

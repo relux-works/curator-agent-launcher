@@ -74,14 +74,22 @@ var gatewayNativeShortOptions = map[string]argShape{
 	"-n": argRequired,
 }
 
-// claudeCommandNames are every command name and alias the 2.1.314 bundle
-// registers, top-level or nested, plus the parser's implicit help. The
-// parser dispatches on the first operand, so a first operand equal to one of
-// these runs that command instead of a session; under a filtering gateway it
-// refuses. Nested names are included because the bundle does not tell its
-// registrations apart reliably; a prompt that is exactly such a word refuses
-// too.
-var claudeCommandNames = map[string]bool{}
+// claudeReservedArgs are the words the 2.1.314 runtime dispatches on outside
+// its option parser, or before it runs: every command name and alias it
+// registers (.command(), the background-session commands, the alias tables
+// and the parser's implicit help), the words its entry path matches anywhere
+// in argv (remote-control, rc, mcp serve, plugin eval, agents --json, the
+// background verbs, import), the first-position modes (remote, sync, bridge,
+// daemon, self-hosted-runner, update, forward-home-settings and the dashed
+// helper modes), and the raw tokens it searches for anywhere (--handle-uri,
+// --session-tunnel, --bg, --background, --tmux, --worktree, -w, --bare).
+// Because those searches see option values and arguments after "--" too, a
+// native argument equal to any of these refuses wherever it stands; a prompt
+// that is exactly such a word refuses as well.
+var claudeReservedArgs = map[string]bool{}
+
+// claudeReservedPrefixes are reserved tokens in their "=value" form.
+var claudeReservedPrefixes = []string{"--handle-uri=", "--worktree=", "--tmux=", "--runner-declares=", "--session-tunnel="}
 
 func init() {
 	for _, n := range strings.Fields(`help attach logs stop kill respawn rm
@@ -90,9 +98,27 @@ func init() {
 		logout setup-token agents ultrareview auto-mode defaults config reset critique remote-control rc
 		doctor sandbox install uninstall update upgrade import import-conversations plugin plugins init
 		validate tag list eval test details marketplace add remove prune enable disable configure xaa setup
-		show clear mcp serve get add-json add-from-claude-desktop reset-project-choices`) {
-		claudeCommandNames[n] = true
+		show clear mcp serve get add-json add-from-claude-desktop reset-project-choices
+		i autoremove remote sync bridge daemon self-hosted-runner forward-home-settings
+		--handle-uri --session-tunnel --runner-declares --eval-mock-server --claude-in-chrome-mcp
+		--chrome-native-host --computer-use-mcp --daemon-worker --bg-pty-host --bg-spare --preload
+		--update --upgrade --bg --background --tmux --worktree -w --bare`) {
+		claudeReservedArgs[n] = true
 	}
+}
+
+// reservedArg reports whether a native argument is a word the runtime
+// dispatches on before or outside its option parser.
+func reservedArg(arg string) bool {
+	if claudeReservedArgs[arg] {
+		return true
+	}
+	for _, p := range claudeReservedPrefixes {
+		if strings.HasPrefix(arg, p) {
+			return true
+		}
+	}
+	return false
 }
 
 // looksLikeOption mirrors the option parser: an argument of more than one
@@ -106,23 +132,17 @@ func nativeArgsConflict(name string, args []string) error {
 	refuse := func(i int, detail string) error {
 		return refusal.New(refusal.CodeConfigurationConflict, name, "native argument "+strconv.Itoa(i+1)+" "+detail+", which the filtering gateway refuses")
 	}
-	firstOperand := true
-	operand := func(i int, arg string) error {
-		if firstOperand && claudeCommandNames[arg] {
-			return refuse(i, "names a Claude Code command")
+	// The runtime's entry path searches the raw argv before its option
+	// parser runs, so values and arguments after "--" count too.
+	for i, arg := range args {
+		if reservedArg(arg) {
+			return refuse(i, "is a word Claude Code dispatches on outside its option parser")
 		}
-		firstOperand = false
-		return nil
 	}
 	variadic := false
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
 		if arg == "--" {
-			for j := i + 1; j < len(args); j++ {
-				if err := operand(j, args[j]); err != nil {
-					return err
-				}
-			}
 			return nil
 		}
 		if variadic && !looksLikeOption(arg) {
@@ -130,9 +150,6 @@ func nativeArgsConflict(name string, args []string) error {
 		}
 		variadic = false
 		if !looksLikeOption(arg) {
-			if err := operand(i, arg); err != nil {
-				return err
-			}
 			continue
 		}
 		flag, _, inline := arg, "", false

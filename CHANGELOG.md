@@ -55,6 +55,12 @@
   recheck; registration itself completes so it can be ended. Pin
   curator-network-profiles at the commit that reads the catalog and ledger
   without blocking on special files.
+- Refuse, under a gateway, any native argument equal to a word Claude Code
+  dispatches on before or outside its option parser (command names and
+  aliases, entry-path modes, `--handle-uri`, `--worktree`, `--bg` and the
+  other raw tokens), in option values and after `--` too, and the
+  environment names that select another mode or session (the deep-link URL
+  handler, feature-flag overrides, plugin directories, remote sessions).
 
 - Specify a proposed same-user executor entry, descriptor custody, closed
   records, immutable assignment/atomic attempt admission, failed-conflict interlock,

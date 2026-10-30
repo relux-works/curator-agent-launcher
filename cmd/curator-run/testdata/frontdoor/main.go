@@ -88,6 +88,17 @@ func main() {
 		fmt.Print(providerHelp)
 		return
 	}
+	// An inert stand-in for Claude Code's early deep-link dispatcher, which
+	// searches the raw argv for --handle-uri before its option parser runs:
+	// it records that it would have dispatched, and does nothing else.
+	for _, arg := range os.Args[1:] {
+		if arg == "--handle-uri" {
+			if os.WriteFile("early-dispatch", []byte("handle-uri"), 0600) != nil {
+				os.Exit(1)
+			}
+			return
+		}
+	}
 	capture, _ := json.Marshal(map[string]any{"Argv": os.Args[1:], "Env": os.Environ()})
 	if err := os.WriteFile("native.json", capture, 0600); err != nil {
 		os.Exit(1)
