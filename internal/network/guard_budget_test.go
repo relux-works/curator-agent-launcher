@@ -2,6 +2,7 @@ package network_test
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -543,5 +544,67 @@ func TestPrepareGatewayPolicyLookupsStopAfterCancel(t *testing.T) {
 				t.Fatalf("err = %v inspected = %v calls = %v", err, inspected, g.calls())
 			}
 		})
+	}
+}
+
+// R5-2: the global-file selection checks the clock before each lookup. With
+// an empty writable legacy .config.json the selection needs a second lookup
+// (whether .claude.json exists); a cancellation during the first lookup
+// stops it there, and the check refuses as interrupted. Without the
+// cancellation both lookups run (the control; the selected empty legacy file
+// then refuses, as it cannot be decoded).
+func TestPrepareGatewayGlobalSelectionStopsAfterCancel(t *testing.T) {
+	for _, cancelAtFirst := range []bool{true, false} {
+		t.Run(map[bool]string{true: "cancelled at the legacy lookup", false: "control: both lookups"}[cancelAtFirst], func(t *testing.T) {
+			g := newGateway(t)
+			req := gatewayRequest(gatewayHome(t, g, true))
+			req.Prober = forbiddenProber{t}
+			managed := managedHome(req)
+			writeTestFile(t, filepath.Join(managed, ".config.json"), "")
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			var mu sync.Mutex
+			var looked []string
+			defer network.SetStatPath(func(path string) (os.FileInfo, error) {
+				mu.Lock()
+				looked = append(looked, filepath.Base(path))
+				mu.Unlock()
+				if cancelAtFirst && filepath.Base(path) == ".config.json" {
+					cancel()
+				}
+				return os.Stat(path)
+			})()
+			_, err := network.Prepare(ctx, req)
+			if !cancelAtFirst {
+				if len(looked) != 2 || err == nil || strings.Contains(err.Error(), "interrupted") {
+					t.Fatalf("err = %v looked = %v", err, looked)
+				}
+				return
+			}
+			if err == nil || !strings.Contains(err.Error(), "interrupted") || len(looked) != 1 || len(g.calls()) != 0 {
+				t.Fatalf("err = %v looked = %v calls = %v", err, looked, g.calls())
+			}
+		})
+	}
+}
+
+// R5-2: the drop-in lister checks the clock between opening the directory
+// and reading it: a check already cancelled when the listing starts returns
+// no entries and the interruption. An uncancelled listing returns them (the
+// control).
+func TestDropInListerStopsBetweenOpenAndRead(t *testing.T) {
+	dir := t.TempDir()
+	for i := 0; i < 3; i++ {
+		writeTestFile(t, filepath.Join(dir, strconv.Itoa(i)+".json"), "{}")
+	}
+	stopped := errors.New("stopped")
+	reads := 0
+	entries, err := network.ListDropIns(dir, 65, func() error { reads++; return stopped })
+	if !errors.Is(err, stopped) || len(entries) != 0 || reads != 1 {
+		t.Fatalf("entries = %d err = %v", len(entries), err)
+	}
+	entries, err = network.ListDropIns(dir, 65, func() error { return nil })
+	if err != nil || len(entries) != 3 {
+		t.Fatalf("control: entries = %d err = %v", len(entries), err)
 	}
 }

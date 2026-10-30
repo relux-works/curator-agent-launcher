@@ -153,7 +153,7 @@ func selectedGlobalFile(clock guardClock, name, configDir, globalDir string) (st
 	if err := clock.step(name); err != nil {
 		return "", err
 	}
-	info, err := os.Stat(legacy)
+	info, err := statPath(legacy)
 	if err != nil || !info.Mode().IsRegular() {
 		return selected, nil
 	}
@@ -164,7 +164,7 @@ func selectedGlobalFile(clock guardClock, name, configDir, globalDir string) (st
 		if err := clock.step(name); err != nil {
 			return "", err
 		}
-		if _, err := os.Stat(selected); err != nil {
+		if _, err := statPath(selected); err != nil {
 			return legacy, nil
 		}
 	}
@@ -181,6 +181,10 @@ var readSettingsChunk = func(f *os.File, p []byte) (int, error) { return f.Read(
 // clockStop carries a check's interruption or spent budget out of a helper,
 // so the refusal says that and not that the source was unreadable.
 type clockStop struct{ error }
+
+// statPath looks up a path following links, as the runtime's global-file
+// selection does; tests replace it to act at an exact lookup.
+var statPath = os.Stat
 
 // inspectPath inspects a settings or policy path without following a final
 // link; tests replace it to act at an exact inspection.

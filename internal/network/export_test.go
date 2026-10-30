@@ -25,6 +25,13 @@ func SetInspectPath(inspect func(string) (os.FileInfo, error)) (restore func()) 
 	return func() { inspectPath = previous }
 }
 
+// SetStatPath replaces the link-following lookup of the global selection.
+func SetStatPath(stat func(string) (os.FileInfo, error)) (restore func()) {
+	previous := statPath
+	statPath = stat
+	return func() { statPath = previous }
+}
+
 // SetListDropIns replaces how a managed drop-in directory is listed.
 func SetListDropIns(list func(string, int, func() error) ([]os.DirEntry, error)) (restore func()) {
 	previous := listDropIns
