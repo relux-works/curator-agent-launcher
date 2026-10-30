@@ -818,8 +818,11 @@ qualified_on  = "2026-10-29"
 An absent file is an empty list, so strict admission refuses every build as
 before. A present file that cannot be read or does not validate refuses the
 launch. Claude Code is the only harness the file admits in this revision.
-Qualification never widens the independent child-scope ceiling; interactive
-and hosted network launches remain unsupported.
+Qualification never widens the independent child-scope ceiling, which admits
+Claude print only, except under a filtering gateway: there the ceiling also
+admits Claude Code's interactive session, and only a build listed for the
+`interactive` entrypoint qualifies it (recipe `claude-interactive-v1`; an
+`exec` entry does not). Hosted network launches remain unsupported.
 
 A `kind = "filtering-gateway"` profile (curator-network-profiles N14) names a
 local filtering gateway by its control socket and requires

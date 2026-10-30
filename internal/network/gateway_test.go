@@ -379,3 +379,43 @@ func TestPrepareGatewaySettingsEnvConflict(t *testing.T) {
 		})
 	}
 }
+
+// Under a filtering gateway, Claude Code's interactive entrypoint binds
+// only through an exact qualified build for that entrypoint: an exec entry
+// for the same binary does not qualify it, and without the gateway the
+// interactive shape stays outside the ceiling (TestNetworkInteractive*).
+func TestPrepareGatewayInteractiveNeedsItsOwnEntry(t *testing.T) {
+	sum := sha256.Sum256(unitArtifact)
+	sha := hex.EncodeToString(sum[:])
+	for _, tc := range []struct {
+		name       string
+		entrypoint string
+		bind       bool
+	}{
+		{"interactive entry", "interactive", true},
+		{"exec entry only", "exec", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			g := newGateway(t)
+			home := gatewayHome(t, g, false)
+			writeTestFile(t, filepath.Join(home, ".curator", network.QualifiedFileName), strings.Replace(qualifiedDoc(sha), `entrypoint = "exec"`, `entrypoint = "`+tc.entrypoint+`"`, 1))
+			req := gatewayRequest(home)
+			req.Entrypoint = network.EntrypointInteractive
+			req.HostIdentity.Entrypoint = network.EntrypointInteractive
+			req.Prober = forbiddenProber{t}
+			got, err := network.Prepare(context.Background(), req)
+			if !tc.bind {
+				if err == nil || refusalCode(t, err) != refusal.CodeScopeUnsupported || len(g.calls()) != 0 {
+					t.Fatalf("err = %v calls = %v", err, g.calls())
+				}
+				return
+			}
+			if err != nil || got.Lease == nil {
+				t.Fatalf("err = %v", err)
+			}
+			if err := got.Lease.Finish(context.Background()); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}

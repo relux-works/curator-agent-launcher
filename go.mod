@@ -10,5 +10,5 @@ require (
 
 require (
 	github.com/pelletier/go-toml/v2 v2.4.3 // indirect
-	github.com/relux-works/curator-network-profiles v0.3.2-0.20261030152832-c64a9cb89fd7
+	github.com/relux-works/curator-network-profiles v0.3.2-0.20261030161631-03905ee26b2b
 )

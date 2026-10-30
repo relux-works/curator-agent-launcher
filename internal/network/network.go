@@ -65,6 +65,15 @@ func ScopeAllowed(id adapterprobe.Identity) bool {
 	return id.Adapter == envpatch.AdapterGeneric && id.Harness == claudeCodeHarness && id.Entrypoint == EntrypointExec
 }
 
+// gatewayScopeAllowed is the child-scope ceiling under a filtering
+// gateway: Claude Code, exec or interactive. Strict admission still needs
+// an exact qualified build for that very entrypoint, so the widening takes
+// effect only where the operator lists qualification evidence for it.
+func gatewayScopeAllowed(id adapterprobe.Identity) bool {
+	return id.Adapter == envpatch.AdapterGeneric && id.Harness == claudeCodeHarness &&
+		(id.Entrypoint == EntrypointExec || id.Entrypoint == EntrypointInteractive)
+}
+
 // EntrypointForMode maps the CONSTRUCTION mode of an admitted plan to
 // the policy's entrypoint vocabulary: the one-shot child process owns
 // the verified entrypoint, the terminal session owns the unverified one.
@@ -202,8 +211,10 @@ type Request struct {
 	// ChildEnv is the admitted plan environment before the network patch
 	// and NativeArgs the caller's native tail; the gateway's settings check
 	// reads the Claude settings sources they name.
-	ChildEnv       []string
-	NativeArgs     []string
+	ChildEnv   []string
+	NativeArgs []string
+	// gatewayKind is set by Prepare for a filtering-gateway selection.
+	gatewayKind    bool
 	Alert          io.Writer
 	GatewayTimeout time.Duration
 }
@@ -293,7 +304,9 @@ func Prepare(ctx context.Context, req Request) (Prepared, error) {
 	if !req.ExplicitSet && result.Profile.Kind != netprofile.KindFilteringGateway {
 		return Prepared{}, refusal.New(refusal.CodeConfigurationConflict, subject, "the operator default is no longer a filtering gateway")
 	}
-	identity, provenance, err := Admit(ctx, req, result.Profile.SensitiveEgress)
+	admit := req
+	admit.gatewayKind = result.Profile.Kind == netprofile.KindFilteringGateway
+	identity, provenance, err := Admit(ctx, admit, result.Profile.SensitiveEgress)
 	if err != nil {
 		return Prepared{}, err
 	}
@@ -374,7 +387,7 @@ func Admit(ctx context.Context, req Request, sensitive bool) (binding.AdapterIde
 		policy.Allowlist = allowed
 	}
 	id := adapterprobe.Identity{Adapter: envpatch.AdapterGeneric, Harness: req.Harness, Entrypoint: req.Entrypoint}
-	recipe := recipeFor(req.Harness)
+	recipe := recipeFor(req.Harness, req.Entrypoint, req.gatewayKind)
 	evaluate := req.Evaluate
 	if evaluate == nil {
 		evaluate = adapterprobe.Evaluate
@@ -408,6 +421,9 @@ func Admit(ctx context.Context, req Request, sensitive bool) (binding.AdapterIde
 	scope := req.ScopeCheck
 	if scope == nil {
 		scope = ScopeAllowed
+		if req.gatewayKind {
+			scope = gatewayScopeAllowed
+		}
 	}
 	if !scope(id) {
 		return binding.AdapterIdentity{}, nil, refusal.New(refusal.CodeScopeUnsupported, "adapter", "launch scope unsupported")

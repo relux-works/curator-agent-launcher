@@ -44,13 +44,18 @@ var (
 	platformRE = regexp.MustCompile(`^[a-z0-9]{1,32}$`)
 )
 
-// recipeFor is the qualification recipe Admit evaluates for a harness.
-func recipeFor(harness string) string {
+// recipeFor is the qualification recipe Admit evaluates for a harness. A
+// filtering gateway evaluates Claude Code's interactive session under its
+// own recipe; every other launch keeps the exec recipe as before.
+func recipeFor(harness, entrypoint string, gateway bool) string {
 	switch harness {
 	case "codex-cli":
 		return "codex-exec-v1"
 	case "muse":
 		return "muse-exec-v1"
+	}
+	if gateway && entrypoint == EntrypointInteractive {
+		return "claude-interactive-v1"
 	}
 	return "claude-exec-v1"
 }
@@ -110,7 +115,7 @@ func loadQualified(read func(string) ([]byte, error), curatorDir string) ([]adap
 		out = append(out, adapterprobe.AllowedBuild{
 			Adapter:  adapterprobe.Identity{Adapter: envpatch.AdapterGeneric, Harness: b.Harness, Entrypoint: b.Entrypoint},
 			BuildID:  build,
-			Recipe:   recipeFor(b.Harness),
+			Recipe:   recipeFor(b.Harness, b.Entrypoint, true),
 			Platform: b.Platform,
 			Scope:    adapterprobe.TransportScope,
 		})

@@ -243,3 +243,38 @@ func TestGatewayProjectSettingsEnvRefuses(t *testing.T) {
 	}
 	f.assertNoChild(t)
 }
+
+// Through the real run path, an interactive Claude launch (no print
+// selector) binds the gateway when the qualified-builds file lists that
+// exact build for the interactive entrypoint, and refuses before any
+// gateway call when it lists the build for exec only.
+func TestGatewayInteractiveClaudeThroughRun(t *testing.T) {
+	for _, entry := range []string{"interactive", "exec"} {
+		t.Run(entry, func(t *testing.T) {
+			f := entryFixture(t, "claude_code")
+			f.args = []string{"claude_code", "--permissions", "native"}
+			g := newE2EGateway(t)
+			writeGatewayCatalog(t, f, g.socket)
+			path := filepath.Join(f.dir, ".curator", "network-qualified.toml")
+			doc, _ := os.ReadFile(path)
+			if err := os.WriteFile(path, []byte(strings.Replace(string(doc), `entrypoint = "exec"`, `entrypoint = "`+entry+`"`, 1)), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			f.args = withNetworkFlag(f.args, "egress-a")
+			code, _, stderr := f.run()
+			if entry == "exec" {
+				if code == 0 || !strings.Contains(string(stderr), "strict_miss") || g.calls() != "" {
+					t.Fatalf("exit=%d calls=%q stderr=%s", code, g.calls(), stderr)
+				}
+				f.assertNoChild(t)
+				return
+			}
+			if code != 0 || g.calls() != "/v1/health /v1/register /v1/activate /v1/unregister" {
+				t.Fatalf("exit=%d calls=%q stderr=%s", code, g.calls(), stderr)
+			}
+			if !strings.Contains(string(stderr), "entrypoint=interactive") {
+				t.Fatalf("provenance lacks the interactive entrypoint: %s", stderr)
+			}
+		})
+	}
+}
