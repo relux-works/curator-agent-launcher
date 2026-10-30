@@ -97,12 +97,16 @@ func writeGatewayCatalog(t *testing.T, f *pipelineFixture, socket string) {
 	ledger, _ := json.Marshal(map[string]any{"schema": "relux-network-confirmations-v1",
 		"confirmed": map[string]any{"egress-a": map[string]any{"digest": netprofile.Digest(prof), "confirmed_at": "2026-10-30T00:00:00Z"}}})
 	sha := strings.TrimPrefix(artifactBuild(t, f), "sha256-")
-	qualified := "schema = \"curator-network-qualified-v1\"\n[[builds]]\nharness = \"claude-code\"\nentrypoint = \"exec\"\nbinary_sha256 = \"" + sha +
+	qualified := "schema = \"curator-network-qualified-v1\"\nproject_roots = [\"" + f.dir + "\"]\n[[builds]]\nharness = \"claude-code\"\nentrypoint = \"exec\"\nbinary_sha256 = \"" + sha +
 		"\"\nplatform = \"" + runtime.GOOS + "\"\nevidence = \"test fixture\"\nqualified_on = \"2026-10-30\"\n"
 	for name, data := range map[string]string{"network.toml": doc, "network.confirmations.json": string(ledger), "network-qualified.toml": qualified} {
 		if err := os.WriteFile(filepath.Join(dir, name), []byte(data), 0o600); err != nil {
 			t.Fatal(err)
 		}
+	}
+	// Admission contract A: the managed home holds a read-only settings.json.
+	if err := os.WriteFile(filepath.Join(f.home, "settings.json"), []byte("{}"), 0o400); err != nil {
+		t.Fatal(err)
 	}
 }
 

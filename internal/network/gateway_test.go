@@ -114,7 +114,7 @@ func gatewayHome(t *testing.T, g *gateway, qualify bool) string {
 }
 
 func qualifiedDoc(sha string) string {
-	return "schema = \"curator-network-qualified-v1\"\n\n[[builds]]\nharness = \"claude-code\"\nentrypoint = \"exec\"\nbinary_sha256 = \"" + sha +
+	return "schema = \"curator-network-qualified-v1\"\nproject_roots = [\"/\"]\n\n[[builds]]\nharness = \"claude-code\"\nentrypoint = \"exec\"\nbinary_sha256 = \"" + sha +
 		"\"\nplatform = \"" + runtime.GOOS + "\"\nevidence = \"unit fixture\"\nqualified_on = \"2026-10-30\"\n"
 }
 
@@ -125,9 +125,30 @@ func writeTestFile(t *testing.T, path, data string) {
 	}
 }
 
+// readOnly makes a settings file read-only, as admission contract A requires.
+func readOnly(t *testing.T, path string) {
+	t.Helper()
+	if err := os.Chmod(path, 0o400); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// gatewayRequest satisfies admission contract A: a managed home with a
+// read-only settings.json, an existing project directory, an empty managed
+// preferences directory and a fixed user name.
 func gatewayRequest(home string) network.Request {
 	req := baseRequest(home)
-	req.ProjectRoot = "/Users/op/project"
+	managed := filepath.Join(home, "managed-claude")
+	project := filepath.Join(home, "project")
+	os.MkdirAll(managed, 0o700)
+	os.MkdirAll(project, 0o700)
+	if err := os.WriteFile(filepath.Join(managed, "settings.json"), []byte("{}"), 0o400); err != nil && !os.IsPermission(err) {
+		panic(err)
+	}
+	req.ChildEnv = []string{"CLAUDE_CONFIG_DIR=" + managed}
+	req.ManagedPreferencesDir = filepath.Join(home, "managed-preferences")
+	req.Username = "tester"
+	req.ProjectRoot = project
 	req.SessionID = "env-20261030T160000Z-42"
 	req.GatewayTimeout = 300 * time.Millisecond
 	req.ManagedSettingsDir = filepath.Join(home, "managed-settings-absent")
@@ -150,7 +171,7 @@ func TestPrepareGatewayBindsQualifiedClaude(t *testing.T) {
 	if calls := g.calls(); strings.Join(calls, " ") != "/v1/health /v1/register" {
 		t.Fatalf("calls = %v", calls)
 	}
-	if g.bodies[1] != `{"root":"/Users/op/project","session":"env-20261030T160000Z-42","runtime":"claude-code"}` {
+	if g.bodies[1] != `{"root":"`+req.ProjectRoot+`","session":"env-20261030T160000Z-42","runtime":"claude-code"}` {
 		t.Fatalf("register body = %s", g.bodies[1])
 	}
 	set := map[string]string{}
@@ -316,6 +337,7 @@ func TestPrepareGatewaySettingsEnvConflict(t *testing.T) {
 		{"harmless user settings", func(t *testing.T, req *network.Request) {
 			dir := t.TempDir()
 			writeTestFile(t, filepath.Join(dir, "settings.json"), `{"env":{"DISABLE_AUTOUPDATER":"1"},"model":"x"}`)
+			readOnly(t, filepath.Join(dir, "settings.json"))
 			req.ChildEnv = []string{"CLAUDE_CONFIG_DIR=" + dir}
 		}, false},
 		{"user settings in CLAUDE_CONFIG_DIR", func(t *testing.T, req *network.Request) {
@@ -649,6 +671,7 @@ func TestPrepareGatewayRound3Sources(t *testing.T) {
 		{"harmless user settings", true, func(t *testing.T, req *network.Request) {
 			dir := t.TempDir()
 			writeTestFile(t, filepath.Join(dir, "settings.json"), harmless)
+			readOnly(t, filepath.Join(dir, "settings.json"))
 			req.ChildEnv = []string{"CLAUDE_CONFIG_DIR=" + dir}
 		}},
 		{"F1 unix socket in user settings", false, func(t *testing.T, req *network.Request) {
@@ -685,9 +708,8 @@ func TestPrepareGatewayRound3Sources(t *testing.T) {
 			req.ChildEnv = []string{"HOME=" + home}
 		}},
 		{"F2 large harmless .claude.json", true, func(t *testing.T, req *network.Request) {
-			home := t.TempDir()
-			writeTestFile(t, filepath.Join(home, ".claude.json"), `{"projects":{"pad":"`+strings.Repeat("x", 2<<20)+`"}}`)
-			req.ChildEnv = []string{"HOME=" + home}
+			managed := strings.TrimPrefix(req.ChildEnv[0], "CLAUDE_CONFIG_DIR=")
+			writeTestFile(t, filepath.Join(managed, ".claude.json"), `{"projects":{"pad":"`+strings.Repeat("x", 2<<20)+`"}}`)
 		}},
 		{"F3 managed policy helpers", false, func(t *testing.T, req *network.Request) {
 			dir := t.TempDir()
@@ -772,7 +794,7 @@ func TestPrepareGatewayUnsetsInheritedEndpointNames(t *testing.T) {
 	req := gatewayRequest(gatewayHome(t, g, true))
 	req.Prober = forbiddenProber{t}
 	req.ParentEnv = append(req.ParentEnv, "ANTHROPIC_UNIX_SOCKET=/tmp/x.sock", "CLAUDE_CODE_API_BASE_URL=http://x")
-	req.ChildEnv = []string{"anthropic_unix_socket=/tmp/y.sock"}
+	req.ChildEnv = append(req.ChildEnv, "anthropic_unix_socket=/tmp/y.sock")
 	got, err := network.Prepare(context.Background(), req)
 	if err != nil {
 		t.Fatal(err)

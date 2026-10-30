@@ -806,6 +806,7 @@ evidence and date:
 
 ```toml
 schema = "curator-network-qualified-v1"
+project_roots = ["/Users/op/src"]   # filtering-gateway launches only
 
 [[builds]]
 harness       = "claude-code"
@@ -863,9 +864,9 @@ Flags that change the settings sources, the working directory or where the
 session runs refuse too: `--setting-sources`, `--managed-settings`,
 `--project-config-root`, `-w`/`--worktree`, `-r`/`--resume`, `-c`/`--continue`,
 `--from-pr`, `--fork-session`, `--resume-session-at`, `--teleport`, `--cloud`
-and `--remote`. MDM profiles and server-managed settings cannot be read here,
-and Claude Code re-reads watched settings during a session, so a settings
-edit after the launch is outside this check. Once the child has started,
+and `--remote`. Claude Code's own settings sources are read from the
+environment the child is composed with, the profile fragment's
+`CLAUDE_CONFIG_DIR` included. Once the child has started,
 the launcher activates the registration within its activation window (no
 attempt starts or outlasts it; on expiry the launcher alerts and ends the
 registration) and renews it hourly. After the child exits, whatever its
@@ -883,6 +884,44 @@ session-manager call. Defaults of the other kinds still need `--network`. A
 `network.toml` that exists but cannot be read, a dangling link included,
 refuses every launch. Codex launches through a gateway are
 refused in this revision.
+
+Claude Code under a filtering gateway is also held to admission contract A,
+checked before registering and again at the pre-spawn boundary. A launch that
+fails it refuses `network_scope_unsupported` with no gateway call:
+
+- the build is an exact qualified build (above);
+- the child runs in a managed home: `CLAUDE_CONFIG_DIR` is an absolute path,
+  its `settings.json` exists, and it, `cowork_settings.json` and the legacy
+  `.config.json`, where present, are regular files with no write bit;
+  `.claude.json`, which Claude Code writes itself, is read but may be
+  writable;
+- the physical working directory, after resolving every symbolic link, is
+  inside one of the operator's `project_roots` in
+  `~/.curator/network-qualified.toml` (absolute, clean, existing paths; none
+  listed admits no gateway launch);
+- worktree, resume, continue and remote-session flags refuse (above);
+- the host has no Claude Code managed preferences
+  (`/Library/Managed Preferences/com.anthropic.claudecode.plist`, machine-wide
+  or for the current user) and the managed home holds no cached server policy
+  (`remote-settings.json`, `policy-limits.json`).
+
+Contract A narrows the launch; it does not isolate it. Its written residual:
+
+- Claude Code re-reads its settings during a session, so a settings change
+  after the boundary check (a mid-session reroute) leaves the rest of that
+  conversation unfiltered;
+- "not writable" is checked on file modes; while a session runs as the same
+  OS user as its managed home, it can change those modes, and the managed
+  home directory itself stays writable because Claude Code writes there;
+- MDM profiles and server-managed policy cannot be read by the launcher; the
+  check sees only their local traces named above;
+- the launch token is usable only at the gateway's same-host loopback
+  listener.
+
+Per-user packet filtering, with each session running as its own OS user, is
+the fix for the first two items and is not part of this launcher. Until it
+exists, the gateway is selected per launch with `--network`; the operator
+`default` stays unset on shared hosts.
 
 The operator known-bad list is `~/.curator/adapter-knownbad.json`, or the path
 selected by `--network-known-bad <path>`. The library reads it through

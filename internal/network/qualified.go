@@ -28,6 +28,10 @@ const QualifiedSchema = "curator-network-qualified-v1"
 type qualifiedFile struct {
 	Schema string           `toml:"schema"`
 	Builds []qualifiedBuild `toml:"builds"`
+	// ProjectRoots are the directories a filtering-gateway launch may run
+	// in (admission contract A): its physical working directory must be one
+	// of them or below one.
+	ProjectRoots []string `toml:"project_roots"`
 }
 
 type qualifiedBuild struct {
@@ -130,4 +134,38 @@ func printable(s string) bool {
 		}
 	}
 	return true
+}
+
+// loadGatewayRoots reads the operator's project roots for filtering-gateway
+// launches from the qualified-builds file. Each must be an absolute, clean
+// path that exists; it is returned resolved to its physical path. A missing
+// file or list is an empty list, which admits no gateway launch.
+func loadGatewayRoots(read func(string) ([]byte, error), curatorDir string) ([]string, error) {
+	if curatorDir == "" {
+		return nil, nil
+	}
+	data, err := read(filepath.Join(curatorDir, QualifiedFileName))
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, nil
+		}
+		return nil, refusal.New(refusal.CodeFileUnreadable, QualifiedFileName, "the qualified-builds file is not readable")
+	}
+	var file qualifiedFile
+	dec := toml.NewDecoder(bytes.NewReader(data)).DisallowUnknownFields()
+	if err := dec.Decode(&file); err != nil || file.Schema != QualifiedSchema {
+		return nil, refusal.New(refusal.CodeProfileInvalid, QualifiedFileName, "the qualified-builds file does not decode")
+	}
+	var roots []string
+	for _, root := range file.ProjectRoots {
+		if !filepath.IsAbs(root) || filepath.Clean(root) != root {
+			return nil, refusal.New(refusal.CodeProfileInvalid, QualifiedFileName, "project_roots must be absolute clean paths")
+		}
+		physical, err := filepath.EvalSymlinks(root)
+		if err != nil {
+			return nil, refusal.New(refusal.CodeProfileInvalid, QualifiedFileName, "a project root does not resolve")
+		}
+		roots = append(roots, physical)
+	}
+	return roots, nil
 }

@@ -216,6 +216,10 @@ type Request struct {
 	// ManagedSettingsDir overrides where managed Claude settings are read
 	// (tests); empty means the platform location.
 	ManagedSettingsDir string
+	// ManagedPreferencesDir and Username override where Claude Code managed
+	// preferences are looked for and whose (tests); empty means the host's.
+	ManagedPreferencesDir string
+	Username              string
 	// gatewayKind is set by Prepare for a filtering-gateway selection.
 	gatewayKind    bool
 	Alert          io.Writer

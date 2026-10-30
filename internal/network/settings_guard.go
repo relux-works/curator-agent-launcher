@@ -215,12 +215,7 @@ func settingsConflict(name string, req Request) error {
 		}
 		return check(source, doc, managed)
 	}
-	env := map[string]string{}
-	for _, e := range req.ChildEnv {
-		if k, v, ok := strings.Cut(e, "="); ok {
-			env[k] = v
-		}
-	}
+	env := childEnv(req)
 	userDir := env["CLAUDE_CONFIG_DIR"]
 	globalDir := userDir
 	if userDir == "" && env["HOME"] != "" {
@@ -313,6 +308,91 @@ func settingsConflict(name string, req Request) error {
 		}
 		if err := read("--settings", path, maxSettingsBytes, false); err != nil {
 			return err
+		}
+	}
+	return nil
+}
+
+// childEnv is the environment the child is composed with, as far as the
+// settings sources are concerned: the plan's environment, then the
+// fragment's and the prompt's overlays, in composition's order. The network
+// patch only adds the gateway's names, which every settings source refuses.
+func childEnv(req Request) map[string]string {
+	env := map[string]string{}
+	for _, e := range req.ChildEnv {
+		if k, v, ok := strings.Cut(e, "="); ok {
+			env[k] = v
+		}
+	}
+	for _, layer := range []map[string]string{req.FragEnv, req.PromptEnv} {
+		for k, v := range layer {
+			env[k] = v
+		}
+	}
+	return env
+}
+
+// mdmDomain is Claude Code's managed-preferences domain on macOS, as the
+// 2.1.314 bundle names it.
+const mdmDomain = "com.anthropic.claudecode"
+
+// admissionContract applies admission contract A for Claude Code under a
+// filtering gateway (the pilot contract; settings reloaded during a session
+// remain the written residual):
+//   - the launch runs in a managed home (CLAUDE_CONFIG_DIR) whose settings.json
+//     exists and, like any cowork, global or legacy settings file there, is
+//     not writable;
+//   - its physical working directory is inside an operator project root;
+//   - no Claude Code managed preferences (MDM) and no server-managed policy
+//     cache is present on the host.
+//
+// Worktree and resume flags are refused by settingsConflict. A same-uid
+// process can still change file modes back; the contract narrows, it does
+// not isolate.
+func admissionContract(name string, req Request, roots []string, mdmDir string, username string) error {
+	refuse := func(detail string) error {
+		return refusal.New(refusal.CodeScopeUnsupported, name, "filtering-gateway admission: "+detail)
+	}
+	home := childEnv(req)["CLAUDE_CONFIG_DIR"]
+	if home == "" || !filepath.IsAbs(home) {
+		return refuse("the launch does not run in a managed Claude home (CLAUDE_CONFIG_DIR)")
+	}
+	for _, file := range []string{"settings.json", "cowork_settings.json", ".config.json"} {
+		info, err := os.Lstat(filepath.Join(home, file))
+		if errors.Is(err, os.ErrNotExist) {
+			if file == "settings.json" {
+				return refuse("the managed home has no settings.json; it must exist and be read-only")
+			}
+			continue
+		}
+		if err != nil || !info.Mode().IsRegular() || info.Mode().Perm()&0o222 != 0 {
+			return refuse("the managed home's " + file + " must be a read-only regular file")
+		}
+	}
+	physical, err := filepath.EvalSymlinks(req.ProjectRoot)
+	if err != nil {
+		return refuse("the working directory does not resolve")
+	}
+	inside := false
+	for _, root := range roots {
+		if rel, err := filepath.Rel(root, physical); err == nil && rel != ".." && !strings.HasPrefix(rel, "../") {
+			inside = true
+			break
+		}
+	}
+	if !inside {
+		return refuse("the working directory is not inside an operator project root")
+	}
+	candidates := []string{filepath.Join(mdmDir, mdmDomain+".plist")}
+	if username != "" {
+		candidates = append(candidates, filepath.Join(mdmDir, username, mdmDomain+".plist"))
+	}
+	candidates = append(candidates, filepath.Join(home, "remote-settings.json"), filepath.Join(home, "policy-limits.json"))
+	for _, path := range candidates {
+		if _, err := os.Lstat(path); err == nil {
+			return refuse("managed preferences or a server-managed policy is present (" + filepath.Base(path) + ")")
+		} else if !errors.Is(err, os.ErrNotExist) {
+			return refuse("managed preferences cannot be inspected")
 		}
 	}
 	return nil

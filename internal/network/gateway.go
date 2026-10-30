@@ -5,7 +5,9 @@ import (
 	"errors"
 	"net/http"
 	"os"
+	"os/user"
 	"path/filepath"
+	goruntime "runtime"
 	"strings"
 	"time"
 
@@ -65,7 +67,33 @@ func prepareGateway(ctx context.Context, req Request, result *resolve.Result, id
 			return Prepared{}, refusal.New(refusal.CodeConfigurationConflict, name, "an MCP lookup names "+mcp+", which the filtering gateway refuses")
 		}
 	}
-	if err := settingsConflict(name, req); err != nil {
+	curatorDir := ""
+	for _, e := range req.ParentEnv {
+		if home, ok := strings.CutPrefix(e, "HOME="); ok {
+			curatorDir = filepath.Join(home, ".curator")
+		}
+	}
+	roots, err := loadGatewayRoots(adapterprobe.SafeKnownBadRead, curatorDir)
+	if err != nil {
+		return Prepared{}, err
+	}
+	mdmDir := req.ManagedPreferencesDir
+	if mdmDir == "" && goruntime.GOOS == "darwin" {
+		mdmDir = "/Library/Managed Preferences"
+	}
+	username := req.Username
+	if username == "" {
+		if u, err := user.Current(); err == nil {
+			username = u.Username
+		}
+	}
+	guard := func() error {
+		if err := settingsConflict(name, req); err != nil {
+			return err
+		}
+		return admissionContract(name, req, roots, mdmDir, username)
+	}
+	if err := guard(); err != nil {
 		return Prepared{}, err
 	}
 	register := netproxy.RegisterRequest{Root: req.ProjectRoot, Session: req.SessionID, Runtime: runtime}
@@ -112,7 +140,7 @@ func prepareGateway(ctx context.Context, req Request, result *resolve.Result, id
 		TCP: "skipped", Connect: "skipped", TLS: "skipped", CheckedAt: time.Now().UTC(),
 	})
 	lease := netproxy.NewLease(client, reg, req.Alert, requested)
-	recheck := func() error { return settingsConflict(name, req) }
+	recheck := guard
 	return Prepared{Patch: patch, Record: &record, Provenance: provenance, Lease: lease, Recheck: recheck}, nil
 }
 

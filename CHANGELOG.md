@@ -34,6 +34,14 @@
   provider-route names are removed from the child.
 - Read the qualified builds under an explicit strict or pinned policy on any
   profile.
+- Hold Claude Code gateway launches to admission contract A, before
+  registering and again before spawn: a managed `CLAUDE_CONFIG_DIR` whose
+  `settings.json` exists and whose settings files carry no write bit, a
+  physical working directory inside the operator's `project_roots`, and no
+  Claude Code managed preferences or cached server policy. The README states
+  the residual. The settings check now reads the environment the child is
+  composed with, so a managed home set by the profile fragment is the user
+  settings source.
 
 - Specify a proposed same-user executor entry, descriptor custody, closed
   records, immutable assignment/atomic attempt admission, failed-conflict interlock,
