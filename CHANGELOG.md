@@ -61,6 +61,12 @@
   other raw tokens), in option values and after `--` too, and the
   environment names that select another mode or session (the deep-link URL
   handler, feature-flag overrides, plugin directories, remote sessions).
+- Hold the runtime's own environment namespaces (`CLAUDE_*`, `ANTHROPIC_*`,
+  `CCR_*`) to an allowlist under a gateway: the managed home, the harness's
+  own values, two local-tool selectors and the credential variables; every
+  other name there, mode selectors included, refuses in an overlay or
+  settings and is removed when inherited. Check the budget again after a
+  settings source is closed, before it is decoded.
 
 - Specify a proposed same-user executor entry, descriptor custody, closed
   records, immutable assignment/atomic attempt admission, failed-conflict interlock,

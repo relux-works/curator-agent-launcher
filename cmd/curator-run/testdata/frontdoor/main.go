@@ -113,6 +113,19 @@ func main() {
 			break
 		}
 	}
+	// An inert stand-in for the runtime's coordinator-mode getter, which a
+	// truthy CLAUDE_CODE_COORDINATOR_MODE selects on a non-interactive (print)
+	// launch: it records that the mode would have been selected, and runs on.
+	if v := strings.ToLower(os.Getenv("CLAUDE_CODE_COORDINATOR_MODE")); v == "1" || v == "true" || v == "yes" || v == "on" {
+		for _, arg := range os.Args[1:] {
+			if arg == "-p" || arg == "--print" {
+				if os.WriteFile("coordinator", []byte("selected"), 0600) != nil {
+					os.Exit(1)
+				}
+				break
+			}
+		}
+	}
 	capture, _ := json.Marshal(map[string]any{"Argv": os.Args[1:], "Env": os.Environ()})
 	if err := os.WriteFile("native.json", capture, 0600); err != nil {
 		os.Exit(1)

@@ -658,7 +658,7 @@ func TestPrepareGatewayWindowStartsAtRegisterRequest(t *testing.T) {
 // refuses before any gateway call, and each refusal has a nearby admitted
 // control in the same table (the rows marked admit).
 func TestPrepareGatewayRound3Sources(t *testing.T) {
-	harmless := `{"env":{"DISABLE_AUTOUPDATER":"1","ANTHROPIC_MODEL":"claude-x","ANTHROPIC_API_KEY_HELPER_TTL_MS":"1"}}`
+	harmless := `{"env":{"DISABLE_AUTOUPDATER":"1","DISABLE_TELEMETRY":"1","MAX_THINKING_TOKENS":"1024"}}`
 	route := func(name string) string { return `{"env":{"` + name + `":"x"}}` }
 	for _, tc := range []struct {
 		name  string

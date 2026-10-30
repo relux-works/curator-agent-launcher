@@ -298,3 +298,80 @@ func TestPrepareGatewaySelectedGlobalFile(t *testing.T) {
 		})
 	}
 }
+
+// R6-1: in the runtime's own environment namespaces (CLAUDE_, ANTHROPIC_,
+// CCR_) only the admitted names pass. The coordinator-mode selector, a model
+// override and an arbitrary new name refuse in an overlay and in settings;
+// the admitted names (the managed home, the harness's own values, a local-tool
+// selector, a credential) and names outside the namespaces pass (the
+// controls). The outside-namespace dispatch names keep refusing.
+func TestPrepareGatewayNamespaceAllowlist(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		env   string
+		admit bool
+	}{
+		{"coordinator mode", "CLAUDE_CODE_COORDINATOR_MODE", false},
+		{"model override", "ANTHROPIC_MODEL", false},
+		{"a name a later release might add", "CLAUDE_CODE_SOMETHING_NEW", false},
+		{"remote-session family", "CCR_ANYTHING", false},
+		{"sandbox mode outside the namespace", "IS_SANDBOX", false},
+		{"telemetry exporter outside the namespace", "OTEL_EXPORTER_OTLP_ENDPOINT", false},
+		{"control: compaction window the harness sets", "CLAUDE_CODE_AUTO_COMPACT_WINDOW", true},
+		{"control: prompt suggestions the harness sets", "CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION", true},
+		{"control: credential", "ANTHROPIC_API_KEY", true},
+		{"control: local-tool selector", "CLAUDE_CODE_USE_POWERSHELL_TOOL", true},
+		{"control: name outside the namespaces", "DISABLE_AUTOUPDATER", true},
+	} {
+		for _, where := range []string{"overlay", "settings"} {
+			t.Run(tc.name+" in "+where, func(t *testing.T) {
+				g := newGateway(t)
+				req := gatewayRequest(gatewayHome(t, g, true))
+				req.Prober = forbiddenProber{t}
+				if where == "overlay" {
+					req.FragEnv = map[string]string{tc.env: "1"}
+				} else {
+					rewriteReadOnly(t, filepath.Join(managedHome(req), "settings.json"), `{"env":{"`+tc.env+`":"1"}}`)
+				}
+				got, err := network.Prepare(context.Background(), req)
+				if tc.admit {
+					if err != nil || got.Lease == nil {
+						t.Fatalf("valid control refused: %v", err)
+					}
+					got.Lease.Finish(context.Background())
+					return
+				}
+				if err == nil || refusalCode(t, err) != refusal.CodeConfigurationConflict || len(g.calls()) != 0 {
+					t.Fatalf("err = %v calls = %v", err, g.calls())
+				}
+			})
+		}
+	}
+}
+
+// R6-1: inherited names in the namespaces that are not admitted are removed
+// from the child (the coordinator selector among them); admitted ones and
+// names outside the namespaces stay (the controls).
+func TestPrepareGatewayRemovesInheritedNamespaceNames(t *testing.T) {
+	g := newGateway(t)
+	req := gatewayRequest(gatewayHome(t, g, true))
+	req.Prober = forbiddenProber{t}
+	inherited := []string{"CLAUDE_CODE_COORDINATOR_MODE=1", "ANTHROPIC_MODEL=x", "ANTHROPIC_API_KEY=k", "CLAUDE_CODE_AUTO_COMPACT_WINDOW=200000", "LANG=C"}
+	req.ParentEnv = append(req.ParentEnv, inherited...)
+	got, err := network.Prepare(context.Background(), req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer got.Lease.Finish(context.Background())
+	joined := " " + strings.Join(got.Patch.Apply(inherited), " ") + " "
+	for _, gone := range []string{"CLAUDE_CODE_COORDINATOR_MODE=", "ANTHROPIC_MODEL="} {
+		if strings.Contains(joined, " "+gone) {
+			t.Fatalf("%s reaches the child: %s", gone, joined)
+		}
+	}
+	for _, kept := range []string{"ANTHROPIC_API_KEY=k", "CLAUDE_CODE_AUTO_COMPACT_WINDOW=200000", "LANG=C"} {
+		if !strings.Contains(joined, " "+kept+" ") {
+			t.Fatalf("%s is removed: %s", kept, joined)
+		}
+	}
+}

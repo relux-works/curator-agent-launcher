@@ -23,53 +23,62 @@ const (
 	maxGlobalBytes   = 64 << 20
 )
 
-// endpointSuffixes mark Claude Code variables that choose where a request,
-// a socket or a proxy goes. Claude Code 2.1.314 reads dozens of such names
-// (ANTHROPIC_UNIX_SOCKET, CLAUDE_CODE_API_BASE_URL, the provider bases, the
-// proxy and bridge endpoints, ...), so the gateway refuses the whole shape
-// instead of a list that a new release could outgrow.
-var endpointSuffixes = []string{"_URL", "_URLS", "_SOCKET", "_ENDPOINT", "_HOST", "_BASE", "_RESOURCE", "_PROXY", "_GATEWAY"}
-
-// claudeFeatureSelectors are the CLAUDE_CODE_USE_ names in the 2.1.314
-// bundle that select a local tool, not a provider, transport or settings
-// source; they are admitted and kept. Every other CLAUDE_CODE_USE_ name,
-// including one a later release adds, refuses: BEDROCK, VERTEX, FOUNDRY,
-// MANTLE, GATEWAY, ANTHROPIC_AWS, ANTHROPIC_GOOGLE_CLOUD and CCR_V2 route the
-// conversation, and COWORK_PLUGINS selects another settings document.
-var claudeFeatureSelectors = map[string]bool{
-	"CLAUDE_CODE_USE_POWERSHELL_TOOL":    true,
-	"CLAUDE_CODE_USE_NATIVE_FILE_SEARCH": true,
+// claudeNamespaceAdmitted is the allowlist of names in the runtime's own
+// environment namespaces (CLAUDE_, ANTHROPIC_, CCR_) that a launch under the
+// filtering gateway may carry. The 2.1.314 runtime reads over a thousand
+// names there, and they select providers, endpoints, transports, settings
+// sources, remote and background sessions, and runtime modes (safe, bare,
+// restricted, coordinator, agent teams, among others); a list of refused
+// names has missed one more each time it was audited. So every other name in
+// those namespaces refuses in an overlay, an MCP lookup or a settings source
+// and is removed when inherited. Admitted: the managed home; the two values
+// the harness itself sets (prompt suggestions off, the model row's compaction
+// window); the two local-tool selectors; and the credential variables, which
+// carry authentication to the gateway's base and select nothing. The
+// gateway's own names are set by its patch and refuse anywhere else.
+var claudeNamespaceAdmitted = map[string]bool{
+	"CLAUDE_CONFIG_DIR":                    true,
+	"CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION": true,
+	"CLAUDE_CODE_AUTO_COMPACT_WINDOW":      true,
+	"CLAUDE_CODE_USE_POWERSHELL_TOOL":      true,
+	"CLAUDE_CODE_USE_NATIVE_FILE_SEARCH":   true,
+	"ANTHROPIC_API_KEY":                    true,
+	"ANTHROPIC_AUTH_TOKEN":                 true,
+	"CLAUDE_CODE_OAUTH_TOKEN":              true,
 }
 
-// claudeDispatchNames and claudeDispatchPrefixes are environment names the
-// 2.1.314 runtime reads to choose another mode, session or source before or
-// beside its settings: the deep-link URL handler (__CFBundleIdentifier),
-// feature-flag overrides, background session kind, the environment halves
-// of the safe, bare, restricted and agent-teams mode getters, the entrypoint
-// selectors, plugin directories, and the remote-session families (CCR_,
-// CLAUDE_CODE_REMOTE), whose names include proxies, relays and egress
-// gateways. Under the filtering gateway
-// they refuse like routes, and inherited values are removed.
+// claudeNamespacePrefixes are the runtime's own environment namespaces.
+var claudeNamespacePrefixes = []string{"CLAUDE_", "ANTHROPIC_", "CCR_"}
+
+// claudeDispatchNames and claudeDispatchPrefixes are the names outside those
+// namespaces that the 2.1.314 runtime reads to choose another mode, session
+// or egress: the deep-link URL handler (__CFBundleIdentifier), the sandbox
+// mode, the remote-session ingress, the self-hosted-runner mode, claude.ai
+// MCP servers, agent and auto-mode decision hooks, and the telemetry
+// exporters, which can send request bodies to an endpoint of their own.
+// Every other name the runtime reads outside its namespaces (system,
+// terminal and CI detection, and provider credentials that are inert without
+// a provider route) is reviewed and admitted. Under the filtering gateway
+// these refuse like routes, and inherited values are removed.
 var claudeDispatchNames = map[string]bool{
-	"__CFBUNDLEIDENTIFIER":                 true,
-	"CLAUDE_INTERNAL_FC_OVERRIDES":         true,
-	"CLAUDE_CODE_SESSION_KIND":             true,
-	"CLAUDE_CODE_SAFE_MODE":                true,
-	"CLAUDE_CODE_SIMPLE":                   true,
-	"CLAUDE_CODE_RESTRICTED":               true,
-	"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": true,
-	"CLAUDE_CODE_ACTION":                   true,
-	"CLAUDE_CODE_ENTRYPOINT":               true,
+	"__CFBUNDLEIDENTIFIER":           true,
+	"IS_SANDBOX":                     true,
+	"SESSION_INGRESS_URL":            true,
+	"ENABLE_CLAUDEAI_MCP_SERVERS":    true,
+	"AI_AGENT":                       true,
+	"AUTOMODE_DECISION_LOG":          true,
+	"BETA_TRACING_ENDPOINT":          true,
+	"ENABLE_ENHANCED_TELEMETRY_BETA": true,
 }
 
-var claudeDispatchPrefixes = []string{"CCR_", "CLAUDE_CODE_REMOTE", "CLAUDE_CODE_PLUGIN_"}
+var claudeDispatchPrefixes = []string{"SELF_HOSTED_RUNNER_", "OTEL_"}
 
 // gatewayRefusedName reports whether a variable name, compared without case,
 // is one an overlay or settings source must not set under the gateway, and
 // that is removed from an inherited environment: the gateway's own names,
-// any endpoint-shaped ANTHROPIC_, CLAUDE_ or CLAUDE_CODE_ name, every
-// CLAUDE_CODE_USE_ route selector, the AWS endpoint names, the listed
-// provider routes and the proxy family.
+// the listed provider routes, the proxy family and the AWS endpoint names;
+// every name in the runtime's own namespaces except the admitted ones; and
+// the dispatch names outside them.
 func gatewayRefusedName(name string) bool {
 	upper := strings.ToUpper(name)
 	for _, set := range [][]string{gatewayClaudeNames, claudeRouteNames, envpatch.UnsetNames()} {
@@ -79,8 +88,10 @@ func gatewayRefusedName(name string) bool {
 			}
 		}
 	}
-	if strings.HasPrefix(upper, "CLAUDE_CODE_USE_") {
-		return !claudeFeatureSelectors[upper]
+	for _, prefix := range claudeNamespacePrefixes {
+		if strings.HasPrefix(upper, prefix) {
+			return !claudeNamespaceAdmitted[upper]
+		}
 	}
 	if strings.HasPrefix(upper, "AWS_ENDPOINT_URL") {
 		return true
@@ -91,13 +102,6 @@ func gatewayRefusedName(name string) bool {
 	for _, prefix := range claudeDispatchPrefixes {
 		if strings.HasPrefix(upper, prefix) {
 			return true
-		}
-	}
-	if strings.HasPrefix(upper, "ANTHROPIC_") || strings.HasPrefix(upper, "CLAUDE_") {
-		for _, suffix := range endpointSuffixes {
-			if strings.HasSuffix(upper, suffix) {
-				return true
-			}
 		}
 	}
 	return false

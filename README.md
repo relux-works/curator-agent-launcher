@@ -835,14 +835,18 @@ directory, an audit session id, runtime `claude-code`) over
 unfiltered fallback. The child then gets `ANTHROPIC_BASE_URL` set to the
 gateway's base, `ANTHROPIC_CUSTOM_HEADERS` carrying the launch token in the
 gateway's header, and `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1`, in its
-launch-private environment only. Inherited endpoint selectors are removed
-from the child: every `ANTHROPIC_*`, `CLAUDE_*` or `CLAUDE_CODE_*` name ending
-in `_URL`, `_URLS`, `_SOCKET`, `_ENDPOINT`, `_HOST`, `_BASE`, `_RESOURCE`,
-`_PROXY` or `_GATEWAY` (Claude Code reads dozens, `ANTHROPIC_UNIX_SOCKET` and
-`CLAUDE_CODE_API_BASE_URL` among them), every `CLAUDE_CODE_USE_*` selector
-except the two that pick a local tool (`CLAUDE_CODE_USE_POWERSHELL_TOOL`,
-`CLAUDE_CODE_USE_NATIVE_FILE_SEARCH`, which are kept), and the
-`AWS_ENDPOINT_URL` names.
+launch-private environment only. Claude Code reads over a thousand names in
+its own namespaces (`CLAUDE_*`, `ANTHROPIC_*`, `CCR_*`), and they select
+providers, endpoints, transports, settings sources, remote and background
+sessions and runtime modes. Under a gateway those namespaces are held to an
+allowlist: `CLAUDE_CONFIG_DIR`, the two values the harness itself sets
+(`CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION`, `CLAUDE_CODE_AUTO_COMPACT_WINDOW`),
+the two local-tool selectors (`CLAUDE_CODE_USE_POWERSHELL_TOOL`,
+`CLAUDE_CODE_USE_NATIVE_FILE_SEARCH`) and the credential variables
+(`ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, `CLAUDE_CODE_OAUTH_TOKEN`).
+Every other name there is removed when inherited, and so are the
+`AWS_ENDPOINT_URL` names, the proxy family and the reviewed dispatch names
+outside the namespaces (below).
 
 Claude Code applies the `env` block of its settings over its process
 environment, so a settings entry would send the conversation, with the token
@@ -850,7 +854,8 @@ header, wherever it points. Before registering, and again at the pre-spawn
 boundary, the launcher therefore refuses `network_configuration_conflict` when
 a composed overlay, an MCP lookup, or any settings source it can read sets one
 of those names, the gateway's own names or a proxy-family name (compared
-without case). The sources are the
+without case); a model override such as `ANTHROPIC_MODEL` is refused too,
+since the launcher selects the model. The sources are the
 child's user settings (`CLAUDE_CONFIG_DIR`, else `~/.claude`), both
 `settings.json` and `cowork_settings.json`; the legacy global configuration
 (the one file Claude selects: the legacy `.config.json` there when it is a
@@ -908,13 +913,15 @@ and the raw tokens it or a later mode getter searches for (`--handle-uri`,
 modes). `--safe-mode` and `--bare` are searched for only before the first
 standalone `--`, so they refuse before it and are ordinary operands after
 it. A prompt that is exactly such a word refuses too. The environment names
-the runtime reads to pick another mode or session (the deep-link URL
-handler's `__CFBundleIdentifier`, `CLAUDE_INTERNAL_FC_OVERRIDES`,
-`CLAUDE_CODE_SESSION_KIND`, `CLAUDE_CODE_SAFE_MODE`, `CLAUDE_CODE_SIMPLE`,
-`CLAUDE_CODE_RESTRICTED`, `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`,
-`CLAUDE_CODE_ACTION`, `CLAUDE_CODE_ENTRYPOINT`, `CLAUDE_CODE_PLUGIN_*`, and
-the remote-session families `CCR_*` and `CLAUDE_CODE_REMOTE*`) refuse like
-routes and are removed when inherited. The color flags the runtime also
+the runtime reads outside its own namespaces to pick another mode, session
+or egress (the deep-link URL handler's `__CFBundleIdentifier`, `IS_SANDBOX`,
+`SESSION_INGRESS_URL`, `ENABLE_CLAUDEAI_MCP_SERVERS`, `AI_AGENT`,
+`AUTOMODE_DECISION_LOG`, the self-hosted runner's `SELF_HOSTED_RUNNER_*`, and
+the telemetry exporters `OTEL_*`, `BETA_TRACING_ENDPOINT` and
+`ENABLE_ENHANCED_TELEMETRY_BETA`) refuse like routes and are removed when
+inherited; the namespaces' own mode selectors (safe, bare, restricted,
+coordinator, agent teams, background, remote, plugins, entrypoint, feature
+overrides) fall under the allowlist above. The color flags the runtime also
 reads from the raw argument list change only output colouring and are not
 reserved. Claude Code's own settings sources are read from the
 environment the child is composed with, the profile fragment's
