@@ -3,6 +3,7 @@ package network_test
 import (
 	"context"
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -606,5 +607,40 @@ func TestDropInListerStopsBetweenOpenAndRead(t *testing.T) {
 	entries, err = network.ListDropIns(dir, 65, func() error { return nil })
 	if err != nil || len(entries) != 3 {
 		t.Fatalf("control: entries = %d err = %v", len(entries), err)
+	}
+}
+
+// R5-2: the clock is checked once more after the last read, before the
+// contents are decoded. A cancellation during the final read of a
+// route-bearing source (the read that reports its end) refuses as an
+// interruption; the same source read without it refuses on its route (the
+// control).
+func TestPrepareGatewayChecksBeforeDecoding(t *testing.T) {
+	for _, cancelAtEnd := range []bool{true, false} {
+		t.Run(map[bool]string{true: "cancelled during the final read", false: "control: decoded"}[cancelAtEnd], func(t *testing.T) {
+			g := newGateway(t)
+			req := gatewayRequest(gatewayHome(t, g, true))
+			req.Prober = forbiddenProber{t}
+			os.MkdirAll(filepath.Join(req.ProjectRoot, ".claude"), 0o700)
+			source := filepath.Join(req.ProjectRoot, ".claude", "settings.local.json")
+			writeTestFile(t, source, `{"env":{"ANTHROPIC_BASE_URL":"https://x"}}`)
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			defer network.SetReadSettingsChunk(func(f *os.File, p []byte) (int, error) {
+				n, err := network.ReadSettingsChunk(f, p)
+				if f.Name() == source && cancelAtEnd && errors.Is(err, io.EOF) {
+					cancel()
+				}
+				return n, err
+			})()
+			_, err := network.Prepare(ctx, req)
+			want := "set ANTHROPIC_BASE_URL"
+			if cancelAtEnd {
+				want = "interrupted"
+			}
+			if err == nil || !strings.Contains(err.Error(), want) || len(g.calls()) != 0 {
+				t.Fatalf("err = %v calls = %v", err, g.calls())
+			}
+		})
 	}
 }
