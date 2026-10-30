@@ -263,3 +263,49 @@ func TestPrepareGatewayManagedDropInCap(t *testing.T) {
 		})
 	}
 }
+
+// R4-2: a managed-home selector that is not an absolute ASCII path refuses
+// before any settings source is opened (the recheck runs the same guard on
+// the same request); the ASCII home built the same way is opened, and its
+// undecodable .claude.json is then refused, showing discovery ran (the
+// control).
+func TestPrepareGatewayRefusesSelectorBeforeReads(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		leaf  string
+		admit bool
+	}{
+		{"composed non-ASCII", "café", false},
+		{"decomposed non-ASCII", "café", false},
+		{"control: ASCII", "cafe", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			g := newGateway(t)
+			req := gatewayRequest(gatewayHome(t, g, true))
+			req.Prober = forbiddenProber{t}
+			home := contractHome(t, tc.leaf)
+			writeTestFile(t, filepath.Join(home, ".claude.json"), `{"env":`)
+			req.ChildEnv = []string{"CLAUDE_CONFIG_DIR=" + home}
+			var mu sync.Mutex
+			opens := 0
+			defer network.SetOpenSettingsFile(func(path string) (*os.File, error) {
+				mu.Lock()
+				opens++
+				mu.Unlock()
+				return network.OpenSettingsFile(path)
+			})()
+			got, err := network.Prepare(context.Background(), req)
+			if tc.admit {
+				// The undecodable .claude.json is read and refused: the
+				// selector passed and discovery ran.
+				if err == nil || refusalCode(t, err) != refusal.CodeConfigurationConflict || opens == 0 {
+					t.Fatalf("err = %v opens = %d", err, opens)
+				}
+				return
+			}
+			if err == nil || refusalCode(t, err) != refusal.CodeScopeUnsupported || got.Lease != nil || len(g.calls()) != 0 || opens != 0 {
+				t.Fatalf("err = %v calls = %v opens = %d", err, g.calls(), opens)
+			}
+		})
+	}
+}

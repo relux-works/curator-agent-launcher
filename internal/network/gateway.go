@@ -89,6 +89,9 @@ func prepareGateway(ctx context.Context, req Request, result *resolve.Result, id
 	}
 	guard := func(ctx context.Context) error {
 		clock := newGuardClock(ctx, req.GuardBudget)
+		if _, err := managedHome(name, req); err != nil {
+			return err
+		}
 		if err := settingsConflict(clock, name, req); err != nil {
 			return err
 		}

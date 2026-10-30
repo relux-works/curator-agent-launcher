@@ -371,6 +371,28 @@ func childEnv(req Request) map[string]string {
 // 2.1.314 bundle names it.
 const mdmDomain = "com.anthropic.claudecode"
 
+// managedHome returns the child's managed Claude home, refusing a selector
+// that is missing, relative or not ASCII. It reads no file, so the guard runs
+// it before discovering any settings source.
+func managedHome(name string, req Request) (string, error) {
+	refuse := func(detail string) error {
+		return refusal.New(refusal.CodeScopeUnsupported, name, "filtering-gateway admission: "+detail)
+	}
+	home := childEnv(req)["CLAUDE_CONFIG_DIR"]
+	if home == "" || !filepath.IsAbs(home) {
+		return "", refuse("the launch does not run in a managed Claude home (CLAUDE_CONFIG_DIR)")
+	}
+	// Claude Code reads user settings from the NFC form of this path but the
+	// global file from the raw one; an ASCII path is its own NFC form, so
+	// every check inspects the directories the runtime uses.
+	for i := 0; i < len(home); i++ {
+		if home[i] >= 0x80 {
+			return "", refuse("the managed Claude home path must be ASCII")
+		}
+	}
+	return home, nil
+}
+
 // admissionContract applies admission contract A for Claude Code under a
 // filtering gateway (the pilot contract; settings reloaded during a session
 // remain the written residual):
@@ -396,17 +418,9 @@ func admissionContract(clock guardClock, name string, req Request, roots []strin
 	if err := clock.step(name); err != nil {
 		return err
 	}
-	home := childEnv(req)["CLAUDE_CONFIG_DIR"]
-	if home == "" || !filepath.IsAbs(home) {
-		return refuse("the launch does not run in a managed Claude home (CLAUDE_CONFIG_DIR)")
-	}
-	// Claude Code reads user settings from the NFC form of this path but the
-	// global file from the raw one; an ASCII path is its own NFC form, so
-	// every check here inspects the directories the runtime uses.
-	for i := 0; i < len(home); i++ {
-		if home[i] >= 0x80 {
-			return refuse("the managed Claude home path must be ASCII")
-		}
+	home, err := managedHome(name, req)
+	if err != nil {
+		return err
 	}
 	for _, file := range []string{"settings.json", "cowork_settings.json", ".config.json"} {
 		info, err := os.Lstat(filepath.Join(home, file))
