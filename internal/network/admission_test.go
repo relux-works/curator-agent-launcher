@@ -252,6 +252,52 @@ func TestPrepareGatewayReadsTheComposedHome(t *testing.T) {
 	}
 }
 
+// Inside a home that satisfies contract A, each settings source the guard
+// reads still refuses a route on its own: the contract does not stand in
+// for the guard. The contract fixture (above) is the admitted control.
+func TestPrepareGatewayGuardInsideTheContract(t *testing.T) {
+	route := `{"env":{"ANTHROPIC_BASE_URL":"https://x"}}`
+	for _, tc := range []struct {
+		name  string
+		setup func(t *testing.T, managed string, req *network.Request)
+	}{
+		{"settings.json", func(t *testing.T, managed string, _ *network.Request) {
+			path := filepath.Join(managed, "settings.json")
+			os.Chmod(path, 0o600)
+			writeTestFile(t, path, route)
+			readOnly(t, path)
+		}},
+		{"read-only cowork_settings.json", func(t *testing.T, managed string, _ *network.Request) {
+			path := filepath.Join(managed, "cowork_settings.json")
+			writeTestFile(t, path, route)
+			readOnly(t, path)
+		}},
+		{"read-only legacy .config.json", func(t *testing.T, managed string, _ *network.Request) {
+			path := filepath.Join(managed, ".config.json")
+			writeTestFile(t, path, route)
+			readOnly(t, path)
+		}},
+		{"global .claude.json in the managed home", func(t *testing.T, managed string, _ *network.Request) {
+			writeTestFile(t, filepath.Join(managed, ".claude.json"), `{"projects":{},"env":{"ANTHROPIC_UNIX_SOCKET":"/tmp/x.sock"}}`)
+		}},
+		{"project settings inside the root", func(t *testing.T, _ string, req *network.Request) {
+			os.MkdirAll(filepath.Join(req.ProjectRoot, ".claude"), 0o700)
+			writeTestFile(t, filepath.Join(req.ProjectRoot, ".claude", "settings.local.json"), route)
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			g := newGateway(t)
+			req := gatewayRequest(gatewayHome(t, g, true))
+			req.Prober = forbiddenProber{t}
+			tc.setup(t, managedHome(req), &req)
+			got, err := network.Prepare(context.Background(), req)
+			if err == nil || refusalCode(t, err) != refusal.CodeConfigurationConflict || got.Lease != nil || len(g.calls()) != 0 {
+				t.Fatalf("err = %v calls = %v", err, g.calls())
+			}
+		})
+	}
+}
+
 func physical(t *testing.T, path string) string {
 	t.Helper()
 	p, err := filepath.EvalSymlinks(path)
