@@ -303,7 +303,7 @@ func TestPrepareGatewaySelectedGlobalFile(t *testing.T) {
 // CCR_) only the admitted names pass. The coordinator-mode selector, a model
 // override and an arbitrary new name refuse in an overlay and in settings;
 // the admitted names (the managed home, the harness's own values, a local-tool
-// selector, a credential) and names outside the namespaces pass (the
+// selector, a credential) and admitted ordinary outside names pass (the
 // controls). The outside-namespace dispatch names keep refusing.
 func TestPrepareGatewayNamespaceAllowlist(t *testing.T) {
 	for _, tc := range []struct {
@@ -351,7 +351,7 @@ func TestPrepareGatewayNamespaceAllowlist(t *testing.T) {
 
 // R6-1: inherited names in the namespaces that are not admitted are removed
 // from the child (the coordinator selector among them); admitted ones and
-// names outside the namespaces stay (the controls).
+// admitted ordinary outside names stay (the controls).
 func TestPrepareGatewayRemovesInheritedNamespaceNames(t *testing.T) {
 	g := newGateway(t)
 	req := gatewayRequest(gatewayHome(t, g, true))

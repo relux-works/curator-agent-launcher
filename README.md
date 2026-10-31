@@ -845,8 +845,8 @@ the two local-tool selectors (`CLAUDE_CODE_USE_POWERSHELL_TOOL`,
 `CLAUDE_CODE_USE_NATIVE_FILE_SEARCH`) and the credential variables
 (`ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, `CLAUDE_CODE_OAUTH_TOKEN`).
 Every other name there is removed when inherited, and so are the
-`AWS_ENDPOINT_URL` names, the proxy family and the reviewed dispatch names
-outside the namespaces (below).
+`AWS_ENDPOINT_URL` names, the proxy family and known outside-namespace controls
+without an admitted compatibility contract (below).
 
 Claude Code applies the `env` block of its settings over its process
 environment, so a settings entry would send the conversation, with the token
@@ -919,7 +919,24 @@ or egress (the deep-link URL handler's `__CFBundleIdentifier`, `IS_SANDBOX`,
 `AUTOMODE_DECISION_LOG`, the self-hosted runner's `SELF_HOSTED_RUNNER_*`, and
 the telemetry exporters `OTEL_*`, `BETA_TRACING_ENDPOINT` and
 `ENABLE_ENHANCED_TELEMETRY_BETA`) refuse like routes and are removed when
-inherited; the namespaces' own mode selectors (safe, bare, restricted,
+inherited. The pinned known-control table in
+[`internal/network/claude_environment.go`](internal/network/claude_environment.go)
+admits ordinary OS/tool/credential, configured MCP and request behavior
+explicitly; other known controls refuse. This includes `IS_DEMO`, `CLAUBBIT`,
+alternate Claude/sidecar executables and host-autoupdate overrides. A refused
+control is unqualified for this invocation; not every value independently
+selects a reachable alternate mode. Unrelated extension environment remains
+compatible. Ordinary MCP generation/negotiation, cloud credentials, local
+tools, compaction/cache settings and fallback-model behavior keep their value
+bytes and independent trust checks. This is launch admission, not an OS egress
+sandbox or a claim that arbitrary tool/loader values are inert.
+
+After all sources are composed, a gateway-only check validates the final
+environment, literal values and remaining MCP lookup names before provenance
+or spawn. It accepts only the three exact registration-owned reserved pairs;
+missing, altered, duplicated or differently cased aliases refuse. A generic
+managed patch does not enable or widen this gateway authority.
+The namespaces' own mode selectors (safe, bare, restricted,
 coordinator, agent teams, background, remote, plugins, entrypoint, feature
 overrides) fall under the allowlist above. The color flags the runtime also
 reads from the raw argument list change only output colouring and are not

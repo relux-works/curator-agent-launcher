@@ -696,6 +696,9 @@ func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, ta
 	if err != nil {
 		return emitNetworkFailure(stderr, err)
 	}
+	if err := preparedNet.CheckComposed(value.Env, value.EnvLiterals, value.EnvNames); err != nil {
+		return emitNetworkFailure(stderr, err)
+	}
 	startShadowSelection(deps)
 	if snapshot != nil {
 		value.Binary = snapshot.Path()

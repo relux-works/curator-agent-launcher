@@ -243,8 +243,20 @@ type Prepared struct {
 	// Recheck repeats the filtering gateway's settings check; the owner runs
 	// it at the pre-spawn boundary to narrow the window for a settings change.
 	// Cancelling ctx (a held signal) ends it with a refusal.
-	Recheck func(ctx context.Context) error
-	taken   bool
+	Recheck       func(ctx context.Context) error
+	checkComposed func([]string, map[string]string, []string) error
+	taken         bool
+}
+
+// CheckComposed validates the final gateway environment after every source is
+// composed, before provenance or execution. Only a real gateway preparation
+// supplies this check; an arbitrary managed patch does not confer gateway
+// authority. Generic and unmanaged network behavior is unchanged.
+func (p Prepared) CheckComposed(env []string, literals map[string]string, lookupNames []string) error {
+	if p.checkComposed == nil {
+		return nil
+	}
+	return p.checkComposed(env, literals, lookupNames)
 }
 
 // TakeLease hands the lease to the process owner that runs the child; after

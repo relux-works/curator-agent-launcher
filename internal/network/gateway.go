@@ -157,7 +157,59 @@ func prepareGateway(ctx context.Context, req Request, result *resolve.Result, id
 		gatewayphase.Reach("recheck")
 		return guard(ctx)
 	}
-	return Prepared{Patch: patch, Record: &record, Provenance: provenance, Lease: lease, Recheck: recheck}, nil
+	return Prepared{Patch: patch, Record: &record, Provenance: provenance, Lease: lease, Recheck: recheck,
+		checkComposed: gatewayCompositionCheck(name, reg.AnthropicBase, reg.TokenHeader+": "+reg.Token)}, nil
+}
+
+// Snapshot only registration-owned values, independently of the public patch.
+// A surviving selector or altered/missing/aliased gateway pair refuses without
+// disclosing a value. MCP lookups cannot supply any of these reserved names.
+func gatewayCompositionCheck(subject, base, header string) func([]string, map[string]string, []string) error {
+	owned := map[string]string{
+		"ANTHROPIC_BASE_URL":                       base,
+		"ANTHROPIC_CUSTOM_HEADERS":                 header,
+		"CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
+	}
+	return func(env []string, literals map[string]string, names []string) error {
+		refuse := func(name string) error {
+			return refusal.New(refusal.CodeConfigurationConflict, subject, "the final gateway environment violates the admitted contract for "+name)
+		}
+		seen := map[string]bool{}
+		for _, pair := range env {
+			name, value, ok := strings.Cut(pair, "=")
+			if !ok {
+				return refusal.New(refusal.CodeConfigurationConflict, subject, "the final gateway environment contains an invalid entry")
+			}
+			if expected, reserved := owned[name]; reserved {
+				if seen[name] || value != expected {
+					return refuse(name)
+				}
+				seen[name] = true
+			} else if gatewayRefusedName(name) {
+				return refuse(name)
+			}
+		}
+		for name, value := range literals {
+			if expected, reserved := owned[name]; reserved {
+				if value != expected {
+					return refuse(name)
+				}
+			} else if gatewayRefusedName(name) {
+				return refuse(name)
+			}
+		}
+		for _, name := range names {
+			if gatewayRefusedName(name) {
+				return refuse(name)
+			}
+		}
+		for name, expected := range owned {
+			if !seen[name] || literals[name] != expected {
+				return refuse(name)
+			}
+		}
+		return nil
+	}
 }
 
 // gatewayDetail names the failure class and code, never a body or token.

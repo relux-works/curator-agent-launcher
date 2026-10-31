@@ -126,6 +126,19 @@ func main() {
 			}
 		}
 	}
+	// These independent inert witnesses preserve the native 2.1.314 value
+	// semantics: the demo hook predicate uses Boolean(str), while the
+	// CLAUBBIT command predicate uses De's trimmed bool vocabulary.
+	if os.Getenv("IS_DEMO") != "" {
+		if err := os.WriteFile("demo-hook-predicate", []byte("selected"), 0600); err != nil {
+			os.Exit(1)
+		}
+	}
+	if v := strings.ToLower(strings.TrimSpace(os.Getenv("CLAUBBIT"))); v == "1" || v == "true" || v == "yes" || v == "on" {
+		if err := os.WriteFile("claubbit-command-predicate", []byte("selected"), 0600); err != nil {
+			os.Exit(1)
+		}
+	}
 	capture, _ := json.Marshal(map[string]any{"Argv": os.Args[1:], "Env": os.Environ()})
 	if err := os.WriteFile("native.json", capture, 0600); err != nil {
 		os.Exit(1)

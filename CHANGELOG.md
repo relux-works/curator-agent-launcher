@@ -4,6 +4,10 @@
 
 ### Fixed
 
+- Refuse unqualified known Claude environment controls outside its reserved
+  namespaces, while preserving explicit local tool, credential, MCP and request
+  compatibility. Validate the final gateway environment before provenance and
+  spawn against the exact registration-owned values.
 - Preserve exact fractional manager registration in Werkstatt liveness and
   automatic status recovery, matching the journal and lease holder. A started
   session retains its handle and prepared protection at the existing bind gate;

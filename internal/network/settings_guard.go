@@ -50,35 +50,17 @@ var claudeNamespaceAdmitted = map[string]bool{
 // claudeNamespacePrefixes are the runtime's own environment namespaces.
 var claudeNamespacePrefixes = []string{"CLAUDE_", "ANTHROPIC_", "CCR_"}
 
-// claudeDispatchNames and claudeDispatchPrefixes are the names outside those
-// namespaces that the 2.1.314 runtime reads to choose another mode, session
-// or egress: the deep-link URL handler (__CFBundleIdentifier), the sandbox
-// mode, the remote-session ingress, the self-hosted-runner mode, claude.ai
-// MCP servers, agent and auto-mode decision hooks, and the telemetry
-// exporters, which can send request bodies to an endpoint of their own.
-// Every other name the runtime reads outside its namespaces (system,
-// terminal and CI detection, and provider credentials that are inert without
-// a provider route) is reviewed and admitted. Under the filtering gateway
-// these refuse like routes, and inherited values are removed.
-var claudeDispatchNames = map[string]bool{
-	"__CFBUNDLEIDENTIFIER":           true,
-	"IS_SANDBOX":                     true,
-	"SESSION_INGRESS_URL":            true,
-	"ENABLE_CLAUDEAI_MCP_SERVERS":    true,
-	"AI_AGENT":                       true,
-	"AUTOMODE_DECISION_LOG":          true,
-	"BETA_TRACING_ENDPOINT":          true,
-	"ENABLE_ENHANCED_TELEMETRY_BETA": true,
-}
-
-var claudeDispatchPrefixes = []string{"SELF_HOSTED_RUNNER_", "OTEL_"}
+// Additional established runtime families stay closed beyond the individual
+// names in the pinned compatibility table. They select hosted-worker or
+// exporter behavior rather than ordinary local tool/credential environment.
+var claudeControlPrefixes = []string{"SELF_HOSTED_RUNNER_", "OTEL_", "ANT_OTEL_"}
 
 // gatewayRefusedName reports whether a variable name, compared without case,
 // is one an overlay or settings source must not set under the gateway, and
 // that is removed from an inherited environment: the gateway's own names,
 // the listed provider routes, the proxy family and the AWS endpoint names;
 // every name in the runtime's own namespaces except the admitted ones; and
-// the dispatch names outside them.
+// known outside controls without an admitted compatibility contract.
 func gatewayRefusedName(name string) bool {
 	upper := strings.ToUpper(name)
 	for _, set := range [][]string{gatewayClaudeNames, claudeRouteNames, envpatch.UnsetNames()} {
@@ -96,10 +78,10 @@ func gatewayRefusedName(name string) bool {
 	if strings.HasPrefix(upper, "AWS_ENDPOINT_URL") {
 		return true
 	}
-	if claudeDispatchNames[upper] {
-		return true
+	if admitted, known := claudeEnvironmentCompatibility[upper]; known {
+		return !admitted
 	}
-	for _, prefix := range claudeDispatchPrefixes {
+	for _, prefix := range claudeControlPrefixes {
 		if strings.HasPrefix(upper, prefix) {
 			return true
 		}
