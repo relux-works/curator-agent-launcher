@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -87,12 +88,73 @@ func main() {
 		fmt.Print(providerHelp)
 		return
 	}
+	// An inert stand-in for Claude Code's early deep-link dispatcher, which
+	// searches the raw argv for --handle-uri before its option parser runs:
+	// it records that it would have dispatched, and does nothing else.
+	for _, arg := range os.Args[1:] {
+		if arg == "--handle-uri" {
+			if os.WriteFile("early-dispatch", []byte("handle-uri"), 0600) != nil {
+				os.Exit(1)
+			}
+			return
+		}
+	}
+	// An inert stand-in for the runtime's safe-mode getter, which searches
+	// the raw argv for --safe-mode before the first standalone "--": it
+	// records that the mode would have been selected, and runs on.
+	for _, arg := range os.Args[1:] {
+		if arg == "--" {
+			break
+		}
+		if arg == "--safe-mode" {
+			if os.WriteFile("safe-mode", []byte("selected"), 0600) != nil {
+				os.Exit(1)
+			}
+			break
+		}
+	}
+	// An inert stand-in for the runtime's coordinator-mode getter, which a
+	// truthy CLAUDE_CODE_COORDINATOR_MODE selects on a non-interactive (print)
+	// launch: it records that the mode would have been selected, and runs on.
+	if v := strings.ToLower(os.Getenv("CLAUDE_CODE_COORDINATOR_MODE")); v == "1" || v == "true" || v == "yes" || v == "on" {
+		for _, arg := range os.Args[1:] {
+			if arg == "-p" || arg == "--print" {
+				if os.WriteFile("coordinator", []byte("selected"), 0600) != nil {
+					os.Exit(1)
+				}
+				break
+			}
+		}
+	}
+	// These independent inert witnesses preserve the native 2.1.314 value
+	// semantics: the demo hook predicate uses Boolean(str), while the
+	// CLAUBBIT command predicate uses De's trimmed bool vocabulary.
+	if os.Getenv("IS_DEMO") != "" {
+		if err := os.WriteFile("demo-hook-predicate", []byte("selected"), 0600); err != nil {
+			os.Exit(1)
+		}
+	}
+	if v := strings.ToLower(strings.TrimSpace(os.Getenv("CLAUBBIT"))); v == "1" || v == "true" || v == "yes" || v == "on" {
+		if err := os.WriteFile("claubbit-command-predicate", []byte("selected"), 0600); err != nil {
+			os.Exit(1)
+		}
+	}
 	capture, _ := json.Marshal(map[string]any{"Argv": os.Args[1:], "Env": os.Environ()})
 	if err := os.WriteFile("native.json", capture, 0600); err != nil {
 		os.Exit(1)
 	}
 	if os.WriteFile("native-called", []byte("called"), 0600) != nil {
 		os.Exit(1)
+	}
+	// With a native-wait marker the runtime records its PID and waits until a
+	// signal ends it, for tests that signal the launcher while it runs.
+	if _, err := os.Stat("native-wait"); err == nil {
+		if os.WriteFile("native-pid", []byte(strconv.Itoa(os.Getpid())), 0600) != nil {
+			os.Exit(1)
+		}
+		for {
+			time.Sleep(time.Hour)
+		}
 	}
 	fmt.Println("native fixture")
 }

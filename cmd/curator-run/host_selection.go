@@ -80,7 +80,10 @@ func resolveHost(ctx context.Context, inv cli.Invocation, frag *fragment.Fragmen
 	}
 	explicit := inv.HostFlag == cli.HostFlagHosted || mode == "hosted"
 	checks := func() error {
-		if inv.NetworkSet {
+		// A hosted route cannot carry a network binding, explicit or the
+		// operator's filtering-gateway default; both refuse before any
+		// manager contact, resume and recovery included.
+		if inv.NetworkSet || deps.gatewayDefault {
 			return hostError("network_scope_unsupported", nil)
 		}
 		if inv.Detach {

@@ -797,12 +797,215 @@ unqualified. `sensitive_egress = true` requires qualification even under
 optimistic or pinned policy; a flag cannot downgrade it.
 
 The legacy N-B version-label list is retired, not migrated: it has no SHA-256
-provenance. `Policy.Allowlist` stays empty until independently qualified
-`AllowedBuild` records exist. Thus every known-vendor build is unqualified
-under optimistic policy and refuses under strict or sensitive-egress policy,
-including the previously listed release. Central qualification (A) is outside
-this revision. Qualification never widens the independent child-scope ceiling;
-interactive and hosted network launches remain unsupported.
+provenance. Under strict or sensitive-egress policy the only qualified builds
+are the operator's entries in `~/.curator/network-qualified.toml`; other
+launches never read that file. An explicit `--network-policy strict` or
+`pinned:` reads it on any profile. Each entry names an exact build by the SHA-256
+of its executable, never by a version label, together with its qualification
+evidence and date:
+
+```toml
+schema = "curator-network-qualified-v1"
+project_roots = ["/Users/op/src"]   # filtering-gateway launches only
+
+[[builds]]
+harness       = "claude-code"
+entrypoint    = "exec"
+binary_sha256 = "<64 lowercase hex: sha256 of the executable>"
+platform      = "darwin"
+evidence      = "<the qualification record this entry rests on>"
+qualified_on  = "2026-10-29"
+```
+
+An absent file is an empty list, so strict admission refuses every build as
+before. A present file that cannot be read or does not validate refuses the
+launch. Claude Code is the only harness the file admits in this revision.
+Qualification never widens the independent child-scope ceiling, which admits
+Claude print only, except under a filtering gateway: there the ceiling also
+admits Claude Code's interactive session, and only a build listed for the
+`interactive` entrypoint qualifies it (recipe `claude-interactive-v1`; an
+`exec` entry does not). Hosted network launches remain unsupported.
+
+A `kind = "filtering-gateway"` profile (curator-network-profiles N14) names a
+local filtering gateway by its control socket and requires
+`sensitive_egress = true`. Before the child starts, the launcher checks the
+gateway's health and registers the launch (project root = the launch working
+directory, an audit session id, runtime `claude-code`) over
+`netproxy-control/1`. Any failure refuses `network_proxy_unreachable` with no
+unfiltered fallback. The child then gets `ANTHROPIC_BASE_URL` set to the
+gateway's base, `ANTHROPIC_CUSTOM_HEADERS` carrying the launch token in the
+gateway's header, and `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1`, in its
+launch-private environment only. Claude Code reads over a thousand names in
+its own namespaces (`CLAUDE_*`, `ANTHROPIC_*`, `CCR_*`), and they select
+providers, endpoints, transports, settings sources, remote and background
+sessions and runtime modes. Under a gateway those namespaces are held to an
+allowlist: `CLAUDE_CONFIG_DIR`, the two values the harness itself sets
+(`CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION`, `CLAUDE_CODE_AUTO_COMPACT_WINDOW`),
+the two local-tool selectors (`CLAUDE_CODE_USE_POWERSHELL_TOOL`,
+`CLAUDE_CODE_USE_NATIVE_FILE_SEARCH`) and the credential variables
+(`ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, `CLAUDE_CODE_OAUTH_TOKEN`).
+Every other name there is removed when inherited, and so are the
+`AWS_ENDPOINT_URL` names, the proxy family and known outside-namespace controls
+without an admitted compatibility contract (below).
+
+Claude Code applies the `env` block of its settings over its process
+environment, so a settings entry would send the conversation, with the token
+header, wherever it points. Before registering, and again at the pre-spawn
+boundary, the launcher therefore refuses `network_configuration_conflict` when
+a composed overlay, an MCP lookup, or any settings source it can read sets one
+of those names, the gateway's own names or a proxy-family name (compared
+without case); a model override such as `ANTHROPIC_MODEL` is refused too,
+since the launcher selects the model. The sources are the
+child's user settings (`CLAUDE_CONFIG_DIR`, else `~/.claude`), both
+`settings.json` and `cowork_settings.json`; the legacy global configuration
+(the one file Claude selects: the legacy `.config.json` there when it is a
+regular file that is non-empty, or writable while `.claude.json` is absent,
+else `.claude.json` in `CLAUDE_CONFIG_DIR` or the home directory; the other
+file and any `.claude-*.json` are not sources), whose `env` Claude applies
+first; every `.claude/settings.json`
+and `.claude/settings.local.json` from the project root up to `/`, along the
+given and the resolved physical path; and the managed settings
+(`/Library/Application Support/ClaudeCode` on macOS, `/etc/claude-code` on
+Linux: `managed-settings.json` and the `managed-settings.d` drop-ins), which
+also refuse when they carry a policy helper or default policy payload. A
+source that exists but is not a readable regular file (a dangling link, a
+directory, a FIFO) or does not decode refuses; sources are read non-blocking,
+a special file is refused from its inspection without being opened, and a
+file replaced between inspection and open refuses. Each check runs under a
+time budget (5 s) that is checked before every file operation, including
+each 64 KiB read of a source, the listing of the managed drop-in directory
+and each lookup of the global-file selection, and once more before the check
+admits; the drop-in directory is opened as a directory and read for at most
+65 entries, and more than 64 refuse. A held SIGINT or SIGTERM cancels the check; either ends it
+with a refusal. Registration itself is never cut short, so its outcome
+is always known and ended. The operator catalog and its confirmation ledger
+are read the same non-blocking way, whether the gateway is selected
+explicitly or by default. A single system call that stalls inside the kernel
+(a hung network filesystem) is not interrupted.
+The native tail after `--` is held to an allowlist of Claude Code options
+that stay local to the session they start, parsed with the runtime's own
+value rules: `-p`/`--print`, `--verbose`, `-d`/`--debug`, `--debug-file`,
+`--output-format`, `--input-format`, `--json-schema`, `--include-hook-events`,
+`--include-partial-messages`, `--replay-user-messages`, the two
+`--dangerously-skip-permissions` switches, `--permission-mode`,
+`--permission-prompt-tool`, `--thinking`, `--thinking-display`,
+`--max-thinking-tokens`, `--max-turns`, `--max-budget-usd`, the allowed and
+disallowed tool lists, `--tools`, `--mcp-config`, `--strict-mcp-config`, the
+four system-prompt options, `--exclude-dynamic-system-prompt-sections`,
+`--model`, `--fallback-model`, `--effort`, `--agent`, `--betas`, `--session-id`,
+`-n`/`--name`, `--no-session-persistence` and `--disable-slash-commands`.
+Every other option refuses `network_configuration_conflict`: settings sources
+(`--settings`, `--setting-sources`, ...), directories (`--add-dir`,
+`-w`/`--worktree`, ...), stored sessions (`-r`, `-c`, `--from-pr`, ...), plugins,
+and cloud or remote placement (`--cloud`, `--remote`, `--environment`, `--pool`,
+`--attach-serve`, `--teleport`, `--remote-control`, `--sdk-url`, ...), as do
+short-option clusters and an option the runtime adds later. Claude Code's
+entry path also dispatches on the raw argument list before its option parser
+runs, so option values and arguments after `--` count: any native argument
+equal to a word it dispatches on refuses wherever it stands. These are every
+command name and alias (`doctor`, `mcp`, `ultrareview`, `remote-control`,
+`i`, `autoremove`, ...), the entry path's own modes (`remote`, `sync`,
+`bridge`, `daemon`, `self-hosted-runner`, the background verbs, `import`),
+and the raw tokens it or a later mode getter searches for (`--handle-uri`,
+`--session-tunnel`, `--agent-teams`, `--hard-fail`, `--worktree`, `-w`,
+`--tmux`, `--bg`, `--background`, `-c`, `--continue`, `-r`, `--resume`,
+`--from-pr`, `--gh-standin`, the version shortcuts and the dashed helper
+modes). `--safe-mode` and `--bare` are searched for only before the first
+standalone `--`, so they refuse before it and are ordinary operands after
+it. A prompt that is exactly such a word refuses too. The environment names
+the runtime reads outside its own namespaces to pick another mode, session
+or egress (the deep-link URL handler's `__CFBundleIdentifier`, `IS_SANDBOX`,
+`SESSION_INGRESS_URL`, `ENABLE_CLAUDEAI_MCP_SERVERS`, `AI_AGENT`,
+`AUTOMODE_DECISION_LOG`, the self-hosted runner's `SELF_HOSTED_RUNNER_*`, and
+the telemetry exporters `OTEL_*`, `BETA_TRACING_ENDPOINT` and
+`ENABLE_ENHANCED_TELEMETRY_BETA`) refuse like routes and are removed when
+inherited. The pinned known-control table in
+[`internal/network/claude_environment.go`](internal/network/claude_environment.go)
+admits ordinary OS/tool/credential, configured MCP and request behavior
+explicitly; other known controls refuse. This includes `IS_DEMO`, `CLAUBBIT`,
+alternate Claude/sidecar executables and host-autoupdate overrides. A refused
+control is unqualified for this invocation; not every value independently
+selects a reachable alternate mode. Unrelated extension environment remains
+compatible. Ordinary MCP generation/negotiation, cloud credentials, local
+tools, compaction/cache settings and fallback-model behavior keep their value
+bytes and independent trust checks. This is launch admission, not an OS egress
+sandbox or a claim that arbitrary tool/loader values are inert.
+
+After all sources are composed, a gateway-only check validates the final
+environment, literal values and remaining MCP lookup names before provenance
+or spawn. It accepts only the three exact registration-owned reserved pairs;
+missing, altered, duplicated or differently cased aliases refuse. A generic
+managed patch does not enable or widen this gateway authority.
+The namespaces' own mode selectors (safe, bare, restricted,
+coordinator, agent teams, background, remote, plugins, entrypoint, feature
+overrides) fall under the allowlist above. The color flags the runtime also
+reads from the raw argument list change only output colouring and are not
+reserved. Claude Code's own settings sources are read from the
+environment the child is composed with, the profile fragment's
+`CLAUDE_CONFIG_DIR` included. Once the child has started,
+the launcher activates the registration within its activation window (no
+attempt starts or outlasts it; on expiry the launcher alerts and ends the
+registration) and renews it hourly. After the child exits, whatever its
+status, the launcher unregisters it, retrying and alerting on stderr until the
+gateway confirms; a refusal between registration and spawn unregisters as
+well. From registration until the unregister completes, curator-run holds
+SIGINT and SIGTERM: one before the boundary check aborts the launch, one after
+it reaches the child as soon as the child starts, those while it runs reach
+the child, and one during the unregister retries abandons them with an alert
+that the registration ends at the gateway's idle bound. The token never appears in argv, the binding Record or
+any diagnostic. Without `--network`, an operator `default` that names a
+filtering gateway selects it with origin `operator-default`, and every hosted
+route, resume included, then refuses `network_scope_unsupported` before any
+session-manager call. Defaults of the other kinds still need `--network`. A
+`network.toml` that exists but cannot be read, a dangling link included,
+refuses every launch. Codex launches through a gateway are
+refused in this revision.
+
+Claude Code under a filtering gateway is also held to admission contract A,
+checked before registering and again at the pre-spawn boundary. A launch that
+fails it refuses `network_scope_unsupported` with no gateway call:
+
+- "exact model" is the exact qualified Claude Code build: its binary
+  SHA-256 in the strict tuple (above). Routing does not depend on the LLM
+  model, so the model is not checked;
+- the child runs in a managed home: `CLAUDE_CONFIG_DIR` is an absolute ASCII
+  path (so it equals the NFC form Claude Code reads settings from), its
+  `settings.json` exists, and it, `cowork_settings.json` and the legacy
+  `.config.json`, where present, are regular files with no write bit;
+  `.claude.json`, which Claude Code writes itself, is read but may be
+  writable;
+- the physical working directory, after resolving every symbolic link, is
+  inside one of the operator's `project_roots` in
+  `~/.curator/network-qualified.toml` (absolute, clean, existing paths; none
+  listed admits no gateway launch);
+- the native tail holds only allowlisted options, so worktree, resume, cloud and remote placement refuse (above);
+- the host has no Claude Code managed preferences
+  (`/Library/Managed Preferences/com.anthropic.claudecode.plist`, machine-wide
+  or for the current user) and the managed home holds no cached server policy
+  (`remote-settings.json`, `policy-limits.json`).
+
+Contract A narrows the launch; it does not isolate it. Its written residual:
+
+- Claude Code re-reads its settings during a session, so a settings change
+  after the boundary check (a mid-session reroute) leaves the rest of that
+  conversation unfiltered;
+- "not writable" is checked on file modes; while a session runs as the same
+  OS user as its managed home, it can change those modes, and the managed
+  home directory itself stays writable because Claude Code writes there;
+- `<CLAUDE_CONFIG_DIR>/.claude.json` stays writable, because Claude Code
+  writes it; the guard refuses a route-bearing `env` in it before spawn, and
+  an edit after the check is the same reroute as the first item;
+- MDM profiles and server-managed policy cannot be read by the launcher. The
+  gate is the absence of their local traces named above (the MDM plists and
+  the policy-cache files); policy a runtime fetches from its server at start
+  or refresh is not checked;
+- the launch token is usable only at the gateway's same-host loopback
+  listener.
+
+Per-user packet filtering, with each session running as its own OS user, is
+the fix for the first two items and is not part of this launcher. Until it
+exists, the gateway is selected per launch with `--network`; the operator
+`default` stays unset on shared hosts.
 
 The operator known-bad list is `~/.curator/adapter-knownbad.json`, or the path
 selected by `--network-known-bad <path>`. The library reads it through
@@ -1098,6 +1301,12 @@ intentional deadline controls and slower race runners; the hosted race job
 retains its separate 15-minute overall limit. Repeated standalone conformance
 runs need their own explicit timeout budget, for example
 `go test ./internal/sessionmanager/conformance -race -count=2 -timeout=20m`.
+The filtering-gateway signal tests build a second launcher with the
+`gatewayphases` build tag (`go test ./cmd/curator-run -run
+TestGatewayRealSignalBarriers`). In that build only, the launcher waits at
+named phases of a gateway launch (the final recheck, the child's start and
+exit) while the test sends it a real signal; in every other build the phase
+marks do nothing. Release binaries are built without the tag.
 
 ### Tools
 

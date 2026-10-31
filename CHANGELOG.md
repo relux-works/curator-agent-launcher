@@ -4,12 +4,73 @@
 
 ### Fixed
 
+- Refuse unqualified known Claude environment controls outside its reserved
+  namespaces, while preserving explicit local tool, credential, MCP and request
+  compatibility. Validate the final gateway environment before provenance and
+  spawn against the exact registration-owned values.
 - Preserve exact fractional manager registration in Werkstatt liveness and
   automatic status recovery, matching the journal and lease holder. A started
   session retains its handle and prepared protection at the existing bind gate;
   unrelated liveness timestamps keep their whole-second contract.
 
 ### Added
+
+- Launch Claude Code through a local filtering gateway: a
+  `filtering-gateway` network profile registers each launch on the
+  gateway's `netproxy-control/1` socket before spawn and hands the child
+  only the gateway's base URL and the launch token in a request header.
+  Health and registration failures refuse `network_proxy_unreachable` with
+  no unfiltered fallback; the launcher activates after start, renews
+  hourly, and unregisters after exit or on any refusal before spawn. The
+  token never reaches argv, records or diagnostics.
+- Read the operator's qualified builds for strict admission from
+  `~/.curator/network-qualified.toml`: exact executables by SHA-256, with
+  their qualification evidence and date.
+- Honour an operator `default` that names a filtering gateway for launches
+  without `--network`; hosted routes, resume included, refuse under it before
+  any session-manager call. Other defaults keep the explicit-only behaviour;
+  a present but unreadable `network.toml`, a dangling link included, now
+  refuses every launch.
+- Refuse a gateway launch when any Claude Code settings source the launcher
+  can read (explicit, user, project and ancestors, managed) sets a gateway,
+  provider-route or proxy name in `env`, or when settings-source flags are
+  given; the check repeats at the pre-spawn boundary, and inherited
+  provider-route names are removed from the child.
+- Read the qualified builds under an explicit strict or pinned policy on any
+  profile.
+- Hold Claude Code gateway launches to admission contract A, before
+  registering and again before spawn: a managed `CLAUDE_CONFIG_DIR` whose
+  `settings.json` exists and whose settings files carry no write bit, a
+  physical working directory inside the operator's `project_roots`, and no
+  Claude Code managed preferences or cached server policy. The README states
+  the residual. The settings check now reads the environment the child is
+  composed with, so a managed home set by the profile fragment is the user
+  settings source.
+- Hold a gateway launch's native tail to an allowlist of Claude Code options
+  that stay local to the session, parsed with the runtime's value rules, and
+  refuse a first operand that names a Claude Code command; cloud and remote
+  placement (`--environment`, `--pool`, `--attach-serve`, ...) and any option
+  not yet reviewed refuse. Require an ASCII managed home path, admit the two
+  local-tool `CLAUDE_CODE_USE_` selectors, and read only the global
+  `.claude.json` the runtime selects.
+- Bound the gateway's settings and contract checks by a time budget checked
+  before every file operation and by a cap on managed drop-ins, and cancel
+  them on a held SIGINT or SIGTERM, before registration and at the final
+  recheck; registration itself completes so it can be ended. Pin
+  curator-network-profiles at the commit that reads the catalog and ledger
+  without blocking on special files.
+- Refuse, under a gateway, any native argument equal to a word Claude Code
+  dispatches on before or outside its option parser (command names and
+  aliases, entry-path modes, `--handle-uri`, `--worktree`, `--bg` and the
+  other raw tokens), in option values and after `--` too, and the
+  environment names that select another mode or session (the deep-link URL
+  handler, feature-flag overrides, plugin directories, remote sessions).
+- Hold the runtime's own environment namespaces (`CLAUDE_*`, `ANTHROPIC_*`,
+  `CCR_*`) to an allowlist under a gateway: the managed home, the harness's
+  own values, two local-tool selectors and the credential variables; every
+  other name there, mode selectors included, refuses in an overlay or
+  settings and is removed when inherited. Check the budget again after a
+  settings source is closed, before it is decoded.
 
 - Specify a proposed same-user executor entry, descriptor custody, closed
   records, immutable assignment/atomic attempt admission, failed-conflict interlock,
