@@ -80,10 +80,15 @@ func resolveHost(ctx context.Context, inv cli.Invocation, frag *fragment.Fragmen
 	}
 	explicit := inv.HostFlag == cli.HostFlagHosted || mode == "hosted"
 	checks := func() error {
+		// Refuse before any describe/recovery/resume contact: this revision resolves
+		// an OAuth store solely for the final native Claude child.
+		if frag.Environment == fragment.EnvClaudeCode && deps.selectedConfig.ClaudeAuth != nil {
+			return errors.New("selected Claude OAuth source requires native execution")
+		}
 		// A hosted route cannot carry a network binding, explicit or the
 		// operator's filtering-gateway default; both refuse before any
 		// manager contact, resume and recovery included.
-		if inv.NetworkSet || deps.gatewayDefault {
+		if inv.NetworkSet || deps.selectedConfig.Proxy != nil || deps.gatewayDefault {
 			return hostError("network_scope_unsupported", nil)
 		}
 		if inv.Detach {

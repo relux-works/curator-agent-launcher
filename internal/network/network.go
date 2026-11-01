@@ -205,9 +205,11 @@ type Request struct {
 	// DefaultGateway selects the operator default when no explicit
 	// selection exists; DefaultGatewaySelected decides it, and it is set
 	// only when that default is a filtering gateway.
-	DefaultGateway bool
-	ProjectRoot    string
-	SessionID      string
+	// LauncherProfile comes from Core-selected machine metadata, below CLI.
+	LauncherProfile string
+	DefaultGateway  bool
+	ProjectRoot     string
+	SessionID       string
 	// ChildEnv is the admitted plan environment before the network patch
 	// and NativeArgs the caller's native tail; the gateway's settings check
 	// reads the Claude settings sources they name.
@@ -298,14 +300,19 @@ func (p *Prepared) LeaseHandedOff() bool { return p != nil && p.taken }
 // never reaches this function, so a refused plan invokes neither the
 // prober here nor the workload.
 func Prepare(ctx context.Context, req Request) (Prepared, error) {
-	if !req.ExplicitSet && !req.DefaultGateway {
+	if !req.ExplicitSet && req.LauncherProfile == "" && !req.DefaultGateway {
 		return Prepared{}, nil
 	}
 	if req.ExplicitSet && strings.TrimSpace(req.Explicit) == "" {
 		return Prepared{}, refusal.New(refusal.CodeProfileInvalid, req.Explicit, "profile name must not be blank")
 	}
-	subject := req.Explicit
-	if !req.ExplicitSet {
+	selected := req.Explicit
+	fromLauncher := !req.ExplicitSet && req.LauncherProfile != ""
+	if fromLauncher {
+		selected = req.LauncherProfile
+	}
+	subject := selected
+	if !req.ExplicitSet && !fromLauncher {
 		subject = "default"
 	}
 	if req.Hosted {
@@ -315,9 +322,12 @@ func Prepare(ctx context.Context, req Request) (Prepared, error) {
 	if err != nil {
 		return Prepared{}, err
 	}
-	result, err := cat.Resolve(resolve.Request{Explicit: req.Explicit, EngineHosts: req.EngineHosts})
+	result, err := cat.Resolve(resolve.Request{Explicit: selected, EngineHosts: req.EngineHosts})
 	if err != nil {
 		return Prepared{}, err
+	}
+	if fromLauncher {
+		result.Selection.Origin = "launcher-config"
 	}
 	if !result.Managed {
 		// Unreachable through the production parser: a non-blank
@@ -327,7 +337,7 @@ func Prepare(ctx context.Context, req Request) (Prepared, error) {
 	}
 	// The operator default is honoured for a filtering gateway only; a
 	// file that changed kind since DefaultGatewaySelected refuses.
-	if !req.ExplicitSet && result.Profile.Kind != netprofile.KindFilteringGateway {
+	if !req.ExplicitSet && !fromLauncher && result.Profile.Kind != netprofile.KindFilteringGateway {
 		return Prepared{}, refusal.New(refusal.CodeConfigurationConflict, subject, "the operator default is no longer a filtering gateway")
 	}
 	admit := req

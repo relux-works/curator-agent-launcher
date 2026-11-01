@@ -19,6 +19,7 @@ import (
 	"github.com/relux-works/curator-agent-launcher/internal/defaults"
 	"github.com/relux-works/curator-agent-launcher/internal/diagnostics"
 	"github.com/relux-works/curator-agent-launcher/internal/fragment"
+	"github.com/relux-works/curator-agent-launcher/internal/launcherconfig"
 )
 
 // run is the production dispatch site: main exits with its return value.
@@ -147,6 +148,9 @@ func testDeps(t *testing.T, resolver fragmentResolver) launchDeps {
 	os.MkdirAll(filepath.Join(dir, "operator"), 0700)
 	writeFixture(t, filepath.Join(dir, "machine", "launcher.json"), []byte(`{"schema":"curator-run-launcher-v1","host_mode":"native"}`), 0600)
 	return launchDeps{
+		readSelectedConfig: func(context.Context) (launcherconfig.Selected, error) {
+			return launcherconfig.Selected{ConfigSchema: 5, ConfigPath: "fixture-selected.json"}, nil
+		},
 		resolver:     resolver,
 		workdir:      func() (string, error) { return "", fmt.Errorf("early-stage fixture stops before plan admission") },
 		defaults:     defaults.Paths{Machine: filepath.Join(dir, "machine", "defaults.json"), Operator: filepath.Join(dir, "operator", "defaults.json")},

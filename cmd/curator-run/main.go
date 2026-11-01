@@ -16,6 +16,7 @@ import (
 	"github.com/relux-works/skill-agents-management/pkg/providerlimits"
 	"github.com/relux-works/skill-agents-management/pkg/vendorplugin"
 
+	"github.com/relux-works/curator-agent-launcher/internal/claudeauth"
 	"github.com/relux-works/curator-agent-launcher/internal/cli"
 	"github.com/relux-works/curator-agent-launcher/internal/composition"
 	"github.com/relux-works/curator-agent-launcher/internal/configfile"
@@ -110,15 +111,19 @@ type launchDeps struct {
 	leaseNotify     func(chan<- os.Signal, ...os.Signal)
 	configLocations func() (configfile.Locations, error)
 	// launcherConfig is validated machine policy for host resolution.
-	launcherConfig  launcherconfig.Config
-	configResolver  configfile.Resolver
-	hostedSelection *hostSelection
-	hostedSession   func(string) // validated start result, including reconciliation
-	managerService  *sessionmanager.Service
-	selectorConfig  selector.Config
-	selectorRequest *selector.Request
-	shadowStart     func(selector.ShadowJob) (*selector.Child, error)
-	observationPath func() string
+	launcherConfig     launcherconfig.Config
+	selectedConfig     launcherconfig.Selected
+	readSelectedConfig func(context.Context) (launcherconfig.Selected, error)
+	claudeAuthActive   bool
+	claudeAuthResolver claudeauth.Resolver
+	configResolver     configfile.Resolver
+	hostedSelection    *hostSelection
+	hostedSession      func(string) // validated start result, including reconciliation
+	managerService     *sessionmanager.Service
+	selectorConfig     selector.Config
+	selectorRequest    *selector.Request
+	shadowStart        func(selector.ShadowJob) (*selector.Child, error)
+	observationPath    func() string
 
 	workdir       func() (string, error)
 	environ       func() []string
@@ -289,6 +294,16 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, deps laun
 		return emitFailure(stderr, diagnostics.CodeDefaultsInvalid, err)
 	}
 	deps.launcherConfig = policy
+	readSelected := deps.readSelectedConfig
+	if readSelected == nil {
+		readSelected = func(ctx context.Context) (launcherconfig.Selected, error) {
+			return launcherconfig.ReadSelected(ctx, "", nil)
+		}
+	}
+	deps.selectedConfig, err = readSelected(ctx)
+	if err != nil {
+		return emitFailure(stderr, diagnostics.CodeDefaultsInvalid, launcherconfig.ErrSelected)
+	}
 	deps.configResolver = configResolver
 	deps.selectorConfig, err = selector.Load(configResolver)
 	if err != nil {
@@ -472,7 +487,7 @@ func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, ta
 	if deps.environ == nil {
 		deps.environ = os.Environ
 	}
-	if !inv.NetworkSet {
+	if !inv.NetworkSet && deps.selectedConfig.Proxy == nil {
 		selectedDefault, err := network.DefaultGatewaySelected(deps.environ())
 		if err != nil {
 			return emitNetworkFailure(stderr, err)
@@ -505,6 +520,16 @@ func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, ta
 		return emitFailure(stderr, diagnostics.CodePlanRefused, err)
 	}
 	parentEnv := deps.environ()
+	deps.claudeAuthActive = target.System == "claude-code" && deps.selectedConfig.ClaudeAuth != nil
+	if deps.claudeAuthActive {
+		var names []string
+		if frag.MCP != nil {
+			names = frag.MCP.EnvNames
+		}
+		if err := claudeauth.CheckOverlays(frag.Env, names); err != nil {
+			return emitFailure(stderr, diagnostics.CodePlanRefused, err)
+		}
+	}
 	decision, toolRelease, system, err := resolvePermission(ctx, inv, frag, target, files, parentEnv, stderr, deps, isHosted)
 	if err != nil {
 		return emitPermissionFailure(stderr, err)
@@ -609,6 +634,11 @@ func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, ta
 	// conflict refuses before the probe, and the engine hosts travel so
 	// their coverage is checked.
 	prompt := composition.PromptApplication{Argv: selection.Argv(), Env: selection.Env()}
+	if deps.claudeAuthActive {
+		if err := claudeauth.CheckOverlays(prompt.Env, nil); err != nil {
+			return emitFailure(stderr, diagnostics.CodePlanRefused, err)
+		}
+	}
 	var mcpNames []string
 	if frag.MCP != nil {
 		mcpNames = frag.MCP.EnvNames
@@ -616,7 +646,11 @@ func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, ta
 	// Without --network, an operator default that is a filtering gateway
 	// selects it (G-C); other defaults keep the explicit-only behaviour.
 	gatewayDefault := deps.gatewayDefault
-	managedNetwork := inv.NetworkSet || gatewayDefault
+	launcherProfile := ""
+	if deps.selectedConfig.Proxy != nil {
+		launcherProfile = deps.selectedConfig.Proxy.Profile
+	}
+	managedNetwork := inv.NetworkSet || launcherProfile != "" || gatewayDefault
 	entrypoint := ""
 	if managedNetwork {
 		var merr error
@@ -658,7 +692,7 @@ func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, ta
 		prepareCtx, stopWatch = owner.cancelOnSignal(ctx)
 	}
 	preparedNet, err := network.Prepare(prepareCtx, network.Request{
-		Explicit: inv.Network, ExplicitSet: inv.NetworkSet, DefaultGateway: gatewayDefault,
+		Explicit: inv.Network, ExplicitSet: inv.NetworkSet, LauncherProfile: launcherProfile, DefaultGateway: gatewayDefault,
 		Hosted: !sessionAllowed(isHosted), Harness: target.System,
 		Entrypoint: entrypoint,
 		ParentEnv:  parentEnv, Prober: deps.prober,
@@ -741,7 +775,7 @@ func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, ta
 		}
 		return runHosted(inv, frag, target, value, intent, inspection, admitted.Plan, decision, parentEnv, now(), stdout, stderr, deps, boundary, selected.terminal)
 	}
-	return runNative(value, decision, inspection, stdout, stderr, deps, boundary, &preparedNet, owner)
+	return runNative(ctx, value, decision, inspection, stdout, stderr, deps, boundary, &preparedNet, owner)
 }
 
 // gatewaySessionID is the audit id a native launch registers with a
@@ -752,12 +786,35 @@ func gatewaySessionID(envID string, at time.Time) string {
 
 // runNative reports inspected policy and runs the composed value directly.
 // It performs zero manager contact; hosted failures never reach it.
-func runNative(value composition.Value, decision execution.PermissionDecision, inspection agentic.StoredPolicyInspection, stdout, stderr io.Writer, deps launchDeps, boundary func() error, net *network.Prepared, owner *leaseOwner) int {
+func runNative(ctx context.Context, value composition.Value, decision execution.PermissionDecision, inspection agentic.StoredPolicyInspection, stdout, stderr io.Writer, deps launchDeps, boundary func() error, net *network.Prepared, owner *leaseOwner) int {
 	if decision.Mode == agentic.PermissionModeNative {
 		execution.ReportEffectiveNativePolicy(stderr, inspection)
 	}
 	prepared := execution.Prepare(value)
 	opts := execution.Options{IO: execution.IO{Stdin: deps.stdin, Stdout: stdout, Stderr: stderr}, Boundary: boundary}
+	if deps.claudeAuthActive {
+		opts.ChildEnvironment = func(env []string) ([]string, error) {
+			if err := claudeauth.CheckOverlays(value.EnvLiterals, value.EnvNames); err != nil {
+				return nil, err
+			}
+			authCtx, stopWatch := ctx, func() {}
+			if owner != nil {
+				authCtx, stopWatch = owner.cancelOnSignal(ctx)
+			}
+			defer stopWatch()
+			child, err := deps.claudeAuthResolver.Inject(authCtx, *deps.selectedConfig.ClaudeAuth, env)
+			if err != nil {
+				return nil, err
+			}
+			if owner != nil && owner.interrupted() {
+				return nil, claudeauth.ErrRefused
+			}
+			if err := net.CheckComposed(child, value.EnvLiterals, value.EnvNames); err != nil {
+				return nil, err
+			}
+			return child, nil
+		}
+	}
 	lease := net.TakeLease()
 	if lease == nil {
 		return prepared.Run(opts)

@@ -106,6 +106,7 @@ func newFront(t *testing.T, bin frontBinaries) *frontFixture {
 	}
 	value := map[string]any{"fragment": fragment.IdentityV2, "environment": "claude_code", "profile": map[string]string{"name": "sample", "lock_sha256": strings.Repeat("1", 64)}, "precedence": map[string]string{"winner": "higher-weight", "placement": "winner-last"}, "env": map[string]string{"CLAUDE_CONFIG_DIR": filepath.Join(root, "managed")}, "permissions": map[string]any{"mode": "native", "source": "profile", "locked": false}}
 	raw := frontJSON(value)
+	writeFixture(t, filepath.Join(root, "selected-config.json"), frontJSON(map[string]any{"schema": "curator.launcher-config/1", "config_schema": 5, "config_path": "fixture-selected.json", "extensions": map[string]any{}}), 0600)
 	writeFixture(t, filepath.Join(root, "fragment.json"), raw, 0600)
 	frag, err := fragment.Parse(raw)
 	if err != nil {

@@ -36,6 +36,10 @@ type Options struct {
 	// Interrupts, when set, is the caller's channel of SIGINT and SIGTERM,
 	// held since before the launch; Run forwards them to the child from it.
 	Interrupts <-chan os.Signal
+	// ChildEnvironment, when set, resolves credentials only after the ordinary
+	// late checks. It receives a private env copy and must not change argv/PATH
+	// selection. Failures emit a fixed diagnostic, never backend error text.
+	ChildEnvironment func([]string) ([]string, error)
 }
 
 // Launch is a prepared native execution snapshot. Run rechecks files.
@@ -103,6 +107,13 @@ func (l Launch) Run(opts Options) int {
 		return fail(err)
 	}
 	cmd.Path = binary
+	if opts.ChildEnvironment != nil {
+		childEnv, err := opts.ChildEnvironment(append([]string{}, cmd.Env...))
+		if err != nil || childEnv == nil {
+			return fail(errors.New("plan_refused: final child environment was refused"))
+		}
+		cmd.Env = childEnv
+	}
 	err = run(cmd, opts.Started, opts.Interrupts)
 	if err == nil {
 		return 0

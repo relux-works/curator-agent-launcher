@@ -574,7 +574,7 @@ func withTestRelease(f *pipelineFixture, release string) {
 }
 
 // TestNetworkInteractiveClaudeRefuses: F1 regression. The launcher
-// constructs interactive launches, and the pinned v0.3.1 verification
+// constructs interactive launches, and the pinned network-library verification
 // covers the one-shot `claude -p` shape while expressly excluding
 // interactive mode — so a managed Claude launch without an explicit
 // print selection, at the verified harness and build, refuses
@@ -859,10 +859,9 @@ func TestEmitNetworkFailureRetainsRefusal(t *testing.T) {
 	}
 }
 
-// TestNetworkDependencyReleasePin: the §4.4b library is consumed by tag
-// as a normal require — v0.3.1, no replacement, no workspace — so a
-// same-version substitution cannot pass the behavioral suite. It
-// mirrors TestConstructionDependencyReleasePin for the release module.
+// The release consumes the exact catalog/special-file-safety commit selected
+// by the accepted dependency update, without a replacement or workspace.
+// A different module version must not satisfy the behavioral suite.
 func TestNetworkDependencyReleasePin(t *testing.T) {
 	for _, name := range []string{"go.work", "go.work.sum"} {
 		if _, err := os.Stat(filepath.Join("..", "..", name)); !os.IsNotExist(err) {
@@ -887,8 +886,8 @@ func TestNetworkDependencyReleasePin(t *testing.T) {
 	if err := json.Unmarshal(out, &module); err != nil {
 		t.Fatal(err)
 	}
-	if module.Version != "v0.3.1" || module.Replace != nil {
-		t.Fatalf("network module must be v0.3.1 without replacement: version=%s replaced=%v", module.Version, module.Replace != nil)
+	if module.Version != "v0.3.2-0.20261030182306-2cda004a65d9" || module.Replace != nil {
+		t.Fatalf("network module must be v0.3.2-0.20261030182306-2cda004a65d9 without replacement: version=%s replaced=%v", module.Version, module.Replace != nil)
 	}
 }
 

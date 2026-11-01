@@ -1037,7 +1037,7 @@ directory `/etc/swarma/launcher`. These are separate from Curator's configuratio
 All use closed schemas: unknown members, malformed data and unreadable files
 refuse the invocation; absence alone permits fallback.
 
-`launcher.json` uses the closed schema `curator-run-launcher-v1` and optional
+`launcher.json` accepts the closed schema `curator-run-launcher-v1`, with optional
 `host_mode` (`auto`, `native`, `hosted`) in the system layer only. Absence
 means `auto`; an explicit value has source `machine`, absence source `default`.
 The optional system-only `delegated_trial` boolean is withdrawn since the Q1
@@ -1045,6 +1045,12 @@ sign-off: it is still validated as a boolean but changes no route.
 A user-layer `host_mode` or `delegated_trial` refuses and names the system path. Host selection uses this mode and the per-launch flag. The v3 defaults `host` member is withdrawn: it refuses
 `host_member_withdrawn` (exit 2), naming `launcher.json`; see
 [FRONT-DOOR §3.1](FRONT-DOOR.md#31-the-machine-mode).
+
+Core-selected machine metadata supplies optional proxy and standalone Claude
+OAuth references through `curator config launcher`; neither `launcher.json`
+layer supplies them. See [the configuration contract](docs/selected-launcher-config.md)
+for the selected-source transport, precedence, final-child injection and
+refusal behavior. Metadata reads never access a secret store.
 
 For one release, missing active configuration files fall back individually to
 `/etc/curator-run/<name>` or `${XDG_CONFIG_HOME:-~/.config}/curator-run/<name>`.

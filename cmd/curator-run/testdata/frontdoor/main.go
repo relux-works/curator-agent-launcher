@@ -58,6 +58,14 @@ func main() {
 		return
 	}
 	if filepath.Base(os.Args[0]) == "curator" {
+		if len(os.Args) == 3 && os.Args[1] == "config" && os.Args[2] == "launcher" {
+			data, err := os.ReadFile("selected-config.json")
+			if err != nil {
+				os.Exit(1)
+			}
+			os.Stdout.Write(data)
+			return
+		}
 		if len(os.Args) > 3 && os.Args[1] == "env" && os.Args[2] == "lease" {
 			leaseCommand()
 			return

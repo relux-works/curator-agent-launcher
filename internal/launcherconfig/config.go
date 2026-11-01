@@ -11,6 +11,7 @@ import (
 )
 
 const Schema = "curator-run-launcher-v1"
+const LegacySchema = Schema
 const CodeInvalid = "defaults_config_invalid"
 
 type Error struct {
@@ -38,20 +39,22 @@ func Parse(data []byte) (Config, error) { return parse(data, "") }
 func parse(data []byte, userSystemPath string) (Config, error) {
 	root, err := fragment.ParseJSON(data)
 	if err != nil {
-		return Config{}, err
+		// Duplicate keys and malformed input can contain inline secrets. Do
+		// not propagate parser text that includes those untrusted bytes.
+		return Config{}, fmt.Errorf("invalid launcher configuration JSON")
 	}
 	if root.Kind != fragment.KindObject {
 		return Config{}, fmt.Errorf("root must be an object")
 	}
 	if userSystemPath != "" {
-		for _, name := range []string{"host_mode", "delegated_trial"} {
+		for _, name := range []string{"host_mode", "delegated_trial", "proxy", "claude_auth"} {
 			if _, ok := root.Get(name); ok {
 				return Config{}, fmt.Errorf("%s is machine-only; configure %s", name, userSystemPath)
 			}
 		}
 	}
 	schema, ok := root.Get("schema")
-	if !ok || schema.Kind != fragment.KindString || schema.Str != Schema {
+	if !ok || schema.Kind != fragment.KindString || (schema.Str != Schema && schema.Str != LegacySchema) {
 		return Config{}, fmt.Errorf("invalid schema")
 	}
 	result := Config{HostMode: Mode{Value: "auto", Source: "default"}}
@@ -73,8 +76,10 @@ func parse(data []byte, userSystemPath string) (Config, error) {
 				return Config{}, fmt.Errorf("delegated_trial must be a boolean")
 			}
 			result.DelegatedTrial, result.DelegatedTrialSet = member.Value.Bool, true
+		case "proxy", "claude_auth":
+			return Config{}, fmt.Errorf("launcher selections require the Core-selected machine configuration")
 		default:
-			return Config{}, fmt.Errorf("unknown member %q", member.Key)
+			return Config{}, fmt.Errorf("unknown launcher configuration member")
 		}
 	}
 	return result, nil
