@@ -68,6 +68,9 @@ func TestGatewayRealSignalPhases(t *testing.T) {
 			var stderr bytes.Buffer
 			cmd.Stdout, cmd.Stderr = &bytes.Buffer{}, &stderr
 			signalled := make(chan struct{})
+			// Publish the hook and cmd.Process under the handler's mutex;
+			// external subprocess traffic alone supplies no Go synchronization.
+			g.mu.Lock()
 			g.beforeReply = func(path string) {
 				if path != tc.at {
 					return
@@ -85,7 +88,9 @@ func TestGatewayRealSignalPhases(t *testing.T) {
 				// Let the launcher take the signal before this call answers.
 				time.Sleep(300 * time.Millisecond)
 			}
-			if err := cmd.Start(); err != nil {
+			startErr := cmd.Start()
+			g.mu.Unlock()
+			if err := startErr; err != nil {
 				t.Fatal(err)
 			}
 			done := make(chan error, 1)

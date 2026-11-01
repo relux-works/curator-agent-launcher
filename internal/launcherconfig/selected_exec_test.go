@@ -80,7 +80,10 @@ func TestSelectedCoreCommandHelper(t *testing.T) {
 func TestSelectedCoreRetainedPipeRefuses(t *testing.T) {
 	dir := t.TempDir()
 	cmd := exec.CommandContext(context.Background(), os.Args[0], "-test.run=^TestSelectedCoreCommandHelper$")
-	cmd.Env = append(os.Environ(), "CURATOR_SELECTED_HELPER=retained-pipe", "CURATOR_SELECTED_PIPE_DIR="+dir)
+	// Race-instrumented helpers otherwise sleep one second during os.Exit.
+	// Remove that fixture-only delay; retain the same production drain bound
+	// and race instrumentation, including in the owned descendant.
+	cmd.Env = append(os.Environ(), "CURATOR_SELECTED_HELPER=retained-pipe", "CURATOR_SELECTED_PIPE_DIR="+dir, "GORACE=atexit_sleep_ms=0")
 	defer func() {
 		_ = os.WriteFile(filepath.Join(dir, "release"), []byte("release"), 0600)
 		deadline := time.Now().Add(4 * time.Second)

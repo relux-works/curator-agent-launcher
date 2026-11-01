@@ -460,7 +460,7 @@ func TestExecutableUnicodePathBoundary(t *testing.T) {
 	if out, err := exec.Command("go", "build", "-o", binary, ".").CombinedOutput(); err != nil {
 		t.Fatalf("build: %v: %s", err, out)
 	}
-	fake := "#!/bin/sh\nd=${0%/*}\n/bin/cat \"$d/fragment.json\"\n"
+	fake := "#!/bin/sh\nd=${0%/*}\nif [ \"$1\" = config ] && [ \"$2\" = launcher ]; then\n  printf '%s\\n' '{\"schema\":\"curator.launcher-config/1\",\"config_schema\":5,\"config_path\":\"selected/config.json\",\"extensions\":{}}'\nelse\n  /bin/cat \"$d/fragment.json\"\nfi\n"
 	if err := os.WriteFile(filepath.Join(dir, "curator"), []byte(fake), 0o755); err != nil {
 		t.Fatal(err)
 	}

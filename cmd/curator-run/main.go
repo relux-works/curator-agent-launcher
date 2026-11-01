@@ -801,8 +801,10 @@ func runNative(ctx context.Context, value composition.Value, decision execution.
 			if owner != nil {
 				authCtx, stopWatch = owner.cancelOnSignal(ctx)
 			}
-			defer stopWatch()
 			child, err := deps.claudeAuthResolver.Inject(authCtx, *deps.selectedConfig.ClaudeAuth, env)
+			// Join before inspecting held signals: the watcher may have consumed
+			// one during lookup and must restore it before this boundary check.
+			stopWatch()
 			if err != nil {
 				return nil, err
 			}
