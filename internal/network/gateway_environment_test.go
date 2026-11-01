@@ -84,7 +84,9 @@ func TestGatewayKnownEnvironmentContract(t *testing.T) {
 
 // The final check accepts only the three exact registration-owned pairs,
 // rejects surviving controls in all representations, and cannot be widened by
-// mutating the public patch after registration. Generic/unmanaged is unaffected.
+// mutating the public patch after registration. Changing only a final owned
+// environment value also refuses while the literal map remains exact.
+// Generic/unmanaged is unaffected.
 func TestGatewayComposedEnvironmentBoundary(t *testing.T) {
 	g := newGateway(t)
 	req := gatewayRequest(gatewayHome(t, g, true))
@@ -108,7 +110,7 @@ func TestGatewayComposedEnvironmentBoundary(t *testing.T) {
 	if err := got.CheckComposed(valid()); err != nil {
 		t.Fatalf("exact gateway patch refused: %v", err)
 	}
-	for _, which := range []string{"env", "literals", "lookup", "alias", "changed-token", "missing", "duplicate", "mutated-patch"} {
+	for _, which := range []string{"env", "literals", "lookup", "alias", "changed-token", "changed-env-base", "changed-env-token", "changed-env-traffic", "missing", "duplicate", "mutated-patch"} {
 		t.Run(which, func(t *testing.T) {
 			env, literals, names := valid()
 			switch which {
@@ -122,6 +124,17 @@ func TestGatewayComposedEnvironmentBoundary(t *testing.T) {
 				env = append(env, "anthropic_base_url="+owned["ANTHROPIC_BASE_URL"])
 			case "changed-token":
 				literals["ANTHROPIC_CUSTOM_HEADERS"] = "private-canary"
+			case "changed-env-base", "changed-env-token", "changed-env-traffic":
+				name := map[string]string{
+					"changed-env-base":    "ANTHROPIC_BASE_URL",
+					"changed-env-token":   "ANTHROPIC_CUSTOM_HEADERS",
+					"changed-env-traffic": "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC",
+				}[which]
+				for i, pair := range env {
+					if strings.HasPrefix(pair, name+"=") {
+						env[i] = name + "=private-canary"
+					}
+				}
 			case "missing":
 				delete(literals, "ANTHROPIC_BASE_URL")
 			case "duplicate":
