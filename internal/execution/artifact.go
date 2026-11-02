@@ -33,11 +33,11 @@ func SnapshotArtifact(binary, workdir string, env []string) (*ArtifactSnapshot, 
 		return nil, &adapterprobe.Unsupported{Reason: "artifact_snapshot_unreadable"}
 	}
 	defer f.Close()
-	data, err := io.ReadAll(io.LimitReader(f, (256<<20)+1))
+	data, err := io.ReadAll(io.LimitReader(f, adapterprobe.MaxArtifactBytes+1))
 	if err != nil {
 		return nil, &adapterprobe.Unsupported{Reason: "artifact_snapshot_unreadable"}
 	}
-	if len(data) > 256<<20 {
+	if len(data) > adapterprobe.MaxArtifactBytes {
 		return nil, &adapterprobe.Unsupported{Reason: "artifact_too_large"}
 	}
 	dir, err := os.MkdirTemp("", "curator-adapter-")

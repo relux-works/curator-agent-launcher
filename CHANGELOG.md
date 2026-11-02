@@ -4,6 +4,9 @@
 
 ### Fixed
 
+- Share the library's inclusive 512 MiB artifact snapshot ceiling, admitting
+  current single-file executables above 256 MiB while retaining full-byte
+  identity, protected staging and the intended oversized-artifact refusal.
 - Refuse unqualified known Claude environment controls outside its reserved
   namespaces, while preserving explicit local tool, credential, MCP and request
   compatibility. Validate the final gateway environment before provenance and

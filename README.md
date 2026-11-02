@@ -796,6 +796,12 @@ that exact binary. A pin proves identity, so an unproven pinned build remains
 unqualified. `sensitive_egress = true` requires qualification even under
 optimistic or pinned policy; a flag cannot downgrade it.
 
+Native artifact snapshots share the library's inclusive 512 MiB resource
+ceiling. Larger executables refuse before staging; the bounded reader never
+identifies a truncated prefix. Admission and protected staging retain the exact
+full-byte SHA-256. The complete snapshot remains in memory, so this byte ceiling
+is not a limit on process RSS or a claim of runtime qualification.
+
 The legacy N-B version-label list is retired, not migrated: it has no SHA-256
 provenance. Under strict or sensitive-egress policy the only qualified builds
 are the operator's entries in `~/.curator/network-qualified.toml`; other

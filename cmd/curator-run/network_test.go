@@ -888,8 +888,8 @@ func TestNetworkDependencyReleasePin(t *testing.T) {
 	if err := json.Unmarshal(out, &module); err != nil {
 		t.Fatal(err)
 	}
-	if module.Version != "v0.3.3-0.20261102111744-332a921c0b73" || module.Sum != "h1:zpwcuf+Q+92ZSTMZJI+4GLSerK02jVRiKLLalxap+cE=" || module.GoModSum != "h1:KlPpVwgH45EtLFWodP1ofqWc+amLHGuftUVoZ1rsWhg=" || module.Replace != nil {
-		t.Fatalf("network module must be v0.3.3-0.20261102111744-332a921c0b73 without replacement: version=%s replaced=%v", module.Version, module.Replace != nil)
+	if module.Version != "v0.3.3-0.20261102230615-580dbfd4c424" || module.Sum != "h1:skFsQtPbL3Lj2Cq2qXZ0siuo8Fwix7mLH7JqlALRY6k=" || module.GoModSum != "h1:KlPpVwgH45EtLFWodP1ofqWc+amLHGuftUVoZ1rsWhg=" || module.Replace != nil {
+		t.Fatalf("network module must be v0.3.3-0.20261102230615-580dbfd4c424 without replacement: version=%s replaced=%v", module.Version, module.Replace != nil)
 	}
 }
 
