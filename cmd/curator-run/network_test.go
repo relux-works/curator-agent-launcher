@@ -859,8 +859,8 @@ func TestEmitNetworkFailureRetainsRefusal(t *testing.T) {
 	}
 }
 
-// The release consumes the exact catalog/special-file-safety commit selected
-// by the accepted dependency update, without a replacement or workspace.
+// The release consumes the exact explicit-gateway contract commit and its
+// module checksums, without a replacement or workspace.
 // A different module version must not satisfy the behavioral suite.
 func TestNetworkDependencyReleasePin(t *testing.T) {
 	for _, name := range []string{"go.work", "go.work.sum"} {
@@ -880,14 +880,16 @@ func TestNetworkDependencyReleasePin(t *testing.T) {
 		t.Fatalf("read network module identity: %v", err)
 	}
 	var module struct {
-		Version string
-		Replace *json.RawMessage
+		Version  string
+		Sum      string
+		GoModSum string
+		Replace  *json.RawMessage
 	}
 	if err := json.Unmarshal(out, &module); err != nil {
 		t.Fatal(err)
 	}
-	if module.Version != "v0.3.2" || module.Replace != nil {
-		t.Fatalf("network module must be v0.3.2 without replacement: version=%s replaced=%v", module.Version, module.Replace != nil)
+	if module.Version != "v0.3.3-0.20261102111744-332a921c0b73" || module.Sum != "h1:zpwcuf+Q+92ZSTMZJI+4GLSerK02jVRiKLLalxap+cE=" || module.GoModSum != "h1:KlPpVwgH45EtLFWodP1ofqWc+amLHGuftUVoZ1rsWhg=" || module.Replace != nil {
+		t.Fatalf("network module must be v0.3.3-0.20261102111744-332a921c0b73 without replacement: version=%s replaced=%v", module.Version, module.Replace != nil)
 	}
 }
 

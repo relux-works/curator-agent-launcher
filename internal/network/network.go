@@ -340,6 +340,11 @@ func Prepare(ctx context.Context, req Request) (Prepared, error) {
 	if !req.ExplicitSet && !fromLauncher && result.Profile.Kind != netprofile.KindFilteringGateway {
 		return Prepared{}, refusal.New(refusal.CodeConfigurationConflict, subject, "the operator default is no longer a filtering gateway")
 	}
+	// Resolving a machine-selected name must not manufacture explicit CLI
+	// authority for the non-sensitive gateway exception.
+	if result.Profile.Kind == netprofile.KindFilteringGateway && !result.Profile.SensitiveEgress && !req.ExplicitSet {
+		return Prepared{}, refusal.New(refusal.CodeScopeUnsupported, subject, "a non-sensitive filtering-gateway requires explicit --network selection")
+	}
 	admit := req
 	admit.gatewayKind = result.Profile.Kind == netprofile.KindFilteringGateway
 	identity, provenance, err := Admit(ctx, admit, result.Profile.SensitiveEgress)

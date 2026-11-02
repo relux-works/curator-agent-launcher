@@ -15,6 +15,11 @@
 
 ### Added
 
+- Support an explicitly selected filtering gateway with
+  `sensitive_egress = false`, preserving the exact unqualified warning and
+  typed provenance. Machine selection and defaults refuse this form; true
+  gateways retain strict qualification and every gateway guard.
+
 - Launch Claude Code through a local filtering gateway: a
   `filtering-gateway` network profile registers each launch on the
   gateway's `netproxy-control/1` socket before spawn and hands the child

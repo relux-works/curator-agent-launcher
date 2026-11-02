@@ -786,7 +786,7 @@ in it, and a launch that composition refuses prints no Record. Hosted
 launches refuse `--network` with `network_scope_unsupported`: the
 source host cannot validate the destination.
 
-Adapter admission uses `adapterprobe.Evaluate` from v0.3.1. The default
+Adapter admission uses `adapterprobe.Evaluate` from the pinned network-profiles library. The default
 `--network-policy optimistic` admits a known vendor build as **unqualified**,
 subject to the library's fail-closed known-bad policy and the launcher's
 independent child-scope ceiling (currently `generic-env-v1`, Claude print).
@@ -827,8 +827,19 @@ admits Claude Code's interactive session, and only a build listed for the
 `exec` entry does not). Hosted network launches remain unsupported.
 
 A `kind = "filtering-gateway"` profile (curator-network-profiles N14) names a
-local filtering gateway by its control socket and requires
-`sensitive_egress = true`. Before the child starts, the launcher checks the
+local filtering gateway by its control socket and requires an explicit
+`sensitive_egress` boolean. True requires exact independent qualification.
+Explicit false permits an unqualified build only with explicit `--network`;
+operator defaults, inherited/profile bindings and machine proxy selection
+cannot select it, including on native resume. Changing this declaration
+changes the digest and requires a new operator confirmation. The launcher
+prints the exact unqualified warning and `relux-adapter-provenance-v1` record;
+the caller retains the actual emitted record in its existing session or
+receipt path. An exact non-sensitive pin still admits only that binary, as
+unqualified when it has no evidence; strict mode continues to refuse it.
+Neither the record nor a successful gateway request is qualification.
+
+Before the child starts, the launcher checks the
 gateway's health and registers the launch (project root = the launch working
 directory, an audit session id, runtime `claude-code`) over
 `netproxy-control/1`. Any failure refuses `network_proxy_unreachable` with no
