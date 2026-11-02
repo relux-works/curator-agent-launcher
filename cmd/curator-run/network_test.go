@@ -886,8 +886,8 @@ func TestNetworkDependencyReleasePin(t *testing.T) {
 	if err := json.Unmarshal(out, &module); err != nil {
 		t.Fatal(err)
 	}
-	if module.Version != "v0.3.2-0.20261030182306-2cda004a65d9" || module.Replace != nil {
-		t.Fatalf("network module must be v0.3.2-0.20261030182306-2cda004a65d9 without replacement: version=%s replaced=%v", module.Version, module.Replace != nil)
+	if module.Version != "v0.3.2" || module.Replace != nil {
+		t.Fatalf("network module must be v0.3.2 without replacement: version=%s replaced=%v", module.Version, module.Replace != nil)
 	}
 }
 
