@@ -686,7 +686,11 @@ func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, ta
 	}
 	var snapshot *execution.ArtifactSnapshot
 	if managedNetwork && sessionAllowed(isHosted) {
-		snapshot, err = execution.SnapshotArtifact(admitted.Plan.Binary, admitted.Plan.WorkDir, admitted.Plan.Env)
+		if target.System == "codex" {
+			snapshot, err = execution.SnapshotCodexArtifact(admitted.Plan.Binary, admitted.Plan.WorkDir, admitted.Plan.Env, toolRelease)
+		} else {
+			snapshot, err = execution.SnapshotArtifact(admitted.Plan.Binary, admitted.Plan.WorkDir, admitted.Plan.Env)
+		}
 		if err != nil {
 			return emitNetworkFailure(stderr, err)
 		}
@@ -807,7 +811,7 @@ func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, ta
 		}
 		return runHosted(inv, frag, target, value, intent, inspection, admitted.Plan, decision, parentEnv, now(), stdout, stderr, deps, boundary, selected.terminal)
 	}
-	return runNative(ctx, value, decision, inspection, stdout, stderr, deps, boundary, &preparedNet, owner)
+	return runNative(ctx, value, decision, inspection, stdout, stderr, deps, boundary, &preparedNet, owner, snapshot)
 }
 
 func stagedExecutable(s *execution.ArtifactSnapshot) string {
@@ -825,7 +829,7 @@ func gatewaySessionID(envID string, at time.Time) string {
 
 // runNative reports inspected policy and runs the composed value directly.
 // It performs zero manager contact; hosted failures never reach it.
-func runNative(ctx context.Context, value composition.Value, decision execution.PermissionDecision, inspection agentic.StoredPolicyInspection, stdout, stderr io.Writer, deps launchDeps, boundary func() error, net *network.Prepared, owner *leaseOwner) int {
+func runNative(ctx context.Context, value composition.Value, decision execution.PermissionDecision, inspection agentic.StoredPolicyInspection, stdout, stderr io.Writer, deps launchDeps, boundary func() error, net *network.Prepared, owner *leaseOwner, snapshots ...*execution.ArtifactSnapshot) int {
 	if decision.Mode == agentic.PermissionModeNative {
 		execution.ReportEffectiveNativePolicy(stderr, inspection)
 	}
@@ -867,7 +871,14 @@ func runNative(ctx context.Context, value composition.Value, decision execution.
 		}
 		return net.ChildEnvironment(env)
 	}
-	opts.BeforeStart = net.VerifyProcess
+	opts.BeforeStart = func(binary string, argv, env []string) error {
+		for _, snapshot := range snapshots {
+			if err := snapshot.Verify(); err != nil {
+				return err
+			}
+		}
+		return net.VerifyProcess(binary, argv, env)
+	}
 	lease := net.TakeLease()
 	if lease == nil {
 		return prepared.Run(opts)

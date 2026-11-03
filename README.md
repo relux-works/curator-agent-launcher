@@ -839,6 +839,42 @@ profile can launch optimistically with the required unqualified warning and
 provenance. Strict or sensitive-egress policy requires an exact qualified build;
 exec and hosted network launches remain unsupported.
 
+Codex network launches preserve the executable's package layout because code-mode
+tools start a separate `codex-code-mode-host`. The supported distributions are a
+native `codex` executable with its sibling host, or layout-version-1 packages
+with `codex-package.json` and either `bin/codex` or a root `codex` entrypoint
+(`.exe` names use the corresponding host suffix). App bundles and other layouts
+are unsupported. Package staging retains the actual recognition metadata, the
+selected host, and the existing `codex-path/` and `codex-resources/` trees, when
+present. Resource-host precedence follows the pinned runtime: a regular
+`codex-resources/codex-code-mode-host` wins over the executable's sibling. A
+present but invalid selected host refuses; it never silently switches helpers.
+
+Only those package-relative members are read. Links and special files refuse;
+rooted opens prevent an escaping resource lookup. Staging is bounded to 4,096
+entries, depth 32, 512 MiB per file, 64 KiB for package metadata and 1 GiB in
+total. The original 512 MiB main-artifact cap and its adapter BuildID/Evaluate
+policy remain unchanged. A separate receipt binds layout, declared version and
+target, admitted release, selected host, relative file roles, modes, sizes and content hashes to
+that same main snapshot. These hashes prove captured content consistency; they
+do not authenticate a neighboring helper or extend adapter qualification.
+Package metadata naming another release refuses before staging.
+
+Files are private regular copies without retained writable descriptors. The
+final native-process boundary checks the complete staged content and selection
+before spawning. No live installation member is reopened at execution time.
+Normal return, preparation refusal and failed child exit remove the stage.
+SIGKILL of the launcher can leave it behind; this path adds no shared sweeper.
+Private directories, read-only file modes and a final content check do not
+provide isolation against a hostile process running as the same OS user.
+
+Run `go test ./internal/execution ./cmd/curator-run -run
+'CodexPackage|NativePackageBoundary' -count=1` for isolated package/legacy
+controls, staged-mutation refusals and the old single-file-flattening control.
+Their subprocesses and stages use temporary directories and are removed. Those
+fixtures do not replace an admitted real Codex code-mode tool call when checking
+a particular installed package and gateway launch.
+
 Codex registration preserves native ChatGPT authentication and contributes one
 launch-owned `curator-gateway` provider table with the returned complete base,
 `wire_api = "responses"`, `requires_openai_auth = true`, and

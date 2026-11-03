@@ -27,6 +27,9 @@ import (
 var helper, driver, python string
 
 func TestMain(m *testing.M) {
+	if os.Getenv("CURATOR_PACKAGE_TEST") != "" {
+		os.Exit(m.Run())
+	}
 	python, _ = exec.LookPath("python3")
 	dir, err := os.MkdirTemp("", "execution-helpers-")
 	if err != nil {
