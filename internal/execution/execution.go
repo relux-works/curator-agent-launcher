@@ -40,6 +40,9 @@ type Options struct {
 	// late checks. It receives a private env copy and must not change argv/PATH
 	// selection. Failures emit a fixed diagnostic, never backend error text.
 	ChildEnvironment func([]string) ([]string, error)
+	// BeforeStart receives detached copies of the resolved executable, argv suffix
+	// and final child environment after credential injection. A refusal starts no child.
+	BeforeStart func(binary string, argv, env []string) error
 }
 
 // Launch is a prepared native execution snapshot. Run rechecks files.
@@ -112,7 +115,12 @@ func (l Launch) Run(opts Options) int {
 		if err != nil || childEnv == nil {
 			return fail(errors.New("plan_refused: final child environment was refused"))
 		}
-		cmd.Env = childEnv
+		cmd.Env = append([]string{}, childEnv...)
+	}
+	if opts.BeforeStart != nil {
+		if err := opts.BeforeStart(cmd.Path, append([]string{}, cmd.Args[1:]...), append([]string{}, cmd.Env...)); err != nil {
+			return fail(errors.New("plan_refused: final child process was refused"))
+		}
 	}
 	err = run(cmd, opts.Started, opts.Interrupts)
 	if err == nil {
