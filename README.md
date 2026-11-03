@@ -485,8 +485,10 @@ The executable supports `claude_code` (alias `claude`), `codex_cli`
 Muse requires `launch-env-fragment-v4`: exactly four XDG parents under one
 managed home plus `TBH_CREDENTIAL_BACKEND=file`, preserving inherited `HOME`.
 Older Muse fragments refuse `fragment_version_unsupported` before launch.
-The pinned agents-management v0.5.74 plugin owns the native plan; managed
-Muse refuses module versions older than v0.5.66. The optional frozen-copy
+The pinned agents-management module owns the native plan. Managed Muse
+requires a stable module release at least v0.5.66. The current
+`v0.5.75-0.20261103170957-b60c71ff1fce` source pin is a prerelease and refuses managed
+Muse; a stable dependency release is required for that route. The optional frozen-copy
 tuple otherwise leaves binary resolution on the handed PATH. `muse-wonder`
 resolves to `muse-wonder-1.0-contributor` with module-owned effort rules.
 
@@ -575,7 +577,7 @@ The launch pipeline follows these steps:
    `session_liveness_unknown`. No hosted refusal executes natively.
 
 The permission interface is implemented against upstream
-`skill-agents-management v0.5.74`. It owns
+`skill-agents-management v0.5.75-0.20261103170957-b60c71ff1fce`. It owns
 `LaunchRequest.PermissionMode`, the release-bound mapping, versioned native
 argument classification, stored-policy inspection, and the capability table.
 Claude Code and Codex CLI 0.153.2 use `permission-grammar-v2`, Codex CLI 0.164.0 uses `permission-grammar-v3`; Pi uses
@@ -587,7 +589,7 @@ Codex v4 `credential_store` accepts absent or `native` policy without an auth
 store override. The reader validates `file` and `keychain` with their matching
 `config_overrides`, but the pinned module explicitly refuses both with
 `plan_refused`; it leaves `config.toml` unchanged. Positive `-c` application
-is an open upstream dependency: v0.5.74 sets
+is an open upstream dependency: the pinned module sets
 `curatorCodexCredentialStoreApplied=false` in
 `pkg/agentic/curator_context.go:714–725`. A future released consumer is
 required before those selections can launch. The launcher does not implement
@@ -825,17 +827,33 @@ qualified_on  = "2026-10-29"
 
 An absent file is an empty list, so strict admission refuses every build as
 before. A present file that cannot be read or does not validate refuses the
-launch. Claude Code is the only harness the file admits in this revision.
+launch. The file admits `claude-code` and the `codex-cli` interactive entrypoint.
 Qualification never widens the independent child-scope ceiling, which admits
 Claude print only, except under a filtering gateway: there the ceiling also
 admits Claude Code's interactive session, and only a build listed for the
 `interactive` entrypoint qualifies it (recipe `claude-interactive-v1`; an
-`exec` entry does not). Hosted network launches remain unsupported.
+`exec` entry does not). Codex CLI 0.164.0 also admits normal interactive
+fresh launches and exact `resume <thread-id>` under a filtering gateway,
+with recipe `codex-interactive-v1`. An explicitly confirmed non-sensitive
+profile can launch optimistically with the required unqualified warning and
+provenance. Strict or sensitive-egress policy requires an exact qualified build;
+exec and hosted network launches remain unsupported.
+
+Codex registration preserves native ChatGPT authentication and contributes one
+launch-owned `curator-gateway` provider table with the returned complete base,
+`wire_api = "responses"`, `requires_openai_auth = true`, and
+`supports_websockets = false`. The header names `CURATOR_CODEX_GATEWAY_TOKEN`;
+its value is injected only into the final child environment, never arguments,
+provider configuration, literals or provenance. Competing native provider,
+profile, local/remote/server selectors and environment aliases refuse before
+registration. Late argv, environment, executable or original artifact drift
+refuses before process start and ends the registration. This verifies the
+admitted model route; it does not establish system-wide network containment.
 
 A `kind = "filtering-gateway"` profile (curator-network-profiles N14) names a
 local filtering gateway by its control socket and requires an explicit
 `sensitive_egress` boolean. True requires exact independent qualification.
-Explicit false permits an unqualified build only with explicit `--network`;
+For Claude Code, explicit false permits an unqualified build only with explicit `--network`;
 operator defaults, inherited/profile bindings and machine proxy selection
 cannot select it, including on native resume. Changing this declaration
 changes the digest and requires a new operator confirmation. The launcher
@@ -975,8 +993,7 @@ filtering gateway selects it with origin `operator-default`, and every hosted
 route, resume included, then refuses `network_scope_unsupported` before any
 session-manager call. Defaults of the other kinds still need `--network`. A
 `network.toml` that exists but cannot be read, a dangling link included,
-refuses every launch. Codex launches through a gateway are
-refused in this revision.
+refuses every launch.
 
 Claude Code under a filtering gateway is also held to admission contract A,
 checked before registering and again at the pre-spawn boundary. A launch that

@@ -14,11 +14,13 @@ import (
 	"time"
 
 	"github.com/relux-works/curator-agent-launcher/internal/network"
+	"github.com/relux-works/curator-agent-launcher/internal/plan"
 	"github.com/relux-works/curator-network-profiles/pkg/netprofile"
 	"github.com/relux-works/curator-network-profiles/pkg/probe"
 	"github.com/relux-works/curator-network-profiles/pkg/refusal"
 	"github.com/relux-works/skill-agents-management/pkg/agentic"
 	"github.com/relux-works/skill-agents-management/pkg/plugin"
+	"github.com/relux-works/skill-agents-management/pkg/providerlimits"
 	"github.com/relux-works/skill-agents-management/pkg/vendorplugin"
 )
 
@@ -484,26 +486,53 @@ func TestNetworkOverlayConflictRefusesBeforeProbe(t *testing.T) {
 	f.assertNoChild(t)
 }
 
-// Regression tests cover library admission and the independent launch scope.
+// The supported gateway route uses the real store, not callback-issued plans.
+// HTTP proxy scope still refuses after healthy admission; real quota refuses
+// earlier with its existing diagnostic and neither case starts a child.
 func TestNetworkProductionAllowlistRefusesUnlistedCodex(t *testing.T) {
-	f := entryFixture(t, "codex_cli")
-	writeNetworkCatalog(t, f.dir, true)
-	f.deps.prober = forbiddenNetworkProber{t}
-	f.args = withNetworkFlag(f.args, "egress-a")
-	code, out, stderr := f.run()
-	if code != 1 || len(out) != 0 {
-		t.Fatalf("exit=%d out=%q stderr=%s", code, out, stderr)
+	for _, limited := range []bool{false, true} {
+		t.Run(fmt.Sprintf("limited=%t", limited), func(t *testing.T) {
+			f := entryFixture(t, "codex_cli")
+			writeNetworkCatalog(t, f.dir, true)
+			f.deps.prober = forbiddenNetworkProber{t}
+			f.args = withNetworkFlag(f.args, "egress-a")
+			withTestRelease(f, "codex-cli 0.164.0")
+			store, err := providerlimits.NewStore(providerlimits.Options{Layout: providerlimits.LayoutAt(t.TempDir())})
+			if err != nil {
+				t.Fatal(err)
+			}
+			acquired := 0
+			f.deps.gatewayStore = func() (*providerlimits.Store, error) { acquired++; return store, nil }
+			if limited {
+				id, err := providerlimits.IdentityFor("codex", f.home)
+				if err != nil {
+					t.Fatal(err)
+				}
+				obs, ok := providerlimits.ClassifyManaged(providerlimits.ProviderCodex, providerlimits.ManagedSignalUsageLimited).QuotaObservation(providerlimits.Evidence{Model: "gpt-6-astra"})
+				if !ok {
+					t.Fatal("missing quota fixture")
+				}
+				if err := store.Observe(id, providerlimits.MustGroupTable().Group("codex", "gpt-6-astra"), nil, obs); err != nil {
+					t.Fatal(err)
+				}
+			}
+			code, out, stderr := f.run()
+			want := "network_scope_unsupported"
+			if limited {
+				want = plan.CodeLimited
+			}
+			if code != 1 || len(out) != 0 || !strings.Contains(string(stderr), "curator-run: "+want+": ") {
+				t.Fatalf("exit=%d out=%q stderr=%s", code, out, stderr)
+			}
+			if strings.Contains(string(stderr), "curator-run: network: ") {
+				t.Fatal("refused launch printed a binding")
+			}
+			if acquired != 1 || f.builds != 0 || f.verdicts != 0 {
+				t.Fatalf("real-store acquisition=%d fakebuild=%d fakeverdict=%d", acquired, f.builds, f.verdicts)
+			}
+			f.assertNoChild(t)
+		})
 	}
-	if !strings.Contains(string(stderr), "curator-run: network_scope_unsupported: ") {
-		t.Fatalf("stderr=%s, want network_scope_unsupported", stderr)
-	}
-	if strings.Contains(string(stderr), "curator-run: network: ") {
-		t.Fatalf("refused launch prints a binding Record: %s", stderr)
-	}
-	if f.builds != 1 || f.verdicts != 1 {
-		t.Fatalf("builds=%d verdicts=%d, want admission before the network refusal", f.builds, f.verdicts)
-	}
-	f.assertNoChild(t)
 }
 
 // TestNetworkUnlistedTupleRefuses: N1 regression for exactness. The
@@ -888,8 +917,8 @@ func TestNetworkDependencyReleasePin(t *testing.T) {
 	if err := json.Unmarshal(out, &module); err != nil {
 		t.Fatal(err)
 	}
-	if module.Version != "v0.3.3-0.20261102230615-580dbfd4c424" || module.Sum != "h1:skFsQtPbL3Lj2Cq2qXZ0siuo8Fwix7mLH7JqlALRY6k=" || module.GoModSum != "h1:KlPpVwgH45EtLFWodP1ofqWc+amLHGuftUVoZ1rsWhg=" || module.Replace != nil {
-		t.Fatalf("network module must be v0.3.3-0.20261102230615-580dbfd4c424 without replacement: version=%s replaced=%v", module.Version, module.Replace != nil)
+	if module.Version != "v0.3.3-0.20261103170957-7990eae44d83" || module.Sum != "h1:kMLvysPf34ZQhyPXbihWe/jg3H3OvYGFc1h/I0Hnh+g=" || module.GoModSum != "h1:KlPpVwgH45EtLFWodP1ofqWc+amLHGuftUVoZ1rsWhg=" || module.Replace != nil {
+		t.Fatalf("network module must be v0.3.3-0.20261103170957-7990eae44d83 without replacement: version=%s replaced=%v", module.Version, module.Replace != nil)
 	}
 }
 

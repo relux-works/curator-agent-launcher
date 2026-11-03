@@ -125,7 +125,7 @@ func TestBuildPayloadValid(t *testing.T) {
 		t.Fatal("wire bytes are not the canonical form")
 	}
 	producer := payload["producer"].(map[string]any)
-	if producer["module_version"] != "0.5.74" || producer["module_commit"] != hosted.ProducerModuleCommit {
+	if producer["module_version"] != "0.5.75-0.20261103170957-b60c71ff1fce" || producer["module_commit"] != "b60c71ff1fcec4a90b0b8a7bb40b3da78c0905dd" {
 		t.Fatalf("producer = %v", producer)
 	}
 	process := payload["process"].(map[string]any)
