@@ -31,6 +31,7 @@ type launchRecoveryGateway struct {
 	envelope                    recoveryjournal.Envelope
 	directory                   string
 	registerFault, recoverFault string
+	healthNotReady              bool
 	foreign                     bool
 	onRegister                  func()
 }
@@ -82,7 +83,7 @@ func recoveryLaunchFixture(t *testing.T) (*pipelineFixture, *launchRecoveryGatew
 			if g.foreign {
 				registry = strings.Repeat("e", 64)
 			}
-			_ = json.NewEncoder(w).Encode(map[string]any{"api": netproxy.RecoveryAPI, "ready": true, "rule_set": "fixture", "key_mode": "fixture", "registry_id": registry, "boot": "fixture-boot", "now_ns": "1000", "recovery": netproxy.RecoveryProtocol})
+			_ = json.NewEncoder(w).Encode(map[string]any{"api": netproxy.RecoveryAPI, "ready": !g.healthNotReady, "rule_set": "fixture", "key_mode": "fixture", "registry_id": registry, "boot": "fixture-boot", "now_ns": "1000", "recovery": netproxy.RecoveryProtocol})
 		case "/v2/register":
 			var e recoveryjournal.Envelope
 			if json.NewDecoder(r.Body).Decode(&e) != nil || e.Validate() != nil {
@@ -205,31 +206,83 @@ func TestGatewayRecoveryLaunchLifecycle(t *testing.T) {
 	g.retained(t, true)
 }
 
+// Admission readiness is required before any new envelope, private preparation
+// or register. The same authority still permits cleanup of an existing attempt.
+func TestGatewayRecoveryLaunchAdmissionAndCleanupReadiness(t *testing.T) {
+	t.Run("admission", func(t *testing.T) {
+		f, g := recoveryLaunchFixture(t)
+		g.healthNotReady = true
+		before := recoveryStateSnapshot(t, g.directory)
+		code, out, diagnostic := f.run()
+		if code == 0 || len(out) != 0 || g.calls() != "/v2/health" || strings.Contains(string(diagnostic), "attempt=") {
+			t.Fatal("RECOVERY ADMISSION ALARM: unready service admitted a new attempt")
+		}
+		f.assertNoChild(t)
+		if !reflect.DeepEqual(before, recoveryStateSnapshot(t, g.directory)) {
+			t.Fatal("RECOVERY ADMISSION ALARM: unready service caused private preparation")
+		}
+	})
+	t.Run("cleanup", func(t *testing.T) {
+		f, g := recoveryLaunchFixture(t)
+		f.deps.networkEmit = func(io.Writer, *adapterprobe.Provenance) error {
+			g.mu.Lock()
+			g.healthNotReady = true
+			g.mu.Unlock()
+			return nil
+		}
+		code, _, diagnostic := f.run()
+		if code != 0 || !strings.Contains(string(diagnostic), "receipt=committed") || g.calls() != "/v2/health /v2/register /v1/activate /v2/health /v2/recover" {
+			t.Fatal("RECOVERY CLEANUP ALARM: admission readiness blocked original cleanup")
+		}
+		attempt := publicRecoveryAttempt(t, diagnostic)
+		g.retained(t, true)
+		var out, errOut bytes.Buffer
+		if run(context.Background(), []string{"gateway", "recover", "--attempt", attempt}, &out, &errOut, f.deps) != 0 {
+			t.Fatal("RECOVERY CLEANUP ALARM: unready authority blocked exact retry")
+		}
+		if strings.Count(g.calls(), "/v2/register") != 1 {
+			t.Fatal("RECOVERY CLEANUP ALARM: cleanup reissued authority")
+		}
+		g.retained(t, true)
+	})
+}
+
 // Post-issue refusal, interruption and uncertain replies use the original E,
 // create no child/second issuance and keep clean recovery independently retryable.
 func TestGatewayRecoveryLaunchPostIssueRefusals(t *testing.T) {
-	for _, fault := range []string{"lost", "malformed", "late-refusal", "interrupted"} {
+	for _, fault := range []string{"lost", "malformed", "lost-unconfirmed", "malformed-unconfirmed", "late-refusal", "interrupted"} {
 		t.Run(fault, func(t *testing.T) {
 			f, g := recoveryLaunchFixture(t)
 			switch fault {
 			case "lost", "malformed":
 				g.registerFault = fault
+			case "lost-unconfirmed", "malformed-unconfirmed":
+				g.registerFault = strings.TrimSuffix(fault, "-unconfirmed")
+				g.recoverFault = "malformed"
 			case "late-refusal":
 				f.deps.networkEmit = func(io.Writer, *adapterprobe.Provenance) error { return errors.New("fixture refusal") }
 			case "interrupted":
 				f.deps.leaseNotify = func(c chan<- os.Signal, _ ...os.Signal) { g.onRegister = func() { c <- syscall.SIGTERM } }
 			}
 			code, out, stderr := f.run()
-			if code == 0 || len(out) != 0 || !strings.Contains(string(stderr), "receipt=committed") {
+			committed := !strings.HasSuffix(fault, "-unconfirmed")
+			if code == 0 || len(out) != 0 || strings.Contains(string(stderr), "receipt=committed") != committed {
 				t.Fatalf("post-issue refusal did not reconcile: code=%d calls=%s", code, g.calls())
 			}
 			f.assertNoChild(t)
 			if g.calls() != "/v2/health /v2/register /v2/health /v2/recover" {
 				t.Fatalf("post-issue refusal calls=%s", g.calls())
 			}
-			g.retained(t, true)
+			g.retained(t, committed)
 			var stdout, errout bytes.Buffer
-			if code := run(context.Background(), []string{"gateway", "recover", "--attempt", g.envelope.AttemptID}, &stdout, &errout, f.deps); code != 0 {
+			attempt := publicRecoveryAttempt(t, stderr)
+			if strings.Contains(string(stderr), g.envelope.RecoveryProof) || strings.Contains(string(stderr), e2eToken) {
+				t.Fatal("public refusal leaked a private proof or runtime token")
+			}
+			g.mu.Lock()
+			g.recoverFault = ""
+			g.mu.Unlock()
+			if code := run(context.Background(), []string{"gateway", "recover", "--attempt", attempt}, &stdout, &errout, f.deps); code != 0 {
 				t.Fatal("exact original standalone retry refused")
 			}
 			g.retained(t, true)
@@ -276,6 +329,13 @@ func TestGatewayRecoveryLaunchPreparationRefusals(t *testing.T) {
 			}
 			if calls != want {
 				t.Fatalf("PREPARE NO EFFECT ALARM: calls=%s", calls)
+			}
+			if fault == "prepare" {
+				// Once an envelope exists, any Issue/Prepare refusal must keep its
+				// public selector available even if no request reached the service.
+				_ = publicRecoveryAttempt(t, stderr)
+			} else if strings.Contains(string(stderr), "attempt=") {
+				t.Fatal("pre-envelope refusal invented an attempt")
 			}
 			if fault == "missing" {
 				if _, err := os.Stat(filepath.Join(g.directory, "receipts")); !os.IsNotExist(err) {
@@ -434,14 +494,15 @@ func TestGatewayRecoveryLaunchCompletionFailures(t *testing.T) {
 			if code != expectedCode || strings.Contains(string(stderr), "receipt=committed") {
 				t.Fatal("CLEANUP VERDICT ALARM: child status changed or false evidence emitted")
 			}
+			attempt := publicRecoveryAttempt(t, stderr)
+			if strings.Contains(string(stderr), g.envelope.RecoveryProof) || strings.Contains(string(stderr), e2eToken) {
+				t.Fatal("public completion failure leaked a private proof or runtime token")
+			}
 			if fault == "local-evidence" {
 				if !strings.Contains(string(stderr), "local_evidence_failed") {
 					t.Fatal("local failure conflated with service uncertainty")
 				}
-				g.mu.Lock()
-				id := g.envelope.AttemptID
-				g.mu.Unlock()
-				if err := os.Remove(filepath.Join(g.directory, "receipts", id+".json")); err != nil {
+				if err := os.Remove(filepath.Join(g.directory, "receipts", attempt+".json")); err != nil {
 					t.Fatal(err)
 				}
 			} else {
@@ -456,7 +517,7 @@ func TestGatewayRecoveryLaunchCompletionFailures(t *testing.T) {
 			before := g.envelope
 			g.mu.Unlock()
 			var stdout, errout bytes.Buffer
-			if run(context.Background(), []string{"gateway", "recover", "--attempt", before.AttemptID}, &stdout, &errout, f.deps) != 0 {
+			if run(context.Background(), []string{"gateway", "recover", "--attempt", attempt}, &stdout, &errout, f.deps) != 0 {
 				t.Fatal("original recovery not retryable")
 			}
 			g.retained(t, true)

@@ -56,6 +56,7 @@ func canonicalNS(s string) (uint64, bool) {
 // RecoveryHealth contains public authority/clock observations, not a grant.
 type RecoveryHealth struct {
 	RegistryID, Boot, NowNS, RuleSet, KeyMode string
+	Ready                                     bool
 }
 
 // RecoveryRegistration carries a data-plane capability only on the initial
@@ -121,7 +122,8 @@ func (c *RecoveryClient) Health(ctx context.Context) (RecoveryHealth, error) {
 		return RecoveryHealth{}, recoveryRefusal("health", status, raw)
 	}
 	f, ok := recoveryObject(raw, "api", "ready", "rule_set", "key_mode", "registry_id", "boot", "now_ns", "recovery")
-	if !ok || !recoveryVersion(f) || !rawTrue(f["ready"]) {
+	ready := bytes.TrimSpace(f["ready"])
+	if !ok || !recoveryVersion(f) || (!bytes.Equal(ready, []byte("true")) && !bytes.Equal(ready, []byte("false"))) {
 		return RecoveryHealth{}, recoveryFailure("health", "outcome_unknown", 0, "")
 	}
 	strings_, ok := recoveryStrings(f, "rule_set", "key_mode", "registry_id", "boot", "now_ns", "recovery")
@@ -129,7 +131,7 @@ func (c *RecoveryClient) Health(ctx context.Context) (RecoveryHealth, error) {
 	if !ok || !validToken(strings_["registry_id"]) || strings_["boot"] == "" || !clockOK || strings_["recovery"] != RecoveryProtocol {
 		return RecoveryHealth{}, recoveryFailure("health", "outcome_unknown", 0, "")
 	}
-	return RecoveryHealth{strings_["registry_id"], strings_["boot"], strings_["now_ns"], strings_["rule_set"], strings_["key_mode"]}, nil
+	return RecoveryHealth{RegistryID: strings_["registry_id"], Boot: strings_["boot"], NowNS: strings_["now_ns"], RuleSet: strings_["rule_set"], KeyMode: strings_["key_mode"], Ready: rawTrue(ready)}, nil
 }
 
 func (c *RecoveryClient) Register(ctx context.Context, e RecoveryEnvelope) (RecoveryRegistration, error) {

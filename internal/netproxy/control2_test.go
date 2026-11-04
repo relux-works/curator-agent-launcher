@@ -104,7 +104,7 @@ func TestRecoveryV2UnixLifecycle(t *testing.T) {
 		t.Fatal(err)
 	}
 	h, err := c.Health(t.Context())
-	if err != nil || h.RegistryID != recoveryEnvelopeFixture().RegistryID || h.NowNS != "23" {
+	if err != nil || !h.Ready || h.RegistryID != recoveryEnvelopeFixture().RegistryID || h.NowNS != "23" {
 		t.Fatal("valid health refused")
 	}
 	e := recoveryEnvelopeFixture()
@@ -332,7 +332,7 @@ func TestRecoveryV2RequestAndHealthBounds(t *testing.T) {
 			t.Fatal("legitimate registration form narrowed")
 		}
 	}
-	for _, kind := range []string{"canonical", "max-body", "overflow", "leading-zero", "not-ready", "bad-registry", "boot-empty", "wrong-protocol", "wrong-string"} {
+	for _, kind := range []string{"canonical", "max-body", "overflow", "leading-zero", "not-ready", "ready-null", "ready-string", "ready-number", "ready-omitted", "bad-registry", "boot-empty", "wrong-protocol", "wrong-string"} {
 		t.Run(kind, func(t *testing.T) {
 			f := recoveryReplyFixture("health")
 			switch kind {
@@ -344,6 +344,14 @@ func TestRecoveryV2RequestAndHealthBounds(t *testing.T) {
 				f["now_ns"] = "023"
 			case "not-ready":
 				f["ready"] = false
+			case "ready-null":
+				f["ready"] = nil
+			case "ready-string":
+				f["ready"] = "false"
+			case "ready-number":
+				f["ready"] = 0
+			case "ready-omitted":
+				delete(f, "ready")
 			case "bad-registry":
 				f["registry_id"] = "short"
 			case "boot-empty":
@@ -357,10 +365,13 @@ func TestRecoveryV2RequestAndHealthBounds(t *testing.T) {
 			if kind == "max-body" && len(raw) != RecoveryMaxBody {
 				t.Fatal("boundary fixture wrong")
 			}
-			err := recoveryInvoke(recoveryTestClient(t, 200, raw, []string{RecoveryAPI}), "health")
-			if kind == "canonical" || kind == "max-body" {
+			h, err := recoveryTestClient(t, 200, raw, []string{RecoveryAPI}).Health(t.Context())
+			if kind == "canonical" || kind == "max-body" || kind == "not-ready" {
 				if err != nil {
 					t.Fatal("valid health bound rejected")
+				}
+				if h.Ready != (kind != "not-ready") {
+					t.Fatal("RECOVERY READINESS ALARM: boolean health observation lost")
 				}
 			} else {
 				requireUnknown(t, err)

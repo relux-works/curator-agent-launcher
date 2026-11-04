@@ -766,6 +766,8 @@ permission flag accepts only `native` or `yolo`; `--yolo` is the no-value exact
 alias, and the two forms cannot be combined. The host flags likewise share one
 request slot and take no value. After `<env-id>`, at most the `resume` selector
 and its optional handle may follow; anything else before `--` is stray.
+`gateway`, `werkstatt`, and `session-manager` are reserved first words and
+cannot be used as environment IDs.
 `-d` and `--danger` are rejected
 launcher flags before the native-argument boundary.
 Prompt-file discovery can still apply without the prompt opt-in; see the warnings
@@ -1421,6 +1423,10 @@ state. The operation has a fixed 30-second budget; unsupported or uncertain
 recovery never downgrades to control/1. Success prints only the public attempt,
 fixed service result and `receipt=committed`. A service-confirmed result with
 failed local persistence remains a distinct nonzero `local_evidence_failed`.
+Failure diagnostics include the public `attempt=<id>` selector so the same
+command can be retried without enumerating private entries. Launch refusals
+include it once an envelope exists and preparation may have published it;
+proofs and runtime tokens remain private.
 Run `go test ./cmd/curator-run -run TestGatewayRecovery -count=1` for grammar,
 dispatch, output-failure and isolated production-path Unix fixtures. These
 fixtures do not qualify an actual service or installed state namespace.
@@ -1435,8 +1441,12 @@ For missing containers the refusal lists only the proposed directory closure
 and mode `0700`. `STATE` denotes the captured state base; `STATE/..` denotes
 its parent. Absolute paths are omitted. This is a preflight proposal and creates
 nothing; unsafe existing entries receive no creation proposal.
-Closed health supplies the original registry and clock facts. Only after
-durable private preparation does the launcher send one initial register.
+Closed health supplies the original registry and clock facts and a required
+boolean `ready` observation. New issuance requires `ready=true` before any
+envelope or private preparation. Cleanup of an existing attempt accepts
+`ready=false` when the original registry matches; clock refusal or a changed
+registry sends no recovery request. Only after durable private preparation
+does the launcher send one initial register.
 An uncertain reply refuses native start and reconciles that original attempt
 without registering again. A later launch refusal uses the same completion
 path as child exit. The runtime token enters only the guarded child route;

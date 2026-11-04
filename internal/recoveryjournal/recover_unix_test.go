@@ -384,7 +384,7 @@ func TestRecoverConcurrentExactAttempts(t *testing.T) {
 // Production recovery sends only health and the original exact E to its Unix
 // endpoint. Changed authority/malformed/foreign replies yield no local success.
 func TestRecoverRealUnixWire(t *testing.T) {
-	for _, kind := range []string{"valid", "cancelled-before-issue", "service-mismatch", "false-durable", "foreign", "malformed"} {
+	for _, kind := range []string{"valid", "not-ready", "cancelled-before-issue", "service-mismatch", "not-ready-mismatch", "clock-unavailable", "false-durable", "foreign", "malformed"} {
 		t.Run(kind, func(t *testing.T) {
 			b := fixtureBinding(t)
 			short, err := os.MkdirTemp("", "rr-")
@@ -417,11 +417,16 @@ func TestRecoverRealUnixWire(t *testing.T) {
 				w.Header().Set(netproxy.VersionHeader, netproxy.RecoveryAPI)
 				if r.Method == "GET" && r.URL.Path == "/v2/health" {
 					health.Add(1)
+					if kind == "clock-unavailable" {
+						w.WriteHeader(http.StatusServiceUnavailable)
+						_, _ = io.WriteString(w, `{"api":"netproxy-control/2","error":"clock_unavailable"}`)
+						return
+					}
 					registry := e.RegistryID
-					if kind == "service-mismatch" {
+					if kind == "service-mismatch" || kind == "not-ready-mismatch" {
 						registry = strings.Repeat("f", 64)
 					}
-					_ = json.NewEncoder(w).Encode(map[string]any{"api": netproxy.RecoveryAPI, "ready": true, "rule_set": "fixture", "key_mode": "fixture", "registry_id": registry, "boot": "observed-boot", "now_ns": "100", "recovery": netproxy.RecoveryProtocol})
+					_ = json.NewEncoder(w).Encode(map[string]any{"api": netproxy.RecoveryAPI, "ready": !strings.HasPrefix(kind, "not-ready"), "rule_set": "fixture", "key_mode": "fixture", "registry_id": registry, "boot": "observed-boot", "now_ns": "100", "recovery": netproxy.RecoveryProtocol})
 					return
 				}
 				recoveries.Add(1)
@@ -449,7 +454,7 @@ func TestRecoverRealUnixWire(t *testing.T) {
 			go func() { defer close(done); _ = server.Serve(listener) }()
 			t.Cleanup(func() { _ = server.Close(); <-done })
 			got, err := n.RecoverExact(bounded(t), e.AttemptID, b, "recover")
-			if kind == "valid" || kind == "cancelled-before-issue" {
+			if kind == "valid" || kind == "not-ready" || kind == "cancelled-before-issue" {
 				if err != nil || !got.Confirmed || got.Receipt == nil {
 					t.Fatal("valid authenticated receipt refused")
 				}
@@ -457,13 +462,13 @@ func TestRecoverRealUnixWire(t *testing.T) {
 				t.Fatal("RECOVERY RECEIPT ALARM: unconfirmed service certified")
 			}
 			want := int32(1)
-			if kind == "service-mismatch" {
+			if kind == "service-mismatch" || kind == "not-ready-mismatch" || kind == "clock-unavailable" {
 				want = 0
 			}
 			if health.Load() != 1 || recoveries.Load() != want {
 				t.Fatal("unexpected service request count")
 			}
-			if kind == "valid" || kind == "cancelled-before-issue" {
+			if kind == "valid" || kind == "not-ready" || kind == "cancelled-before-issue" {
 				assertEnvelopeRetained(t, b, e, before)
 			} else {
 				assertAuthorityUnchanged(t, b, e, before)

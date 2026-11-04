@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/hex"
 	"errors"
 	"io"
 	"reflect"
@@ -13,6 +14,27 @@ import (
 	"github.com/relux-works/curator-agent-launcher/internal/configfile"
 	"github.com/relux-works/curator-agent-launcher/internal/recoveryjournal"
 )
+
+// Read only the public selector an operator receives, never the private journal
+// or the service fixture. Repeated diagnostics must name the same attempt.
+func publicRecoveryAttempt(t *testing.T, diagnostic []byte) string {
+	t.Helper()
+	var attempt string
+	for _, field := range strings.Fields(string(diagnostic)) {
+		if !strings.HasPrefix(field, "attempt=") {
+			continue
+		}
+		id := strings.TrimPrefix(field, "attempt=")
+		if raw, err := hex.DecodeString(id); err != nil || len(raw) != 32 || hex.EncodeToString(raw) != id || (attempt != "" && attempt != id) {
+			t.Fatal("RECOVERY SELECTOR ALARM: invalid or ambiguous public attempt")
+		}
+		attempt = id
+	}
+	if attempt == "" {
+		t.Fatal("RECOVERY SELECTOR ALARM: failed operation omitted public attempt")
+	}
+	return attempt
+}
 
 func forbiddenGatewayDeps(t *testing.T) launchDeps {
 	t.Helper()
@@ -107,6 +129,9 @@ func TestGatewayRecoveryOutcomeBoundaries(t *testing.T) {
 			if strings.Contains(errOut.String(), "service confirmed") != tc.confirmed {
 				t.Fatal("service observation confused with local persistence")
 			}
+			if publicRecoveryAttempt(t, []byte(errOut.String())) != strings.Repeat("a", 64) {
+				t.Fatal("failure diagnostic changed the selected public attempt")
+			}
 		})
 	}
 }
@@ -132,6 +157,9 @@ func TestGatewayRecoveryOutputFailure(t *testing.T) {
 		var errOut strings.Builder
 		if got := run(context.Background(), []string{"gateway", "recover", "--attempt", strings.Repeat("a", 64)}, recoveryBrokenWriter{short}, &errOut, deps); got != 1 || !strings.Contains(errOut.String(), recoveryjournal.CodeLocalEvidence) {
 			t.Fatal("lost output certified command success")
+		}
+		if publicRecoveryAttempt(t, []byte(errOut.String())) != strings.Repeat("a", 64) {
+			t.Fatal("lost output omitted the original recovery selector")
 		}
 	}
 }

@@ -66,7 +66,7 @@ func runGatewayRecovery(ctx context.Context, args []string, stdout, stderr io.Wr
 			detail = "gateway service confirmed " + result.outcome + "; local evidence failed; original recovery envelope retained"
 		}
 	}
-	_ = diagnostics.Emit(stderr, code, detail)
+	_ = diagnostics.Emit(stderr, code, "attempt="+inv.GatewayRecovery.Attempt+" "+detail)
 	return diagnostics.ExitOperational
 }
 
