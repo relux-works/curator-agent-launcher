@@ -1,0 +1,73 @@
+[
+  {
+    "name": "complete",
+    "valid": true,
+    "document": {
+      "execution": "execution-1",
+      "controller_epoch": "1",
+      "runner_instance": "runner-1",
+      "native_thread": "thread-1",
+      "member_ref": "member-1",
+      "connection_ref": "connection-1",
+      "configuration_ref": "configuration-1",
+      "profile_lock_ref": "lock-1",
+      "consumer_generation": "generation-1",
+      "enrollment_ref": "enrollment-1",
+      "workflow_reference": "work-1",
+      "workflow_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  },
+  {
+    "name": "maximum-epoch",
+    "valid": true,
+    "document": {
+      "execution": "execution-1",
+      "controller_epoch": "18446744073709551615",
+      "runner_instance": "runner-1",
+      "native_thread": "thread-1",
+      "member_ref": "member-1",
+      "connection_ref": "connection-1",
+      "configuration_ref": "configuration-1",
+      "profile_lock_ref": "lock-1",
+      "consumer_generation": "generation-1",
+      "enrollment_ref": "enrollment-1",
+      "workflow_reference": "work-1",
+      "workflow_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  },
+  {
+    "name": "epoch-overflow",
+    "valid": false,
+    "document": {
+      "execution": "execution-1",
+      "controller_epoch": "18446744073709551616",
+      "runner_instance": "runner-1",
+      "native_thread": "thread-1",
+      "member_ref": "member-1",
+      "connection_ref": "connection-1",
+      "configuration_ref": "configuration-1",
+      "profile_lock_ref": "lock-1",
+      "consumer_generation": "generation-1",
+      "enrollment_ref": "enrollment-1",
+      "workflow_reference": "work-1",
+      "workflow_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  },
+  {
+    "name": "partial-binding",
+    "valid": false,
+    "document": {
+      "execution": "execution-1",
+      "controller_epoch": "1",
+      "runner_instance": "runner-1",
+      "native_thread": "thread-1",
+      "member_ref": "member-1",
+      "connection_ref": "connection-1",
+      "configuration_ref": "configuration-1",
+      "profile_lock_ref": "lock-1",
+      "consumer_generation": "generation-1",
+      "workflow_reference": "work-1",
+      "workflow_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  }
+]

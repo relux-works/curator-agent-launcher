@@ -143,7 +143,28 @@ func validateFile(name string, value any, depth int) error {
 	if json.Unmarshal(data, &s) != nil {
 		return errors.New("invalid schema")
 	}
-	return check(s, value, "$", depth+1)
+	if err := check(s, value, "$", depth+1); err != nil {
+		return err
+	}
+	// JSON Schema maxLength counts code points. Notification references also
+	// have a UTF-8 byte ceiling, including through nested schema references.
+	// Shape validation above has already established a nonempty string.
+	switch name {
+	case "notification-member.schema.json":
+		member := value.(map[string]any)
+		if len(member["mxid"].(string)) > 255 || len(member["configuration_root"].(string)) > 4096 {
+			return errors.New("schema violation at $")
+		}
+	case "notification-ref.schema.json":
+		if len(value.(string)) > 512 {
+			return errors.New("schema violation at $")
+		}
+	case "notification-short-ref.schema.json":
+		if len(value.(string)) > 128 {
+			return errors.New("schema violation at $")
+		}
+	}
+	return nil
 }
 
 var keywords = map[string]bool{
