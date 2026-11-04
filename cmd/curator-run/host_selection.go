@@ -21,13 +21,14 @@ import (
 )
 
 type hostSelection struct {
-	client    client.Client
-	route     client.Route
-	terminal  *os.File
-	tail      []string
-	intent    agentic.ResumeIntent
-	describe  client.Describe
-	recovered bool
+	client       client.Client
+	route        client.Route
+	terminal     *os.File
+	tail         []string
+	intent       agentic.ResumeIntent
+	describe     client.Describe
+	recovered    bool
+	notification *notificationRequest
 }
 
 func emitHostFailure(w io.Writer, err error) int {
@@ -75,8 +76,19 @@ func resolveHost(ctx context.Context, inv cli.Invocation, frag *fragment.Fragmen
 	if mode == "" {
 		mode = "auto"
 	}
+	notificationHost := deps.selectedConfig.Notification != nil && deps.selectedConfig.Notification.Backend == "host"
 	if cli.ExplicitNative(inv.HostFlag) || (inv.HostFlag == "" && mode == "native") {
+		if notificationHost {
+			return result, errors.New("selected Host notification requires hosted execution")
+		}
+		if inv.MemberID != "" {
+			return result, errors.New("--member requires selected Host notification")
+		}
 		return result, nil
+	}
+	result.notification, err = plainNotification(ctx, inv, frag, deps)
+	if err != nil {
+		return result, err
 	}
 	explicit := inv.HostFlag == cli.HostFlagHosted || mode == "hosted"
 	checks := func() error {
@@ -144,7 +156,7 @@ func resolveHost(ctx context.Context, inv cli.Invocation, frag *fragment.Fragmen
 		return result, err
 	}
 	if state.Kind != "selected" {
-		if explicit {
+		if explicit || notificationHost {
 			reason := "no manager selected"
 			if state.Kind == "empty" {
 				reason = "no manager registered"
@@ -207,6 +219,7 @@ func resolveHost(ctx context.Context, inv cli.Invocation, frag *fragment.Fragmen
 		Runtime: frag.Environment, HostMode: mode, ExplicitHosted: inv.HostFlag == cli.HostFlagHosted,
 		Detached: inv.Detach, Resume: elevation.Intent.Kind != agentic.ResumeNew, BoardGoal: inv.BoardGoal,
 		DelegatedTrial: deps.launcherConfig.DelegatedTrial, SignedOff: client.Q1SignedOff, Doorbell: inv.A2A != "",
+		Notification: notificationHost,
 	})
 	if err != nil {
 		return result, err

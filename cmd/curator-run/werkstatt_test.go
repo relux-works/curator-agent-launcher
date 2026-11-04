@@ -264,6 +264,13 @@ func TestWerkstattBinary(t *testing.T) {
 					_ = os.Mkdir(clone, 0700)
 					frag, _ := os.ReadFile(filepath.Join(w.root, "fragment.json"))
 					writeFixture(t, filepath.Join(clone, "fragment.json"), frag, 0600)
+					// Core is queried in the actual clone, including for selected
+					// launcher metadata; preserve the same absent-intent fixture.
+					selected, err := os.ReadFile(filepath.Join(w.root, "selected-config.json"))
+					if err != nil {
+						t.Fatal(err)
+					}
+					writeFixture(t, filepath.Join(clone, "selected-config.json"), selected, 0600)
 					gitdir := filepath.Join(w.root, "git-state")
 					_ = os.Mkdir(gitdir, 0700)
 					target := clone
@@ -282,6 +289,11 @@ func TestWerkstattBinary(t *testing.T) {
 					_ = os.Mkdir(lexical, 0700)
 					frag, _ := os.ReadFile(filepath.Join(w.root, "fragment.json"))
 					writeFixture(t, filepath.Join(clone, "fragment.json"), frag, 0600)
+					selected, err := os.ReadFile(filepath.Join(w.root, "selected-config.json"))
+					if err != nil {
+						t.Fatal(err)
+					}
+					writeFixture(t, filepath.Join(clone, "selected-config.json"), selected, 0600)
 					w.record["clone"] = clone
 					if name == "physical-leak" || name == "lexical-leak" || name == "symlink-clean" {
 						alias := filepath.Join(lexical, "clone")

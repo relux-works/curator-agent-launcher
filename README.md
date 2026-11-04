@@ -203,6 +203,41 @@ in FRONT-DOOR §5.8; `delegated_trial` no longer changes routing. Exact-only
 managers refuse `session_home_lease_unavailable`, `reason=route_not_lease_capable`; missing runtime doorbell capabilities
 refuse before hook installation or start.
 
+When Core selects `notification.backend=host`, launch and resume require the
+manager's `curator-host-notification/1` capability. Plain invocations must select
+an existing record explicitly with `--member <id>` from the same record directory
+described above. There is no ambient member default. The record must contain an
+explicit matching runtime, profile, profile lock and physical workspace, plus
+the closed optional `notification` input:
+
+```json
+{
+  "member": {
+    "mxid": "@example.dev:example.test",
+    "agent_selector": "example.dev",
+    "connection": "example-connection",
+    "configuration_root": "/example/source"
+  },
+  "admission_reference": "retained-record-1",
+  "call_timeout_ms": 1234
+}
+```
+
+The timeout is explicit, from 1 to 60000 milliseconds. Core supplies the workflow
+reference and digest; an editable record cannot override them. Station
+preparation reads Core in the selected clone and environment once per operation.
+Plain `--member` copies only these expected notification fields: it preserves
+the requested model, effort and resume selector, carries no record child
+environment, and leaves `admission_key` null. Station operations retain their
+existing admission key. Host notification conflicts with `--a2a` or a record
+doorbell. A supplied `--member` without selected Host notification refuses.
+
+These fields are expected inputs, not admission. The continuing manager must
+independently resolve its configured actual record source and check its retained
+member, profile, workflow and operation before attachment effects. The launcher
+refuses missing or incompatible selection before manager contact on the plain
+path. Off or absent notification without `--member` preserves existing behavior.
+
 For Claude, the launcher runs the resolved absolute `a2a` executable with
 `hook install --agent <identity> --runtime claude --settings <staged file>`.
 Its invocation PATH choice is frozen and printed in diagnostics; relative
@@ -756,6 +791,7 @@ scope. Resolution always requests repair.
 | `--board-goal` | Hosted workspace goal request; requires `board-goal/1` |
 | `--detach` | Hosted launch without attach |
 | `--a2a <identity>` | Hosted runtime doorbell request; delegated route and per-runtime capability required |
+| `--member <existing-record-id>` | Explicit expected member input for Core-selected Host notification; no station admission or model/environment override |
 | `resume [SES-HANDLE]`, `--resume <id>` | Hosted-only resume selectors; usage errors in native mode |
 | `--profile <name>` | Curator profile, forwarded to environment resolution |
 | `--system-prompt <append\|replace>` | Explicit prompt-channel opt-in; unavailable semantics refuse the launch |

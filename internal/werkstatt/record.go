@@ -17,28 +17,29 @@ type Doorbell struct {
 	MaxWakesPerHour int    `json:"max_wakes_per_hour"`
 }
 type Record struct {
-	Schema            string            `json:"schema"`
-	ID                string            `json:"id"`
-	Project           string            `json:"project"`
-	Role              string            `json:"role"`
-	Runtime           string            `json:"runtime"`
-	Model             *string           `json:"model"`
-	Effort            *string           `json:"effort"`
-	WeightsID         *string           `json:"weights_id,omitempty"`
-	Profile           string            `json:"profile"`
-	ProfileLockSHA256 string            `json:"profile_lock_sha256,omitempty"`
-	Clone             string            `json:"clone"`
-	GitDir            string            `json:"git_dir,omitempty"`
-	Identity          string            `json:"identity"`
-	Room              string            `json:"room"`
-	Orchestrator      string            `json:"orchestrator"`
-	ContextMode       string            `json:"context_mode,omitempty"`
-	HarnessMemory     *bool             `json:"harness_memory,omitempty"`
-	Sandbox           string            `json:"sandbox"`
-	ChildEnv          map[string]string `json:"child_env,omitempty"`
-	TrustClass        string            `json:"trust_class"`
-	Doorbell          *Doorbell         `json:"doorbell"`
-	ConfigDecisionID  string            `json:"config_decision_id,omitempty"`
+	Schema            string             `json:"schema"`
+	ID                string             `json:"id"`
+	Project           string             `json:"project"`
+	Role              string             `json:"role"`
+	Runtime           string             `json:"runtime"`
+	Model             *string            `json:"model"`
+	Effort            *string            `json:"effort"`
+	WeightsID         *string            `json:"weights_id,omitempty"`
+	Profile           string             `json:"profile"`
+	ProfileLockSHA256 string             `json:"profile_lock_sha256,omitempty"`
+	Clone             string             `json:"clone"`
+	GitDir            string             `json:"git_dir,omitempty"`
+	Identity          string             `json:"identity"`
+	Room              string             `json:"room"`
+	Orchestrator      string             `json:"orchestrator"`
+	ContextMode       string             `json:"context_mode,omitempty"`
+	HarnessMemory     *bool              `json:"harness_memory,omitempty"`
+	Sandbox           string             `json:"sandbox"`
+	ChildEnv          map[string]string  `json:"child_env,omitempty"`
+	TrustClass        string             `json:"trust_class"`
+	Doorbell          *Doorbell          `json:"doorbell"`
+	Notification      *NotificationInput `json:"notification,omitempty"`
+	ConfigDecisionID  string             `json:"config_decision_id,omitempty"`
 }
 
 var idPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,47}$`)
