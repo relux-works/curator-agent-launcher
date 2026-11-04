@@ -18,6 +18,7 @@ type Selected struct {
 	ConfigPath   string
 	Proxy        *Proxy
 	ClaudeAuth   *ClaudeAuth
+	Notification *Notification
 }
 
 var ErrSelected = errors.New("invalid selected Core launcher configuration")
@@ -60,7 +61,7 @@ func readSelectedCommand(cmd *exec.Cmd) (Selected, error) {
 // Diagnostics deliberately omit all input bytes, including unknown member names.
 func ParseSelected(data []byte) (Selected, error) {
 	root, err := fragment.ParseJSON(data)
-	if err != nil || !exactMembers(root, "schema", "config_schema", "config_path", "extensions") || stringMember(root, "schema") != "curator.launcher-config/1" {
+	if err != nil || !exactMembers(root, "schema", "config_schema", "config_path", "extensions") {
 		return Selected{}, ErrSelected
 	}
 	version, _ := root.Get("config_schema")
@@ -69,6 +70,13 @@ func ParseSelected(data []byte) (Selected, error) {
 	}
 	switch version.Int {
 	case 1, 2, 3, 5, 7:
+		if stringMember(root, "schema") != "curator.launcher-config/1" {
+			return Selected{}, ErrSelected
+		}
+	case 8:
+		if stringMember(root, "schema") != "curator.launcher-config/2" {
+			return Selected{}, ErrSelected
+		}
 	default:
 		return Selected{}, ErrSelected
 	}
@@ -77,7 +85,7 @@ func ParseSelected(data []byte) (Selected, error) {
 		return Selected{}, ErrSelected
 	}
 	extensions, _ := root.Get("extensions")
-	if extensions.Kind != fragment.KindObject || (version.Int != 7 && len(extensions.Obj) != 0) {
+	if extensions.Kind != fragment.KindObject || (version.Int != 7 && version.Int != 8 && len(extensions.Obj) != 0) {
 		return Selected{}, ErrSelected
 	}
 	result := Selected{ConfigSchema: int(version.Int), ConfigPath: path}
@@ -87,6 +95,11 @@ func ParseSelected(data []byte) (Selected, error) {
 			result.Proxy, err = parseProxy(member.Value)
 		case "claude_auth":
 			result.ClaudeAuth, err = parseClaudeAuth(member.Value)
+		case "notification":
+			if version.Int != 8 {
+				return Selected{}, ErrSelected
+			}
+			result.Notification, err = parseNotification(member.Value)
 		default:
 			return Selected{}, ErrSelected
 		}

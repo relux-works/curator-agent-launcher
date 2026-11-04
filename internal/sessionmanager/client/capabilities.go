@@ -21,6 +21,7 @@ func RequiredForRequest(d Describe, operation string, request []byte, selection 
 		BoardGoal        string          `json:"board_goal"`
 		CredentialSource json.RawMessage `json:"credential_source"`
 		Doorbell         json.RawMessage `json:"doorbell"`
+		Notification     json.RawMessage `json:"notification"`
 	}
 	_ = json.Unmarshal(request, &value)
 	selection.Runtime, selection.Detached = value.Runtime, value.Detach
@@ -28,6 +29,9 @@ func RequiredForRequest(d Describe, operation string, request []byte, selection 
 	selection.BoardGoal = value.BoardGoal == "workspace"
 	selection.CredentialNode = string(value.CredentialSource) != "null"
 	selection.Doorbell = string(value.Doorbell) != "null"
+	// The optional closed object establishes intent only. Actual selected-member
+	// admission remains the continuing manager's independent responsibility.
+	selection.Notification = len(value.Notification) != 0
 	return Required(d, selection)
 }
 
@@ -40,7 +44,9 @@ type Needs struct {
 	Runtime, HostMode                                                                        string
 	Native, ExplicitHosted, Werkstatt, Detached, Resume, BoardGoal, CredentialNode, Doorbell bool
 	AttachAfter                                                                              bool
-	DelegatedTrial, SignedOff                                                                bool
+	// Notification is explicit Host intent, not proof of member admission.
+	Notification              bool
+	DelegatedTrial, SignedOff bool
 }
 type Route struct {
 	Kind         string
@@ -52,6 +58,12 @@ type Route struct {
 // the selected manager; exact support is never inferred across runtimes. This
 // function neither resolves a profile nor authorises a credential intake.
 func Required(d Describe, n Needs) (Route, error) {
+	if n.Notification && (n.Native || (!n.ExplicitHosted && !n.Werkstatt && n.HostMode == "native")) {
+		return Route{}, refusal("launch_plan_invalid", map[string]string{"reason": "notification_requires_hosted"})
+	}
+	if n.Notification && n.Doorbell {
+		return Route{}, refusal("launch_plan_invalid", map[string]string{"reason": "notification_doorbell_conflict"})
+	}
 	if n.Native || (!n.ExplicitHosted && !n.Werkstatt && n.HostMode == "native") {
 		return Route{Kind: "native"}, nil
 	}
@@ -68,7 +80,7 @@ func Required(d Describe, n Needs) (Route, error) {
 	route := "delegated"
 	launchCap := "launch-delegated/1"
 	launchOp := "launch"
-	if !n.Detached && !n.Doorbell && slices.Contains(operations, "launch-exact") {
+	if !n.Detached && !n.Doorbell && !n.Notification && slices.Contains(operations, "launch-exact") {
 		route = "exact"
 		launchCap = "launch-exact/2"
 		launchOp = "launch-exact"
@@ -103,6 +115,9 @@ func Required(d Describe, n Needs) (Route, error) {
 	if n.Resume {
 		need("resume/1", "resume")
 	}
+	if n.Notification {
+		need("curator-host-notification/1", "")
+	}
 	if n.BoardGoal {
 		need("board-goal/1", "")
 	}
@@ -132,7 +147,7 @@ func Required(d Describe, n Needs) (Route, error) {
 	sort.Strings(required)
 	if route == "delegated" && !n.SignedOff {
 		switch {
-		case n.ExplicitHosted || n.Werkstatt:
+		case n.ExplicitHosted || n.Werkstatt || n.Notification:
 			if !n.DelegatedTrial {
 				return Route{}, refusal("session_host_delegated_unauthorized", nil)
 			}

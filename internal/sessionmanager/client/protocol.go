@@ -95,21 +95,22 @@ type Draining struct {
 // have no evidence and decode to zero values; only its handle, manager and
 // index labels may be used. The schema enforces the exact null projection.
 type Session struct {
-	Protocol       string            `json:"protocol,omitempty"`
-	OK             bool              `json:"ok,omitempty"`
-	Session        string            `json:"session"`
-	OperationID    string            `json:"operation_id"`
-	Manager        string            `json:"manager"`
-	Runtime        string            `json:"runtime"`
-	Readable       bool              `json:"readable"`
-	NativeID       *string           `json:"native_id"`
-	State          string            `json:"state"`
-	Labels         map[string]string `json:"labels"`
-	Generation     int64             `json:"generation"`
-	StartedAt      string            `json:"started_at"`
-	LastActivityAt *string           `json:"last_activity_at"`
-	Doorbell       Doorbell          `json:"doorbell"`
-	Draining       *Draining         `json:"draining,omitempty"`
+	Protocol       string              `json:"protocol,omitempty"`
+	OK             bool                `json:"ok,omitempty"`
+	Session        string              `json:"session"`
+	OperationID    string              `json:"operation_id"`
+	Manager        string              `json:"manager"`
+	Runtime        string              `json:"runtime"`
+	Readable       bool                `json:"readable"`
+	NativeID       *string             `json:"native_id"`
+	State          string              `json:"state"`
+	Labels         map[string]string   `json:"labels"`
+	Generation     int64               `json:"generation"`
+	StartedAt      string              `json:"started_at"`
+	LastActivityAt *string             `json:"last_activity_at"`
+	Doorbell       Doorbell            `json:"doorbell"`
+	Draining       *Draining           `json:"draining,omitempty"`
+	Notification   *NotificationResult `json:"notification,omitempty"`
 }
 type Outcome struct {
 	Outcome string   `json:"outcome"`
@@ -248,7 +249,7 @@ func DecodeResponse(operation string, request, body []byte, exit int, manager st
 		}
 		_ = json.Unmarshal(request, &filter)
 		for _, record := range result.Page.Sessions {
-			if record.Manager != manager {
+			if record.Manager != manager || !notificationMatchesSession(&record) {
 				return Response{}, protocolError()
 			}
 			for key, value := range filter.Labels {
@@ -283,6 +284,12 @@ func DecodeResponse(operation string, request, body []byte, exit int, manager st
 		(correlation.Session != "" && record.Session != correlation.Session) ||
 		(correlation.Runtime != "" && record.Runtime != correlation.Runtime) ||
 		(correlation.ExpectedGeneration != 0 && record.Generation != correlation.ExpectedGeneration)) {
+		return Response{}, protocolError()
+	}
+	if record != nil && !notificationMatchesSession(record) {
+		return Response{}, protocolError()
+	}
+	if !notificationMatchesRequest(operation, request, record) {
 		return Response{}, protocolError()
 	}
 	if operation == "status" && result.Session != nil {

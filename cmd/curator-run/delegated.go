@@ -37,7 +37,7 @@ func nullable(s string) any {
 // delegatedRequest projects resolved policy values, never the composed child
 // environment or argv. The plugin resolves the same profile and composes it;
 // native_tail contains only the module's selector-free elevation result.
-func delegatedRequest(inv cli.Invocation, frag *fragment.Fragment, resolved defaults.Resolved, permission execution.PermissionDecision, cwd string, tail []string, intent agentic.ResumeIntent, at time.Time) (string, []byte, error) {
+func delegatedRequest(inv cli.Invocation, frag *fragment.Fragment, resolved defaults.Resolved, permission execution.PermissionDecision, cwd string, tail []string, intent agentic.ResumeIntent, at time.Time, notification *notificationRequest) (string, []byte, error) {
 	id, err := operationID()
 	if err != nil {
 		return "", nil, err
@@ -53,6 +53,12 @@ func delegatedRequest(inv cli.Invocation, frag *fragment.Fragment, resolved defa
 	}
 	if inv.A2A != "" {
 		request["doorbell"] = map[string]any{"identity": inv.A2A, "heartbeat": "1m", "max_wakes_per_hour": 6}
+	}
+	if notification != nil {
+		if inv.A2A != "" {
+			return "", nil, hostError("launch_plan_invalid", nil)
+		}
+		request["notification"] = notification
 	}
 	op := "launch"
 	if intent.Kind != agentic.ResumeNew {
@@ -111,7 +117,7 @@ func runDelegated(ctx context.Context, inv cli.Invocation, frag *fragment.Fragme
 	if deps.hostedSelection.client.CWD != "" {
 		cwd = deps.hostedSelection.client.CWD
 	}
-	op, data, err := delegatedRequest(inv, frag, resolved, permission, cwd, tail, intent, now())
+	op, data, err := delegatedRequest(inv, frag, resolved, permission, cwd, tail, intent, now(), deps.hostedSelection.notification)
 	if err != nil {
 		return emitHostFailure(stderr, err)
 	}

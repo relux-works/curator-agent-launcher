@@ -24,6 +24,7 @@ const Name = "curator-run"
 const Usage = `usage: curator-run <env-id> [--hosted | --native | --untracked]
                    [resume [SES-HANDLE]] [--resume <id>]
                    [--profile <name>] [--system-prompt <append|replace>]
+                   [--member <existing-record-id>]
                    [--model <model>] [--effort <effort>]
                    [--permissions <native|yolo> | --yolo]
                    [--network <profile>] [--network-policy <policy>]
@@ -189,8 +190,10 @@ type Invocation struct {
 
 	// HostFlag is the literal host request: --hosted, --native, or
 	// --untracked; empty when no host flag was given.
-	HostFlag          string
-	A2A               string
+	HostFlag string
+	A2A      string
+	// MemberID selects expected notification data, never station admission.
+	MemberID          string
 	BoardGoal, Detach bool
 	// ResumeRequested reports the `resume` positional selector; ResumeHandle
 	// carries its optional SES handle verbatim (ResumeHandleSet tells
@@ -267,6 +270,7 @@ var a2aIdentityPattern = regexp.MustCompile(`^[a-z0-9._=-]{1,64}$`)
 var binaryDigestPattern = regexp.MustCompile(`^[0-9a-f]{64}$`)
 
 var valueFlags = map[string]bool{
+	"--member":            true,
 	"--profile":           true,
 	"--system-prompt":     true,
 	"--model":             true,
@@ -475,6 +479,11 @@ func Parse(args []string) (Invocation, error) {
 // set stores one validated flag value.
 func (inv *Invocation) set(flag, value string) error {
 	switch flag {
+	case "--member":
+		if !werkstattcommand.ValidID(value) {
+			return usageErr("invalid --member record id")
+		}
+		inv.MemberID = value
 	case "--a2a":
 		if !a2aIdentityPattern.MatchString(value) {
 			return usageErr("invalid --a2a identity")

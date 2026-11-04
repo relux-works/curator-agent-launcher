@@ -59,7 +59,9 @@ func TestSelectedCoreCommandHelper(t *testing.T) {
 			os.Exit(4)
 		}
 	}
-	if mode == "malformed" {
+	if strings.HasPrefix(mode, "notification") {
+		fmt.Print(notificationProjection(notificationHostFixture))
+	} else if mode == "malformed" {
 		fmt.Print(`{"PRIVATE_KEY":"PRIVATE_VALUE"}`)
 	} else {
 		fmt.Print(`{"schema":"curator.launcher-config/1","config_schema":7,"config_path":"selected/config.json","extensions":{"proxy":{"profile":"filtered"}}}`)
@@ -68,7 +70,7 @@ func TestSelectedCoreCommandHelper(t *testing.T) {
 		}
 	}
 	fmt.Fprint(os.Stderr, "PRIVATE_BACKEND_DETAIL")
-	if mode == "failed" {
+	if mode == "failed" || mode == "notification-failed" {
 		os.Exit(1)
 	}
 	os.Exit(0)

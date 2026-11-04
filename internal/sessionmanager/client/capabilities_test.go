@@ -105,7 +105,7 @@ func TestNeededCapabilities(t *testing.T) {
 // booleans; selection policy alone controls activation.
 func TestRequestDerivedNeeds(t *testing.T) {
 	d := delegatedDescription()
-	r, err := RequiredForRequest(d, "launch", document(t, "launch"), Needs{DelegatedTrial: true, Runtime: "absent", Detached: true, BoardGoal: true, CredentialNode: true, Doorbell: true, Resume: true})
+	r, err := RequiredForRequest(d, "launch", document(t, "launch"), Needs{DelegatedTrial: true, Runtime: "absent", Detached: true, BoardGoal: true, CredentialNode: true, Doorbell: true, Resume: true, Notification: true})
 	if err != nil || !slices.Equal(r.Capabilities, []string{"admission/1", "attach/1", "launch-delegated/1", "status/1"}) {
 		t.Fatal("request needs not derived", r, err)
 	}

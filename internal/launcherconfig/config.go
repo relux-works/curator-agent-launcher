@@ -47,7 +47,7 @@ func parse(data []byte, userSystemPath string) (Config, error) {
 		return Config{}, fmt.Errorf("root must be an object")
 	}
 	if userSystemPath != "" {
-		for _, name := range []string{"host_mode", "delegated_trial", "proxy", "claude_auth"} {
+		for _, name := range []string{"host_mode", "delegated_trial", "proxy", "claude_auth", "notification"} {
 			if _, ok := root.Get(name); ok {
 				return Config{}, fmt.Errorf("%s is machine-only; configure %s", name, userSystemPath)
 			}
@@ -76,7 +76,7 @@ func parse(data []byte, userSystemPath string) (Config, error) {
 				return Config{}, fmt.Errorf("delegated_trial must be a boolean")
 			}
 			result.DelegatedTrial, result.DelegatedTrialSet = member.Value.Bool, true
-		case "proxy", "claude_auth":
+		case "proxy", "claude_auth", "notification":
 			return Config{}, fmt.Errorf("launcher selections require the Core-selected machine configuration")
 		default:
 			return Config{}, fmt.Errorf("unknown launcher configuration member")

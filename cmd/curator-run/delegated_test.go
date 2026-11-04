@@ -23,7 +23,7 @@ func TestDelegatedProjection(t *testing.T) {
 	resolved := defaults.Resolved{SelectorDecisionID: "decision/@+1", Model: defaults.ResolvedMember{Member: defaults.Member{Value: "claude-opus-5"}}, Effort: defaults.ResolvedMember{Member: defaults.Member{Value: "medium"}}}
 	permission := execution.PermissionDecision{Mode: agentic.PermissionModeYolo, Source: "flag"}
 	at := time.Date(2026, 1, 2, 3, 4, 5, 123456789, time.FixedZone("offset", 3600))
-	op, data, err := delegatedRequest(inv, frag, resolved, permission, "/workspace", []string{"hello"}, agentic.ResumeIntent{Kind: agentic.ResumeNew}, at)
+	op, data, err := delegatedRequest(inv, frag, resolved, permission, "/workspace", []string{"hello"}, agentic.ResumeIntent{Kind: agentic.ResumeNew}, at, nil)
 	if err != nil || op != "launch" {
 		t.Fatal(op, err)
 	}
@@ -45,7 +45,7 @@ func TestDelegatedProjection(t *testing.T) {
 		t.Fatal("board goal capability not required", err)
 	}
 	handle := "SES-example"
-	op, data, err = delegatedRequest(inv, frag, resolved, permission, "/workspace", []string{"ignored"}, agentic.ResumeIntent{Kind: agentic.ResumeHandle, Identity: &handle}, at)
+	op, data, err = delegatedRequest(inv, frag, resolved, permission, "/workspace", []string{"ignored"}, agentic.ResumeIntent{Kind: agentic.ResumeHandle, Identity: &handle}, at, nil)
 	if err != nil || op != "resume" {
 		t.Fatal(op, err)
 	}
@@ -81,7 +81,7 @@ func TestDelegatedProjectionRejects(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			copyFrag := *frag
 			copyFrag.Digest = tc.digest
-			_, _, err := delegatedRequest(inv, &copyFrag, defaults.Resolved{SelectorDecisionID: tc.decision}, permission, "/workspace", tc.tail, agentic.ResumeIntent{Kind: agentic.ResumeNew}, time.Now())
+			_, _, err := delegatedRequest(inv, &copyFrag, defaults.Resolved{SelectorDecisionID: tc.decision}, permission, "/workspace", tc.tail, agentic.ResumeIntent{Kind: agentic.ResumeNew}, time.Now(), nil)
 			if tc.name == "valid" {
 				if err != nil {
 					t.Fatal(err)

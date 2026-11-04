@@ -202,6 +202,21 @@ func prepareWerkstatt(ctx context.Context, r *werkstatt.Record, c werkstatt.Comm
 	if err = fragment.CheckLaunchRevision(frag); err != nil {
 		return werkstatt.Prepared{}, err
 	}
+	// Resolve Core in the actual selected clone/environment once, independently
+	// of the editable record's expected member fields.
+	var selected launcherconfig.Selected
+	if deps.readSelectedConfig != nil {
+		selected, err = deps.readSelectedConfig(ctx)
+	} else {
+		selected, err = launcherconfig.ReadSelected(ctx, r.Clone, env)
+	}
+	if err != nil {
+		return werkstatt.Prepared{}, launcherconfig.ErrSelected
+	}
+	notification, err := notificationFromRecord(selected.Notification, r, frag, r.Clone, false)
+	if err != nil {
+		return werkstatt.Prepared{}, err
+	}
 	files, err := defaults.LoadResolved(config)
 	if err != nil {
 		return werkstatt.Prepared{}, err
@@ -295,7 +310,7 @@ func prepareWerkstatt(ctx context.Context, r *werkstatt.Record, c werkstatt.Comm
 	if err != nil {
 		return werkstatt.Prepared{}, err
 	}
-	_, data, err := delegatedRequest(inv, frag, resolved, permission, physicalClone, []string{}, intent, at)
+	_, data, err := delegatedRequest(inv, frag, resolved, permission, physicalClone, []string{}, intent, at, notification)
 	if err != nil {
 		return werkstatt.Prepared{}, err
 	}
