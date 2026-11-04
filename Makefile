@@ -1,7 +1,7 @@
 GO ?= go
 GOFMT ?= gofmt
 
-.PHONY: build fmt-check vet test race check clean release-binary release-repro release-gate-test
+.PHONY: build fmt-check vet test race verify check clean release-binary release-repro release-gate-test
 
 # Reproducible release binary for the signed Curator distribution
 # (FRONT-DOOR §10). Curator's release workflow calls it per platform, then
@@ -28,36 +28,17 @@ unexport GOARCH
 endif
 endif
 
-build:
-	$(GO) build ./...
-	$(GO) -C schemas/session-manager build ./...
-
-# Fails when any Go file is not gofmt-clean; prints the offenders.
-fmt-check:
-	@unformatted="$$($(GOFMT) -l cmd internal schemas)"; \
-	if [ -n "$$unformatted" ]; then \
-		echo "gofmt: files need formatting:"; echo "$$unformatted"; exit 1; \
-	fi
-
-vet:
-	$(GO) vet ./...
-	$(GO) -C schemas/session-manager vet ./...
-
 # cmd/curator-run builds and drives the real binary; on a loaded host it has
 # run close to go test's default 10m per-package limit. 13m stays inside the
 # hosted test job's 15-minute budget, so a slow package still fails with a Go
 # timeout stack rather than a killed job.
-test:
-	$(GO) test ./... -count=1 -timeout=13m
-	$(GO) -C schemas/session-manager test ./... -count=1
-
 # Conformance includes deliberate deadline controls; leave race-runner margin.
 # This per-package bound remains below the hosted race job's 15-minute limit.
-race:
-	$(GO) test ./... -count=1 -race -timeout=12m
-	$(GO) -C schemas/session-manager test ./... -count=1 -race -timeout=12m
-
-check: build fmt-check vet test race release-gate-test
+# Each selected lane runs even after another fails; the collector reports all
+# verdicts and returns nonzero for any failure or unavailable tool. verify is
+# the hosted non-race selection; check also includes the race lanes.
+build fmt-check vet test race verify check:
+	$(GO) run ./scripts/validate -target $@ -go '$(GO)' -gofmt '$(GOFMT)'
 
 clean:
 	$(GO) clean ./...

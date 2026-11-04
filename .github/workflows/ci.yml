@@ -35,20 +35,8 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - name: gofmt check
-        run: make fmt-check
-
-      - name: go build
-        run: make build
-
-      - name: go vet
-        run: make vet
-
-      - name: go test
-        run: make test
-
-      - name: Release admission controls
-        run: make release-gate-test
+      - name: Build, format, vet, test and release admission controls
+        run: make verify
 
   race:
     name: Race (${{ matrix.os }})

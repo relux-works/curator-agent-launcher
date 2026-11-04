@@ -1307,10 +1307,19 @@ make fmt-check  # gofmt -l over cmd, internal and schemas; fails on unformatted 
 make vet        # go vet ./...
 make test       # go test ./... -count=1 (includes the CLI goldens)
 make race       # go test ./... -count=1 -race -timeout=12m (per package)
+make verify     # build, formatting, vet, test and release admission controls
 make check      # all of the above
 make release-binary VERSION=0.6.0 [GOOS=… GOARCH=…]  # reproducible binary + .sha256 in dist/
 make release-repro                                 # two checkouts, identical bytes required
 ```
+
+Validation targets run every selected lane after a failure and print a final
+`PASS`, `FAIL` or `UNAVAILABLE` verdict for each. `build`, `vet`, `test` and
+`race` each cover the root and session-manager schema modules. `verify` collects
+the hosted non-race checks; `check` adds both race lanes. Any failed or unavailable
+lane makes the target fail. A collector compilation or setup failure stops the
+target before validation starts. External cancellation and job timeouts can still
+interrupt collection.
 
 `make release-binary` produces the binary that Curator's signed distribution
 ships (FRONT-DOOR §10). It builds with `CGO_ENABLED=0`, `-trimpath`,
@@ -1556,6 +1565,7 @@ five signing secrets.
 | `internal/memberobjects` | bounded explicit O collection, immutable bytes and owned readonly CLOEXEC handles; explicit recheck/Close, cooperative freeze only | `go test ./internal/memberobjects`; included in existing PR test/race jobs | test stdout and owned TempDir fixtures only; no admission/native execution |
 | `internal/memberinput` | bounded offset-independent N/A handle byte snapshots on Darwin/Linux; caller-owned cooperative freeze, no full custody/admission | `go test ./internal/memberinput`; included in existing PR test/race jobs | test stdout and owned TempDir files only; no native execution |
 | `go` (build, vet, test, race) | build and behavioral suite | `make check` and the targets above | stdout; nothing written to the tree |
+| Go validation collector | run all selected lanes and retain an aggregate failure | `make verify`, `make check`; `go test ./scripts/validate` for orchestration controls | per-lane output and final verdicts on stdout/stderr; release controls use isolated `.temp/` fixtures |
 | `make release-binary` | reproducible release binary for the Curator distribution | `make release-binary VERSION=<semver> [GOOS=… GOARCH=…] [DIST=dist]` | `dist/curator-run-<version>-<os>-<arch>` and `.sha256` (gitignored) |
 | GoReleaser v2.17.0 | four-platform archives, Linux deb/rpm and a Homebrew formula generated without tap upload; optional Darwin Developer ID signing/notarization, then checksum-only keyless cosign | `goreleaser check`; `goreleaser release --snapshot --clean --skip=sign,notarize,publish` | `dist/` (gitignored); snapshot is unsigned and never published |
 | Homebrew and package inspection | generated-formula style and read-only deb/rpm payload inspection; not needed on the release runner | `HOMEBREW_NO_AUTO_UPDATE=1 brew style dist/homebrew/Formula/curator-run.rb` (requires Homebrew's style gems); `dpkg-deb -c <package.deb>`; `rpm -qlp <package.rpm>` | stdout; extraction for byte comparison stays under `.temp/` |
