@@ -37,8 +37,11 @@ endif
 # Each selected lane runs even after another fails; the collector reports all
 # verdicts and returns nonzero for any failure or unavailable tool. verify is
 # the hosted non-race selection; check also includes the race lanes.
+# Preserve target values as data while go run builds a host-native collector.
+export VALIDATE_GOOS := $(value GOOS)
+export VALIDATE_GOARCH := $(value GOARCH)
 build fmt-check vet test race verify check:
-	$(GO) run ./scripts/validate -target $@ -go '$(GO)' -gofmt '$(GOFMT)'
+	GOOS=$$($(GO) env GOHOSTOS) GOARCH=$$($(GO) env GOHOSTARCH) $(GO) run ./scripts/validate -target $@ -go '$(GO)' -gofmt '$(GOFMT)' -target-env
 
 clean:
 	$(GO) clean ./...

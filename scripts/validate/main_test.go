@@ -11,9 +11,16 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 )
+
+type processTrace struct {
+	Args   []string `json:"args"`
+	GOOS   string   `json:"goos"`
+	GOARCH string   `json:"goarch"`
+}
 
 // This test executable doubles as a Go/gofmt process fixture. The real Go
 // compiler runs the shipped collector; only its validation children are faked.
@@ -22,7 +29,7 @@ func TestMain(m *testing.M) {
 		os.Exit(m.Run())
 	}
 	args := os.Args[1:]
-	if len(args) > 0 && args[0] == "run" {
+	if len(args) > 0 && (args[0] == "run" || args[0] == "env") {
 		cmd := exec.Command(filepath.Join(runtime.GOROOT(), "bin", "go"), args...)
 		cmd.Stdout, cmd.Stderr, cmd.Env = os.Stdout, os.Stderr, os.Environ()
 		if err := cmd.Run(); err != nil {
@@ -35,10 +42,20 @@ func TestMain(m *testing.M) {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(91)
 	}
-	if err := json.NewEncoder(f).Encode(args); err != nil {
+	if err := json.NewEncoder(f).Encode(processTrace{Args: args, GOOS: os.Getenv("GOOS"), GOARCH: os.Getenv("GOARCH")}); err != nil {
 		os.Exit(92)
 	}
 	f.Close()
+	if output := os.Getenv("VALIDATE_FORMAT_OUTPUT"); output != "" {
+		fmt.Fprint(os.Stdout, output)
+	}
+	if code := os.Getenv("VALIDATE_FORMAT_EXIT"); code != "" {
+		n, err := strconv.Atoi(code)
+		if err != nil {
+			os.Exit(93)
+		}
+		os.Exit(n)
+	}
 	if os.Getenv("VALIDATE_RED_ROOT") == "1" && len(args) > 0 && args[0] != "-C" {
 		os.Exit(17)
 	}
@@ -136,11 +153,11 @@ func TestMakeModuleLanes(t *testing.T) {
 				}
 				var got [][]string
 				for _, row := range bytes.Split(bytes.TrimSpace(data), []byte{'\n'}) {
-					var a []string
+					var a processTrace
 					if err := json.Unmarshal(row, &a); err != nil {
 						t.Fatal(err)
 					}
-					got = append(got, a)
+					got = append(got, a.Args)
 				}
 				schema := append([]string{"-C", "schemas/session-manager"}, args...)
 				if target == "test" {
@@ -169,5 +186,141 @@ func TestMissingTool(t *testing.T) {
 	state, err := execute(lane{command: filepath.Join(t.TempDir(), "missing")}, &out, &out)
 	if state != "UNAVAILABLE" || err == nil {
 		t.Fatalf("state=%s error=%v", state, err)
+	}
+}
+
+// The Make entry compiles a host executable even with a foreign target, and
+// forwards the caller's target to all ten selected child processes. The release
+// child is also an inert Go fixture; this proves orchestration, not cross-tests.
+func TestMakeTargetEnvironment(t *testing.T) {
+	executable, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	root, err := filepath.Abs("../..")
+	if err != nil {
+		t.Fatal(err)
+	}
+	foreignOS, foreignArch := "linux", "amd64"
+	if runtime.GOOS == foreignOS {
+		foreignOS, foreignArch = "darwin", "arm64"
+	}
+	for _, tc := range []struct {
+		name, goos, goarch string
+		commandLine        bool
+	}{
+		{"default", "", "", false},
+		{"goenv-default", "", "", false},
+		{"host", runtime.GOOS, runtime.GOARCH, true},
+		{"foreign-environment", foreignOS, foreignArch, false},
+		{"os-only", foreignOS, "", true},
+		{"arch-only", "", foreignArch, false},
+		{"foreign-command-line", foreignOS, foreignArch, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			fixture := t.TempDir()
+			if err := os.MkdirAll(filepath.Join(fixture, "scripts", "validate"), 0755); err != nil {
+				t.Fatal(err)
+			}
+			for _, name := range []string{"Makefile", "scripts/validate/main.go"} {
+				data, err := os.ReadFile(filepath.Join(root, name))
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(fixture, name), data, 0644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err := os.WriteFile(filepath.Join(fixture, "go.mod"), []byte("module validate-fixture\n\ngo 1.24.0\n"), 0644); err != nil {
+				t.Fatal(err)
+			}
+			binary, err := os.ReadFile(executable)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(fixture, "scripts", "release-gate-test.sh"), binary, 0755); err != nil {
+				t.Fatal(err)
+			}
+			trace := filepath.Join(fixture, "trace.jsonl")
+			args := []string{"--no-print-directory", "GO=" + executable, "GOFMT=" + executable, "check"}
+			envOS, envArch := tc.goos, tc.goarch
+			if tc.commandLine {
+				// A command-line target must win over a conflicting inherited target.
+				envOS, envArch = "windows", "386"
+				args = append(args, "GOOS="+tc.goos, "GOARCH="+tc.goarch)
+			}
+			cmd := exec.Command("make", args...)
+			cmd.Dir = fixture
+			if tc.name == "goenv-default" {
+				targetConfig := filepath.Join(fixture, "goenv")
+				if err := os.WriteFile(targetConfig, []byte("GOOS="+foreignOS+"\nGOARCH="+foreignArch+"\n"), 0600); err != nil {
+					t.Fatal(err)
+				}
+				cmd.Env = append(os.Environ(), "GOENV="+targetConfig)
+			} else {
+				cmd.Env = os.Environ()
+			}
+			cmd.Env = append(cmd.Env, "GOWORK=off", "GOOS="+envOS, "GOARCH="+envArch, "VALIDATE_PROCESS_FIXTURE=1", "VALIDATE_TRACE="+trace, "VALIDATE_RED_ROOT=0", "VALIDATE_FORMAT_OUTPUT=", "VALIDATE_FORMAT_EXIT=")
+			output, err := cmd.CombinedOutput()
+			if err != nil {
+				t.Fatalf("host collector did not execute: %v\n%s", err, output)
+			}
+			data, err := os.ReadFile(trace)
+			if err != nil {
+				t.Fatal(err)
+			}
+			rows := bytes.Split(bytes.TrimSpace(data), []byte{'\n'})
+			if len(rows) != 10 {
+				t.Fatalf("selected child count=%d, want 10\n%s", len(rows), output)
+			}
+			for _, row := range rows {
+				var got processTrace
+				if err := json.Unmarshal(row, &got); err != nil {
+					t.Fatal(err)
+				}
+				if got.GOOS != tc.goos || got.GOARCH != tc.goarch {
+					t.Errorf("child %v target=%s/%s, want %s/%s", got.Args, got.GOOS, got.GOARCH, tc.goos, tc.goarch)
+				}
+			}
+		})
+	}
+}
+
+// A format process must reject both a listed file and a real nonzero exit;
+// the empty successful process prevents a reject-all implementation passing.
+func TestFormatExecution(t *testing.T) {
+	executable, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct{ name, output, exit, state string }{
+		{"files", "cmd/bad.go\ninternal/also-bad.go\n", "0", "FAIL"},
+		{"tool-error", "", "19", "FAIL"},
+		{"clean", "", "0", "PASS"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("VALIDATE_PROCESS_FIXTURE", "1")
+			t.Setenv("VALIDATE_TRACE", filepath.Join(t.TempDir(), "trace.jsonl"))
+			t.Setenv("VALIDATE_FORMAT_OUTPUT", tc.output)
+			t.Setenv("VALIDATE_FORMAT_EXIT", tc.exit)
+			selected, err := lanes("fmt-check", "unused-go", executable)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var out, errOut bytes.Buffer
+			state, err := execute(selected[0], &out, &errOut)
+			if state != tc.state || (err != nil) != (tc.state != "PASS") {
+				t.Fatalf("state=%s error=%v; want %s", state, err, tc.state)
+			}
+			if tc.output != "" && !strings.Contains(out.String(), "gofmt: files need formatting:\n"+tc.output) {
+				t.Fatalf("missing offending file list: %q", out.String())
+			}
+			if tc.exit != "0" {
+				var exitErr *exec.ExitError
+				if !errors.As(err, &exitErr) || exitErr.ExitCode() != 19 {
+					t.Fatalf("wrong format failure: %v", err)
+				}
+			}
+		})
 	}
 }

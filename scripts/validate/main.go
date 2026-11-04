@@ -123,11 +123,20 @@ func main() {
 	target := flag.String("target", "", "build, fmt-check, vet, test, race, verify or check")
 	goTool := flag.String("go", "go", "Go executable")
 	gofmt := flag.String("gofmt", "gofmt", "gofmt executable")
+	targetEnv := flag.Bool("target-env", false, "restore Make target environment for validation children")
 	flag.Parse()
 	selected, err := lanes(*target, *goTool, *gofmt)
 	if err != nil || flag.NArg() != 0 {
 		fmt.Fprintln(os.Stderr, "validation setup:", err, "unexpected positional arguments:", flag.Args())
 		os.Exit(2)
+	}
+	if *targetEnv {
+		for _, name := range []string{"GOOS", "GOARCH"} {
+			if err := os.Setenv(name, os.Getenv("VALIDATE_"+name)); err != nil {
+				fmt.Fprintln(os.Stderr, "validation target environment:", err)
+				os.Exit(2)
+			}
+		}
 	}
 	os.Exit(collect(selected, os.Stdout, os.Stderr, execute))
 }

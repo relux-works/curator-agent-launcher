@@ -1321,6 +1321,11 @@ lane makes the target fail. A collector compilation or setup failure stops the
 target before validation starts. External cancellation and job timeouts can still
 interrupt collection.
 
+The collector runs on the host even when `GOOS` or `GOARCH` selects another
+target. Validation children receive those target values; cross-target tests
+still need the usual executable support. `GO` and `GOFMT` each name one
+executable path, rather than a shell command with arguments.
+
 `make release-binary` produces the binary that Curator's signed distribution
 ships (FRONT-DOOR §10). It builds with `CGO_ENABLED=0`, `-trimpath`,
 `-buildvcs=false` and `-ldflags "-s -w -buildid= -X main.buildVersion=…"`, using
