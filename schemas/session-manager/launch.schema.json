@@ -317,6 +317,9 @@
     },
     "detach": {
       "type": "boolean"
+    },
+    "notification": {
+      "$ref": "urn:relux:curator-run:notification-request"
     }
   },
   "required": [

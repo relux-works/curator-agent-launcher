@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:relux:curator-run:notification-member",
+  "title": "notification-member 1.0.0",
+  "type": "object",
+  "properties": {
+    "mxid": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255,
+      "pattern": "^@[a-z0-9][a-z0-9._=-]{0,63}:[^\u0000- \u007f-\u009f]+$"
+    },
+    "agent_selector": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._=-]{0,63}$"
+    },
+    "connection": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+    },
+    "configuration_root": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096,
+      "pattern": "^[^\u0000-\u001f\u007f-\u009f]+$"
+    }
+  },
+  "required": [
+    "mxid",
+    "agent_selector",
+    "connection",
+    "configuration_root"
+  ],
+  "additionalProperties": false
+}

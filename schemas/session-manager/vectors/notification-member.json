@@ -1,0 +1,59 @@
+[
+  {
+    "name": "complete-selectors",
+    "valid": true,
+    "document": {
+      "mxid": "@fixture-agent:example.test",
+      "agent_selector": "fixture-agent",
+      "connection": "fixture-connection",
+      "configuration_root": "/fixture/source"
+    }
+  },
+  {
+    "name": "missing-mxid",
+    "valid": false,
+    "document": {
+      "agent_selector": "fixture-agent",
+      "connection": "fixture-connection",
+      "configuration_root": "/fixture/source"
+    }
+  },
+  {
+    "name": "missing-agent_selector",
+    "valid": false,
+    "document": {
+      "mxid": "@fixture-agent:example.test",
+      "connection": "fixture-connection",
+      "configuration_root": "/fixture/source"
+    }
+  },
+  {
+    "name": "missing-connection",
+    "valid": false,
+    "document": {
+      "mxid": "@fixture-agent:example.test",
+      "agent_selector": "fixture-agent",
+      "configuration_root": "/fixture/source"
+    }
+  },
+  {
+    "name": "missing-configuration_root",
+    "valid": false,
+    "document": {
+      "mxid": "@fixture-agent:example.test",
+      "agent_selector": "fixture-agent",
+      "connection": "fixture-connection"
+    }
+  },
+  {
+    "name": "authority-field",
+    "valid": false,
+    "document": {
+      "mxid": "@fixture-agent:example.test",
+      "agent_selector": "fixture-agent",
+      "connection": "fixture-connection",
+      "configuration_root": "/fixture/source",
+      "owner_pid": 123
+    }
+  }
+]

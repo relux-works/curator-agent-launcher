@@ -223,6 +223,9 @@
         "labels"
       ],
       "additionalProperties": false
+    },
+    "notification": {
+      "$ref": "urn:relux:curator-run:notification-request"
     }
   },
   "required": [

@@ -1,0 +1,189 @@
+[
+  {
+    "name": "closed-intent",
+    "valid": true,
+    "document": {
+      "contract": "curator-host-notification/1",
+      "backend": "host",
+      "workflow": {
+        "reference": "work-1",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "member": {
+        "mxid": "@fixture-agent:example.test",
+        "agent_selector": "fixture-agent",
+        "connection": "fixture-connection",
+        "configuration_root": "/fixture/source"
+      },
+      "admission_reference": "fixture-record",
+      "call_timeout_ms": 1
+    }
+  },
+  {
+    "name": "missing-contract",
+    "valid": false,
+    "document": {
+      "backend": "host",
+      "workflow": {
+        "reference": "work-1",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "member": {
+        "mxid": "@fixture-agent:example.test",
+        "agent_selector": "fixture-agent",
+        "connection": "fixture-connection",
+        "configuration_root": "/fixture/source"
+      },
+      "admission_reference": "fixture-record",
+      "call_timeout_ms": 1
+    }
+  },
+  {
+    "name": "missing-backend",
+    "valid": false,
+    "document": {
+      "contract": "curator-host-notification/1",
+      "workflow": {
+        "reference": "work-1",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "member": {
+        "mxid": "@fixture-agent:example.test",
+        "agent_selector": "fixture-agent",
+        "connection": "fixture-connection",
+        "configuration_root": "/fixture/source"
+      },
+      "admission_reference": "fixture-record",
+      "call_timeout_ms": 1
+    }
+  },
+  {
+    "name": "missing-workflow",
+    "valid": false,
+    "document": {
+      "contract": "curator-host-notification/1",
+      "backend": "host",
+      "member": {
+        "mxid": "@fixture-agent:example.test",
+        "agent_selector": "fixture-agent",
+        "connection": "fixture-connection",
+        "configuration_root": "/fixture/source"
+      },
+      "admission_reference": "fixture-record",
+      "call_timeout_ms": 1
+    }
+  },
+  {
+    "name": "missing-member",
+    "valid": false,
+    "document": {
+      "contract": "curator-host-notification/1",
+      "backend": "host",
+      "workflow": {
+        "reference": "work-1",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "admission_reference": "fixture-record",
+      "call_timeout_ms": 1
+    }
+  },
+  {
+    "name": "missing-admission_reference",
+    "valid": false,
+    "document": {
+      "contract": "curator-host-notification/1",
+      "backend": "host",
+      "workflow": {
+        "reference": "work-1",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "member": {
+        "mxid": "@fixture-agent:example.test",
+        "agent_selector": "fixture-agent",
+        "connection": "fixture-connection",
+        "configuration_root": "/fixture/source"
+      },
+      "call_timeout_ms": 1
+    }
+  },
+  {
+    "name": "missing-call_timeout_ms",
+    "valid": false,
+    "document": {
+      "contract": "curator-host-notification/1",
+      "backend": "host",
+      "workflow": {
+        "reference": "work-1",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "member": {
+        "mxid": "@fixture-agent:example.test",
+        "agent_selector": "fixture-agent",
+        "connection": "fixture-connection",
+        "configuration_root": "/fixture/source"
+      },
+      "admission_reference": "fixture-record"
+    }
+  },
+  {
+    "name": "no-caller-authority",
+    "valid": false,
+    "document": {
+      "contract": "curator-host-notification/1",
+      "backend": "host",
+      "workflow": {
+        "reference": "work-1",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "member": {
+        "mxid": "@fixture-agent:example.test",
+        "agent_selector": "fixture-agent",
+        "connection": "fixture-connection",
+        "configuration_root": "/fixture/source",
+        "owner_pid": 123
+      },
+      "admission_reference": "fixture-record",
+      "call_timeout_ms": 1
+    }
+  },
+  {
+    "name": "maximum-timeout",
+    "valid": true,
+    "document": {
+      "contract": "curator-host-notification/1",
+      "backend": "host",
+      "workflow": {
+        "reference": "work-1",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "member": {
+        "mxid": "@fixture-agent:example.test",
+        "agent_selector": "fixture-agent",
+        "connection": "fixture-connection",
+        "configuration_root": "/fixture/source"
+      },
+      "admission_reference": "fixture-record",
+      "call_timeout_ms": 60000
+    }
+  },
+  {
+    "name": "timeout-overflow",
+    "valid": false,
+    "document": {
+      "contract": "curator-host-notification/1",
+      "backend": "host",
+      "workflow": {
+        "reference": "work-1",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "member": {
+        "mxid": "@fixture-agent:example.test",
+        "agent_selector": "fixture-agent",
+        "connection": "fixture-connection",
+        "configuration_root": "/fixture/source"
+      },
+      "admission_reference": "fixture-record",
+      "call_timeout_ms": 60001
+    }
+  }
+]

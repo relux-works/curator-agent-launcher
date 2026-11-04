@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:relux:curator-run:notification-result",
+  "title": "notification-result 1.0.0",
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "contract": {
+          "const": "curator-host-notification/1"
+        },
+        "state": {
+          "const": "preparing"
+        },
+        "attachment_ref": {
+          "$ref": "urn:relux:curator-run:notification-ref"
+        },
+        "workflow_reference": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:/@+-]{1,128}$"
+        },
+        "workflow_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      },
+      "required": [
+        "contract",
+        "state",
+        "attachment_ref",
+        "workflow_reference",
+        "workflow_sha256"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "contract": {
+          "const": "curator-host-notification/1"
+        },
+        "state": {
+          "const": "ready"
+        },
+        "attachment_ref": {
+          "$ref": "urn:relux:curator-run:notification-ref"
+        },
+        "binding": {
+          "$ref": "urn:relux:curator-run:notification-binding"
+        }
+      },
+      "required": [
+        "contract",
+        "state",
+        "attachment_ref",
+        "binding"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "contract": {
+          "const": "curator-host-notification/1"
+        },
+        "state": {
+          "const": "unresolved"
+        },
+        "attachment_ref": {
+          "$ref": "urn:relux:curator-run:notification-ref"
+        },
+        "workflow_reference": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:/@+-]{1,128}$"
+        },
+        "workflow_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "reason": {
+          "enum": [
+            "observation-unavailable",
+            "attempt-unresolved"
+          ]
+        }
+      },
+      "required": [
+        "contract",
+        "state",
+        "attachment_ref",
+        "workflow_reference",
+        "workflow_sha256",
+        "reason"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "contract": {
+          "const": "curator-host-notification/1"
+        },
+        "state": {
+          "const": "off"
+        },
+        "reason": {
+          "const": "selection-disabled"
+        }
+      },
+      "required": [
+        "contract",
+        "state",
+        "reason"
+      ],
+      "additionalProperties": false
+    }
+  ]
+}
