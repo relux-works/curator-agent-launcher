@@ -40,6 +40,8 @@ endif
 # Preserve target values as data while go run builds a host-native collector.
 export VALIDATE_GOOS := $(value GOOS)
 export VALIDATE_GOARCH := $(value GOARCH)
+export VALIDATE_GOOS_SET := $(if $(filter undefined,$(origin GOOS)),,1)
+export VALIDATE_GOARCH_SET := $(if $(filter undefined,$(origin GOARCH)),,1)
 build fmt-check vet test race verify check:
 	GOOS=$$($(GO) env GOHOSTOS) GOARCH=$$($(GO) env GOHOSTARCH) $(GO) run ./scripts/validate -target $@ -go '$(GO)' -gofmt '$(GOFMT)' -target-env
 

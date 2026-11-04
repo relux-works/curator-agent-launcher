@@ -132,7 +132,13 @@ func main() {
 	}
 	if *targetEnv {
 		for _, name := range []string{"GOOS", "GOARCH"} {
-			if err := os.Setenv(name, os.Getenv("VALIDATE_"+name)); err != nil {
+			var err error
+			if os.Getenv("VALIDATE_"+name+"_SET") == "1" {
+				err = os.Setenv(name, os.Getenv("VALIDATE_"+name))
+			} else {
+				err = os.Unsetenv(name)
+			}
+			if err != nil {
 				fmt.Fprintln(os.Stderr, "validation target environment:", err)
 				os.Exit(2)
 			}

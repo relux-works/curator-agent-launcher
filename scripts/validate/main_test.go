@@ -17,9 +17,11 @@ import (
 )
 
 type processTrace struct {
-	Args   []string `json:"args"`
-	GOOS   string   `json:"goos"`
-	GOARCH string   `json:"goarch"`
+	Args      []string `json:"args"`
+	GOOS      string   `json:"goos"`
+	GOARCH    string   `json:"goarch"`
+	GOOSSet   bool     `json:"goos_set"`
+	GOARCHSet bool     `json:"goarch_set"`
 }
 
 // This test executable doubles as a Go/gofmt process fixture. The real Go
@@ -42,7 +44,9 @@ func TestMain(m *testing.M) {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(91)
 	}
-	if err := json.NewEncoder(f).Encode(processTrace{Args: args, GOOS: os.Getenv("GOOS"), GOARCH: os.Getenv("GOARCH")}); err != nil {
+	_, osSet := os.LookupEnv("GOOS")
+	_, archSet := os.LookupEnv("GOARCH")
+	if err := json.NewEncoder(f).Encode(processTrace{Args: args, GOOS: os.Getenv("GOOS"), GOARCH: os.Getenv("GOARCH"), GOOSSet: osSet, GOARCHSet: archSet}); err != nil {
 		os.Exit(92)
 	}
 	f.Close()
@@ -208,14 +212,16 @@ func TestMakeTargetEnvironment(t *testing.T) {
 	for _, tc := range []struct {
 		name, goos, goarch string
 		commandLine        bool
+		unsetOS, unsetArch bool
 	}{
-		{"default", "", "", false},
-		{"goenv-default", "", "", false},
-		{"host", runtime.GOOS, runtime.GOARCH, true},
-		{"foreign-environment", foreignOS, foreignArch, false},
-		{"os-only", foreignOS, "", true},
-		{"arch-only", "", foreignArch, false},
-		{"foreign-command-line", foreignOS, foreignArch, true},
+		{"default", "", "", false, true, true},
+		{"goenv-default", "", "", false, true, true},
+		{"explicit-empty", "", "", false, false, false},
+		{"host", runtime.GOOS, runtime.GOARCH, true, false, false},
+		{"foreign-environment", foreignOS, foreignArch, false, false, false},
+		{"os-only", foreignOS, "", true, false, true},
+		{"arch-only", "", foreignArch, false, true, false},
+		{"foreign-command-line", foreignOS, foreignArch, true, false, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			fixture := t.TempDir()
@@ -247,7 +253,12 @@ func TestMakeTargetEnvironment(t *testing.T) {
 			if tc.commandLine {
 				// A command-line target must win over a conflicting inherited target.
 				envOS, envArch = "windows", "386"
-				args = append(args, "GOOS="+tc.goos, "GOARCH="+tc.goarch)
+				if !tc.unsetOS {
+					args = append(args, "GOOS="+tc.goos)
+				}
+				if !tc.unsetArch {
+					args = append(args, "GOARCH="+tc.goarch)
+				}
 			}
 			cmd := exec.Command("make", args...)
 			cmd.Dir = fixture
@@ -260,7 +271,20 @@ func TestMakeTargetEnvironment(t *testing.T) {
 			} else {
 				cmd.Env = os.Environ()
 			}
-			cmd.Env = append(cmd.Env, "GOWORK=off", "GOOS="+envOS, "GOARCH="+envArch, "VALIDATE_PROCESS_FIXTURE=1", "VALIDATE_TRACE="+trace, "VALIDATE_RED_ROOT=0", "VALIDATE_FORMAT_OUTPUT=", "VALIDATE_FORMAT_EXIT=")
+			var cleanEnv []string
+			for _, entry := range cmd.Env {
+				if !strings.HasPrefix(entry, "GOOS=") && !strings.HasPrefix(entry, "GOARCH=") {
+					cleanEnv = append(cleanEnv, entry)
+				}
+			}
+			cmd.Env = cleanEnv
+			if !tc.unsetOS {
+				cmd.Env = append(cmd.Env, "GOOS="+envOS)
+			}
+			if !tc.unsetArch {
+				cmd.Env = append(cmd.Env, "GOARCH="+envArch)
+			}
+			cmd.Env = append(cmd.Env, "GOWORK=off", "VALIDATE_PROCESS_FIXTURE=1", "VALIDATE_TRACE="+trace, "VALIDATE_RED_ROOT=0", "VALIDATE_FORMAT_OUTPUT=", "VALIDATE_FORMAT_EXIT=")
 			output, err := cmd.CombinedOutput()
 			if err != nil {
 				t.Fatalf("host collector did not execute: %v\n%s", err, output)
@@ -278,8 +302,8 @@ func TestMakeTargetEnvironment(t *testing.T) {
 				if err := json.Unmarshal(row, &got); err != nil {
 					t.Fatal(err)
 				}
-				if got.GOOS != tc.goos || got.GOARCH != tc.goarch {
-					t.Errorf("child %v target=%s/%s, want %s/%s", got.Args, got.GOOS, got.GOARCH, tc.goos, tc.goarch)
+				if got.GOOS != tc.goos || got.GOARCH != tc.goarch || got.GOOSSet != !tc.unsetOS || got.GOARCHSet != !tc.unsetArch {
+					t.Errorf("child %v target=%s/%s set=%v/%v, want %s/%s set=%v/%v", got.Args, got.GOOS, got.GOARCH, got.GOOSSet, got.GOARCHSet, tc.goos, tc.goarch, !tc.unsetOS, !tc.unsetArch)
 				}
 			}
 		})
