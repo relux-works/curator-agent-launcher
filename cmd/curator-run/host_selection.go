@@ -88,7 +88,7 @@ func resolveHost(ctx context.Context, inv cli.Invocation, frag *fragment.Fragmen
 		// A hosted route cannot carry a network binding, explicit or the
 		// operator's filtering-gateway default; both refuse before any
 		// manager contact, resume and recovery included.
-		if inv.NetworkSet || deps.selectedConfig.Proxy != nil || deps.gatewayDefault {
+		if inv.NetworkSet || inv.GatewayRecoveryEnabled || deps.selectedConfig.Proxy != nil || deps.gatewayDefault {
 			return hostError("network_scope_unsupported", nil)
 		}
 		if inv.Detach {

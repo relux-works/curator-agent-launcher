@@ -159,6 +159,8 @@ func TopicHelp(args []string) (string, bool) {
 		verb = args[1]
 	}
 	switch args[0] {
+	case "gateway":
+		return GatewayRecoveryHelp, true
 	case "werkstatt":
 		if text, ok := werkstattVerbHelp[verb]; ok {
 			return text, true

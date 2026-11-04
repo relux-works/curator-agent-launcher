@@ -27,7 +27,7 @@ const Usage = `usage: curator-run <env-id> [--hosted | --native | --untracked]
                    [--model <model>] [--effort <effort>]
                    [--permissions <native|yolo> | --yolo]
                    [--network <profile>] [--network-policy <policy>]
-                   [--network-known-bad <path>]
+                   [--network-known-bad <path>] [--gateway-recovery]
                    [--] <native args...>
        curator-run session-manager list [--json]
        curator-run session-manager show <id> [--json]
@@ -43,6 +43,7 @@ const Usage = `usage: curator-run <env-id> [--hosted | --native | --untracked]
        curator-run werkstatt update <id> [--set-task <ID> | --clear-task] [--queue-depth N] [--json]
        curator-run werkstatt recover <id> (--rebind-manager | --abandon-operation) [--json]
        curator-run werkstatt list [--json]
+       curator-run gateway recover --attempt <64 lowercase hex>
        curator-run migrate [--dry-run]
        curator-run --help | -h
        curator-run --version
@@ -180,6 +181,7 @@ type Invocation struct {
 	Migrate, DryRun bool
 	SessionManager  *sessionmanager.Command
 	Werkstatt       *werkstattcommand.Command
+	GatewayRecovery *GatewayRecoveryCommand
 
 	// Info is non-zero for --help / -h / --version; every other member is
 	// then zero and the caller prints and exits 0.
@@ -224,11 +226,12 @@ type Invocation struct {
 	// against the operator catalog belong to the network stage after plan
 	// admission (SPEC §4.4b). An empty value is a usage error, so
 	// NetworkSet implies a non-empty Network.
-	Network         string
-	NetworkSet      bool
-	NetworkMode     string
-	NetworkPin      string
-	NetworkKnownBad string
+	Network                string
+	NetworkSet             bool
+	NetworkMode            string
+	NetworkPin             string
+	NetworkKnownBad        string
+	GatewayRecoveryEnabled bool
 	// Native is everything after "--", verbatim, in order. It is never nil
 	// on a launch invocation; it is empty when "--" was absent or last.
 	Native []string
@@ -300,6 +303,9 @@ var valueFlags = map[string]bool{
 //     validation, lookup, or output.
 //   - <env-id> is required on a launch invocation.
 func Parse(args []string) (Invocation, error) {
+	if len(args) > 0 && args[0] == "gateway" {
+		return parseGatewayRecovery(args)
+	}
 	if len(args) > 0 && args[0] == "werkstatt" {
 		command, err := werkstattcommand.ParseCommand(args[1:])
 		if err != nil {
@@ -344,6 +350,9 @@ func Parse(args []string) (Invocation, error) {
 		}
 		if !strings.HasPrefix(tok, "-") {
 			if !envSet {
+				if tok == "gateway" {
+					return inv, usageErr("gateway does not accept launch flags")
+				}
 				if tok == "session-manager" {
 					return inv, usageErr("session-manager does not accept launch flags")
 				}
@@ -376,6 +385,13 @@ func Parse(args []string) (Invocation, error) {
 		}
 
 		flag, value, hasEq := strings.Cut(tok, "=")
+		if flag == "--gateway-recovery" {
+			if hasEq || seen[flag] {
+				return inv, usageErr("--gateway-recovery takes no value and cannot be repeated")
+			}
+			seen[flag], inv.GatewayRecoveryEnabled = true, true
+			continue
+		}
 		if flag == "--name" || flag == "--ax-profile" {
 			return inv, usageErr("%s was removed in 0.6.0", flag)
 		}
@@ -445,6 +461,9 @@ func Parse(args []string) (Invocation, error) {
 
 	if !envSet {
 		return inv, usageErr("missing <env-id>")
+	}
+	if inv.GatewayRecoveryEnabled && inv.HostFlag == HostFlagHosted {
+		return inv, usageErr("--gateway-recovery requires native execution")
 	}
 	if inv.A2A != "" && ExplicitNative(inv.HostFlag) {
 		return inv, usageErr("--a2a requires hosted execution")

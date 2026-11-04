@@ -114,19 +114,9 @@ func prepareGateway(ctx context.Context, req Request, result *resolve.Result, id
 	if req.GatewayTimeout > 0 {
 		client.Timeout = req.GatewayTimeout
 	}
-	if err := client.Health(ctx); err != nil {
-		return Prepared{}, refusal.New(refusal.CodeProxyUnreachable, name, "filtering gateway health: "+gatewayDetail(err))
-	}
-	// Registration is not cut short by the caller's cancellation: once sent,
-	// its outcome must be known so that it is ended. The client's own
-	// timeout bounds it.
-	requested := time.Now()
-	reg, err := client.Register(context.WithoutCancel(ctx), register)
+	reg, lease, err := registerGateway(ctx, req, result, client, register)
 	if err != nil {
-		if netproxy.IsCode(err, http.StatusUnprocessableEntity, "config_invalid") {
-			return Prepared{}, refusal.New(refusal.CodeProxyUnreachable, name, "the filtering gateway refused registration: the project's gateway configuration is invalid; its owner fixes it")
-		}
-		return Prepared{}, refusal.New(refusal.CodeProxyUnreachable, name, "filtering gateway registration: "+gatewayDetail(err))
+		return Prepared{}, err
 	}
 	unset := append(envpatch.UnsetNames(), "ANTHROPIC_BASE_URL", "ANTHROPIC_CUSTOM_HEADERS")
 	unset = append(unset, claudeRouteNames...)
@@ -152,13 +142,35 @@ func prepareGateway(ctx context.Context, req Request, result *resolve.Result, id
 	record := bound.Record(string(result.Selection.Origin), &binding.ProbeRecord{
 		TCP: "skipped", Connect: "skipped", TLS: "skipped", CheckedAt: time.Now().UTC(),
 	})
-	lease := netproxy.NewLease(client, reg, req.Alert, requested)
 	recheck := func(ctx context.Context) error {
 		gatewayphase.Reach("recheck")
 		return guard(ctx)
 	}
 	return Prepared{Patch: patch, Record: &record, Provenance: provenance, Lease: lease, Recheck: recheck,
 		checkComposed: gatewayCompositionCheck(name, reg.AnthropicBase, reg.TokenHeader+": "+reg.Token)}, nil
+}
+
+// The absent selector retains the legacy wire, error mapping and lease. Only
+// an explicit caller operation selects durable control/2; it never downgrades.
+func registerGateway(ctx context.Context, req Request, result *resolve.Result, client *netproxy.Client, request netproxy.RegisterRequest) (netproxy.Registration, *netproxy.Lease, error) {
+	if req.GatewayRecovery {
+		return registerRecoveryGateway(ctx, req, result, client, request)
+	}
+	name := result.Profile.Name
+	if err := client.Health(ctx); err != nil {
+		return netproxy.Registration{}, nil, refusal.New(refusal.CodeProxyUnreachable, name, "filtering gateway health: "+gatewayDetail(err))
+	}
+	// Once a legacy register is sent its timeout, rather than the caller's
+	// cancellation, bounds observation of the returned capability.
+	requested := time.Now()
+	reg, err := client.Register(context.WithoutCancel(ctx), request)
+	if err != nil {
+		if netproxy.IsCode(err, http.StatusUnprocessableEntity, "config_invalid") {
+			return netproxy.Registration{}, nil, refusal.New(refusal.CodeProxyUnreachable, name, "the filtering gateway refused registration: the project's gateway configuration is invalid; its owner fixes it")
+		}
+		return netproxy.Registration{}, nil, refusal.New(refusal.CodeProxyUnreachable, name, "filtering gateway registration: "+gatewayDetail(err))
+	}
+	return reg, netproxy.NewLease(client, reg, req.Alert, requested), nil
 }
 
 // Snapshot only registration-owned values, independently of the public patch.

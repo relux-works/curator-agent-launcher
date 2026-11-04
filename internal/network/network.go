@@ -226,6 +226,9 @@ type Request struct {
 	gatewayKind    bool
 	Alert          io.Writer
 	GatewayTimeout time.Duration
+	// GatewayRecovery explicitly selects durable control/2 issuance/completion.
+	// Its absence preserves the control/1 path; it never changes profile authority.
+	GatewayRecovery bool
 	// GuardBudget bounds each settings and contract check (tests); zero
 	// means guardBudget.
 	GuardBudget time.Duration
@@ -301,6 +304,9 @@ func (p *Prepared) LeaseHandedOff() bool { return p != nil && p.taken }
 // prober here nor the workload.
 func Prepare(ctx context.Context, req Request) (Prepared, error) {
 	if !req.ExplicitSet && req.LauncherProfile == "" && !req.DefaultGateway {
+		if req.GatewayRecovery {
+			return Prepared{}, refusal.New(refusal.CodeScopeUnsupported, "gateway", "recovery requires a selected native filtering gateway")
+		}
 		return Prepared{}, nil
 	}
 	if req.ExplicitSet && strings.TrimSpace(req.Explicit) == "" {
@@ -334,6 +340,9 @@ func Prepare(ctx context.Context, req Request) (Prepared, error) {
 		// explicit selection always selects. Fail closed rather than
 		// launching unmanaged under --network.
 		return Prepared{}, refusal.New(refusal.CodeScopeUnsupported, subject, "no network binding was resolved")
+	}
+	if req.GatewayRecovery && result.Profile.Kind != netprofile.KindFilteringGateway {
+		return Prepared{}, refusal.New(refusal.CodeScopeUnsupported, subject, "recovery requires a filtering gateway")
 	}
 	// The operator default is honoured for a filtering gateway only; a
 	// file that changed kind since DefaultGatewaySelected refuses.

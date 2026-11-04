@@ -35,6 +35,27 @@ type Lease struct {
 	stopped  chan struct{}
 	done     chan struct{}
 	finished bool
+	// completion belongs to an explicitly selected recovery-capable caller.
+	// It authenticates the original attempt and commits its local evidence;
+	// a legacy unregister observation cannot replace its result.
+	completion   func(context.Context) error
+	completeOnce sync.Once
+	completeErr  error
+}
+
+const RecoveryCompletionBudget = 30 * time.Second
+
+// NewRecoveryLease preserves activation/renewal for a v2-issued runtime token,
+// but gives terminal completion to the owning original-attempt journal. The
+// callback never receives a token. Missing completion refuses construction;
+// callers cannot accidentally get a legacy cleanup fallback.
+func NewRecoveryLease(c *Client, reg Registration, alert io.Writer, requested time.Time, complete func(context.Context) error) (*Lease, error) {
+	if c == nil || complete == nil {
+		return nil, errors.New("netproxy recovery: completion unavailable")
+	}
+	l := NewLease(c, reg, alert, requested)
+	l.completion = complete
+	return l, nil
 }
 
 // NewLease binds a registration to the client that made it. requested is
@@ -136,10 +157,10 @@ func (l *Lease) renew(ctx context.Context, stopped <-chan struct{}) {
 	}
 }
 
-// Finish stops the background duties and unregisters (duty 6). It retries
-// until the service answers 204 or 404, alerting on each failure, and
-// returns only then or when ctx ends; on ctx end the token's state is
-// unknown and its idle bound ends it at the latest.
+// Finish stops the background duties (duty 6). A recovery-capable lease runs
+// its owner's completion once with a 30-second budget and retains that exact
+// verdict. A legacy lease unregisters until the service answers 204 or 404,
+// alerting on each failure, or ctx ends with the token's state unknown.
 func (l *Lease) Finish(ctx context.Context) error {
 	l.mu.Lock()
 	if l.stopped != nil && !l.finished {
@@ -150,6 +171,14 @@ func (l *Lease) Finish(ctx context.Context) error {
 	l.mu.Unlock()
 	if done != nil {
 		<-done
+	}
+	if l.completion != nil {
+		l.completeOnce.Do(func() {
+			bounded, cancel := context.WithTimeout(ctx, RecoveryCompletionBudget)
+			defer cancel()
+			l.completeErr = l.completion(bounded)
+		})
+		return l.completeErr
 	}
 	for attempt := 1; ; attempt++ {
 		err := l.client.Unregister(ctx, l.token)

@@ -171,6 +171,9 @@ type launchDeps struct {
 	// Nil checks deps.stdin. Hosted launches refuse a non-terminal stdin:
 	// piped operator bytes have no forwarding path to the managed child.
 	stdinTerminal func() bool
+	// gatewayRecover is the exact administrative boundary, separate from
+	// configuration/fragment/manager/native-launch routing.
+	gatewayRecover gatewayRecoverFunc
 }
 
 // run is the production entry point. Flags parse before configuration is read
@@ -193,6 +196,9 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, deps laun
 			fmt.Fprintf(stdout, "%s %s (specification %s)\n", name, buildVersion, specVersion)
 			return 0
 		}
+	}
+	if len(args) > 0 && args[0] == "gateway" {
+		return runGatewayRecovery(ctx, args, stdout, stderr, deps)
 	}
 	paths := deps.defaults
 	var configResolver configfile.Resolver
@@ -506,6 +512,9 @@ func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, ta
 	}
 	deps.hostedSelection = &selected
 	isHosted := selected.route.Kind != "native"
+	if inv.GatewayRecoveryEnabled && isHosted {
+		return emitNetworkFailure(stderr, refusal.New(refusal.CodeScopeUnsupported, "gateway", "recovery requires native execution"))
+	}
 	if !isHosted && inv.A2A != "" {
 		return emitFailure(stderr, diagnostics.CodeUsage, errors.New("--a2a requires hosted execution"))
 	}
@@ -693,7 +702,8 @@ func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, ta
 	}
 	preparedNet, err := network.Prepare(prepareCtx, network.Request{
 		Explicit: inv.Network, ExplicitSet: inv.NetworkSet, LauncherProfile: launcherProfile, DefaultGateway: gatewayDefault,
-		Hosted: !sessionAllowed(isHosted), Harness: target.System,
+		GatewayRecovery: inv.GatewayRecoveryEnabled,
+		Hosted:          !sessionAllowed(isHosted), Harness: target.System,
 		Entrypoint: entrypoint,
 		ParentEnv:  parentEnv, Prober: deps.prober,
 		Artifact: artifact, HostIdentity: hostIdentity, Mode: adapterprobe.Mode(inv.NetworkMode),

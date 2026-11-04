@@ -1331,6 +1331,177 @@ named phases of a gateway launch (the final recheck, the child's start and
 exit) while the test sends it a real signal; in every other build the phase
 marks do nothing. Release binaries are built without the tag.
 
+The preparatory `internal/recoveryjournal` package resolves explicitly supplied
+original state/profile/socket bindings and opens an existing namespace without
+following symlinks (Darwin/Linux). `ResolveCaller` projects the captured parent
+environment and an admitted network profile's canonical `sha256:<64hex>` digest
+into that binding; the journal stores the 64 lowercase hex characters. It reads
+no ambient or child environment, rejects ambiguous duplicate routing variables,
+and does not itself admit a profile. An absent or empty `XDG_STATE_HOME` uses
+the supplied absolute `HOME` fallback; an invalid explicit state path refuses.
+`CheckCatalog` checks the recorded network digest and socket through the owning
+catalog and confirmation resolver using those same parent inputs. It preserves
+an original explicit profile when the current default changes and accepts
+confirmed aliases with identical canonical semantics. Missing, changed or
+unconfirmed original semantics refuse. This checks catalog admission, never
+service authority, and performs no catalog writes or service calls.
+Missing directories are returned as a proposed
+preflight write set; inspection does not create or repair them. Its private
+prepare operation requires a bounded namespace lock, writes the frozen envelope
+to an exclusive 0600 temporary file, checks write/sync/close, publishes without
+overwriting another entry, and syncs the directory before returning a prepared
+result. Failure retains incomplete private evidence and returns no such result.
+Caller accounting permits up to 4096 private files of at most 16 KiB each;
+the service's separate 16 MiB authority-snapshot limit is not reused here.
+It writes only the admitted namespace lock and secret record/temp; the layout
+must already exist. Inspection alone grants no native write authority. Run
+`go test ./internal/recoveryjournal -count=1` and
+`go test ./internal/recoveryjournal -race -count=1` for isolated synthetic path
+and descriptor/publication controls. Its exact-entry reader accepts only one
+public attempt ID under the unchanged original state/profile/socket binding.
+It opens that private file without following links, checks its inode/size/mode
+and stable read, and decodes exact versioned fields, including the envelope,
+without accepting duplicates, aliases, unknown fields or missing members.
+Prepared and terminal ended states are supported. Other entries are not
+enumerated or repaired; reading cannot authorize another registration or prove
+service authentication. The cooperative private lock may be created by a read.
+`DiscoverBinding` starts with only the captured parent state location, reads
+the named guarded record under that lock, validates its complete closed schema
+and frozen base, then checks the exact recorded profile/socket in the current
+admitted catalog. It returns no capability and performs no service call or
+private-record enumeration. A location without a complete binding cannot
+prepare new authority. Later recovery reopens and validates the exact entry.
+The separate internal `netproxy.RecoveryClient` implements closed control/2
+health, initial register and exact-envelope recover over a fixed original Unix
+endpoint. It bounds requests/replies at 16 KiB, accepts only exact versioned
+schemas and fixed refusal codes, disables redirects and performs no automatic
+register retry or version downgrade. It retains the existing token/base
+predicates and keeps the recovery proof out of child-facing reply fields.
+The journal aliases that client's envelope type so issuance predicates have
+one owning implementation. Run `go test ./internal/netproxy -run TestRecoveryV2`
+for synthetic Unix transport and response controls. The caller must establish
+input provenance and known generation matching when it integrates these parts.
+`Namespace.Issue` connects private preparation to the initial request: it sends
+only after a checked durable prepare under the unchanged binding, then uses
+only the original Unix endpoint. Failed preparation sends no request. A lost
+or refused response returns no capability and retains the exact original
+envelope; replaying Issue for that attempt refuses locally. The private record
+remains `prepared/not_observed`, which is a saved local observation, not proof
+that issuance did not occur. It never contains the runtime token. Run
+`go test ./internal/recoveryjournal -run TestIssue -count=1` for publication
+faults, binding/cancellation boundaries, concurrent duplicate prevention and
+an actual fixture Unix request that observes its committed record first.
+`Namespace.RecoverExact` serializes one original-entry read, authenticated
+recovery and sanitized receipt commit under the namespace lock. It never
+registers, activates, discovers another namespace or substitutes a new envelope.
+Observed health supplies service boot metadata, while the original registry and
+proof still bind the recovery. Service confirmation and local evidence
+are separate results: failed write/sync/close/rename or cancellation returns no
+committed-receipt pointer and retains the original envelope. Exact prior
+receipts are validated and re-synced without overwriting their observations.
+One exclusive per-attempt temporary bounds residue without enumeration; failed
+cleanup leaves it for its custodian and refuses reuse. Only this call's own
+checked receipt temporary may be cleaned up, never the private authority entry.
+After checked receipt durability, recovery samples kernel awake uptime and boot
+identity, then atomically publishes and syncs matching terminal secret/2 while
+retaining the original envelope/proof. Darwin uses `CLOCK_UPTIME_RAW`; Linux uses
+`CLOCK_MONOTONIC`. Both exclude sleep. A terminal publication or clock failure
+withholds local success while retaining the durable receipt and original proof.
+Its exclusive deterministic private preparation temporary is cleaned only when
+its own inode is still bound; unknown residue refuses reuse.
+Run `go test ./internal/recoveryjournal -run 'TestReceipt|TestRecover' -count=1`
+for closed-schema, publication-fault, idempotency and synthetic Unix controls.
+
+`curator-run gateway recover --attempt <64 lowercase hex>` uses the captured
+parent state location to discover and reopen only the original guarded entry,
+check its admitted profile, authenticate its original service and commit local
+evidence. It accepts no token, proof, path, endpoint or profile override and
+never starts a runtime or registers a launch. `--help` reads no configuration or
+state. The operation has a fixed 30-second budget; unsupported or uncertain
+recovery never downgrades to control/1. Success prints only the public attempt,
+fixed service result and `receipt=committed`. A service-confirmed result with
+failed local persistence remains a distinct nonzero `local_evidence_failed`.
+Run `go test ./cmd/curator-run -run TestGatewayRecovery -count=1` for grammar,
+dispatch, output-failure and isolated production-path Unix fixtures. These
+fixtures do not qualify an actual service or installed state namespace.
+An explicit bare `--gateway-recovery` opts a native filtering-gateway launch
+into durable control/2 issuance and completion. Omission preserves control/1.
+The flag accepts no value or repetition; hosted, unselected and non-gateway
+routes refuse. Existing runtime, settings and qualification guards still apply.
+The supported gateway runtime remains Claude Code in this source revision.
+The captured parent environment and admitted profile select the original
+existing private namespace; missing or unsafe layout refuses without repair.
+For missing containers the refusal lists only the proposed directory closure
+and mode `0700`. `STATE` denotes the captured state base; `STATE/..` denotes
+its parent. Absolute paths are omitted. This is a preflight proposal and creates
+nothing; unsafe existing entries receive no creation proposal.
+Closed health supplies the original registry and clock facts. Only after
+durable private preparation does the launcher send one initial register.
+An uncertain reply refuses native start and reconciles that original attempt
+without registering again. A later launch refusal uses the same completion
+path as child exit. The runtime token enters only the guarded child route;
+the recovery proof never enters its environment or arguments.
+`netproxy.NewRecoveryLease` provides the terminal completion seam:
+activation and renewal use the existing runtime-token wire,
+then Finish stops those duties before invoking the original-attempt owner's
+completion once under a 30-second budget. Concurrent or repeated Finish shares
+that exact result; failure never substitutes legacy unregister success.
+Missing completion refuses construction. The legacy lease path is unchanged.
+Run `go test ./internal/netproxy -run TestRecoveryLease -count=1` for lifecycle,
+concurrent terminal-result and cancellation controls. Run
+`go test ./cmd/curator-run -run TestGatewayRecoveryLaunch -count=1` for the
+isolated normal-launch lifecycle, prepare failures, uncertain issuance,
+interruption, exact retry and separate child/cleanup outcomes. These synthetic
+service fixtures do not qualify a real service or an installed namespace.
+To qualify canonical dispatch through explicitly selected manager bytes, run
+`CURATOR_TEST_CANONICAL_MANAGER=/path/to/curator CURATOR_TEST_CANONICAL_MANAGER_SHA256='<binary-sha256>' go test ./cmd/curator-run -run TestGatewayRecoveryCanonicalForwarding -count=1`.
+This external check uses fixture configuration and a fixture provider, retains
+the caller's real `HOME`, verifies the manager hash before and after, and drives
+the captured argv through the normal launcher fixtures. It covers explicit
+recovery, absent opt-in, malformed opt-in and the preserved native suffix's
+existing refusal. Without both explicit inputs this external qualification is
+not established; the ordinary suite skips it when no manager is selected.
+To dock against explicitly selected service bytes, run
+`CURATOR_TEST_RECOVERY_SERVICE=/path/to/netproxy CURATOR_TEST_RECOVERY_SERVICE_SHA256='<binary-sha256>' go test ./cmd/curator-run -run TestGatewayRecoveryServiceDocking -count=1`.
+The Go test verifies the service hash before and after execution, preserves the
+service process's real `HOME`, and uses its documented disposable pilot startup,
+normal shutdown, recovery initialization and `require-existing` startup. It
+never reads the synthetic key's contents. All service processes and Unix
+sockets belong to private temporary fixtures and every process is reaped.
+The normal launcher and standalone recovery command exercise the real control
+transport, including a lost registration reply, restart, foreign registry,
+missing layout, legacy selection and local-evidence failure. Native executables
+and captured parent inputs remain dependency fixtures, with zero upstream
+requests; this check does not qualify inference, installed state or a real
+member launch. It skips when no explicit service artifact is selected. Logs
+contain assertions and owned fixture PIDs, never raw service logs or request
+bodies.
+The closed reader also understands terminal private secret/2
+records without discarding their original recovery envelope. Its pure retention
+policy preserves a matching same-boot anchor, restarts conservatively after a
+boot change, rejects clock regression or changed receipt bytes, and counts seven
+awake days independently of receipt UTC. Recovery re-syncs the immutable receipt
+before restarting an anchor on another boot, and terminal retries still
+authenticate the original ended result. The pure age predicate grants no
+deletion authority. Run
+`go test ./internal/recoveryjournal -run 'TestTerminal|TestRetention' -count=1`
+for paired format, exact-interval, retry and terminal publication-fault controls.
+`Namespace.PruneExact` considers only one original ended record and its matching
+receipt. It checks both records' durability and hash before requiring seven
+awake days. A new boot re-syncs the receipt and publishes a conservative new
+anchor. Eligible removal unlinks and syncs the secret before considering receipt
+unlink and sync; failed or uncertain secret removal retains the receipt.
+Missing or corrupt evidence never receives guessed age. This package operation
+has no installed cleanup command or automatic broad sweep. New preparation counts
+retained orphan receipts and legitimate temporary residue against the 4096 bound,
+and refuses new authority at exhaustion. Run
+`go test ./internal/recoveryjournal -run 'TestPrune|TestPrepareReceiptCapacity' -count=1`
+for interval, ordering, removal-fault and capacity controls. The receipt's
+pre-publication UTC is never a post-commit retention anchor.
+A prepared record is not evidence of a service request or completed cleanup.
+Filesystem guards and the cooperative lock do not isolate a hostile writer
+with the same user identity.
+
 ### Tools
 
 Workflow actions are pinned to full commit SHAs, with patch-version comments.
