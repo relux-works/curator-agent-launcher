@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 
@@ -16,6 +17,9 @@ import (
 type ArtifactSnapshot struct {
 	dir, path, build string
 	data             []byte
+	files            map[string]packageFile
+	dirs             map[string]fs.FileMode
+	receipt          PackageReceipt
 }
 
 func (s *ArtifactSnapshot) Path() string    { return s.path }

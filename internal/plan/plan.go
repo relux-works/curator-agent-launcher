@@ -42,6 +42,7 @@ import (
 	"time"
 
 	"github.com/relux-works/skill-agents-management/pkg/agentic"
+	"github.com/relux-works/skill-agents-management/pkg/gatewayadmission"
 	"github.com/relux-works/skill-agents-management/pkg/providerlimits"
 	"github.com/relux-works/skill-agents-management/pkg/vendorplugin"
 
@@ -76,6 +77,8 @@ const (
 // engine member: those stay zero/unset by construction and no caller can
 // supply them.
 type Request struct {
+	// Gateway requests authority from the owning policy boundary, never from a caller-supplied Plan.
+	Gateway        bool
 	Runtime        string
 	Model          string
 	Effort         string
@@ -101,6 +104,7 @@ type AvailabilityFunc func(q providerlimits.VerdictQuery) (vendorplugin.Availabi
 // Deps wires the module boundaries. Registry is the vendorplugin registry
 // (production: vendorplugin.Default, populated by the blank imports above).
 type Deps struct {
+	GatewayStore  *providerlimits.Store
 	Registry      *vendorplugin.Registry
 	BuildLaunch   BuildLaunchFunc
 	Availability  AvailabilityFunc
@@ -223,6 +227,17 @@ func Build(ctx context.Context, d Deps, req Request) (agentic.PlanWithEnvironmen
 	}
 	if strings.TrimSpace(req.WorkDir) == "" {
 		return agentic.PlanWithEnvironment{}, &RefusedError{Detail: "working directory is required"}
+	}
+	if req.Gateway {
+		built, err := gatewayadmission.Build(ctx, d.Registry, d.GatewayStore, SpawnRequest(req))
+		if err != nil {
+			var limited *gatewayadmission.LimitsRefusalError
+			if errors.As(err, &limited) {
+				return agentic.PlanWithEnvironment{}, &LimitedError{Verdict: limited.Verdict}
+			}
+			return agentic.PlanWithEnvironment{}, &RefusedError{Detail: "gateway spawn-plane admission refused the launch", Cause: err}
+		}
+		return built, nil
 	}
 	if d.BuildLaunch == nil {
 		return agentic.PlanWithEnvironment{}, &RefusedError{Detail: "no BuildLaunch implementation wired"}
