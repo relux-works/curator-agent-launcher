@@ -28,10 +28,10 @@ func TestPolicyCacheClosedSubset(t *testing.T) {
 		{"empty defaults", `{"restrictions":{},"defaults":{}}`, "", false},
 		{"startup channel", `{"restrictions":{},"defaults":{"remote_control_at_startup":true}}`, "defaults.remote_control_at_startup", false},
 		{"startup wrong type", `{"restrictions":{},"defaults":{"remote_control_at_startup":"false"}}`, "defaults.remote_control_at_startup", false},
-		{"isolation off", `{"restrictions":{"enforce_web_search_mcp_isolation":{"allowed":false}}}`, "restrictions.enforce_web_search_mcp_isolation.allowed", false},
+		{"isolation off in gateway", `{"restrictions":{"enforce_web_search_mcp_isolation":{"allowed":false}}}`, "", false},
 		{"isolation wrong type", `{"restrictions":{"enforce_web_search_mcp_isolation":{"allowed":1}}}`, "restrictions.enforce_web_search_mcp_isolation.allowed", false},
 		{"connector wrong type", `{"restrictions":{"allow_connector_file_downloads":{"allowed":"true"}}}`, "restrictions.allow_connector_file_downloads.allowed", false},
-		{"restriction extra member", `{"restrictions":{"allow_connector_file_downloads":{"allowed":true,"SECRET":"SECRET"}}}`, "restrictions.allow_connector_file_downloads.allowed", false},
+		{"restriction extra member", `{"restrictions":{"allow_connector_file_downloads":{"allowed":true,"SECRET":"SECRET"}}}`, "restrictions.allow_connector_file_downloads.*", false},
 		{"restriction missing allowed", `{"restrictions":{"allow_connector_file_downloads":{}}}`, "restrictions.allow_connector_file_downloads.allowed", false},
 		{"restriction nonobject", `{"restrictions":[]}`, "restrictions", false},
 		{"unknown restriction", `{"restrictions":{"allow_SECRET":{"allowed":true}}}`, "restrictions.*", false},
@@ -59,6 +59,31 @@ func TestPolicyCacheClosedSubset(t *testing.T) {
 				t.Fatalf("path = %q, want %q", got, tc.path)
 			}
 		})
+	}
+}
+
+// Diagnostics enumerate independent schema failures without private content.
+func TestPolicyCacheCompleteDiagnostics(t *testing.T) {
+	// Independent violations all appear; supplied names and values never do.
+	unsafe := `{"PRIVATE_ROOT":"PRIVATE_VALUE","restrictions":{"PRIVATE_KEY":{},"allow_connector_file_downloads":{"allowed":"PRIVATE_VALUE","PRIVATE_EXTRA":0},"enforce_web_search_mcp_isolation":{"allowed":1}},"defaults":{"remote_control_at_startup":true,"PRIVATE_DEFAULT":0},"compliance_taints":["PRIVATE_VALUE"],"monitoring_notice":false}`
+	want := []string{"$.*", "restrictions.*", "restrictions.allow_connector_file_downloads.allowed", "restrictions.allow_connector_file_downloads.*", "restrictions.enforce_web_search_mcp_isolation.allowed", "defaults.remote_control_at_startup", "defaults.*", "compliance_taints", "monitoring_notice"}
+	got := policyCachePath([]byte(unsafe), false)
+	for _, path := range want {
+		if !strings.Contains(got, path) {
+			t.Errorf("missing diagnostic %q in %q", path, got)
+		}
+	}
+	if strings.Contains(got, "PRIVATE_") {
+		t.Fatalf("private member or value disclosed: %q", got)
+	}
+	if got := policyCachePath([]byte(`{"defaults":{"remote_control_at_startup":true},"monitoring_notice":false}`), false); !strings.Contains(got, "restrictions") || !strings.Contains(got, "defaults.remote_control_at_startup") || !strings.Contains(got, "monitoring_notice") {
+		t.Fatalf("missing required field hid neighboring violations: %q", got)
+	}
+	// The independently grounded gateway subset admits either isolation bool.
+	for _, doc := range []string{`{"restrictions":{}}`, `{"restrictions":{"enforce_web_search_mcp_isolation":{"allowed":false}}}`, `{"restrictions":{"enforce_web_search_mcp_isolation":{"allowed":true}}}`} {
+		if got := policyCachePath([]byte(doc), false); got != "" {
+			t.Errorf("valid control refused: %q", got)
+		}
 	}
 }
 

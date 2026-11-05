@@ -5,6 +5,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
+	"strings"
 	"syscall"
 
 	"github.com/relux-works/curator-agent-launcher/internal/fragment"
@@ -86,7 +88,7 @@ func readPolicyCache(clock guardClock, name, path string) ([]byte, error) {
 	return doc, nil
 }
 
-// policyCachePath returns only schema paths, never supplied values or unknown
+// policyCachePath returns all rejected schema paths, never supplied values or unknown
 // member names (which themselves could contain sensitive text). The strict
 // parser rejects escaped duplicate keys, invalid Unicode and trailing input.
 func policyCachePath(doc []byte, remote bool) string {
@@ -100,59 +102,78 @@ func policyCachePath(doc []byte, remote bool) string {
 		}
 		return ""
 	}
+	paths := map[string]bool{}
+	add := func(path string) { paths[path] = true }
 	if r, ok := v.Get("restrictions"); !ok || r.Kind != fragment.KindObject {
-		return "restrictions"
+		add("restrictions")
 	}
 	for _, m := range v.Obj {
 		switch m.Key {
 		case "restrictions":
+			if m.Value.Kind != fragment.KindObject {
+				continue
+			}
 			for _, r := range m.Value.Obj {
 				path := "restrictions." + r.Key
 				if r.Key != "allow_connector_file_downloads" && r.Key != "enforce_web_search_mcp_isolation" {
-					return "restrictions.*"
+					add("restrictions.*")
+					continue
 				}
 				allowed, ok := r.Value.Get("allowed")
-				if r.Value.Kind != fragment.KindObject || len(r.Value.Obj) != 1 || !ok || allowed.Kind != fragment.KindBool {
-					return path + ".allowed"
+				if r.Value.Kind != fragment.KindObject || !ok || allowed.Kind != fragment.KindBool {
+					add(path + ".allowed")
 				}
-				// 2.1.316 G5t consumes true as enforcement; false removes it.
-				if r.Key == "enforce_web_search_mcp_isolation" && !allowed.Bool {
-					return path + ".allowed"
+				for _, member := range r.Value.Obj {
+					if member.Key != "allowed" {
+						add(path + ".*")
+					}
 				}
+				// Either bool is inert under the existing gateway input boundary:
+				// the pinned loopback base and refused socket/first-party/client-data
+				// overrides make native policy ineligible in 2.1.316 and 2.1.318.
+				// Outside that boundary false can suppress hinted enforcement.
 			}
 		case "defaults":
 			if m.Value.Kind != fragment.KindObject {
-				return "defaults"
+				add("defaults")
+				continue
 			}
 			for _, d := range m.Value.Obj {
 				if d.Key != "remote_control_at_startup" {
-					return "defaults.*"
+					add("defaults.*")
+					continue
 				}
 				// 2.1.316 ors -> L8r uses true to enable startup remote control.
 				if d.Value.Kind != fragment.KindBool || d.Value.Bool {
-					return "defaults.remote_control_at_startup"
+					add("defaults.remote_control_at_startup")
 				}
 			}
 		case "compliance_taints":
 			if m.Value.Kind != fragment.KindArray || len(m.Value.Arr) != 0 {
-				return "compliance_taints"
+				add("compliance_taints")
 			}
 		case "monitoring_notice":
 			// The native object schema catches a string to null; neither this
 			// agreed string subset nor null changes settings or tool authority.
 			if m.Value.Kind != fragment.KindNull && m.Value.Kind != fragment.KindString {
-				return "monitoring_notice"
+				add("monitoring_notice")
 			}
 		default:
-			return "$.*"
+			add("$.*")
 		}
 	}
-	return ""
+	var ordered []string
+	for path := range paths {
+		ordered = append(ordered, path)
+	}
+	sort.Strings(ordered)
+	return strings.Join(ordered, ", ")
 }
 
 func checkPolicyCaches(clock guardClock, name, home string) error {
-	refuse := func(file, path string) error {
-		return refusal.New(refusal.CodeScopeUnsupported, name, "server policy cache "+file+" is not admitted at "+path)
+	var rejected []string
+	refuse := func(file, path string) {
+		rejected = append(rejected, file+" at "+path)
 	}
 	for _, file := range []string{"remote-settings.json", "policy-limits.json"} {
 		doc, err := readPolicyCache(clock, name, filepath.Join(home, file))
@@ -164,13 +185,14 @@ func checkPolicyCaches(clock guardClock, name, home string) error {
 			continue
 		}
 		if err != nil {
-			return refuse(file, "$")
+			refuse(file, "$")
+			continue
 		}
 		if err := clock.step(name); err != nil {
 			return err
 		}
 		if path := policyCachePath(doc, file == "remote-settings.json"); path != "" {
-			return refuse(file, path)
+			refuse(file, path)
 		}
 	}
 	// These companions carry identity/signature/age metadata, not an admission
@@ -187,8 +209,14 @@ func checkPolicyCaches(clock guardClock, name, home string) error {
 			continue
 		}
 		if err != nil || !info.Mode().IsRegular() || info.Size() > maxPolicySidecarBytes {
-			return refuse(file, "$")
+			refuse(file, "$")
 		}
 	}
-	return clock.step(name)
+	if err := clock.step(name); err != nil {
+		return err
+	}
+	if len(rejected) != 0 {
+		return refusal.New(refusal.CodeScopeUnsupported, name, "server policy caches are not admitted: "+strings.Join(rejected, "; "))
+	}
+	return nil
 }

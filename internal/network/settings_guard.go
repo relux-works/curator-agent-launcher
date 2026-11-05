@@ -601,7 +601,7 @@ func admissionContract(clock guardClock, name string, req Request, roots []strin
 			return err
 		}
 		if _, err := inspectPath(path); err == nil {
-			return refuse("managed preferences or a server-managed policy is present (" + filepath.Base(path) + ")")
+			return refuse("managed preferences are present (" + filepath.Base(path) + ")")
 		} else if !errors.Is(err, os.ErrNotExist) {
 			return refuse("managed preferences cannot be inspected")
 		}

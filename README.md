@@ -1013,8 +1013,10 @@ fails it refuses `network_scope_unsupported` with no gateway call:
   subset below; it cannot select another route, settings source or permission
   mode.
 
-The cache check uses the published Claude Code 2.1.316 schema and consumer
-semantics. Both absent caches remain valid. Present caches must be readable
+The cache check is grounded in the published Claude Code 2.1.316 and 2.1.318
+darwin-arm64 artifacts. An operator's build hash entry does not establish these
+semantics for another build; that build needs the same artifact check. Both
+absent caches remain valid. Present caches must be readable
 regular files, at most 1 MiB, opened without following a final symbolic link;
 replacement or observed changes during reading refuse. Strict JSON parsing
 rejects duplicate keys (including escaped duplicates), malformed Unicode and
@@ -1024,20 +1026,39 @@ trailing documents. Ordinary settings-file link handling is unchanged.
 | --- | --- |
 | `remote-settings.json` | Exactly an empty JSON object |
 | `policy-limits.json.restrictions` | Required object containing only the next two optional entries |
-| `restrictions.allow_connector_file_downloads.allowed` | Boolean; `false` narrows and `true` leaves the named capability at its no-policy setting |
-| `restrictions.enforce_web_search_mcp_isolation.allowed` | `true` only; the enclosing object contains only `allowed` |
+| `restrictions.allow_connector_file_downloads.allowed` | Boolean; the enclosing object contains only `allowed`; see the gateway eligibility condition below |
+| `restrictions.enforce_web_search_mcp_isolation.allowed` | Boolean; the enclosing object contains only `allowed`; see the gateway eligibility condition below |
 | `defaults.remote_control_at_startup` | `false` only; no other defaults; an empty defaults object is valid |
 | `compliance_taints` | Empty array only |
 | `monitoring_notice` | `null` or string; the 2.1.316 native object schema catches a string to `null`, so display of that string is not promised |
 
 Each restriction entry contains exactly one `allowed` member. All other
-fields, types and values refuse with `network_scope_unsupported`. Refusals
-name the cache and a schema path, never a value; unknown member names appear
+fields, types and values refuse with `network_scope_unsupported`. One pass
+collects all rejected schema paths across both caches and their companions;
+an unreadable or malformed file contributes its root path. Cancellation or a
+budget exhaustion still stops the inspection immediately. Refusals
+name the caches and schema paths, never values; unknown member names appear
 as `*` to avoid disclosing arbitrary supplied text. This is a gateway-safe
 subset, not full native policy-schema support. The published artifact has no
 literal consumer for the connector key; its admitted booleans follow the
 generic non-enforcing restriction evaluator. Unknown restriction names never
-inherit that admission.
+inherit that admission. In an eligible first-party session an explicit
+connector `true` can suppress a hinted denial; isolation `false` can suppress
+hinted enforcement. Neither is universally equivalent to an absent entry.
+
+These booleans are admitted only by the gateway cache checker, whose existing
+input boundary makes native server policy ineligible in both grounded builds.
+The registration-owned endpoint is loopback, and the final composed-environment
+check pins it. Supplied endpoint, Unix-socket, first-party-assumption and
+client-data selectors refuse; inherited selectors are removed. The native
+tail also refuses `--client-data-url`. In the artifacts, the first-party
+assumption starts false and its sole enabling writer requires that blocked
+client-data input. With no socket or first-party exception, the custom-base
+eligibility check returns before reading policy, and hinted enforcement is
+also disabled. Thus the admitted gateway session observes the same result
+for isolation `false` and an absent entry. This is a conditional source proof,
+not an account-policy override or support for these values outside that
+boundary. A build or input-boundary change needs this proof checked again.
 
 The six documented companions (`.signature.json` and `.signature-iat.json`
 for each cache, `policy-limits.json.stamp.json`, and
