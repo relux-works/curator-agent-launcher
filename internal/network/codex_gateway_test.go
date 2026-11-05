@@ -19,6 +19,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/relux-works/curator-agent-launcher/internal/netproxy"
+
 	"github.com/relux-works/curator-network-profiles/pkg/adapterprobe"
 	"github.com/relux-works/curator-network-profiles/pkg/binding"
 	"github.com/relux-works/curator-network-profiles/pkg/netprofile"
@@ -230,6 +232,73 @@ func TestCodexGatewayRefusalCleanup(t *testing.T) {
 			}
 		})
 	}
+	t.Run("bad-base-unreachable-unregister", func(t *testing.T) {
+		req, result, c := codexFixture(t)
+		c.base = "http://127.0.0.1:47811/wrong" // Finalize must refuse after register.
+		socket := result.Profile.Control
+		c.onRegister = func() {
+			if err := os.Remove(socket); err != nil {
+				t.Errorf("make unregister unreachable: %v", err)
+			}
+		}
+		var alerts strings.Builder
+		req.Alert = &alerts
+		type outcome struct {
+			prepared Prepared
+			err      error
+		}
+		done := make(chan outcome, 1)
+		started := time.Now()
+		go func() {
+			p, err := prepareCodexGateway(context.Background(), req, result, binding.AdapterIdentity{}, nil)
+			done <- outcome{p, err}
+		}()
+		// Exercise the real production budget, with scheduling headroom for
+		// loaded/race runs. Do not shorten a shared timeout for this test.
+		bound := netproxy.RecoveryCompletionBudget + 10*time.Second
+		timer := time.NewTimer(bound)
+		defer timer.Stop()
+		var got outcome
+		select {
+		case got = <-done:
+			if elapsed := time.Since(started); elapsed > bound {
+				t.Errorf("refusal cleanup exceeded %s bound: %s", bound, elapsed)
+			}
+		case <-timer.C:
+			t.Errorf("refusal cleanup did not return within %s with unregister unreachable", bound)
+			// Rescue an unbounded implementation after the assertion fails,
+			// so the regression fails on its own assertion, without a leaked
+			// preparation goroutine or the generic Go test timeout.
+			ln, err := net.Listen("unix", socket)
+			if err != nil {
+				t.Fatal(err)
+			}
+			srv := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path != "/v1/unregister" {
+					t.Errorf("unexpected rescue call %s", r.URL.Path)
+				}
+				w.Header().Set("Netproxy-Control-Api", "netproxy-control/1")
+				w.WriteHeader(http.StatusNoContent)
+			})}
+			go srv.Serve(ln)
+			defer srv.Close()
+			select {
+			case got = <-done:
+			case <-time.After(10 * time.Second):
+				t.Fatal("refusal cleanup did not return after restoring unregister")
+			}
+		}
+		t.Logf("refusal cleanup returned after %s: %v", time.Since(started), got.err)
+		if !errors.Is(got.err, agentic.ErrCodexGatewayRefused) || got.prepared.Lease != nil || got.prepared.codex != nil {
+			t.Fatalf("lost original refusal or returned usable launch: %v", got.err)
+		}
+		if calls := c.calls(); !slices.Equal(calls, []string{"/v1/health", "/v1/register"}) {
+			t.Fatalf("unreachable cleanup made unexpected control calls: %v", calls)
+		}
+		if !t.Failed() && !strings.Contains(alerts.String(), "unregister abandoned; the session ends at the gateway's idle bound at the latest") {
+			t.Fatal("missing idle-bound cleanup alert")
+		}
+	})
 	t.Run("cancel-after-registration", func(t *testing.T) {
 		req, result, c := codexFixture(t)
 		ctx, cancel := context.WithCancel(context.Background())

@@ -70,7 +70,12 @@ func prepareCodexGateway(ctx context.Context, req Request, result *resolve.Resul
 	// A registration is owned even when finalization or a held signal refuses.
 	defer func() {
 		if err != nil {
-			_ = lease.Finish(context.Background())
+			// Preparation still owns this registration; a held launch signal
+			// must not skip cleanup, but an unreachable gateway cannot hold it
+			// forever. The caller releases its signal hold after we return.
+			cleanup, cancel := context.WithTimeout(context.WithoutCancel(ctx), netproxy.RecoveryCompletionBudget)
+			defer cancel()
+			_ = lease.Finish(cleanup)
 		}
 	}()
 	if ctx.Err() != nil {
