@@ -50,6 +50,13 @@ func main() {
 		os.Stdout.Write(data)
 		return
 	}
+	if receipt := os.Getenv("CURATOR_TEST_PROCESS_RECEIPT"); receipt != "" {
+		raw, _ := json.Marshal(struct {
+			PID     int
+			Started string
+		}{os.Getpid(), time.Now().UTC().Format(time.RFC3339Nano)})
+		_ = os.WriteFile(receipt, raw, 0600)
+	}
 	_ = os.WriteFile("started", []byte("started"), 0600)
 	data, _ := io.ReadAll(os.Stdin)
 	cwd, _ := os.Getwd()

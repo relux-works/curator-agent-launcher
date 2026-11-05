@@ -43,6 +43,10 @@ type Lease struct {
 	completeErr  error
 }
 
+// RecoverySelected reports the caller's explicit completion protocol. It does
+// not expose the runtime token or grant recovery authority.
+func (l *Lease) RecoverySelected() bool { return l.completion != nil }
+
 const RecoveryCompletionBudget = 30 * time.Second
 
 // NewRecoveryLease preserves activation/renewal for a v2-issued runtime token,
@@ -173,12 +177,7 @@ func (l *Lease) Finish(ctx context.Context) error {
 		<-done
 	}
 	if l.completion != nil {
-		l.completeOnce.Do(func() {
-			bounded, cancel := context.WithTimeout(ctx, RecoveryCompletionBudget)
-			defer cancel()
-			l.completeErr = l.completion(bounded)
-		})
-		return l.completeErr
+		return l.complete(ctx)
 	}
 	for attempt := 1; ; attempt++ {
 		err := l.client.Unregister(ctx, l.token)
@@ -193,8 +192,23 @@ func (l *Lease) Finish(ctx context.Context) error {
 	}
 }
 
+// complete is shared by background failure and foreground Finish. It must not
+// wait for the background duty (which may itself be completing).
+func (l *Lease) complete(ctx context.Context) error {
+	l.completeOnce.Do(func() {
+		bounded, cancel := context.WithTimeout(ctx, RecoveryCompletionBudget)
+		defer cancel()
+		l.completeErr = l.completion(bounded)
+	})
+	return l.completeErr
+}
+
 // end unregisters in the background until it answers or Finish takes over.
 func (l *Lease) end(ctx context.Context, stopped <-chan struct{}) {
+	if l.completion != nil {
+		_ = l.complete(ctx)
+		return
+	}
 	for {
 		err := l.client.Unregister(ctx, l.token)
 		if err == nil {

@@ -93,6 +93,16 @@ func registerRecoveryGateway(ctx context.Context, req Request, selected *resolve
 		return refuse()
 	}
 	owned = true
+	if req.samAttempt != "" && req.Alert != nil {
+		// Only public IDs, never proof/token or a rewritten module binding.
+		line := fmt.Sprintf("curator-run: gateway correlation: sam_attempt=%s registration_session=%s attempt=%s launch=%s runtime=%s\n", req.samAttempt, request.Session, issued.AttemptID, issued.LaunchID, request.Runtime)
+		if n, err := io.WriteString(req.Alert, line); err != nil || n != len(line) {
+			cleanup, stop := context.WithTimeout(context.WithoutCancel(ctx), netproxy.RecoveryCompletionBudget)
+			_ = lease.Finish(cleanup)
+			stop()
+			return refuse()
+		}
+	}
 	return issued.Registration, lease, nil
 }
 

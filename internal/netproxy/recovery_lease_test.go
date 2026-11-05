@@ -116,3 +116,41 @@ func TestRecoveryLeaseCancellationAndMissingOwner(t *testing.T) {
 		t.Fatal("cancelled recovery became legacy cleanup success")
 	}
 }
+
+// Background activation failure must revoke the original attempt too. Finish
+// shares its result, even if failure completes before the child exits.
+func TestRecoveryLeaseActivationFailureNeverUnregisters(t *testing.T) {
+	for _, failed := range []bool{false, true} {
+		t.Run(map[bool]string{false: "confirmed", true: "unconfirmed"}[failed], func(t *testing.T) {
+			s := newScript()
+			s.then("/v1/activate", gone)
+			f := newFake(t, s.serve)
+			var calls atomic.Int32
+			want := error(nil)
+			if failed {
+				want = errors.New("completion unconfirmed")
+			}
+			completed := make(chan struct{})
+			lease, err := NewRecoveryLease(New(f.socket), leaseReg, io.Discard, time.Now(), func(ctx context.Context) error {
+				calls.Add(1)
+				close(completed)
+				return want
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			lease.Started(context.Background())
+			select {
+			case <-completed:
+			case <-time.After(time.Second):
+				t.Fatal("background recovery did not complete")
+			}
+			if got := lease.Finish(context.Background()); got != want {
+				t.Fatal("background verdict lost")
+			}
+			if calls.Load() != 1 || s.calls("/v1/unregister") != 0 {
+				t.Fatal("activation failure used legacy cleanup or completed twice")
+			}
+		})
+	}
+}
