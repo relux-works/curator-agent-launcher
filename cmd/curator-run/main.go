@@ -128,6 +128,7 @@ type launchDeps struct {
 	workdir       func() (string, error)
 	environ       func() []string
 	availability  func() (plan.AvailabilityFunc, error)
+	gatewayStore  func() (*providerlimits.Store, error)
 	build         plan.BuildLaunchFunc
 	moduleVersion func() string // Tests supply metadata omitted by Go test binaries.
 	stdin         io.Reader
@@ -472,12 +473,20 @@ func emitFailure(w io.Writer, code string, err error) int {
 	return diagnostics.ExitForCode(code)
 }
 
-func processAvailability() (plan.AvailabilityFunc, error) {
+func processLimitsStore() (*providerlimits.Store, error) {
 	layout, err := providerlimits.DefaultLayout()
 	if err != nil {
 		return nil, err
 	}
 	store, err := providerlimits.NewStore(providerlimits.Options{Layout: layout})
+	if err != nil {
+		return nil, err
+	}
+	return store, nil
+}
+
+func processAvailability() (plan.AvailabilityFunc, error) {
+	store, err := processLimitsStore()
 	if err != nil {
 		return nil, err
 	}
@@ -552,7 +561,24 @@ func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, ta
 		startShadowSelection(deps)
 		return runDelegated(ctx, inv, frag, resolved, decision, wd, tail, intent, stdout, stderr, deps)
 	}
-	availability, err := deps.availability()
+	gatewayDefault := deps.gatewayDefault
+	launcherProfile := ""
+	if deps.selectedConfig.Proxy != nil {
+		launcherProfile = deps.selectedConfig.Proxy.Profile
+	}
+	managedNetwork := inv.NetworkSet || launcherProfile != "" || gatewayDefault
+	gatewayAttempt := managedNetwork && !isHosted && target.System == "codex"
+	var availability plan.AvailabilityFunc
+	var gatewayStore *providerlimits.Store
+	if gatewayAttempt {
+		acquire := deps.gatewayStore
+		if acquire == nil {
+			acquire = processLimitsStore
+		}
+		gatewayStore, err = acquire()
+	} else {
+		availability, err = deps.availability()
+	}
 	if err != nil {
 		return emitFailure(stderr, diagnostics.CodePlanRefused, err)
 	}
@@ -566,8 +592,8 @@ func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, ta
 		return emitFailure(stderr, code, err)
 	}
 	launchContext := plan.Context(frag, fragment.Semantics(inv.SystemPrompt))
-	admitted, err := plan.Build(ctx, plan.Deps{Registry: deps.registry, BuildLaunch: build, Availability: availability, ModuleVersion: deps.moduleVersion}, plan.Request{
-		Runtime: resolved.Runtime, Model: resolved.Model.Value, Effort: resolved.Effort.Value,
+	admitted, err := plan.Build(ctx, plan.Deps{Registry: deps.registry, BuildLaunch: build, Availability: availability, ModuleVersion: deps.moduleVersion, GatewayStore: gatewayStore}, plan.Request{
+		Runtime: resolved.Runtime, Model: resolved.Model.Value, Effort: resolved.Effort.Value, Gateway: gatewayAttempt,
 		PermissionMode: decision.Mode, ToolRelease: toolRelease, NativeArgs: tail,
 		Home: frag.Home(), WorkDir: wd, Env: parentEnv, Context: launchContext,
 	})
@@ -654,12 +680,7 @@ func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, ta
 	}
 	// Without --network, an operator default that is a filtering gateway
 	// selects it (G-C); other defaults keep the explicit-only behaviour.
-	gatewayDefault := deps.gatewayDefault
-	launcherProfile := ""
-	if deps.selectedConfig.Proxy != nil {
-		launcherProfile = deps.selectedConfig.Proxy.Profile
-	}
-	managedNetwork := inv.NetworkSet || launcherProfile != "" || gatewayDefault
+	// Network selection was captured before policy admission.
 	entrypoint := ""
 	if managedNetwork {
 		var merr error
@@ -674,17 +695,25 @@ func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, ta
 	}
 	var snapshot *execution.ArtifactSnapshot
 	if managedNetwork && sessionAllowed(isHosted) {
-		snapshot, err = execution.SnapshotArtifact(admitted.Plan.Binary, admitted.Plan.WorkDir, admitted.Plan.Env)
+		if target.System == "codex" {
+			snapshot, err = execution.SnapshotCodexArtifact(admitted.Plan.Binary, admitted.Plan.WorkDir, admitted.Plan.Env, toolRelease)
+		} else {
+			snapshot, err = execution.SnapshotArtifact(admitted.Plan.Binary, admitted.Plan.WorkDir, admitted.Plan.Env)
+		}
 		if err != nil {
 			return emitNetworkFailure(stderr, err)
 		}
 		defer snapshot.Close()
 	}
+	adapterHarness := target.System
+	if adapterHarness == "codex" {
+		adapterHarness = "codex-cli"
+	}
 	var artifact []byte
 	var hostIdentity binding.AdapterIdentity
 	if snapshot != nil {
 		artifact = snapshot.Bytes()
-		hostIdentity = binding.AdapterIdentity{Adapter: "generic-env-v1", Harness: target.System, Build: snapshot.BuildID(), Entrypoint: entrypoint}
+		hostIdentity = binding.AdapterIdentity{Adapter: "generic-env-v1", Harness: adapterHarness, Build: snapshot.BuildID(), Entrypoint: entrypoint}
 	}
 	// A filtering-gateway registration may be made below: hold the
 	// signals from before it until its unregister completes.
@@ -703,7 +732,8 @@ func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, ta
 	preparedNet, err := network.Prepare(prepareCtx, network.Request{
 		Explicit: inv.Network, ExplicitSet: inv.NetworkSet, LauncherProfile: launcherProfile, DefaultGateway: gatewayDefault,
 		GatewayRecovery: inv.GatewayRecoveryEnabled,
-		Hosted:          !sessionAllowed(isHosted), Harness: target.System,
+		CodexPlan:       &admitted, StagedExecutable: stagedExecutable(snapshot), ToolRelease: toolRelease,
+		Hosted: !sessionAllowed(isHosted), Harness: adapterHarness,
 		Entrypoint: entrypoint,
 		ParentEnv:  parentEnv, Prober: deps.prober,
 		Artifact: artifact, HostIdentity: hostIdentity, Mode: adapterprobe.Mode(inv.NetworkMode),
@@ -735,6 +765,9 @@ func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, ta
 			}
 		}()
 	}
+	if final, ok := preparedNet.CodexPlan(); ok {
+		admitted = final
+	}
 	inspection := agentic.InspectStoredPolicy(system, admitted.Plan)
 	value, err := composition.ComposeAdmittedPlanWithNetwork(admitted.Plan, admitted.OwnedEnv, *frag, prompt, tail, preparedNet.Patch)
 	if err != nil {
@@ -746,6 +779,9 @@ func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, ta
 	startShadowSelection(deps)
 	if snapshot != nil {
 		value.Binary = snapshot.Path()
+	}
+	if err := preparedNet.BindProcess(value.Binary, value.Argv, value.Env, value.EnvLiterals, value.EnvNames); err != nil {
+		return emitNetworkFailure(stderr, err)
 	}
 	emitAdapter := deps.networkEmit
 	if emitAdapter == nil {
@@ -785,7 +821,14 @@ func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, ta
 		}
 		return runHosted(inv, frag, target, value, intent, inspection, admitted.Plan, decision, parentEnv, now(), stdout, stderr, deps, boundary, selected.terminal)
 	}
-	return runNative(ctx, value, decision, inspection, stdout, stderr, deps, boundary, &preparedNet, owner)
+	return runNative(ctx, value, decision, inspection, stdout, stderr, deps, boundary, &preparedNet, owner, snapshot)
+}
+
+func stagedExecutable(s *execution.ArtifactSnapshot) string {
+	if s == nil {
+		return ""
+	}
+	return s.Path()
 }
 
 // gatewaySessionID is the audit id a native launch registers with a
@@ -796,7 +839,7 @@ func gatewaySessionID(envID string, at time.Time) string {
 
 // runNative reports inspected policy and runs the composed value directly.
 // It performs zero manager contact; hosted failures never reach it.
-func runNative(ctx context.Context, value composition.Value, decision execution.PermissionDecision, inspection agentic.StoredPolicyInspection, stdout, stderr io.Writer, deps launchDeps, boundary func() error, net *network.Prepared, owner *leaseOwner) int {
+func runNative(ctx context.Context, value composition.Value, decision execution.PermissionDecision, inspection agentic.StoredPolicyInspection, stdout, stderr io.Writer, deps launchDeps, boundary func() error, net *network.Prepared, owner *leaseOwner, snapshots ...*execution.ArtifactSnapshot) int {
 	if decision.Mode == agentic.PermissionModeNative {
 		execution.ReportEffectiveNativePolicy(stderr, inspection)
 	}
@@ -826,6 +869,25 @@ func runNative(ctx context.Context, value composition.Value, decision execution.
 			}
 			return child, nil
 		}
+	}
+	previousEnvironment := opts.ChildEnvironment
+	opts.ChildEnvironment = func(env []string) ([]string, error) {
+		if previousEnvironment != nil {
+			var err error
+			env, err = previousEnvironment(env)
+			if err != nil {
+				return nil, err
+			}
+		}
+		return net.ChildEnvironment(env)
+	}
+	opts.BeforeStart = func(binary string, argv, env []string) error {
+		for _, snapshot := range snapshots {
+			if err := snapshot.Verify(); err != nil {
+				return err
+			}
+		}
+		return net.VerifyProcess(binary, argv, env)
 	}
 	lease := net.TakeLease()
 	if lease == nil {
@@ -860,14 +922,25 @@ func runNative(ctx context.Context, value composition.Value, decision execution.
 		}
 		return nil
 	}
+	childStarted := false
 	opts.Started = func() {
+		childStarted = true
 		lease.Started(context.Background())
 		gatewayphase.Reach("started")
 	}
 	opts.Interrupts = owner.interrupts()
 	code := prepared.Run(opts)
 	gatewayphase.Reach("exited")
-	_ = owner.finish(lease)
+	if lease.RecoverySelected() {
+		if childStarted {
+			fmt.Fprintf(stderr, "curator-run: gateway child: child_started=true child_exit=%d\n", code)
+		} else {
+			fmt.Fprintf(stderr, "curator-run: gateway child: child_started=false launch_exit=%d\n", code)
+		}
+	}
+	if err := owner.finish(lease); err != nil && lease.RecoverySelected() && code == 0 {
+		return diagnostics.ExitForCode(diagnostics.CodePlanRefused)
+	}
 	return code
 }
 
