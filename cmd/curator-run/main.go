@@ -200,16 +200,9 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, deps laun
 	if len(args) > 0 && args[0] == "gateway" {
 		return runGatewayRecovery(ctx, args, stdout, stderr, deps)
 	}
-	paths := deps.defaults
-	var configResolver configfile.Resolver
-	if deps.configLocations != nil {
-		loc, err := deps.configLocations()
-		if err != nil {
-			return emitFailure(stderr, diagnostics.CodeDefaultsInvalid, err)
-		}
-		configResolver = configfile.Resolver{Locations: loc, Stderr: stderr}
-	} else {
-		configResolver = configfile.Resolver{Locations: configfile.Locations{System: filepath.Dir(paths.Machine), User: filepath.Dir(paths.Operator)}, Stderr: stderr}
+	configResolver, err := locateOrdinaryConfig(deps, stderr)
+	if err != nil {
+		return emitFailure(stderr, diagnostics.CodeDefaultsInvalid, err)
 	}
 	if len(args) > 0 && args[0] == "werkstatt" {
 		inv, err := cli.Parse(args)
@@ -295,26 +288,11 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, deps laun
 		}
 		return emitFailure(stderr, diagnostics.CodeDefaultsInvalid, err)
 	}
-	policy, err := launcherconfig.Load(configResolver)
+	loadedDeps, err := loadOrdinaryPolicy(ctx, configResolver, deps)
 	if err != nil {
 		return emitFailure(stderr, diagnostics.CodeDefaultsInvalid, err)
 	}
-	deps.launcherConfig = policy
-	readSelected := deps.readSelectedConfig
-	if readSelected == nil {
-		readSelected = func(ctx context.Context) (launcherconfig.Selected, error) {
-			return launcherconfig.ReadSelected(ctx, "", nil)
-		}
-	}
-	deps.selectedConfig, err = readSelected(ctx)
-	if err != nil {
-		return emitFailure(stderr, diagnostics.CodeDefaultsInvalid, launcherconfig.ErrSelected)
-	}
-	deps.configResolver = configResolver
-	deps.selectorConfig, err = selector.Load(configResolver)
-	if err != nil {
-		return emitFailure(stderr, diagnostics.CodeDefaultsInvalid, err)
-	}
+	deps = loadedDeps
 
 	inv, _ := cli.Parse(args) // Grammar was checked above.
 	if inv.HostFlag == cli.HostFlagUntracked {
@@ -365,93 +343,31 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, deps laun
 		return diagnostics.ExitForCode(mapping.CodeUnsupported)
 	}
 
-	// SPEC §4.3: resolve model and effort defaults. A locked flag is a
-	// usage refusal, an unreadable file is defaults_config_invalid, and
-	// a system the lineup admits nothing for is defaults_unresolvable —
-	// every one terminal with nothing launched. The provider path and
-	// the resolved pair with its per-member origins print on stderr as
-	// one line-group before the plan request.
-	if deps.configLocations == nil && deps.configPaths != nil {
-		paths, err := deps.configPaths()
-		if err != nil {
-			_ = diagnostics.Emit(stderr, defaults.CodeInvalid, fmt.Sprintf("cannot locate defaults configuration: %v", err))
-			return diagnostics.ExitForCode(defaults.CodeInvalid)
+	// SPEC §4.3: retain one owning defaults and selector resolution path.
+	// Keep provider-group emission and shadow observation at this frontend.
+	ordinary, failure := resolveOrdinary(ctx, inv, frag, configResolver, deps)
+	if failure != nil {
+		if failure.rawDetail {
+			_ = diagnostics.Emit(stderr, failure.code, failure.err.Error())
+			return diagnostics.ExitForCode(failure.code)
 		}
-		deps.defaults = paths
+		return emitFailure(stderr, failure.code, failure.err)
 	}
-	var files defaults.Files
-	if deps.configLocations != nil {
-		files, err = defaults.LoadResolved(configResolver)
-	} else {
-		files, err = defaults.Load(deps.defaults)
+	deps = ordinary.deps
+	resolved, files := ordinary.resolved, ordinary.files
+	provider := defaults.ResolveProviderPath()
+	if deps.providerPath != nil {
+		provider = deps.providerPath()
 	}
-	if err == nil {
-		var flags defaults.Pair
-		if inv.ModelSet {
-			flags.Model = defaults.Member{Value: inv.Model, Present: true}
-		}
-		if inv.EffortSet {
-			flags.Effort = defaults.Member{Value: inv.Effort, Present: true}
-		}
-		if inv.PermissionSet {
-			flags.Permissions = defaults.Member{Value: string(inv.PermissionMode), Present: true}
-		}
-		// Preserve existing locked-flag refusals before invoking external policy.
-		if deps.selectorConfig.Mode == "enforce" {
-			if _, resolveErr := files.Resolve(frag.Environment, flags); resolveErr != nil {
-				var derr *defaults.Error
-				if errors.As(resolveErr, &derr) {
-					return emitFailure(stderr, derr.Code, derr.Err)
-				}
-				return emitFailure(stderr, diagnostics.CodeDefaultsInvalid, resolveErr)
-			}
-		}
-		var resolved defaults.Resolved
-		if deps.selectorConfig.Mode != "" {
-			var request selector.Request
-			request, err = selectionRequest(inv, frag, deps)
-			if err != nil && deps.selectorConfig.Mode == "enforce" {
-				return emitFailure(stderr, diagnostics.CodeSelectorUnavailable, errors.New("selector unavailable reason=invalid"))
-			}
-			if err == nil {
-				deps.selectorRequest = &request
-			}
-		}
-		if deps.selectorConfig.Mode == "enforce" {
-			decision, selectionError := selector.Enforce(ctx, deps.selectorConfig, *deps.selectorRequest)
-			if selectionError != nil {
-				failure := selectionError.(*selector.Failure)
-				return emitFailure(stderr, failure.Code, failure)
-			}
-			selected := defaults.Pair{Model: defaults.Member{Value: decision.Model, Present: true}, Effort: defaults.Member{Value: selectedEffort(decision), Present: true}}
-			resolved, err = files.CompleteWithSelection(frag.Environment, flags, selected, deps.registry)
-			resolved.SelectorDecisionID = decision.DecisionID
-			resolved.SelectorRuntime = decision.Runtime
-		} else {
-			resolved, err = files.Complete(frag.Environment, flags, deps.registry)
-		}
-		if err == nil {
-			provider := defaults.ResolveProviderPath()
-			if deps.providerPath != nil {
-				provider = deps.providerPath()
-			}
-			_ = defaults.EmitGroupWithProvider(stderr, resolved, provider)
-			if deps.selectorConfig.Mode == "shadow" {
-				capture := &selectorOutcomeWriter{Writer: stderr}
-				deps.hostedSession = func(handle string) { capture.hosted = handle }
-				code := launch(ctx, inv, frag, target, resolved, files, stdout, capture, deps)
-				observeSelection(deps, resolved, capture.outcome())
-				return code
-			}
-			return launch(ctx, inv, frag, target, resolved, files, stdout, stderr, deps)
-		}
+	_ = defaults.EmitGroupWithProvider(stderr, resolved, provider)
+	if deps.selectorConfig.Mode == "shadow" {
+		capture := &selectorOutcomeWriter{Writer: stderr}
+		deps.hostedSession = func(handle string) { capture.hosted = handle }
+		code := launch(ctx, inv, frag, target, resolved, files, stdout, capture, deps)
+		observeSelection(deps, resolved, capture.outcome())
+		return code
 	}
-	if derr := (&defaults.Error{}); errors.As(err, &derr) {
-		_ = diagnostics.Emit(stderr, derr.Code, derr.Err.Error())
-		return diagnostics.ExitForCode(derr.Code)
-	}
-	_ = diagnostics.Emit(stderr, mapping.CodeUnsupported, err.Error())
-	return diagnostics.ExitForCode(mapping.CodeUnsupported)
+	return launch(ctx, inv, frag, target, resolved, files, stdout, stderr, deps)
 }
 
 // emitNetworkFailure retains a typed network refusal's code and renders

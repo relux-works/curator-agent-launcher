@@ -26,6 +26,21 @@ func main() {
 		return
 	}
 	if len(os.Args) > 1 && os.Args[1] == "--version" {
+		if filepath.Base(os.Args[0]) == "codex" {
+			// Closed-baseline tests cannot add a test-only release env name.
+			// Existing frontend fixtures retain their environment fallback.
+			data, err := os.ReadFile(filepath.Join(filepath.Dir(os.Args[0]), "codex-version"))
+			if err == nil {
+				if len(os.Args) != 2 {
+					os.Exit(8)
+				}
+				os.Stdout.Write(data)
+				return
+			}
+			if !os.IsNotExist(err) {
+				os.Exit(1)
+			}
+		}
 		if filepath.Base(os.Args[0]) == "muse" {
 			if len(os.Args) != 2 {
 				os.Exit(8)

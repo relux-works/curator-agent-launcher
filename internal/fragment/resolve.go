@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 )
 
 // CuratorBinary is the executable the production resolver starts, looked up
@@ -23,12 +24,13 @@ const (
 	CodeRepairFailed       = "resolve_repair_failed"
 	CodeLockUnavailable    = "resolve_lock_unavailable"
 	CodeFragmentInvalid    = "resolve_fragment_invalid"
+	CodeHomeStale          = "resolve_home_stale"
 )
 
 // curatorCodes maps Curator's own diagnostics (environments.md §10.4) to
 // the resolve family (SPEC §4.1). environment_home_stale is deliberately
-// absent: it cannot arise from a --repair invocation, and a Curator that
-// reports it falls under resolve_invocation_failed like any unexpected exit.
+// absent: it cannot arise from the default --repair invocation. VerifyOnly
+// maps it explicitly; default repair keeps the prior invocation-failed result.
 var curatorCodes = map[string]string{
 	"environment_unknown":          CodeEnvironmentUnknown,
 	"profile_unknown":              CodeProfileUnknown,
@@ -64,6 +66,9 @@ type Request struct {
 	EnvID      string
 	Profile    string
 	ProfileSet bool
+	// VerifyOnly requests the supported nonrepair resolver. The zero value
+	// retains the ordinary frontend's unconditional repair contract.
+	VerifyOnly bool
 	Stderr     io.Writer
 	Dir        string
 	Env        []string
@@ -71,13 +76,16 @@ type Request struct {
 
 // Argv returns the exact subprocess argument vector of SPEC §4.1, without
 // the executable: env resolve <env-id> [--profile <name>] --repair --format
-// json, in that order. --repair is unconditional.
+// json, in that order. Only explicit VerifyOnly omits --repair.
 func (r Request) Argv() []string {
 	argv := []string{"env", "resolve", r.EnvID}
 	if r.ProfileSet {
 		argv = append(argv, "--profile", r.Profile)
 	}
-	return append(argv, "--repair", "--format", "json")
+	if !r.VerifyOnly {
+		argv = append(argv, "--repair")
+	}
+	return append(argv, "--format", "json")
 }
 
 // Runner starts one subprocess and reports what it produced. Production
@@ -95,7 +103,19 @@ type ExecRunner struct{}
 
 // Run implements Runner.
 func (ExecRunner) Run(ctx context.Context, binary string, argv []string, dir string, env []string, stderr io.Writer) ([]byte, int, error) {
+	return runCommand(ctx, binary, argv, dir, env, stderr, 0)
+}
+
+// RunBounded bounds the inherited-pipe drain after an owned metadata process
+// exits or cancellation fires. A timeout is a refusal, never partial success;
+// it does not attest cleanup of arbitrary descendants holding those pipes.
+func (ExecRunner) RunBounded(ctx context.Context, binary string, argv []string, dir string, env []string, stderr io.Writer) ([]byte, int, error) {
+	return runCommand(ctx, binary, argv, dir, env, stderr, time.Second)
+}
+
+func runCommand(ctx context.Context, binary string, argv []string, dir string, env []string, stderr io.Writer, drainLimit time.Duration) ([]byte, int, error) {
 	cmd := exec.CommandContext(ctx, binary, argv...)
+	cmd.WaitDelay = drainLimit
 	cmd.Dir = dir
 	cmd.Env = env
 	cmd.Stdin = nil
@@ -143,7 +163,8 @@ func NewWithRunner(binary string, runner Runner) *Resolver {
 //     context was cancelled before or during the run): resolve_invocation_failed;
 //   - non-zero exit whose stderr carries a recognized `curator: <code>: …`
 //     line: the §4.1 mapping of that code;
-//   - any other non-zero exit, environment_home_stale included:
+//   - environment_home_stale in VerifyOnly mode: resolve_home_stale;
+//   - any other non-zero exit (including stale under default repair):
 //     resolve_invocation_failed;
 //   - exit zero with stdout that is not one valid closed fragment naming
 //     req.EnvID as its environment: resolve_fragment_invalid. Malformed
@@ -155,6 +176,11 @@ func (r *Resolver) Resolve(ctx context.Context, req Request) (*Fragment, error) 
 	if req.ProfileSet && req.Profile == "" {
 		return nil, &ResolveError{Code: CodeInvocationFailed, ExitCode: -1, Detail: "--profile given without a name"}
 	}
+	if req.VerifyOnly {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, 15*time.Second)
+		defer cancel()
+	}
 	stderr := req.Stderr
 	if stderr == nil {
 		stderr = io.Discard
@@ -165,7 +191,13 @@ func (r *Resolver) Resolve(ctx context.Context, req Request) (*Fragment, error) 
 	if env == nil {
 		env = os.Environ()
 	}
-	stdout, exit, startErr := r.runner.Run(ctx, r.binary, req.Argv(), req.Dir, env, io.MultiWriter(stderr, &captured))
+	run := r.runner.Run
+	if bounded, ok := r.runner.(interface {
+		RunBounded(context.Context, string, []string, string, []string, io.Writer) ([]byte, int, error)
+	}); req.VerifyOnly && ok {
+		run = bounded.RunBounded
+	}
+	stdout, exit, startErr := run(ctx, r.binary, req.Argv(), req.Dir, env, io.MultiWriter(stderr, &captured))
 	if startErr != nil {
 		return nil, &ResolveError{
 			Code:     CodeInvocationFailed,
@@ -177,7 +209,10 @@ func (r *Resolver) Resolve(ctx context.Context, req Request) (*Fragment, error) 
 	if exit != 0 {
 		code, detail := curatorDiagnostic(captured.Bytes())
 		re := &ResolveError{Code: CodeInvocationFailed, CuratorCode: code, ExitCode: exit}
-		if mapped, ok := curatorCodes[code]; ok {
+		if req.VerifyOnly && code == "environment_home_stale" {
+			re.Code = CodeHomeStale
+			re.Detail = fmt.Sprintf("curator env resolve exited %d: %s: %s", exit, code, detail)
+		} else if mapped, ok := curatorCodes[code]; ok {
 			re.Code = mapped
 			re.Detail = fmt.Sprintf("curator env resolve exited %d: %s: %s", exit, code, detail)
 		} else if code != "" {
