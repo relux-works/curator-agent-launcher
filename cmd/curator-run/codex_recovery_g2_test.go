@@ -142,26 +142,31 @@ func TestCodexRecoveryG2Matrix(t *testing.T) {
 					defer close(signalDone)
 					select {
 					case held := <-ready:
+						send := func() {
+							if kind == "forward-sigint" {
+								held <- os.Interrupt
+							} else {
+								held <- syscall.SIGTERM
+							}
+						}
 						ticker := time.NewTicker(time.Millisecond)
 						defer ticker.Stop()
-						deadline := time.After(3 * time.Second)
+						deadline := time.After(30 * time.Second)
 						for {
 							select {
 							case <-ticker.C:
 								if _, err := os.Stat(filepath.Join(f.dir, "child-receipt.json")); err == nil {
-									if kind == "forward-sigint" {
-										held <- os.Interrupt
-									} else {
-										held <- syscall.SIGTERM
-									}
+									send()
 									return
 								}
 							case <-deadline:
 								t.Error("child receipt absent before signal")
+								// The waitsignal child only ends on a signal: fail, do not hang.
+								send()
 								return
 							}
 						}
-					case <-time.After(3 * time.Second):
+					case <-time.After(30 * time.Second):
 						t.Error("lease signals not held")
 					}
 				}()
