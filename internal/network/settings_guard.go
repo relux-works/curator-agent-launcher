@@ -536,8 +536,8 @@ func managedHome(name string, req Request) (string, error) {
 //     exists and, like any cowork, global or legacy settings file there, is
 //     not writable;
 //   - its physical working directory is inside an operator project root;
-//   - no Claude Code managed preferences (MDM) and no server-managed policy
-//     cache is present on the host.
+//   - no Claude Code managed preferences (MDM); only the closed non-widening
+//     cache subset in policy_cache.go is admitted on the host.
 //
 // "Exact model" is the exact qualified build, enforced by the strict tuple;
 // the LLM model is not checked. Worktree, resume and remote placement are
@@ -596,7 +596,6 @@ func admissionContract(clock guardClock, name string, req Request, roots []strin
 	if username != "" {
 		candidates = append(candidates, filepath.Join(mdmDir, username, mdmDomain+".plist"))
 	}
-	candidates = append(candidates, filepath.Join(home, "remote-settings.json"), filepath.Join(home, "policy-limits.json"))
 	for _, path := range candidates {
 		if err := clock.step(name); err != nil {
 			return err
@@ -607,5 +606,5 @@ func admissionContract(clock guardClock, name string, req Request, roots []strin
 			return refuse("managed preferences cannot be inspected")
 		}
 	}
-	return nil
+	return checkPolicyCaches(clock, name, home)
 }

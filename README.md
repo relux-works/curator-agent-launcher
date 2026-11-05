@@ -1009,8 +1009,49 @@ fails it refuses `network_scope_unsupported` with no gateway call:
 - the native tail holds only allowlisted options, so worktree, resume, cloud and remote placement refuse (above);
 - the host has no Claude Code managed preferences
   (`/Library/Managed Preferences/com.anthropic.claudecode.plist`, machine-wide
-  or for the current user) and the managed home holds no cached server policy
-  (`remote-settings.json`, `policy-limits.json`).
+  or for the current user). Cached server policy is limited to the closed
+  subset below; it cannot select another route, settings source or permission
+  mode.
+
+The cache check uses the published Claude Code 2.1.316 schema and consumer
+semantics. Both absent caches remain valid. Present caches must be readable
+regular files, at most 1 MiB, opened without following a final symbolic link;
+replacement or observed changes during reading refuse. Strict JSON parsing
+rejects duplicate keys (including escaped duplicates), malformed Unicode and
+trailing documents. Ordinary settings-file link handling is unchanged.
+
+| Cache/path | Admitted value |
+| --- | --- |
+| `remote-settings.json` | Exactly an empty JSON object |
+| `policy-limits.json.restrictions` | Required object containing only the next two optional entries |
+| `restrictions.allow_connector_file_downloads.allowed` | Boolean; `false` narrows and `true` leaves the named capability at its no-policy setting |
+| `restrictions.enforce_web_search_mcp_isolation.allowed` | `true` only; the enclosing object contains only `allowed` |
+| `defaults.remote_control_at_startup` | `false` only; no other defaults; an empty defaults object is valid |
+| `compliance_taints` | Empty array only |
+| `monitoring_notice` | `null` or string; the 2.1.316 native object schema catches a string to `null`, so display of that string is not promised |
+
+Each restriction entry contains exactly one `allowed` member. All other
+fields, types and values refuse with `network_scope_unsupported`. Refusals
+name the cache and a schema path, never a value; unknown member names appear
+as `*` to avoid disclosing arbitrary supplied text. This is a gateway-safe
+subset, not full native policy-schema support. The published artifact has no
+literal consumer for the connector key; its admitted booleans follow the
+generic non-enforcing restriction evaluator. Unknown restriction names never
+inherit that admission.
+
+The six documented companions (`.signature.json` and `.signature-iat.json`
+for each cache, `policy-limits.json.stamp.json`, and
+`remote-settings.json.synced-at`) may be absent or regular files up to 64 KiB.
+Links and special files refuse. Only metadata is inspected: contents are not
+read or treated as proof of policy safety, signature validity or account
+binding. The launcher does not delete, rewrite or change permissions on any
+cache or companion. See the native [directory reference](https://code.claude.com/docs/en/claude-directory)
+and [server-managed settings reference](https://code.claude.com/docs/en/server-managed-settings).
+
+Run the focused cache and real preparation/recheck controls with
+`go test ./internal/network -run 'TestPolicyCache|TestPrepareGatewayPolicyCache'`.
+They use synthetic files and the fixture gateway; they execute no native
+runtime. `make check` also runs them in the full ordinary and race suites.
 
 Contract A narrows the launch; it does not isolate it. Its written residual:
 
@@ -1023,10 +1064,13 @@ Contract A narrows the launch; it does not isolate it. Its written residual:
 - `<CLAUDE_CONFIG_DIR>/.claude.json` stays writable, because Claude Code
   writes it; the guard refuses a route-bearing `env` in it before spawn, and
   an edit after the check is the same reroute as the first item;
-- MDM profiles and server-managed policy cannot be read by the launcher. The
-  gate is the absence of their local traces named above (the MDM plists and
-  the policy-cache files); policy a runtime fetches from its server at start
-  or refresh is not checked;
+- MDM profiles still require absence of the named local plists. The cache
+  subset is read again at the final pre-spawn boundary, but a policy rewrite
+  or refresh after that check is not continuously enforced. The 2.1.316
+  source gates its principal policy read/fetch/poll paths on first-party
+  base-URL eligibility; that static observation is not a runtime connection
+  witness or a guarantee about every later path. Actual gateway qualification
+  must check that the launched process makes no direct Anthropic connection;
 - the launch token is usable only at the gateway's same-host loopback
   listener.
 

@@ -156,7 +156,7 @@ func TestPrepareGatewayAdmissionContract(t *testing.T) {
 			os.MkdirAll(dir, 0o700)
 			writeTestFile(t, filepath.Join(dir, "com.anthropic.claudecode.plist"), "")
 		}},
-		{"server-managed settings cache", false, func(t *testing.T, _ string, req *network.Request) {
+		{"control: empty server-managed settings cache", true, func(t *testing.T, _ string, req *network.Request) {
 			writeTestFile(t, filepath.Join(managedHome(*req), "remote-settings.json"), "{}")
 		}},
 		{"server policy-limits cache", false, func(t *testing.T, _ string, req *network.Request) {
