@@ -88,7 +88,7 @@ func main() {
 		} else if filepath.Base(os.Args[0]) == "codex" {
 			fmt.Println("codex-cli 0.153.2")
 		} else {
-			fmt.Println("2.1.261")
+			fmt.Println("2.1.312")
 		}
 		return
 	}

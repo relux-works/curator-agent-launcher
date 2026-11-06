@@ -280,7 +280,7 @@ func TestChoice5ProviderConflictRowsThroughRealCuratorRun(t *testing.T) {
 
 func TestChoice5MappedBypassDuplicateRowsThroughRealCuratorRun(t *testing.T) {
 	for _, tc := range []struct{ env, system, release string }{
-		{"claude_code", "claude-code", "2.1.261"},
+		{"claude_code", "claude-code", "2.1.312"},
 		{"codex_cli", "codex", "0.153.2"},
 	} {
 		t.Run(tc.env, func(t *testing.T) {
