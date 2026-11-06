@@ -66,12 +66,13 @@ func ScopeAllowed(id adapterprobe.Identity) bool {
 }
 
 // gatewayScopeAllowed is the child-scope ceiling under a filtering
-// gateway: Claude Code, exec or interactive. Strict admission still needs
-// an exact qualified build for that very entrypoint, so the widening takes
-// effect only where the operator lists qualification evidence for it.
+// gateway: Claude Code exec/interactive, or Codex interactive. Explicit
+// non-sensitive optimistic admission retains warning/provenance; strict
+// admission needs qualification for the exact entrypoint.
 func gatewayScopeAllowed(id adapterprobe.Identity) bool {
-	return id.Adapter == envpatch.AdapterGeneric && id.Harness == claudeCodeHarness &&
-		(id.Entrypoint == EntrypointExec || id.Entrypoint == EntrypointInteractive)
+	return id.Adapter == envpatch.AdapterGeneric && ((id.Harness == claudeCodeHarness &&
+		(id.Entrypoint == EntrypointExec || id.Entrypoint == EntrypointInteractive)) ||
+		(id.Harness == "codex-cli" && id.Entrypoint == EntrypointInteractive))
 }
 
 // EntrypointForMode maps the CONSTRUCTION mode of an admitted plan to
@@ -179,18 +180,21 @@ func hasPrintSelector(tail []string) bool {
 // go directly into library policy. ScopeCheck is a test seam, never a policy
 // qualification override.
 type Request struct {
-	Explicit     string
-	ExplicitSet  bool
-	Hosted       bool
-	Harness      string
-	Entrypoint   string
-	ParentEnv    []string
-	Prober       probe.Prober
-	Artifact     []byte
-	HostIdentity binding.AdapterIdentity
-	Mode         adapterprobe.Mode
-	PinnedBuild  string
-	KnownBadPath string
+	samAttempt                    string // SAM-owned basis ID, separate from the control/2 attempt.
+	CodexPlan                     *agentic.PlanWithEnvironment
+	StagedExecutable, ToolRelease string
+	Explicit                      string
+	ExplicitSet                   bool
+	Hosted                        bool
+	Harness                       string
+	Entrypoint                    string
+	ParentEnv                     []string
+	Prober                        probe.Prober
+	Artifact                      []byte
+	HostIdentity                  binding.AdapterIdentity
+	Mode                          adapterprobe.Mode
+	PinnedBuild                   string
+	KnownBadPath                  string
 	// ScopeCheck is a test seam for the independent child-scope ceiling.
 	ScopeCheck    func(adapterprobe.Identity) bool
 	Evaluate      func(context.Context, adapterprobe.Request, adapterprobe.Policy) (adapterprobe.Decision, error)
@@ -238,6 +242,7 @@ type Request struct {
 // application in Compose (empty when unmanaged) and the Record for
 // provenance (nil when unmanaged).
 type Prepared struct {
+	codex      *codexGateway
 	Patch      envpatch.Patch
 	Record     *binding.Record
 	Provenance *adapterprobe.Provenance

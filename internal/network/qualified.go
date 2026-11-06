@@ -54,6 +54,9 @@ var (
 func recipeFor(harness, entrypoint string, gateway bool) string {
 	switch harness {
 	case "codex-cli":
+		if gateway && entrypoint == EntrypointInteractive {
+			return "codex-interactive-v1"
+		}
 		return "codex-exec-v1"
 	case "muse":
 		return "muse-exec-v1"
@@ -95,8 +98,10 @@ func loadQualified(read func(string) ([]byte, error), curatorDir string) ([]adap
 		switch {
 		// Claude Code is the only harness the filtering gateway binds in
 		// this revision; another harness enters with its own shape.
-		case b.Harness != claudeCodeHarness:
-			return nil, invalid("harness must be claude-code")
+		case b.Harness != claudeCodeHarness && b.Harness != "codex-cli":
+			return nil, invalid("harness must be claude-code or codex-cli")
+		case b.Harness == "codex-cli" && b.Entrypoint != EntrypointInteractive:
+			return nil, invalid("codex-cli requires the interactive entrypoint")
 		case b.Entrypoint != EntrypointExec && b.Entrypoint != EntrypointInteractive:
 			return nil, invalid("entrypoint must be exec or interactive")
 		case !sha256RE.MatchString(b.BinarySHA256):

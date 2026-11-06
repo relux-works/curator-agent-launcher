@@ -127,7 +127,7 @@ func entryFixture(t *testing.T, environment string) *pipelineFixture {
 	writeDefaults(t, filepath.Join(f.dir, "machine", "launcher.json"), `{"schema":"curator-run-launcher-v1","host_mode":"native"}`)
 
 	f.deps.workdir = func() (string, error) { return f.dir, nil }
-	releases := map[string]string{"claude_code": "2.1.261", "codex_cli": "codex-cli 0.153.2", "pi": "0.84.2"}
+	releases := map[string]string{"claude_code": "2.1.312", "codex_cli": "codex-cli 0.153.2", "pi": "0.84.2"}
 	f.deps.environ = func() []string {
 		return []string{"PATH=" + f.dir, "HOME=" + f.dir, "PARENT=direct-only", "FIGMA_API_KEY=source-secret", "CLAUDECODE=nested", "CODEX_THREAD_ID=nested", "TASK_BOARD_RUN_ID=nested", "CURATOR_TEST_RELEASE=" + releases[environment]}
 	}

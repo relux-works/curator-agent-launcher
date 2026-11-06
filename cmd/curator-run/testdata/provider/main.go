@@ -69,6 +69,17 @@ func main() {
 		Stdin     []byte
 		WorkDir   string
 	}{os.Args[1:], env, data, cwd})
+	// The receipt follows the capture: a test that signals on the receipt must
+	// not be able to kill this process before its capture is written.
+	if receipt := os.Getenv("CURATOR_TEST_PROCESS_RECEIPT"); receipt != "" {
+		raw, _ := json.Marshal(struct {
+			PID     int
+			Started string
+		}{os.Getpid(), time.Now().UTC().Format(time.RFC3339Nano)})
+		// Rename: a test polling for this path must never see a partial receipt.
+		_ = os.WriteFile(receipt+".tmp", raw, 0600)
+		_ = os.Rename(receipt+".tmp", receipt)
+	}
 	behavior, _ := os.ReadFile("behavior")
 	if string(behavior) == "waitsignal" {
 		os.Stdout.Write([]byte("READY\n"))

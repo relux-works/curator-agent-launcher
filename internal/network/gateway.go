@@ -46,6 +46,9 @@ var claudeRouteNames = []string{
 // failure refuses with no unfiltered fallback. The returned lease carries
 // the post-spawn duties; the Record and errors never carry the token.
 func prepareGateway(ctx context.Context, req Request, result *resolve.Result, identity binding.AdapterIdentity, provenance *adapterprobe.Provenance) (Prepared, error) {
+	if req.Harness == "codex-cli" {
+		return prepareCodexGateway(ctx, req, result, identity, provenance)
+	}
 	name := result.Profile.Name
 	runtime := ""
 	switch req.Harness {

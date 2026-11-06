@@ -596,7 +596,7 @@ Codex v4 `credential_store` accepts absent or `native` policy without an auth
 store override. The reader validates `file` and `keychain` with their matching
 `config_overrides`, but the pinned module explicitly refuses both with
 `plan_refused`; it leaves `config.toml` unchanged. Positive `-c` application
-is an open upstream dependency: v0.5.74 sets
+is an open upstream dependency: the pinned module sets
 `curatorCodexCredentialStoreApplied=false` in
 `pkg/agentic/curator_context.go:714–725`. A future released consumer is
 required before those selections can launch. The launcher does not implement
@@ -836,12 +836,82 @@ qualified_on  = "2026-10-29"
 
 An absent file is an empty list, so strict admission refuses every build as
 before. A present file that cannot be read or does not validate refuses the
-launch. Claude Code is the only harness the file admits in this revision.
+launch. The file admits `claude-code` and the `codex-cli` interactive entrypoint.
 Qualification never widens the independent child-scope ceiling, which admits
 Claude print only, except under a filtering gateway: there the ceiling also
 admits Claude Code's interactive session, and only a build listed for the
 `interactive` entrypoint qualifies it (recipe `claude-interactive-v1`; an
-`exec` entry does not). Hosted network launches remain unsupported.
+`exec` entry does not). Codex CLI 0.164.0 also admits normal interactive
+fresh launches and exact `resume <thread-id>` under a filtering gateway,
+with recipe `codex-interactive-v1`. An explicitly confirmed non-sensitive
+profile can launch optimistically with the required unqualified warning and
+provenance. Strict or sensitive-egress policy requires an exact qualified build;
+exec and hosted network launches remain unsupported.
+
+The Codex convergence source requires SAM's b60 gateway-admission APIs, which
+main's stable `v0.5.74` dependency does not yet provide. A stable published SAM
+containing those APIs and a named full network-profiles commit are required
+before landing. An isolated historical modfile may test this source; it is
+preparation evidence only and does not change the production dependency pins.
+Neither exact `0.166.0` gateway predicate is widened by this change.
+
+With `--gateway-recovery`, Codex uses the same existing private journal and
+control/2 original-envelope registration/completion path as Claude. Absent that
+flag, control/1 remains selected. The registration session retains the SAM
+attempt ID; public correlation names the distinct control/2 attempt and launch
+IDs. The runtime remains `codex`. Lost replies never retry registration, and
+activation failure and normal exit share one original-attempt completion.
+A recovery cleanup failure returns nonzero even when the child exits zero; a nonzero
+child exit retains its own status. Service confirmation and committed local
+receipt remain separate observations. This source does not activate a runtime
+or qualify a native package.
+
+Codex network launches preserve the executable's package layout because code-mode
+tools start a separate `codex-code-mode-host`. The supported distributions are a
+native `codex` executable with its sibling host, or layout-version-1 packages
+with `codex-package.json` and either `bin/codex` or a root `codex` entrypoint
+(`.exe` names use the corresponding host suffix). App bundles and other layouts
+are unsupported. Package staging retains the actual recognition metadata, the
+selected host, and the existing `codex-path/` and `codex-resources/` trees, when
+present. Resource-host precedence follows the pinned runtime: a regular
+`codex-resources/codex-code-mode-host` wins over the executable's sibling. A
+present but invalid selected host refuses; it never silently switches helpers.
+
+Only those package-relative members are read. Links and special files refuse;
+rooted opens prevent an escaping resource lookup. Staging is bounded to 4,096
+entries, depth 32, 512 MiB per file, 64 KiB for package metadata and 1 GiB in
+total. The original 512 MiB main-artifact cap and its adapter BuildID/Evaluate
+policy remain unchanged. A separate receipt binds layout, declared version and
+target, admitted release, selected host, relative file roles, modes, sizes and content hashes to
+that same main snapshot. These hashes prove captured content consistency; they
+do not authenticate a neighboring helper or extend adapter qualification.
+Package metadata naming another release refuses before staging.
+
+Files are private regular copies without retained writable descriptors. The
+final native-process boundary checks the complete staged content and selection
+before spawning. No live installation member is reopened at execution time.
+Normal return, preparation refusal and failed child exit remove the stage.
+SIGKILL of the launcher can leave it behind; this path adds no shared sweeper.
+Private directories, read-only file modes and a final content check do not
+provide isolation against a hostile process running as the same OS user.
+
+Run `go test ./internal/execution ./cmd/curator-run -run
+'CodexPackage|NativePackageBoundary' -count=1` for isolated package/legacy
+controls, staged-mutation refusals and the old single-file-flattening control.
+Their subprocesses and stages use temporary directories and are removed. Those
+fixtures do not replace an admitted real Codex code-mode tool call when checking
+a particular installed package and gateway launch.
+
+Codex registration preserves native ChatGPT authentication and contributes one
+launch-owned `curator-gateway` provider table with the returned complete base,
+`wire_api = "responses"`, `requires_openai_auth = true`, and
+`supports_websockets = false`. The header names `CURATOR_CODEX_GATEWAY_TOKEN`;
+its value is injected only into the final child environment, never arguments,
+provider configuration, literals or provenance. Competing native provider,
+profile, local/remote/server selectors and environment aliases refuse before
+registration. Late argv, environment, executable or original artifact drift
+refuses before process start and ends the registration. This verifies the
+admitted model route; it does not establish system-wide network containment.
 
 A `kind = "filtering-gateway"` profile (curator-network-profiles N14) names a
 local filtering gateway by its control socket and requires an explicit
@@ -986,8 +1056,7 @@ filtering gateway selects it with origin `operator-default`, and every hosted
 route, resume included, then refuses `network_scope_unsupported` before any
 session-manager call. Defaults of the other kinds still need `--network`. A
 `network.toml` that exists but cannot be read, a dangling link included,
-refuses every launch. Codex launches through a gateway are
-refused in this revision.
+refuses every launch.
 
 Claude Code under a filtering gateway is also held to admission contract A,
 checked before registering and again at the pre-spawn boundary. A launch that

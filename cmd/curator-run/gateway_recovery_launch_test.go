@@ -31,14 +31,23 @@ type launchRecoveryGateway struct {
 	envelope                    recoveryjournal.Envelope
 	directory                   string
 	registerFault, recoverFault string
+	healthFault                 string
+	socket                      string
+	restart                     func()
+	ended                       bool
 	healthNotReady              bool
 	foreign                     bool
 	onRegister                  func()
 }
 
-func recoveryLaunchFixture(t *testing.T) (*pipelineFixture, *launchRecoveryGateway) {
+func recoveryLaunchFixture(t *testing.T, fixtures ...*pipelineFixture) (*pipelineFixture, *launchRecoveryGateway) {
 	t.Helper()
-	f := printNetworkFixture(t)
+	var f *pipelineFixture
+	if len(fixtures) == 0 {
+		f = printNetworkFixture(t)
+	} else {
+		f = fixtures[0]
+	}
 	dir, err := os.MkdirTemp("", "r2gw")
 	if err != nil {
 		t.Fatal(err)
@@ -51,7 +60,7 @@ func recoveryLaunchFixture(t *testing.T) (*pipelineFixture, *launchRecoveryGatew
 	socket := filepath.Join(dir, "s")
 	writeGatewayCatalog(t, f, socket)
 	state := filepath.Join(f.dir, "state")
-	g := &launchRecoveryGateway{directory: filepath.Join(state, "swarma", "launcher", "netproxy-recovery", "v1")}
+	g := &launchRecoveryGateway{socket: socket, directory: filepath.Join(state, "swarma", "launcher", "netproxy-recovery", "v1")}
 	for _, p := range []string{filepath.Join(g.directory, "secrets"), filepath.Join(g.directory, "receipts")} {
 		if err := os.MkdirAll(p, 0700); err != nil {
 			t.Fatal(err)
@@ -79,6 +88,13 @@ func recoveryLaunchFixture(t *testing.T) (*pipelineFixture, *launchRecoveryGatew
 		w.Header().Set(netproxy.VersionHeader, netproxy.RecoveryAPI)
 		switch r.URL.Path {
 		case "/v2/health":
+			if g.healthFault != "" {
+				if g.healthFault == "legacy" {
+					w.Header().Set(netproxy.VersionHeader, netproxy.APIVersion)
+				}
+				_, _ = io.WriteString(w, `{"api":"netproxy-control/2","ready":true}`)
+				return
+			}
 			registry := strings.Repeat("c", 64)
 			if g.foreign {
 				registry = strings.Repeat("e", 64)
@@ -132,9 +148,15 @@ func recoveryLaunchFixture(t *testing.T) (*pipelineFixture, *launchRecoveryGatew
 				_, _ = io.WriteString(w, `{"api":"netproxy-control/2"}`)
 				return
 			}
+			g.ended = true
 			_ = json.NewEncoder(w).Encode(map[string]any{"api": netproxy.RecoveryAPI, "attempt_id": e.AttemptID, "launch_id": strings.Repeat("d", 64), "outcome": "revoked", "durable": true})
 		case "/v1/activate", "/v1/renew":
 			w.Header().Set(netproxy.VersionHeader, netproxy.APIVersion)
+			if g.ended {
+				w.WriteHeader(404)
+				_, _ = io.WriteString(w, `{"api":"netproxy-control/1","error":"unknown_token"}`)
+				return
+			}
 			_, _ = io.WriteString(w, `{"api":"netproxy-control/1","active":true}`)
 		default:
 			t.Error("DOWNGRADE ALARM: unexpected service operation")
@@ -142,6 +164,18 @@ func recoveryLaunchFixture(t *testing.T) (*pipelineFixture, *launchRecoveryGatew
 		}
 	})}
 	go srv.Serve(ln)
+	g.restart = func() {
+		handler := srv.Handler
+		if err := srv.Close(); err != nil {
+			t.Fatal(err)
+		}
+		listener, err := net.Listen("unix", socket)
+		if err != nil {
+			t.Fatal(err)
+		}
+		srv = &http.Server{Handler: handler}
+		go srv.Serve(listener)
+	}
 	t.Cleanup(func() { _ = srv.Close() })
 	return f, g
 }
@@ -469,7 +503,7 @@ func TestGatewayRecoveryLaunchCompletionFailures(t *testing.T) {
 	for _, fault := range []string{"wrong-registry", "malformed", "local-evidence", "child-exit"} {
 		t.Run(fault, func(t *testing.T) {
 			f, g := recoveryLaunchFixture(t)
-			expectedCode := 0
+			expectedCode := 1
 			if fault == "child-exit" {
 				writeFixture(t, filepath.Join(f.dir, "behavior"), []byte("exit:37"), 0600)
 				expectedCode = 37
@@ -492,7 +526,7 @@ func TestGatewayRecoveryLaunchCompletionFailures(t *testing.T) {
 			}
 			code, _, stderr := f.run()
 			if code != expectedCode || strings.Contains(string(stderr), "receipt=committed") {
-				t.Fatal("CLEANUP VERDICT ALARM: child status changed or false evidence emitted")
+				t.Fatal("CLEANUP VERDICT ALARM: cleanup failure became success, child error lost or false evidence emitted")
 			}
 			attempt := publicRecoveryAttempt(t, stderr)
 			if strings.Contains(string(stderr), g.envelope.RecoveryProof) || strings.Contains(string(stderr), e2eToken) {
