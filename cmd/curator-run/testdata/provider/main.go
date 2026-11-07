@@ -71,6 +71,10 @@ func main() {
 	}{os.Args[1:], env, data, cwd})
 	behavior, _ := os.ReadFile("behavior")
 	if string(behavior) == "waitsignal" {
+		if err := os.WriteFile("waitsignal-pid", []byte(strconv.Itoa(os.Getpid())), 0600); err != nil {
+			fmt.Fprintln(os.Stderr, "record waiting child:", err)
+			os.Exit(1)
+		}
 		os.Stdout.Write([]byte("READY\n"))
 		for {
 			time.Sleep(time.Hour)
