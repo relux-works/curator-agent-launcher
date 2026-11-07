@@ -1,14 +1,18 @@
 package main
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -449,15 +453,7 @@ func TestGatewayForwardsHeldSignalToRunningChild(t *testing.T) {
 	f.deps.leaseNotify = func(c chan<- os.Signal, _ ...os.Signal) { held <- c }
 	g.onActivate = func() { (<-held) <- syscall.SIGTERM }
 	f.args = withNetworkFlag(f.args, "egress-a")
-	type result struct {
-		code   int
-		stderr []byte
-	}
-	done := make(chan result, 1)
-	go func() {
-		code, _, stderr := f.run()
-		done <- result{code, stderr}
-	}()
+	done := startHeldSignalRun(t, f)
 	select {
 	case r := <-done:
 		if r.code != 128+int(syscall.SIGTERM) {
@@ -468,5 +464,97 @@ func TestGatewayForwardsHeldSignalToRunningChild(t *testing.T) {
 	}
 	if calls := g.calls(); calls != "/v1/health /v1/register /v1/activate /v1/unregister" {
 		t.Fatalf("gateway calls = %q", calls)
+	}
+}
+
+type heldSignalResult struct {
+	code   int
+	stderr []byte
+}
+
+// The waiting stub records its PID, independently of signal forwarding. Keep
+// custody until Run has reaped it, even when the test returns or fails early.
+func startHeldSignalRun(t *testing.T, f *pipelineFixture) <-chan heldSignalResult {
+	t.Helper()
+	ctx, cancel := context.WithCancel(context.Background())
+	finished := make(chan struct{})
+	done := make(chan heldSignalResult, 1)
+	t.Cleanup(func() {
+		cancel()
+		var pid int
+		deadline := time.NewTimer(5 * time.Second)
+		defer deadline.Stop()
+		tick := time.NewTicker(10 * time.Millisecond)
+		defer tick.Stop()
+		for {
+			if raw, err := os.ReadFile(filepath.Join(f.dir, "waitsignal-pid")); err == nil {
+				if recorded, err := strconv.Atoi(string(raw)); err == nil && recorded > 1 {
+					pid = recorded
+					if err := syscall.Kill(-pid, syscall.SIGKILL); err != nil && !errors.Is(err, syscall.ESRCH) {
+						t.Errorf("kill waiting child group: %v", err)
+					}
+				}
+			}
+			select {
+			case <-finished:
+				if pid != 0 && !errors.Is(syscall.Kill(-pid, 0), syscall.ESRCH) {
+					t.Error("waiting child process group survived cleanup")
+				}
+				return
+			case <-deadline.C:
+				t.Error("waiting child run did not finish within cleanup budget")
+				return
+			case <-tick.C:
+			}
+		}
+	})
+	go func() {
+		defer close(finished)
+		var out, stderr bytes.Buffer
+		code := run(ctx, f.args, &out, &stderr, f.deps)
+		done <- heldSignalResult{code, stderr.Bytes()}
+	}()
+	return done
+}
+
+// Withhold the held signal so only fixture cleanup can stop the child. Each
+// subtest returns while it is still running; the parent checks after Cleanup.
+func TestGatewayHeldSignalCleanup(t *testing.T) {
+	for _, wait := range []time.Duration{0, 50 * time.Millisecond} {
+		var pid int
+		t.Run(fmt.Sprintf("return-after-%s", wait), func(t *testing.T) {
+			f := printNetworkFixture(t)
+			g := newE2EGateway(t)
+			writeGatewayCatalog(t, f, g.socket)
+			writeFixture(t, filepath.Join(f.dir, "behavior"), []byte("waitsignal"), 0o600)
+			f.deps.leaseNotify = func(chan<- os.Signal, ...os.Signal) {}
+			activated := make(chan struct{}, 1)
+			g.onActivate = func() { activated <- struct{}{} }
+			f.args = withNetworkFlag(f.args, "egress-a")
+			done := startHeldSignalRun(t, f)
+			select {
+			case <-activated:
+			case <-time.After(20 * time.Second):
+				t.Fatal("waiting child never activated")
+			}
+			path := filepath.Join(f.dir, "waitsignal-pid")
+			waitForFile(t, path)
+			raw, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			pid, err = strconv.Atoi(string(raw))
+			if err != nil || pid <= 1 {
+				t.Fatalf("invalid waiting child PID: %q", raw)
+			}
+			select {
+			case r := <-done:
+				t.Fatalf("child exited without the held signal: %d %s", r.code, r.stderr)
+			case <-time.After(wait):
+			}
+		})
+		if pid > 1 && !errors.Is(syscall.Kill(-pid, 0), syscall.ESRCH) {
+			t.Errorf("waiting child group %d survived the subtest", pid)
+		}
 	}
 }
