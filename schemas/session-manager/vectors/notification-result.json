@@ -1,0 +1,116 @@
+[
+  {
+    "name": "preparing",
+    "valid": true,
+    "document": {
+      "contract": "curator-host-notification/1",
+      "state": "preparing",
+      "attachment_ref": "attachment-1",
+      "workflow_reference": "work-1",
+      "workflow_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  },
+  {
+    "name": "preparing-foreign-field",
+    "valid": false,
+    "document": {
+      "contract": "curator-host-notification/1",
+      "state": "preparing",
+      "attachment_ref": "attachment-1",
+      "workflow_reference": "work-1",
+      "workflow_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "endpoint": "forbidden"
+    }
+  },
+  {
+    "name": "ready",
+    "valid": true,
+    "document": {
+      "contract": "curator-host-notification/1",
+      "state": "ready",
+      "attachment_ref": "attachment-1",
+      "binding": {
+        "execution": "execution-1",
+        "controller_epoch": "1",
+        "runner_instance": "runner-1",
+        "native_thread": "thread-1",
+        "member_ref": "member-1",
+        "connection_ref": "connection-1",
+        "configuration_ref": "configuration-1",
+        "profile_lock_ref": "lock-1",
+        "consumer_generation": "generation-1",
+        "enrollment_ref": "enrollment-1",
+        "workflow_reference": "work-1",
+        "workflow_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    }
+  },
+  {
+    "name": "ready-foreign-field",
+    "valid": false,
+    "document": {
+      "contract": "curator-host-notification/1",
+      "state": "ready",
+      "attachment_ref": "attachment-1",
+      "binding": {
+        "execution": "execution-1",
+        "controller_epoch": "1",
+        "runner_instance": "runner-1",
+        "native_thread": "thread-1",
+        "member_ref": "member-1",
+        "connection_ref": "connection-1",
+        "configuration_ref": "configuration-1",
+        "profile_lock_ref": "lock-1",
+        "consumer_generation": "generation-1",
+        "enrollment_ref": "enrollment-1",
+        "workflow_reference": "work-1",
+        "workflow_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "endpoint": "forbidden"
+    }
+  },
+  {
+    "name": "unresolved",
+    "valid": true,
+    "document": {
+      "contract": "curator-host-notification/1",
+      "state": "unresolved",
+      "attachment_ref": "attachment-1",
+      "workflow_reference": "work-1",
+      "workflow_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "reason": "attempt-unresolved"
+    }
+  },
+  {
+    "name": "unresolved-foreign-field",
+    "valid": false,
+    "document": {
+      "contract": "curator-host-notification/1",
+      "state": "unresolved",
+      "attachment_ref": "attachment-1",
+      "workflow_reference": "work-1",
+      "workflow_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "reason": "attempt-unresolved",
+      "endpoint": "forbidden"
+    }
+  },
+  {
+    "name": "off",
+    "valid": true,
+    "document": {
+      "contract": "curator-host-notification/1",
+      "state": "off",
+      "reason": "selection-disabled"
+    }
+  },
+  {
+    "name": "off-foreign-field",
+    "valid": false,
+    "document": {
+      "contract": "curator-host-notification/1",
+      "state": "off",
+      "reason": "selection-disabled",
+      "endpoint": "forbidden"
+    }
+  }
+]

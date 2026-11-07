@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:relux:curator-run:notification-ref",
+  "title": "notification-ref 1.0.0",
+  "type": "string",
+  "minLength": 1,
+  "pattern": "^[^\u0000-\u001f\u007f-\u009f]+$",
+  "maxLength": 512,
+  "description": "Nonempty opaque UTF-8 reference; no C0/C1 controls. Validate additionally enforces the 512-byte UTF-8 ceiling at every reference use."
+}

@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:relux:curator-run:notification-request",
+  "title": "notification-request 1.0.0",
+  "description": "Closed public intent and transport bounds only. The selected notification provider must additionally validate its exact server-name predicate, host-local absolute clean root, and independently retained member/operation before any effects. Wire shape conveys no admission.",
+  "type": "object",
+  "properties": {
+    "contract": {
+      "const": "curator-host-notification/1"
+    },
+    "backend": {
+      "const": "host"
+    },
+    "workflow": {
+      "type": "object",
+      "properties": {
+        "reference": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:/@+-]{1,128}$"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      },
+      "required": [
+        "reference",
+        "sha256"
+      ],
+      "additionalProperties": false
+    },
+    "member": {
+      "$ref": "urn:relux:curator-run:notification-member"
+    },
+    "admission_reference": {
+      "$ref": "urn:relux:curator-run:notification-ref"
+    },
+    "call_timeout_ms": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 60000
+    }
+  },
+  "required": [
+    "contract",
+    "backend",
+    "workflow",
+    "member",
+    "admission_reference",
+    "call_timeout_ms"
+  ],
+  "additionalProperties": false
+}

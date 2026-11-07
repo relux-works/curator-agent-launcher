@@ -153,6 +153,9 @@
     },
     "schema": {
       "const": "werkstatt-record-v1"
+    },
+    "notification": {
+      "$ref": "urn:relux:curator-run:notification-input"
     }
   },
   "required": [

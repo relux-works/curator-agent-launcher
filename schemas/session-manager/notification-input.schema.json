@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:relux:curator-run:notification-input",
+  "title": "notification-input 1.0.0",
+  "description": "Closed record-selected expected data only. Workflow remains Core-selected; independently retained manager admission and exact Source selector/root checks are required before effects.",
+  "type": "object",
+  "properties": {
+    "member": {
+      "$ref": "urn:relux:curator-run:notification-member"
+    },
+    "admission_reference": {
+      "$ref": "urn:relux:curator-run:notification-ref"
+    },
+    "call_timeout_ms": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 60000
+    }
+  },
+  "required": [
+    "member",
+    "admission_reference",
+    "call_timeout_ms"
+  ],
+  "additionalProperties": false
+}

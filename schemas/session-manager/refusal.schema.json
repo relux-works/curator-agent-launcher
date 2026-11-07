@@ -496,7 +496,8 @@
                 "drains-on-upgrade",
                 "launch-exact-detached",
                 "launch-exact-doorbell",
-                "weights-pin"
+                "weights-pin",
+                "curator-host-notification/1"
               ]
             }
           },

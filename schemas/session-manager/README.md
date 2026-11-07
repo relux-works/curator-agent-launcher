@@ -46,6 +46,43 @@ carry null lifecycle fields. Unknown evidence never becomes `down` or `idle`. A 
 envelope-free record with `readable:true`; an unreadable operation result must
 use outcome `unknown`.
 
+Readable sessions and envelope-free records may carry the optional closed
+`notification` result for `curator-host-notification/1`. Legacy omission stays
+valid. The states are `preparing`, `ready`, `unresolved` and `off`; only `ready`
+carries the complete twelve-field binding. An unreadable record carries no
+notification evidence. Structural readiness does not establish enrollment,
+workflow or member correlation, or permission to trigger a notice; consumers
+must check those facts against the actual admitted lifecycle.
+
+The station record can carry optional closed `notification` expected inputs through
+`notification-input.schema.json`: complete member selectors, an opaque admission
+reference and an explicit timeout. It carries no workflow or admission authority.
+The workflow comes from the selected Core configuration; the continuing manager
+independently admits and rechecks its actual configured record before effects.
+Omission preserves existing station records.
+
+Launch and resume accept an optional closed `notification` intent using
+`notification-request.schema.json` (`urn:relux:curator-run:notification-request`).
+It requires contract/backend, workflow reference/digest, member MXID/agent/
+connection/configuration root, admission reference and an integer call timeout
+of 1..60000ms. Null is invalid; omission preserves legacy behavior. The request
+requires `curator-host-notification/1`, regardless of stale caller selection.
+It cannot use native or legacy doorbell fallback.
+
+This schema checks public shape and transport bounds. MXID and configuration
+root have 255-byte and 4096-byte UTF-8 ceilings. The selected notification
+provider must additionally enforce its exact server-name predicate, host-local
+absolute clean root and independently retained member/operation before any
+effects. These checks cannot be inferred from request JSON. The current draft
+does not qualify that provider or a production dependency pin.
+
+Notification `ref` and `short_ref` values contain no C0/C1 controls and have
+512-byte and 128-byte UTF-8 ceilings, respectively. `Validate` enforces these
+byte limits at every nested schema reference, in addition to JSON Schema's
+character bounds. External validators must apply the same byte checks.
+Controller epochs are canonical nonzero decimal uint64 strings, including
+values above the JSON safe-integer range; they are never coerced to numbers.
+
 Every file in `vectors/` is an array of `{name, valid, document}` fixtures.
 They enumerate nullable/optional combinations, code-specific detail presence,
 doorbell relations, bounds and rejection cases, with valid controls. Every vector

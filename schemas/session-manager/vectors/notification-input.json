@@ -1,0 +1,107 @@
+[
+  {
+    "name": "explicit-input",
+    "valid": true,
+    "document": {
+      "member": {
+        "mxid": "@fixture-agent:example.test",
+        "agent_selector": "fixture-agent",
+        "connection": "fixture-connection",
+        "configuration_root": "/fixture/source"
+      },
+      "admission_reference": "fixture-record",
+      "call_timeout_ms": 1
+    }
+  },
+  {
+    "name": "missing-member",
+    "valid": false,
+    "document": {
+      "admission_reference": "fixture-record",
+      "call_timeout_ms": 1
+    }
+  },
+  {
+    "name": "missing-admission_reference",
+    "valid": false,
+    "document": {
+      "member": {
+        "mxid": "@fixture-agent:example.test",
+        "agent_selector": "fixture-agent",
+        "connection": "fixture-connection",
+        "configuration_root": "/fixture/source"
+      },
+      "call_timeout_ms": 1
+    }
+  },
+  {
+    "name": "missing-call_timeout_ms",
+    "valid": false,
+    "document": {
+      "member": {
+        "mxid": "@fixture-agent:example.test",
+        "agent_selector": "fixture-agent",
+        "connection": "fixture-connection",
+        "configuration_root": "/fixture/source"
+      },
+      "admission_reference": "fixture-record"
+    }
+  },
+  {
+    "name": "zero-timeout",
+    "valid": false,
+    "document": {
+      "member": {
+        "mxid": "@fixture-agent:example.test",
+        "agent_selector": "fixture-agent",
+        "connection": "fixture-connection",
+        "configuration_root": "/fixture/source"
+      },
+      "admission_reference": "fixture-record",
+      "call_timeout_ms": 0
+    }
+  },
+  {
+    "name": "large-timeout",
+    "valid": false,
+    "document": {
+      "member": {
+        "mxid": "@fixture-agent:example.test",
+        "agent_selector": "fixture-agent",
+        "connection": "fixture-connection",
+        "configuration_root": "/fixture/source"
+      },
+      "admission_reference": "fixture-record",
+      "call_timeout_ms": 60001
+    }
+  },
+  {
+    "name": "maximum-timeout",
+    "valid": true,
+    "document": {
+      "member": {
+        "mxid": "@fixture-agent:example.test",
+        "agent_selector": "fixture-agent",
+        "connection": "fixture-connection",
+        "configuration_root": "/fixture/source"
+      },
+      "admission_reference": "fixture-record",
+      "call_timeout_ms": 60000
+    }
+  },
+  {
+    "name": "competing-workflow",
+    "valid": false,
+    "document": {
+      "member": {
+        "mxid": "@fixture-agent:example.test",
+        "agent_selector": "fixture-agent",
+        "connection": "fixture-connection",
+        "configuration_root": "/fixture/source"
+      },
+      "admission_reference": "fixture-record",
+      "call_timeout_ms": 1,
+      "workflow": {}
+    }
+  }
+]
