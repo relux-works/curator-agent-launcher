@@ -43,7 +43,7 @@ type codexControl struct {
 	onRegister func()
 }
 
-func codexFixture(t *testing.T) (Request, *resolve.Result, *codexControl) {
+func codexFixture(t *testing.T, extraEnv ...string) (Request, *resolve.Result, *codexControl) {
 	t.Helper()
 	dir, err := os.MkdirTemp("", "cgw-")
 	if err != nil {
@@ -91,7 +91,7 @@ func codexFixture(t *testing.T) (Request, *resolve.Result, *codexControl) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	built, err := gatewayadmission.Build(context.Background(), vendorplugin.Default, store, vendorplugin.SpawnRequest{Runtime: "codex", Model: "sol", Effort: "high", ToolRelease: "0.164.0", Home: t.TempDir(), WorkDir: t.TempDir(), Env: []string{"PATH=" + filepath.Dir(bin), "HOME=" + t.TempDir()}})
+	built, err := gatewayadmission.Build(context.Background(), vendorplugin.Default, store, vendorplugin.SpawnRequest{Runtime: "codex", Model: "sol", Effort: "high", ToolRelease: "0.164.0", Home: t.TempDir(), WorkDir: t.TempDir(), Env: append([]string{"PATH=" + filepath.Dir(bin), "HOME=" + t.TempDir()}, extraEnv...)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -189,6 +189,51 @@ func TestCodexGatewayPrivateTokenAndFinalProjection(t *testing.T) {
 	}
 	if got := control.calls(); !slices.Equal(got, []string{"/v1/health", "/v1/register"}) {
 		t.Fatal(got)
+	}
+}
+
+// A proxy selector in any letter case, inherited, in the fragment overlay or as
+// an MCP lookup name, refuses the gateway route before health: no lease, no
+// plan and no control call. NO_PROXY and an unrelated variable stay admitted,
+// so the refusal is the proxy family only, not every extra variable.
+func TestCodexGatewayProxyFamilyRefuses(t *testing.T) {
+	spellings := []string{"HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "http_proxy", "https_proxy", "all_proxy", "Https_Proxy"}
+	for _, name := range spellings {
+		for _, layer := range []string{"inherited", "fragment", "lookup"} {
+			t.Run(layer+"/"+name, func(t *testing.T) {
+				var extra []string
+				if layer == "inherited" {
+					extra = []string{name + "=http://127.0.0.1:1"}
+				}
+				req, result, c := codexFixture(t, extra...)
+				switch layer {
+				case "fragment":
+					req.FragEnv = map[string]string{name: "http://127.0.0.1:1"}
+				case "lookup":
+					req.MCPEnvNames = []string{name}
+				}
+				p, err := prepareCodexGateway(context.Background(), req, result, binding.AdapterIdentity{}, nil)
+				if !errors.Is(err, agentic.ErrCodexGatewayRefused) || p.Lease != nil || p.codex != nil {
+					t.Fatalf("proxy selector admitted: %v", err)
+				}
+				if got := c.calls(); len(got) != 0 {
+					t.Fatalf("proxy refusal reached control: %v", got)
+				}
+			})
+		}
+	}
+	for _, extra := range []string{"NO_PROXY=127.0.0.1", "CURATOR_UNRELATED=1"} {
+		t.Run("admitted/"+extra, func(t *testing.T) {
+			req, result, c := codexFixture(t, extra)
+			p, err := prepareCodexGateway(context.Background(), req, result, binding.AdapterIdentity{}, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer p.Lease.Finish(context.Background())
+			if got := c.calls(); !slices.Equal(got, []string{"/v1/health", "/v1/register"}) {
+				t.Fatal(got)
+			}
+		})
 	}
 }
 

@@ -4,7 +4,7 @@ github.com/relux-works/curator-agent-launcher/schemas/session-manager v0.0.0-202
 github.com/relux-works/curator-agent-launcher/schemas/session-manager v0.0.0-20261027144606-c15548f68c7f/go.mod h1:gVV9OQTCR5EItZ1EcETtNyHsGsc52JX+za15xVKaW3M=
 github.com/relux-works/curator-network-profiles v0.3.3-0.20261103170957-7990eae44d83 h1:kMLvysPf34ZQhyPXbihWe/jg3H3OvYGFc1h/I0Hnh+g=
 github.com/relux-works/curator-network-profiles v0.3.3-0.20261103170957-7990eae44d83/go.mod h1:KlPpVwgH45EtLFWodP1ofqWc+amLHGuftUVoZ1rsWhg=
-github.com/relux-works/skill-agents-management v0.5.75-0.20261105184008-72a155e3e97f h1:Y+yEpHWffl1JEtk2S4e/7hZ3BWXdeyy1kt6QPWsLG2w=
-github.com/relux-works/skill-agents-management v0.5.75-0.20261105184008-72a155e3e97f/go.mod h1:GzykgRxR/59WB+VXfqHGlmJ+kLR09DZJmApaKCScctw=
+github.com/relux-works/skill-agents-management v0.5.75-0.20261107023325-a48fa206dcd1 h1:i4KdWrXlvCeb+PMRRi1zXHM/MRJnGE4lP7/d+zv1S0w=
+github.com/relux-works/skill-agents-management v0.5.75-0.20261107023325-a48fa206dcd1/go.mod h1:GzykgRxR/59WB+VXfqHGlmJ+kLR09DZJmApaKCScctw=
 golang.org/x/sys v0.47.0 h1:o7XGOvZQCADBQQ4Y7VNq2dRWQR7JmOUW8Kxx4ZsNgWs=
 golang.org/x/sys v0.47.0/go.mod h1:4GL1E5IUh+htKOUEOaiffhrAeqysfVGipDYzABqnCmw=

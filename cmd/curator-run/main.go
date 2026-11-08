@@ -715,6 +715,15 @@ func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, ta
 		artifact = snapshot.Bytes()
 		hostIdentity = binding.AdapterIdentity{Adapter: "generic-env-v1", Harness: adapterHarness, Build: snapshot.BuildID(), Entrypoint: entrypoint}
 	}
+	// The Codex gateway route admits and composes the fragment without its
+	// CODEX_HOME spelling: the admitted plan owns the canonical home.
+	composeFrag := *frag
+	if gatewayAttempt {
+		composeFrag, err = codexGatewayFragment(*frag, admitted.Plan.Home)
+		if err != nil {
+			return emitNetworkFailure(stderr, err)
+		}
+	}
 	// A filtering-gateway registration may be made below: hold the
 	// signals from before it until its unregister completes.
 	var owner *leaseOwner
@@ -738,7 +747,7 @@ func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, ta
 		ParentEnv:  parentEnv, Prober: deps.prober,
 		Artifact: artifact, HostIdentity: hostIdentity, Mode: adapterprobe.Mode(inv.NetworkMode),
 		PinnedBuild: inv.NetworkPin, KnownBadPath: inv.NetworkKnownBad, ScopeCheck: deps.networkScopeCheck, Evaluate: deps.networkEvaluate, MatchIdentity: deps.networkMatchIdentity,
-		FragEnv: frag.Env, PromptEnv: prompt.Env, MCPEnvNames: mcpNames,
+		FragEnv: composeFrag.Env, PromptEnv: prompt.Env, MCPEnvNames: mcpNames,
 		EngineHosts: deps.networkEngineHosts,
 		ProjectRoot: filepath.Clean(admitted.Plan.WorkDir),
 		ChildEnv:    admitted.Plan.Env,
@@ -769,7 +778,7 @@ func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, ta
 		admitted = final
 	}
 	inspection := agentic.InspectStoredPolicy(system, admitted.Plan)
-	value, err := composition.ComposeAdmittedPlanWithNetwork(admitted.Plan, admitted.OwnedEnv, *frag, prompt, tail, preparedNet.Patch)
+	value, err := composition.ComposeAdmittedPlanWithNetwork(admitted.Plan, admitted.OwnedEnv, composeFrag, prompt, tail, preparedNet.Patch)
 	if err != nil {
 		return emitNetworkFailure(stderr, err)
 	}

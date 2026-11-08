@@ -494,7 +494,7 @@ The executable supports `claude_code` (alias `claude`), `codex_cli`
 Muse requires `launch-env-fragment-v4`: exactly four XDG parents under one
 managed home plus `TBH_CREDENTIAL_BACKEND=file`, preserving inherited `HOME`.
 Older Muse fragments refuse `fragment_version_unsupported` before launch.
-The pinned agents-management v0.5.74 plugin owns the native plan; managed
+The pinned agents-management v0.5.75 plugin owns the native plan; managed
 Muse refuses module versions older than v0.5.66. The optional frozen-copy
 tuple otherwise leaves binary resolution on the handed PATH. `muse-wonder`
 resolves to `muse-wonder-1.0-contributor` with module-owned effort rules.
@@ -584,7 +584,7 @@ The launch pipeline follows these steps:
    `session_liveness_unknown`. No hosted refusal executes natively.
 
 The permission interface is implemented against upstream
-`skill-agents-management v0.5.74`. It owns
+`skill-agents-management v0.5.75`. It owns
 `LaunchRequest.PermissionMode`, the release-bound mapping, versioned native
 argument classification, stored-policy inspection, and the capability table.
 Claude Code and Codex CLI 0.153.2 use `permission-grammar-v2`, Codex CLI 0.164.0 uses `permission-grammar-v3`; Pi uses
@@ -848,12 +848,22 @@ profile can launch optimistically with the required unqualified warning and
 provenance. Strict or sensitive-egress policy requires an exact qualified build;
 exec and hosted network launches remain unsupported.
 
-The Codex convergence source requires SAM's b60 gateway-admission APIs, which
-main's stable `v0.5.74` dependency does not yet provide. A stable published SAM
-containing those APIs and a named full network-profiles commit are required
-before landing. An isolated historical modfile may test this source; it is
-preparation evidence only and does not change the production dependency pins.
-Neither exact `0.166.0` gateway predicate is widened by this change.
+The Codex gateway route uses SAM's gateway admission. The child's environment
+must equal the admitted plan's environment plus exactly the private token,
+compared as a set in any order. The plan owns the canonical `CODEX_HOME`: a
+fragment spelling of the same directory, for example through a symlink, is
+dropped instead of overriding it, and a fragment home that names another
+directory refuses. A proxy selector (`HTTP_PROXY`, `HTTPS_PROXY` or
+`ALL_PROXY`, in any letter case) refuses the route before health, whether it is
+inherited, set by the fragment or named as an MCP lookup. Unlike the Claude
+route, nothing is unset silently. Only Codex CLI `0.164.0` is admitted; both
+exact `0.166.0` gateway predicates stay refused.
+
+The Codex home is trusted. The launcher does not read the home's `config.toml`
+or `curator-mcp.config.toml` before exec, so an MCP server declared there that
+names the private token (for example through `bearer_token_env_var`) receives
+it. Anything that can write those files runs as the same OS user, so this is no
+new boundary; a narrower guard is a separate change.
 
 With `--gateway-recovery`, Codex uses the same existing private journal and
 control/2 original-envelope registration/completion path as Claude. Absent that
@@ -889,7 +899,9 @@ Package metadata naming another release refuses before staging.
 
 Files are private regular copies without retained writable descriptors. The
 final native-process boundary checks the complete staged content and selection
-before spawning. No live installation member is reopened at execution time.
+before spawning. Package members are not reopened at execution time. On the
+Codex gateway route the module re-hashes the original installed executable at
+the recheck and before start, so a replaced original refuses.
 Normal return, preparation refusal and failed child exit remove the stage.
 SIGKILL of the launcher can leave it behind; this path adds no shared sweeper.
 Private directories, read-only file modes and a final content check do not

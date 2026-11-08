@@ -132,32 +132,21 @@ func (p Prepared) BindProcess(binary string, argv, env []string, literals map[st
 			return agentic.ErrCodexGatewayRefused
 		}
 	}
-	probe := slices.Clone(env)
 	for _, entry := range env {
 		n, _, _ := strings.Cut(entry, "=")
 		if strings.EqualFold(n, codexTokenEnv) {
 			return agentic.ErrCodexGatewayRefused
 		}
 	}
+	// Lookup names are checked against the module's grammar at admission. The
+	// process check compares the exact final environment plus the token, so
+	// nothing is added for an absent lookup name.
 	for _, n := range names {
 		if strings.EqualFold(n, codexTokenEnv) {
 			return agentic.ErrCodexGatewayRefused
 		}
-		// A lookup can only select its existing inherited value. An absent name is
-		// nevertheless checked against the module's reserved-selector grammar.
-		found := false
-		for _, entry := range probe {
-			name, _, _ := strings.Cut(entry, "=")
-			if name == n {
-				found = true
-				break
-			}
-		}
-		if !found {
-			probe = append(probe, n+"=")
-		}
 	}
-	probe = append(probe, codexTokenEnv+"="+g.token)
+	probe := append(slices.Clone(env), codexTokenEnv+"="+g.token)
 	if err := g.final.Plan.VerifyCodexGatewayProcess(binary, argv, probe); err != nil {
 		return err
 	}

@@ -62,8 +62,14 @@ func codexRecoveryFixture(t *testing.T) (*pipelineFixture, *launchRecoveryGatewa
 	return f, g, stage
 }
 
+// The Codex gateway route under control/2 recovery: only the admitted 0.164.0
+// plan with an unmodified environment launches, every listed refusal starts no
+// child and leaves no stage, and each refusal before admission makes no control
+// call. A symlinked fragment home launches with the plan's canonical CODEX_HOME
+// and no override warning. An inherited proxy selector in any letter case
+// refuses before health. Executables are inert fixtures, not native Codex.
 func TestCodexRecoveryG2Matrix(t *testing.T) {
-	cases := []string{"valid164", "native166", "default166", "yolo166", "unknown-release", "provider-env", "remote-env", "native-provider", "missing-host", "stage-mutation", "missing-journal", "unsafe-journal", "prepare-fault", "not-ready", "legacy-health", "malformed-health", "lost-reply", "malformed-register", "interrupt-after-register", "child-error", "child-signal", "cleanup-registry", "cleanup-malformed", "cleanup-local", "restart-not-ready", "same-authority-restart", "forward-sigint", "forward-sigterm"}
+	cases := []string{"valid164", "symlink-home", "proxy-HTTP_PROXY", "proxy-https_proxy", "proxy-ALL_PROXY", "proxy-All_Proxy", "native166", "default166", "yolo166", "unknown-release", "provider-env", "remote-env", "native-provider", "missing-host", "stage-mutation", "missing-journal", "unsafe-journal", "prepare-fault", "not-ready", "legacy-health", "malformed-health", "lost-reply", "malformed-register", "interrupt-after-register", "child-error", "child-signal", "cleanup-registry", "cleanup-malformed", "cleanup-local", "restart-not-ready", "same-authority-restart", "forward-sigint", "forward-sigterm"}
 	for _, kind := range cases {
 		t.Run(kind, func(t *testing.T) {
 			f, g, stages := codexRecoveryFixture(t)
@@ -94,6 +100,20 @@ func TestCodexRecoveryG2Matrix(t *testing.T) {
 				f.deps.environ = func() []string { return append(previous(), name+"=http://127.0.0.1:1") }
 			case "native-provider":
 				f.args = append(f.args, "--", "-c", "model_provider=other")
+			case "symlink-home":
+				link := filepath.Join(f.dir, "home-link")
+				if os.Symlink(f.home, link) != nil {
+					t.Fatal("fixture home link")
+				}
+				from, to := `"CODEX_HOME":"`+f.home+`"`, `"CODEX_HOME":"`+link+`"`
+				if strings.Count(f.resolver.stdout, from) != 1 {
+					t.Fatal("fixture fragment home")
+				}
+				f.resolver.stdout = strings.Replace(f.resolver.stdout, from, to, 1)
+			case "proxy-HTTP_PROXY", "proxy-https_proxy", "proxy-ALL_PROXY", "proxy-All_Proxy":
+				name := strings.TrimPrefix(kind, "proxy-")
+				previous := f.deps.environ
+				f.deps.environ = func() []string { return append(previous(), name+"=http://127.0.0.1:1") }
 			case "missing-host":
 				if os.Remove(filepath.Join(f.dir, "codex-code-mode-host")) != nil {
 					t.Fatal("fixture host")
@@ -199,7 +219,7 @@ func TestCodexRecoveryG2Matrix(t *testing.T) {
 				<-signalDone
 			}
 			calls := g.calls()
-			success := kind == "valid164" || kind == "restart-not-ready" || kind == "same-authority-restart"
+			success := kind == "valid164" || kind == "symlink-home" || kind == "restart-not-ready" || kind == "same-authority-restart"
 			child := success || strings.HasPrefix(kind, "forward-") || kind == "child-error" || kind == "child-signal" || strings.HasPrefix(kind, "cleanup-")
 			if success && code != 0 {
 				t.Fatalf("positive refused: %d %s", code, diag)
@@ -239,7 +259,7 @@ func TestCodexRecoveryG2Matrix(t *testing.T) {
 				if kind != "prepare-fault" && (strings.Contains(string(diag), "attempt=") || strings.Contains(calls, "/v2/recover")) {
 					t.Fatal("pre-admission effects")
 				}
-				if kind == "native166" || kind == "default166" || kind == "yolo166" || kind == "unknown-release" || kind == "provider-env" || kind == "remote-env" || kind == "native-provider" || kind == "missing-host" {
+				if kind == "native166" || kind == "default166" || kind == "yolo166" || kind == "unknown-release" || kind == "provider-env" || kind == "remote-env" || kind == "native-provider" || kind == "missing-host" || strings.HasPrefix(kind, "proxy-") {
 					if calls != "" {
 						t.Fatalf("refusal reached control: %s", calls)
 					}
@@ -283,6 +303,18 @@ func TestCodexRecoveryG2Matrix(t *testing.T) {
 					}
 					if !strings.Contains(string(diag), "sam_attempt=") || !strings.Contains(string(diag), "launch="+strings.Repeat("d", 64)) || !strings.Contains(string(diag), "registration_session="+g.envelope.Session) {
 						t.Fatal("missing distinct correlation")
+					}
+					var homes []string
+					for _, env := range captured.Env {
+						if name, value, _ := strings.Cut(env, "="); strings.EqualFold(name, "CODEX_HOME") {
+							homes = append(homes, name+"="+value)
+						}
+					}
+					if len(homes) != 1 || homes[0] != "CODEX_HOME="+f.home {
+						t.Fatalf("child home %v, want canonical %s", homes, f.home)
+					}
+					if strings.Contains(string(diag), "environment override") {
+						t.Fatal("false environment override warning")
 					}
 					for _, env := range captured.Env {
 						if strings.HasPrefix(env, "CURATOR_CODEX_GATEWAY_TOKEN=") {
@@ -372,6 +404,8 @@ func (rejectG2Correlation) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
+// A failed write of the correlation line after issuance completes the original
+// attempt exactly once, starts no child and leaves no stage.
 func TestCodexRecoveryCorrelationOutputFailure(t *testing.T) {
 	f, g, stages := codexRecoveryFixture(t)
 	var stdout bytes.Buffer
