@@ -11,10 +11,11 @@ import (
 	"github.com/relux-works/curator-agent-launcher/internal/fragment"
 )
 
-// codexGatewayFragment drops the fragment's CODEX_HOME only when it names the
-// plan's home directory, through any spelling, and keeps every other variable.
-// A different, missing or non-directory home refuses with the gateway refusal
-// and is never replaced by the plan's home. The caller's map is not modified.
+// codexGatewayFragment drops the fragment's CODEX_HOME only when it is exactly
+// the plan's canonical home, and keeps every other variable. Any other value,
+// including a symlink or unclean spelling of the same directory, refuses with
+// the gateway refusal and is never replaced by the plan's home. The caller's
+// map is not modified.
 func TestCodexGatewayFragmentHome(t *testing.T) {
 	root := t.TempDir()
 	home := filepath.Join(root, "home")
@@ -41,8 +42,8 @@ func TestCodexGatewayFragmentHome(t *testing.T) {
 		drop           bool
 	}{
 		{"canonical", canonical, true},
-		{"symlink", link, true},
-		{"unclean-same", home + "/./", true},
+		{"symlink", link, false},
+		{"unclean-same", home + "/./", false},
 		{"other-directory", other, false},
 		{"missing", filepath.Join(root, "missing"), false},
 		{"not-directory", file, false},

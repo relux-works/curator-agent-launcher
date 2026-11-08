@@ -850,10 +850,10 @@ exec and hosted network launches remain unsupported.
 
 The Codex gateway route uses SAM's gateway admission. The child's environment
 must equal the admitted plan's environment plus exactly the private token,
-compared as a set in any order. The plan owns the canonical `CODEX_HOME`: a
-fragment spelling of the same directory, for example through a symlink, is
-dropped instead of overriding it, and a fragment home that names another
-directory refuses. A proxy selector (`HTTP_PROXY`, `HTTPS_PROXY` or
+compared as a set in any order. The plan owns the canonical `CODEX_HOME`, and
+the fragment's identical copy is dropped instead of overriding it. A fragment
+home that is not already the canonical path, for example one reached through a
+symlink, refuses before any gateway call. A proxy selector (`HTTP_PROXY`, `HTTPS_PROXY` or
 `ALL_PROXY`, in any letter case) refuses the route before health, whether it is
 inherited, set by the fragment or named as an MCP lookup. Unlike the Claude
 route, nothing is unset silently. Only Codex CLI `0.164.0` is admitted; both

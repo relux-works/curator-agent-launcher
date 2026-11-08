@@ -65,9 +65,10 @@ func codexRecoveryFixture(t *testing.T) (*pipelineFixture, *launchRecoveryGatewa
 // The Codex gateway route under control/2 recovery: only the admitted 0.164.0
 // plan with an unmodified environment launches, every listed refusal starts no
 // child and leaves no stage, and each refusal before admission makes no control
-// call. A symlinked fragment home launches with the plan's canonical CODEX_HOME
-// and no override warning. An inherited proxy selector in any letter case
-// refuses before health. Executables are inert fixtures, not native Codex.
+// call. Children get exactly the plan's canonical CODEX_HOME and no override
+// warning; a symlinked fragment home refuses before any control call. An
+// inherited proxy selector in any letter case refuses before health.
+// Executables are inert fixtures, not native Codex.
 func TestCodexRecoveryG2Matrix(t *testing.T) {
 	cases := []string{"valid164", "symlink-home", "proxy-HTTP_PROXY", "proxy-https_proxy", "proxy-ALL_PROXY", "proxy-All_Proxy", "native166", "default166", "yolo166", "unknown-release", "provider-env", "remote-env", "native-provider", "missing-host", "stage-mutation", "missing-journal", "unsafe-journal", "prepare-fault", "not-ready", "legacy-health", "malformed-health", "lost-reply", "malformed-register", "interrupt-after-register", "child-error", "child-signal", "cleanup-registry", "cleanup-malformed", "cleanup-local", "restart-not-ready", "same-authority-restart", "forward-sigint", "forward-sigterm"}
 	for _, kind := range cases {
@@ -219,7 +220,7 @@ func TestCodexRecoveryG2Matrix(t *testing.T) {
 				<-signalDone
 			}
 			calls := g.calls()
-			success := kind == "valid164" || kind == "symlink-home" || kind == "restart-not-ready" || kind == "same-authority-restart"
+			success := kind == "valid164" || kind == "restart-not-ready" || kind == "same-authority-restart"
 			child := success || strings.HasPrefix(kind, "forward-") || kind == "child-error" || kind == "child-signal" || strings.HasPrefix(kind, "cleanup-")
 			if success && code != 0 {
 				t.Fatalf("positive refused: %d %s", code, diag)
@@ -259,7 +260,7 @@ func TestCodexRecoveryG2Matrix(t *testing.T) {
 				if kind != "prepare-fault" && (strings.Contains(string(diag), "attempt=") || strings.Contains(calls, "/v2/recover")) {
 					t.Fatal("pre-admission effects")
 				}
-				if kind == "native166" || kind == "default166" || kind == "yolo166" || kind == "unknown-release" || kind == "provider-env" || kind == "remote-env" || kind == "native-provider" || kind == "missing-host" || strings.HasPrefix(kind, "proxy-") {
+				if kind == "native166" || kind == "default166" || kind == "yolo166" || kind == "unknown-release" || kind == "provider-env" || kind == "remote-env" || kind == "native-provider" || kind == "missing-host" || kind == "symlink-home" || strings.HasPrefix(kind, "proxy-") {
 					if calls != "" {
 						t.Fatalf("refusal reached control: %s", calls)
 					}
