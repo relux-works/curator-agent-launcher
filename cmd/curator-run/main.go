@@ -115,6 +115,7 @@ type launchDeps struct {
 	selectedConfig     launcherconfig.Selected
 	readSelectedConfig func(context.Context) (launcherconfig.Selected, error)
 	claudeAuthActive   bool
+	claudeEnvActive    bool
 	claudeAuthResolver claudeauth.Resolver
 	configResolver     configfile.Resolver
 	hostedSelection    *hostSelection
@@ -308,6 +309,12 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, deps laun
 	}
 	deps.selectedConfig, err = readSelected(ctx)
 	if err != nil {
+		// A claude_env member refusal names only its stable code and fixed
+		// path; every other projection refusal stays the closed generic one.
+		var claudeEnv *launcherconfig.ClaudeEnvError
+		if errors.As(err, &claudeEnv) {
+			return emitFailure(stderr, diagnostics.CodeDefaultsInvalid, claudeEnv)
+		}
 		return emitFailure(stderr, diagnostics.CodeDefaultsInvalid, launcherconfig.ErrSelected)
 	}
 	deps.configResolver = configResolver
@@ -530,6 +537,7 @@ func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, ta
 	}
 	parentEnv := deps.environ()
 	deps.claudeAuthActive = target.System == "claude-code" && deps.selectedConfig.ClaudeAuth != nil
+	deps.claudeEnvActive = target.System == "claude-code" && deps.selectedConfig.ClaudeEnv.Selected()
 	if deps.claudeAuthActive {
 		var names []string
 		if frag.MCP != nil {
@@ -802,8 +810,24 @@ func runNative(ctx context.Context, value composition.Value, decision execution.
 	}
 	prepared := execution.Prepare(value)
 	opts := execution.Options{IO: execution.IO{Stdin: deps.stdin, Stdout: stdout, Stderr: stderr}, Boundary: boundary}
+	// The machine claude_env selection reaches only a native Claude Code
+	// child, after the ordinary late checks and before the gateway's final
+	// composed-environment check. It overrides an inherited value.
+	claudeEnv := deps.claudeEnvActive
+	if claudeEnv && !deps.claudeAuthActive {
+		opts.ChildEnvironment = func(env []string) ([]string, error) {
+			child := launcherconfig.ApplyClaudeEnv(env, deps.selectedConfig.ClaudeEnv)
+			if err := net.CheckComposed(child, value.EnvLiterals, value.EnvNames); err != nil {
+				return nil, err
+			}
+			return child, nil
+		}
+	}
 	if deps.claudeAuthActive {
 		opts.ChildEnvironment = func(env []string) ([]string, error) {
+			if claudeEnv {
+				env = launcherconfig.ApplyClaudeEnv(env, deps.selectedConfig.ClaudeEnv)
+			}
 			if err := claudeauth.CheckOverlays(value.EnvLiterals, value.EnvNames); err != nil {
 				return nil, err
 			}

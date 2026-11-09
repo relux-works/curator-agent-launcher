@@ -78,6 +78,60 @@ This standalone section does not enable the later node-source mode or claim
 `credential-injection/1` qualification. No node enrollment, protected authorizer,
 generation, revoke or manager API is introduced by the section.
 
+Schema 8 arrives as `curator.launcher-config/2` and adds the optional
+`notification` member. From schema 8 on, `config_path` must be a clean
+absolute path on the target platform; a relative or unclean path refuses.
+Schemas 1 to 7 keep their earlier reference grammar.
+
+## Candidate: schema 9, `/3`, `claude_env`
+
+Schema 9 arrives as `curator.launcher-config/3` and adds the optional
+`claude_env` member from the curator-spec proposal
+`protocol/machine-claude-env-proposal.md` (CIP-0029, Decision 0035). That
+proposal is not accepted yet, so production builds keep refusing `/3` with
+the generic projection refusal; only tests open the candidate gate. `/2` and
+earlier projections refuse a `claude_env` member instead of dropping it.
+
+```json
+{"extensions": {"claude_env": {"BASH_MAX_OUTPUT_LENGTH": "8000"}}}
+```
+
+Absence and `{}` select nothing. The only name is `BASH_MAX_OUTPUT_LENGTH`;
+its value is a JSON string holding a canonical decimal from 1 to 65536 (a
+manager policy cap, not a vendor limit). Refusals are checked in order:
+shape, then names, then value, and each reports only a stable code and the
+fixed path `extensions.claude_env`:
+
+| Condition | Code |
+| --- | --- |
+| Not an object, null, or a contribution with a bad shape or runtime | `claude_env_invalid` |
+| Any name other than `BASH_MAX_OUTPUT_LENGTH` | `claude_env_name_not_allowed` |
+| Not a string, or not a canonical decimal spelling | `claude_env_value_not_integer` |
+| Zero or negative, including `-0` | `claude_env_value_nonpositive` |
+| Above 65536, including overflow | `claude_env_value_over_bound` |
+| A non-Claude contribution that contains the name | `claude_env_runtime_ineligible` |
+
+A projection that is not strict JSON keeps the closed generic refusal, which
+is the file-level form of `claude_env_invalid`.
+
+The selected value reaches only a native Claude Code child, after the late
+launch checks, and replaces an inherited value of the same name. It is not
+written to arguments, the plan, provenance or diagnostics, and it changes no
+settings file, hook, permission or managed home. Other runtimes receive no
+contribution, and the same machine selection does not refuse them. With a
+Claude OAuth store also selected, the value is applied before the token is
+injected; with a filtering gateway, the final composed-environment check runs
+on the result.
+
+The hosted route and Werkstatt stations refuse a non-empty Claude selection
+before any plan or manager contact (`selected claude_env requires native
+execution`), because the hosted manager owns that child's environment and
+resume and has no carrier for it yet. Native launches have no resume path,
+so "launch or resume" is covered by native launch only. Status reporting of
+the selection is not implemented. The vendored proposal corpus lives in
+`internal/launcherconfig/testdata/machine-claude-env-v1/`. A real Claude
+runtime witness of the limit's effect is not part of these checks.
+
 Metadata, subprocess, store and network fixture checks run with:
 
 ```sh

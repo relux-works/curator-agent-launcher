@@ -1,0 +1,330 @@
+[
+  {
+    "id": "minimum",
+    "claim": "Section2 admits this canonical in-range boundary/control",
+    "entry": "declaration",
+    "input_json": "{\"BASH_MAX_OUTPUT_LENGTH\":\"1\"}",
+    "want": "accept",
+    "schema_valid": true
+  },
+  {
+    "id": "requested",
+    "claim": "Section2 admits this canonical in-range boundary/control",
+    "entry": "declaration",
+    "input_json": "{\"BASH_MAX_OUTPUT_LENGTH\":\"8000\"}",
+    "want": "accept",
+    "schema_valid": true
+  },
+  {
+    "id": "maximum",
+    "claim": "Section2 admits this canonical in-range boundary/control",
+    "entry": "declaration",
+    "input_json": "{\"BASH_MAX_OUTPUT_LENGTH\":\"65536\"}",
+    "want": "accept",
+    "schema_valid": true
+  },
+  {
+    "id": "empty-declaration",
+    "claim": "Section2 permits an empty declaration",
+    "entry": "declaration",
+    "input_json": "{}",
+    "want": "accept",
+    "schema_valid": true
+  },
+  {
+    "id": "empty-claude-code",
+    "claim": "Section3 permits each named target with no extension contribution",
+    "entry": "projection",
+    "input_json": "{\"runtime\":\"claude_code\",\"env\":{}}",
+    "want": "accept",
+    "schema_valid": true
+  },
+  {
+    "id": "empty-codex-cli",
+    "claim": "Section3 permits each named target with no extension contribution",
+    "entry": "projection",
+    "input_json": "{\"runtime\":\"codex_cli\",\"env\":{}}",
+    "want": "accept",
+    "schema_valid": true
+  },
+  {
+    "id": "empty-opencode",
+    "claim": "Section3 permits each named target with no extension contribution",
+    "entry": "projection",
+    "input_json": "{\"runtime\":\"opencode\",\"env\":{}}",
+    "want": "accept",
+    "schema_valid": true
+  },
+  {
+    "id": "empty-pi",
+    "claim": "Section3 permits each named target with no extension contribution",
+    "entry": "projection",
+    "input_json": "{\"runtime\":\"pi\",\"env\":{}}",
+    "want": "accept",
+    "schema_valid": true
+  },
+  {
+    "id": "empty-muse",
+    "claim": "Section3 permits each named target with no extension contribution",
+    "entry": "projection",
+    "input_json": "{\"runtime\":\"muse\",\"env\":{}}",
+    "want": "accept",
+    "schema_valid": true
+  },
+  {
+    "id": "claude-contribution",
+    "claim": "Section3 admits the exact Claude-only contribution",
+    "entry": "projection",
+    "input_json": "{\"runtime\":\"claude_code\",\"env\":{\"BASH_MAX_OUTPUT_LENGTH\":\"8000\"}}",
+    "want": "accept",
+    "schema_valid": true
+  },
+  {
+    "id": "number",
+    "claim": "Section2 requires a JSON string with canonical ASCII integer spelling",
+    "entry": "declaration",
+    "input_json": "{\"BASH_MAX_OUTPUT_LENGTH\":8000}",
+    "want": "claude_env_value_not_integer",
+    "schema_valid": false
+  },
+  {
+    "id": "boolean",
+    "claim": "Section2 requires a JSON string with canonical ASCII integer spelling",
+    "entry": "declaration",
+    "input_json": "{\"BASH_MAX_OUTPUT_LENGTH\":true}",
+    "want": "claude_env_value_not_integer",
+    "schema_valid": false
+  },
+  {
+    "id": "null-value",
+    "claim": "Section2 requires a JSON string with canonical ASCII integer spelling",
+    "entry": "declaration",
+    "input_json": "{\"BASH_MAX_OUTPUT_LENGTH\":null}",
+    "want": "claude_env_value_not_integer",
+    "schema_valid": false
+  },
+  {
+    "id": "fraction",
+    "claim": "Section2 requires a JSON string with canonical ASCII integer spelling",
+    "entry": "declaration",
+    "input_json": "{\"BASH_MAX_OUTPUT_LENGTH\":\"1.5\"}",
+    "want": "claude_env_value_not_integer",
+    "schema_valid": false
+  },
+  {
+    "id": "exponent",
+    "claim": "Section2 requires a JSON string with canonical ASCII integer spelling",
+    "entry": "declaration",
+    "input_json": "{\"BASH_MAX_OUTPUT_LENGTH\":\"8e3\"}",
+    "want": "claude_env_value_not_integer",
+    "schema_valid": false
+  },
+  {
+    "id": "leading-zero",
+    "claim": "Section2 requires a JSON string with canonical ASCII integer spelling",
+    "entry": "declaration",
+    "input_json": "{\"BASH_MAX_OUTPUT_LENGTH\":\"08000\"}",
+    "want": "claude_env_value_not_integer",
+    "schema_valid": false
+  },
+  {
+    "id": "plus",
+    "claim": "Section2 requires a JSON string with canonical ASCII integer spelling",
+    "entry": "declaration",
+    "input_json": "{\"BASH_MAX_OUTPUT_LENGTH\":\"+8000\"}",
+    "want": "claude_env_value_not_integer",
+    "schema_valid": false
+  },
+  {
+    "id": "leading-space",
+    "claim": "Section2 requires a JSON string with canonical ASCII integer spelling",
+    "entry": "declaration",
+    "input_json": "{\"BASH_MAX_OUTPUT_LENGTH\":\" 8000\"}",
+    "want": "claude_env_value_not_integer",
+    "schema_valid": false
+  },
+  {
+    "id": "trailing-space",
+    "claim": "Section2 requires a JSON string with canonical ASCII integer spelling",
+    "entry": "declaration",
+    "input_json": "{\"BASH_MAX_OUTPUT_LENGTH\":\"8000 \"}",
+    "want": "claude_env_value_not_integer",
+    "schema_valid": false
+  },
+  {
+    "id": "newline",
+    "claim": "Section2 requires a JSON string with canonical ASCII integer spelling",
+    "entry": "declaration",
+    "input_json": "{\"BASH_MAX_OUTPUT_LENGTH\":\"1\\n\"}",
+    "want": "claude_env_value_not_integer",
+    "schema_valid": false
+  },
+  {
+    "id": "carriage-return",
+    "claim": "Section2 requires a JSON string with canonical ASCII integer spelling",
+    "entry": "declaration",
+    "input_json": "{\"BASH_MAX_OUTPUT_LENGTH\":\"1\\r\"}",
+    "want": "claude_env_value_not_integer",
+    "schema_valid": false
+  },
+  {
+    "id": "unicode-digit",
+    "claim": "Section2 requires a JSON string with canonical ASCII integer spelling",
+    "entry": "declaration",
+    "input_json": "{\"BASH_MAX_OUTPUT_LENGTH\":\"\u0668\"}",
+    "want": "claude_env_value_not_integer",
+    "schema_valid": false
+  },
+  {
+    "id": "empty-value",
+    "claim": "Section2 requires a JSON string with canonical ASCII integer spelling",
+    "entry": "declaration",
+    "input_json": "{\"BASH_MAX_OUTPUT_LENGTH\":\"\"}",
+    "want": "claude_env_value_not_integer",
+    "schema_valid": false
+  },
+  {
+    "id": "negative-zero",
+    "claim": "Section2 forbids nonpositive integers",
+    "entry": "declaration",
+    "input_json": "{\"BASH_MAX_OUTPUT_LENGTH\":\"-0\"}",
+    "want": "claude_env_value_nonpositive",
+    "schema_valid": false
+  },
+  {
+    "id": "large-negative",
+    "claim": "Section2 forbids nonpositive integers",
+    "entry": "declaration",
+    "input_json": "{\"BASH_MAX_OUTPUT_LENGTH\":\"-999999999999999999999999999999\"}",
+    "want": "claude_env_value_nonpositive",
+    "schema_valid": false
+  },
+  {
+    "id": "overflow",
+    "claim": "Section2 treats integer overflow as above the bound",
+    "entry": "declaration",
+    "input_json": "{\"BASH_MAX_OUTPUT_LENGTH\":\"99999999999999999999999999999\"}",
+    "want": "claude_env_value_over_bound",
+    "schema_valid": false
+  },
+  {
+    "id": "null-object",
+    "claim": "Section2 requires an object when the member is present",
+    "entry": "declaration",
+    "input_json": "null",
+    "want": "claude_env_invalid",
+    "schema_valid": false
+  },
+  {
+    "id": "array",
+    "claim": "Section2 requires an object when the member is present",
+    "entry": "declaration",
+    "input_json": "[]",
+    "want": "claude_env_invalid",
+    "schema_valid": false
+  },
+  {
+    "id": "scalar",
+    "claim": "Section2 requires an object when the member is present",
+    "entry": "declaration",
+    "input_json": "\"8000\"",
+    "want": "claude_env_invalid",
+    "schema_valid": false
+  },
+  {
+    "id": "duplicate-name",
+    "claim": "Section2 rejects duplicate JSON keys before projection; an embedding declaration driver maps the neutral file-level diagnostic to claude_env_invalid only after the same carrier accepts a valid member",
+    "entry": "declaration",
+    "input_json": "{\"BASH_MAX_OUTPUT_LENGTH\":\"8000\",\"BASH_MAX_OUTPUT_LENGTH\":\"1\"}",
+    "want": "claude_env_invalid",
+    "schema_valid": true
+  },
+  {
+    "id": "malformed",
+    "claim": "Section2 rejects malformed bytes without parser reflection; an embedding declaration driver maps the neutral file-level diagnostic to claude_env_invalid only after the same carrier accepts a valid member",
+    "entry": "declaration",
+    "input_json": "{\"BASH_MAX_OUTPUT_LENGTH\":",
+    "want": "claude_env_invalid",
+    "schema_valid": false
+  },
+  {
+    "id": "trailing-json",
+    "claim": "Section2 rejects a second JSON value; an embedding declaration driver maps the neutral file-level diagnostic to claude_env_invalid only after the same carrier accepts a valid member",
+    "entry": "declaration",
+    "input_json": "{} {}",
+    "want": "claude_env_invalid",
+    "schema_valid": false
+  },
+  {
+    "id": "unknown-runtime",
+    "claim": "The synthetic projection schema is a closed named-runtime corpus",
+    "entry": "projection",
+    "input_json": "{\"runtime\":\"other\",\"env\":{}}",
+    "want": "claude_env_invalid",
+    "schema_valid": false
+  },
+  {
+    "id": "unknown-projection-field",
+    "claim": "A synthetic contribution has no extra members",
+    "entry": "projection",
+    "input_json": "{\"runtime\":\"claude_code\",\"env\":{},\"extra\":\"SYNTHETIC_DO_NOT_ECHO\"}",
+    "want": "claude_env_invalid",
+    "schema_valid": false
+  },
+  {
+    "id": "missing-env",
+    "claim": "The synthetic projection requires an explicit contribution",
+    "entry": "projection",
+    "input_json": "{\"runtime\":\"claude_code\"}",
+    "want": "claude_env_invalid",
+    "schema_valid": false
+  },
+  {
+    "id": "lowercase-name",
+    "entry": "declaration",
+    "input_json": "{\"bash_max_output_length\":\"8000\"}",
+    "want": "claude_env_name_not_allowed",
+    "schema_valid": false,
+    "claim": "Section2 admits only the exact case-sensitive declaration name"
+  },
+  {
+    "id": "mixed-case-name",
+    "entry": "declaration",
+    "input_json": "{\"Bash_MAX_OUTPUT_LENGTH\":\"8000\"}",
+    "want": "claude_env_name_not_allowed",
+    "schema_valid": false,
+    "claim": "Section2 rejects a case variant beside otherwise valid input"
+  },
+  {
+    "id": "escaped-duplicate-name",
+    "entry": "declaration",
+    "input_json": "{\"BASH_MAX_OUTPUT_LENGTH\":\"8000\",\"\\u0042ASH_MAX_OUTPUT_LENGTH\":\"1\"}",
+    "want": "claude_env_invalid",
+    "schema_valid": true,
+    "claim": "Section2 rejects decoded duplicate names, including escaped spellings; an embedding declaration driver maps the neutral file-level diagnostic to claude_env_invalid only after the same carrier accepts a valid member"
+  },
+  {
+    "id": "trailing-comma",
+    "entry": "declaration",
+    "input_json": "{\"BASH_MAX_OUTPUT_LENGTH\":\"8000\",}",
+    "want": "claude_env_invalid",
+    "schema_valid": false,
+    "claim": "Section2 rejects a trailing comma rather than admitting relaxed JSON; an embedding declaration driver maps the neutral file-level diagnostic to claude_env_invalid only after the same carrier accepts a valid member"
+  },
+  {
+    "id": "non-claude-invalid-value",
+    "entry": "projection",
+    "input_json": "{\"runtime\":\"codex_cli\",\"env\":{\"BASH_MAX_OUTPUT_LENGTH\":\"0\"}}",
+    "want": "claude_env_value_nonpositive",
+    "schema_valid": false,
+    "claim": "Section4 validates a declared value before checking contribution eligibility"
+  },
+  {
+    "id": "non-claude-unknown-name",
+    "entry": "projection",
+    "input_json": "{\"runtime\":\"codex_cli\",\"env\":{\"UNLISTED\":\"SYNTHETIC_DO_NOT_ECHO\"}}",
+    "want": "claude_env_name_not_allowed",
+    "schema_valid": false,
+    "claim": "Section4 validates declaration names before checking contribution eligibility"
+  }
+]

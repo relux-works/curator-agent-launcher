@@ -51,3 +51,28 @@ func TestSelectedCoreProjectionClosed(t *testing.T) {
 		}
 	}
 }
+
+// /2 and /3 name the selected source by a clean absolute path, while /1 keeps
+// its admitted reference grammar. Each refusal has an accepted neighbour that
+// differs only in the path.
+func TestSelectedConfigPathAbsoluteFromSchema8(t *testing.T) {
+	withLauncherConfigV3(t, true)
+	envelopes := map[string]string{
+		"v2": `{"schema":"curator.launcher-config/2","config_schema":8,"config_path":%q,"extensions":{}}`,
+		"v3": `{"schema":"curator.launcher-config/3","config_schema":9,"config_path":%q,"extensions":{}}`,
+	}
+	for name, envelope := range envelopes {
+		if _, err := ParseSelected([]byte(fmt.Sprintf(envelope, "/selected/config.json"))); err != nil {
+			t.Fatalf("%s: absolute path refused", name)
+		}
+		for _, path := range []string{"selected/config.json", "./config.json", "/selected/../config.json", "/selected//config.json", "/selected/"} {
+			if _, err := ParseSelected([]byte(fmt.Sprintf(envelope, path))); err != ErrSelected {
+				t.Fatalf("%s: path %q admitted", name, path)
+			}
+		}
+	}
+	v1 := `{"schema":"curator.launcher-config/1","config_schema":7,"config_path":"selected/config.json","extensions":{}}`
+	if _, err := ParseSelected([]byte(v1)); err != nil {
+		t.Fatal("/1 relative reference refused")
+	}
+}

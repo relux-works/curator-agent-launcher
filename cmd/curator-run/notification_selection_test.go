@@ -63,7 +63,7 @@ func TestSelectedNotificationRouteRefusalBinary(t *testing.T) {
 			}
 			writeFixture(t, filepath.Join(f.root, "selected-config.json"), frontJSON(map[string]any{
 				"schema": "curator.launcher-config/2", "config_schema": 8,
-				"config_path": "fixture-selected.json", "extensions": extensions,
+				"config_path": "/fixture/selected.json", "extensions": extensions,
 			}), 0600)
 			args := append([]string{}, tc.args...)
 			if tc.backend == "host" && (tc.name == "empty-manager" || tc.name == "unselected-manager") {
@@ -103,7 +103,7 @@ func TestSelectedNotificationCapabilityBinary(t *testing.T) {
 			}
 			writeFixture(t, filepath.Join(f.root, "selected-config.json"), frontJSON(map[string]any{
 				"schema": "curator.launcher-config/2", "config_schema": 8,
-				"config_path": "fixture-selected.json", "extensions": extensions,
+				"config_path": "/fixture/selected.json", "extensions": extensions,
 			}), 0600)
 			args := []string{"--detach"}
 			if backend == "host" {
@@ -134,7 +134,7 @@ func TestNotificationStationCapabilityBinary(t *testing.T) {
 	w := newWS(t, bin)
 	f := w.frontFixture
 	n := selectedNotification()
-	writeFixture(t, filepath.Join(f.root, "selected-config.json"), frontJSON(map[string]any{"schema": "curator.launcher-config/2", "config_schema": 8, "config_path": "fixture-selected.json", "extensions": map[string]any{"notification": map[string]any{"backend": n.Backend, "contract": n.Contract, "workflow_reference": n.WorkflowReference, "workflow_sha256": n.WorkflowSHA256}}}), 0600)
+	writeFixture(t, filepath.Join(f.root, "selected-config.json"), frontJSON(map[string]any{"schema": "curator.launcher-config/2", "config_schema": 8, "config_path": "/fixture/selected.json", "extensions": map[string]any{"notification": map[string]any{"backend": n.Backend, "contract": n.Contract, "workflow_reference": n.WorkflowReference, "workflow_sha256": n.WorkflowSHA256}}}), 0600)
 	w.record["notification"] = expectedRecord(f.root).Notification
 	w.record["profile_lock_sha256"] = strings.Repeat("1", 64)
 	w.write()
@@ -163,7 +163,7 @@ func TestNotificationMissingMemberBinary(t *testing.T) {
 			f := newFront(t, bin)
 			f.registry("invalid")
 			n := selectedNotification()
-			writeFixture(t, filepath.Join(f.root, "selected-config.json"), frontJSON(map[string]any{"schema": "curator.launcher-config/2", "config_schema": 8, "config_path": "fixture-selected.json", "extensions": map[string]any{"notification": map[string]any{"backend": n.Backend, "contract": n.Contract, "workflow_reference": n.WorkflowReference, "workflow_sha256": n.WorkflowSHA256}}}), 0600)
+			writeFixture(t, filepath.Join(f.root, "selected-config.json"), frontJSON(map[string]any{"schema": "curator.launcher-config/2", "config_schema": 8, "config_path": "/fixture/selected.json", "extensions": map[string]any{"notification": map[string]any{"backend": n.Backend, "contract": n.Contract, "workflow_reference": n.WorkflowReference, "workflow_sha256": n.WorkflowSHA256}}}), 0600)
 			args := []string{"--detach"}
 			diagnostic := "requires explicit --member"
 			if id != "" {

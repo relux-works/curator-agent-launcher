@@ -1,0 +1,443 @@
+[
+  {
+    "id": "configuration-empty",
+    "claim": "The draft retains this current predecessor form beside the optional Claude member; final #216 parity is unverified",
+    "entry": "configuration",
+    "input_json": "{\"schema_version\":9,\"skills_root\":\"/example/skills\",\"projects\":{},\"extensions\":{}}",
+    "schema_valid": true
+  },
+  {
+    "id": "configuration-proxy",
+    "claim": "The draft retains this current predecessor form beside the optional Claude member; final #216 parity is unverified",
+    "entry": "configuration",
+    "input_json": "{\"schema_version\":9,\"skills_root\":\"/example/skills\",\"projects\":{},\"extensions\":{\"proxy\":{\"profile\":\"example\"}}}",
+    "schema_valid": true
+  },
+  {
+    "id": "configuration-file-auth",
+    "claim": "The draft retains this current predecessor form beside the optional Claude member; final #216 parity is unverified",
+    "entry": "configuration",
+    "input_json": "{\"schema_version\":9,\"skills_root\":\"/example/skills\",\"projects\":{},\"extensions\":{\"claude_auth\":{\"type\":\"oauth\",\"store\":{\"type\":\"file\",\"path\":\"/example/oauth.json\"}}}}",
+    "schema_valid": true
+  },
+  {
+    "id": "configuration-keychain-auth",
+    "claim": "The draft retains this current predecessor form beside the optional Claude member; final #216 parity is unverified",
+    "entry": "configuration",
+    "input_json": "{\"schema_version\":9,\"skills_root\":\"/example/skills\",\"projects\":{},\"extensions\":{\"claude_auth\":{\"type\":\"oauth\",\"store\":{\"type\":\"keychain\",\"service\":\"example\",\"account\":\"synthetic\"}}}}",
+    "schema_valid": true
+  },
+  {
+    "id": "configuration-notification-off",
+    "claim": "The draft retains this current predecessor form beside the optional Claude member; final #216 parity is unverified",
+    "entry": "configuration",
+    "input_json": "{\"schema_version\":9,\"skills_root\":\"/example/skills\",\"projects\":{},\"extensions\":{\"notification\":{\"backend\":\"off\"}}}",
+    "schema_valid": true
+  },
+  {
+    "id": "configuration-notification-host",
+    "claim": "The draft retains this current predecessor form beside the optional Claude member; final #216 parity is unverified",
+    "entry": "configuration",
+    "input_json": "{\"schema_version\":9,\"skills_root\":\"/example/skills\",\"projects\":{},\"extensions\":{\"notification\":{\"backend\":\"host\",\"contract\":\"curator-host-notification/1\",\"workflow_reference\":\"example/workflow@1\",\"workflow_sha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}}}",
+    "schema_valid": true
+  },
+  {
+    "id": "configuration-claude-empty",
+    "claim": "The draft retains this current predecessor form beside the optional Claude member; final #216 parity is unverified",
+    "entry": "configuration",
+    "input_json": "{\"schema_version\":9,\"skills_root\":\"/example/skills\",\"projects\":{},\"extensions\":{\"claude_env\":{}}}",
+    "schema_valid": true
+  },
+  {
+    "id": "configuration-claude-selected",
+    "claim": "The draft retains this current predecessor form beside the optional Claude member; final #216 parity is unverified",
+    "entry": "configuration",
+    "input_json": "{\"schema_version\":9,\"skills_root\":\"/example/skills\",\"projects\":{},\"extensions\":{\"claude_env\":{\"BASH_MAX_OUTPUT_LENGTH\":\"8000\"}}}",
+    "schema_valid": true
+  },
+  {
+    "id": "configuration-combined",
+    "claim": "The draft retains this current predecessor form beside the optional Claude member; final #216 parity is unverified",
+    "entry": "configuration",
+    "input_json": "{\"schema_version\":9,\"skills_root\":\"/example/skills\",\"projects\":{},\"extensions\":{\"proxy\":{\"profile\":\"example\"},\"claude_auth\":{\"type\":\"oauth\",\"store\":{\"type\":\"file\",\"path\":\"/example/oauth.json\"}},\"notification\":{\"backend\":\"host\",\"contract\":\"curator-host-notification/1\",\"workflow_reference\":\"example/workflow@1\",\"workflow_sha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"},\"claude_env\":{\"BASH_MAX_OUTPUT_LENGTH\":\"8000\"}}}",
+    "schema_valid": true
+  },
+  {
+    "id": "configuration-unknown-extension",
+    "claim": "Closed containing draft rejects this invalid member; this is a schema verdict, not a production diagnostic",
+    "entry": "configuration",
+    "input_json": "{\"schema_version\":9,\"skills_root\":\"/example/skills\",\"projects\":{},\"extensions\":{\"unknown\":{}}}",
+    "schema_valid": false
+  },
+  {
+    "id": "configuration-null-member",
+    "claim": "Closed containing draft rejects this invalid member; this is a schema verdict, not a production diagnostic",
+    "entry": "configuration",
+    "input_json": "{\"schema_version\":9,\"skills_root\":\"/example/skills\",\"projects\":{},\"extensions\":{\"claude_env\":null}}",
+    "schema_valid": false
+  },
+  {
+    "id": "configuration-unknown-name",
+    "claim": "Closed containing draft rejects this invalid member; this is a schema verdict, not a production diagnostic",
+    "entry": "configuration",
+    "input_json": "{\"schema_version\":9,\"skills_root\":\"/example/skills\",\"projects\":{},\"extensions\":{\"claude_env\":{\"OTHER\":\"8000\"}}}",
+    "schema_valid": false
+  },
+  {
+    "id": "configuration-noninteger",
+    "claim": "Closed containing draft rejects this invalid member; this is a schema verdict, not a production diagnostic",
+    "entry": "configuration",
+    "input_json": "{\"schema_version\":9,\"skills_root\":\"/example/skills\",\"projects\":{},\"extensions\":{\"claude_env\":{\"BASH_MAX_OUTPUT_LENGTH\":8000}}}",
+    "schema_valid": false
+  },
+  {
+    "id": "configuration-zero",
+    "claim": "Closed containing draft rejects this invalid member; this is a schema verdict, not a production diagnostic",
+    "entry": "configuration",
+    "input_json": "{\"schema_version\":9,\"skills_root\":\"/example/skills\",\"projects\":{},\"extensions\":{\"claude_env\":{\"BASH_MAX_OUTPUT_LENGTH\":\"0\"}}}",
+    "schema_valid": false
+  },
+  {
+    "id": "configuration-over-bound",
+    "claim": "Closed containing draft rejects this invalid member; this is a schema verdict, not a production diagnostic",
+    "entry": "configuration",
+    "input_json": "{\"schema_version\":9,\"skills_root\":\"/example/skills\",\"projects\":{},\"extensions\":{\"claude_env\":{\"BASH_MAX_OUTPUT_LENGTH\":\"65537\"}}}",
+    "schema_valid": false
+  },
+  {
+    "id": "configuration-proxy-extra",
+    "claim": "Closed containing draft rejects this invalid member; this is a schema verdict, not a production diagnostic",
+    "entry": "configuration",
+    "input_json": "{\"schema_version\":9,\"skills_root\":\"/example/skills\",\"projects\":{},\"extensions\":{\"proxy\":{\"profile\":\"example\",\"extra\":true}}}",
+    "schema_valid": false
+  },
+  {
+    "id": "configuration-auth-extra",
+    "claim": "Closed containing draft rejects this invalid member; this is a schema verdict, not a production diagnostic",
+    "entry": "configuration",
+    "input_json": "{\"schema_version\":9,\"skills_root\":\"/example/skills\",\"projects\":{},\"extensions\":{\"claude_auth\":{\"type\":\"oauth\",\"store\":{\"type\":\"file\",\"path\":\"/example/oauth.json\",\"account\":\"extra\"}}}}",
+    "schema_valid": false
+  },
+  {
+    "id": "configuration-notification-extra",
+    "claim": "Closed containing draft rejects this invalid member; this is a schema verdict, not a production diagnostic",
+    "entry": "configuration",
+    "input_json": "{\"schema_version\":9,\"skills_root\":\"/example/skills\",\"projects\":{},\"extensions\":{\"notification\":{\"backend\":\"off\",\"contract\":\"curator-host-notification/1\"}}}",
+    "schema_valid": false
+  },
+  {
+    "id": "configuration-notification-missing-digest",
+    "claim": "Closed containing draft rejects this invalid member; this is a schema verdict, not a production diagnostic",
+    "entry": "configuration",
+    "input_json": "{\"schema_version\":9,\"skills_root\":\"/example/skills\",\"projects\":{},\"extensions\":{\"notification\":{\"backend\":\"host\",\"contract\":\"curator-host-notification/1\",\"workflow_reference\":\"example\"}}}",
+    "schema_valid": false
+  },
+  {
+    "id": "configuration-notification-wrong-contract",
+    "claim": "Closed containing draft rejects this invalid member; this is a schema verdict, not a production diagnostic",
+    "entry": "configuration",
+    "input_json": "{\"schema_version\":9,\"skills_root\":\"/example/skills\",\"projects\":{},\"extensions\":{\"notification\":{\"backend\":\"host\",\"contract\":\"other\",\"workflow_reference\":\"example/workflow@1\",\"workflow_sha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}}}",
+    "schema_valid": false
+  },
+  {
+    "id": "configuration-notification-bad-digest",
+    "claim": "Closed containing draft rejects this invalid member; this is a schema verdict, not a production diagnostic",
+    "entry": "configuration",
+    "input_json": "{\"schema_version\":9,\"skills_root\":\"/example/skills\",\"projects\":{},\"extensions\":{\"notification\":{\"backend\":\"host\",\"contract\":\"curator-host-notification/1\",\"workflow_reference\":\"example/workflow@1\",\"workflow_sha256\":\"GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG\"}}}",
+    "schema_valid": false
+  },
+  {
+    "id": "configuration-notification-null",
+    "claim": "Closed containing draft rejects this invalid member; this is a schema verdict, not a production diagnostic",
+    "entry": "configuration",
+    "input_json": "{\"schema_version\":9,\"skills_root\":\"/example/skills\",\"projects\":{},\"extensions\":{\"notification\":null}}",
+    "schema_valid": false
+  },
+  {
+    "id": "configuration-unknown-top",
+    "claim": "The complete outer candidate rejects unknown top-level fields",
+    "entry": "configuration",
+    "input_json": "{\"schema_version\":9,\"skills_root\":\"/example/skills\",\"projects\":{},\"extra\":true}",
+    "schema_valid": false
+  },
+  {
+    "id": "configuration-absent",
+    "claim": "An absent extensions object is inert",
+    "entry": "configuration",
+    "input_json": "{\"schema_version\":9,\"skills_root\":\"/example/skills\",\"projects\":{}}",
+    "schema_valid": true
+  },
+  {
+    "id": "configuration-default-projects",
+    "claim": "Schema 9 retains the schema-8 required projects member; omission is refused.",
+    "entry": "configuration",
+    "input_json": "{\"schema_version\":9,\"skills_root\":\"/example/skills\"}",
+    "schema_valid": false
+  },
+  {
+    "id": "configuration-missing-root",
+    "claim": "A member-valid containing file still needs the predecessor skills_root",
+    "entry": "configuration",
+    "input_json": "{\"schema_version\":9}",
+    "schema_valid": false
+  },
+  {
+    "id": "configuration-old-version",
+    "claim": "This successor schema does not relabel schema 8 as schema 9",
+    "entry": "configuration",
+    "input_json": "{\"schema_version\":8,\"skills_root\":\"/example/skills\",\"projects\":{}}",
+    "schema_valid": false
+  },
+  {
+    "id": "configuration-unrelated-fields",
+    "claim": "The draft includes existing Core machine fields; these references do not resolve credentials or executables",
+    "entry": "configuration",
+    "input_json": "{\"schema_version\":9,\"skills_root\":\"/example/skills\",\"projects\":{},\"execution\":{\"mode\":\"portable\"},\"build_ssh\":{\"example.invalid/project\":{\"agent\":true}},\"build_https\":{\"example.invalid/project\":{\"token\":\"keyring\"}},\"script_interpreters\":{\"python3-v1\":\"/example/python3\"},\"script_diagnostics_dir\":\"/example/diagnostics\",\"environments\":{\"credential_store\":{\"example\":{\"claude_code\":\"file\"}}}}",
+    "schema_valid": true
+  },
+  {
+    "id": "launcher-empty",
+    "claim": "The draft retains this current predecessor form beside the optional Claude member; final #216 parity is unverified",
+    "entry": "launcher",
+    "input_json": "{\"schema\":\"curator.launcher-config/3\",\"config_schema\":9,\"config_path\":\"/example/config.json\",\"extensions\":{}}",
+    "schema_valid": true
+  },
+  {
+    "id": "launcher-proxy",
+    "claim": "The draft retains this current predecessor form beside the optional Claude member; final #216 parity is unverified",
+    "entry": "launcher",
+    "input_json": "{\"schema\":\"curator.launcher-config/3\",\"config_schema\":9,\"config_path\":\"/example/config.json\",\"extensions\":{\"proxy\":{\"profile\":\"example\"}}}",
+    "schema_valid": true
+  },
+  {
+    "id": "launcher-file-auth",
+    "claim": "The draft retains this current predecessor form beside the optional Claude member; final #216 parity is unverified",
+    "entry": "launcher",
+    "input_json": "{\"schema\":\"curator.launcher-config/3\",\"config_schema\":9,\"config_path\":\"/example/config.json\",\"extensions\":{\"claude_auth\":{\"type\":\"oauth\",\"store\":{\"type\":\"file\",\"path\":\"/example/oauth.json\"}}}}",
+    "schema_valid": true
+  },
+  {
+    "id": "launcher-keychain-auth",
+    "claim": "The draft retains this current predecessor form beside the optional Claude member; final #216 parity is unverified",
+    "entry": "launcher",
+    "input_json": "{\"schema\":\"curator.launcher-config/3\",\"config_schema\":9,\"config_path\":\"/example/config.json\",\"extensions\":{\"claude_auth\":{\"type\":\"oauth\",\"store\":{\"type\":\"keychain\",\"service\":\"example\",\"account\":\"synthetic\"}}}}",
+    "schema_valid": true
+  },
+  {
+    "id": "launcher-notification-off",
+    "claim": "The draft retains this current predecessor form beside the optional Claude member; final #216 parity is unverified",
+    "entry": "launcher",
+    "input_json": "{\"schema\":\"curator.launcher-config/3\",\"config_schema\":9,\"config_path\":\"/example/config.json\",\"extensions\":{\"notification\":{\"backend\":\"off\"}}}",
+    "schema_valid": true
+  },
+  {
+    "id": "launcher-notification-host",
+    "claim": "The draft retains this current predecessor form beside the optional Claude member; final #216 parity is unverified",
+    "entry": "launcher",
+    "input_json": "{\"schema\":\"curator.launcher-config/3\",\"config_schema\":9,\"config_path\":\"/example/config.json\",\"extensions\":{\"notification\":{\"backend\":\"host\",\"contract\":\"curator-host-notification/1\",\"workflow_reference\":\"example/workflow@1\",\"workflow_sha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}}}",
+    "schema_valid": true
+  },
+  {
+    "id": "launcher-claude-empty",
+    "claim": "The draft retains this current predecessor form beside the optional Claude member; final #216 parity is unverified",
+    "entry": "launcher",
+    "input_json": "{\"schema\":\"curator.launcher-config/3\",\"config_schema\":9,\"config_path\":\"/example/config.json\",\"extensions\":{\"claude_env\":{}}}",
+    "schema_valid": true
+  },
+  {
+    "id": "launcher-claude-selected",
+    "claim": "The draft retains this current predecessor form beside the optional Claude member; final #216 parity is unverified",
+    "entry": "launcher",
+    "input_json": "{\"schema\":\"curator.launcher-config/3\",\"config_schema\":9,\"config_path\":\"/example/config.json\",\"extensions\":{\"claude_env\":{\"BASH_MAX_OUTPUT_LENGTH\":\"8000\"}}}",
+    "schema_valid": true
+  },
+  {
+    "id": "launcher-combined",
+    "claim": "The draft retains this current predecessor form beside the optional Claude member; final #216 parity is unverified",
+    "entry": "launcher",
+    "input_json": "{\"schema\":\"curator.launcher-config/3\",\"config_schema\":9,\"config_path\":\"/example/config.json\",\"extensions\":{\"proxy\":{\"profile\":\"example\"},\"claude_auth\":{\"type\":\"oauth\",\"store\":{\"type\":\"file\",\"path\":\"/example/oauth.json\"}},\"notification\":{\"backend\":\"host\",\"contract\":\"curator-host-notification/1\",\"workflow_reference\":\"example/workflow@1\",\"workflow_sha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"},\"claude_env\":{\"BASH_MAX_OUTPUT_LENGTH\":\"8000\"}}}",
+    "schema_valid": true
+  },
+  {
+    "id": "launcher-unknown-extension",
+    "claim": "Closed containing draft rejects this invalid member; this is a schema verdict, not a production diagnostic",
+    "entry": "launcher",
+    "input_json": "{\"schema\":\"curator.launcher-config/3\",\"config_schema\":9,\"config_path\":\"/example/config.json\",\"extensions\":{\"unknown\":{}}}",
+    "schema_valid": false
+  },
+  {
+    "id": "launcher-null-member",
+    "claim": "Closed containing draft rejects this invalid member; this is a schema verdict, not a production diagnostic",
+    "entry": "launcher",
+    "input_json": "{\"schema\":\"curator.launcher-config/3\",\"config_schema\":9,\"config_path\":\"/example/config.json\",\"extensions\":{\"claude_env\":null}}",
+    "schema_valid": false
+  },
+  {
+    "id": "launcher-unknown-name",
+    "claim": "Closed containing draft rejects this invalid member; this is a schema verdict, not a production diagnostic",
+    "entry": "launcher",
+    "input_json": "{\"schema\":\"curator.launcher-config/3\",\"config_schema\":9,\"config_path\":\"/example/config.json\",\"extensions\":{\"claude_env\":{\"OTHER\":\"8000\"}}}",
+    "schema_valid": false
+  },
+  {
+    "id": "launcher-noninteger",
+    "claim": "Closed containing draft rejects this invalid member; this is a schema verdict, not a production diagnostic",
+    "entry": "launcher",
+    "input_json": "{\"schema\":\"curator.launcher-config/3\",\"config_schema\":9,\"config_path\":\"/example/config.json\",\"extensions\":{\"claude_env\":{\"BASH_MAX_OUTPUT_LENGTH\":8000}}}",
+    "schema_valid": false
+  },
+  {
+    "id": "launcher-zero",
+    "claim": "Closed containing draft rejects this invalid member; this is a schema verdict, not a production diagnostic",
+    "entry": "launcher",
+    "input_json": "{\"schema\":\"curator.launcher-config/3\",\"config_schema\":9,\"config_path\":\"/example/config.json\",\"extensions\":{\"claude_env\":{\"BASH_MAX_OUTPUT_LENGTH\":\"0\"}}}",
+    "schema_valid": false
+  },
+  {
+    "id": "launcher-over-bound",
+    "claim": "Closed containing draft rejects this invalid member; this is a schema verdict, not a production diagnostic",
+    "entry": "launcher",
+    "input_json": "{\"schema\":\"curator.launcher-config/3\",\"config_schema\":9,\"config_path\":\"/example/config.json\",\"extensions\":{\"claude_env\":{\"BASH_MAX_OUTPUT_LENGTH\":\"65537\"}}}",
+    "schema_valid": false
+  },
+  {
+    "id": "launcher-proxy-extra",
+    "claim": "Closed containing draft rejects this invalid member; this is a schema verdict, not a production diagnostic",
+    "entry": "launcher",
+    "input_json": "{\"schema\":\"curator.launcher-config/3\",\"config_schema\":9,\"config_path\":\"/example/config.json\",\"extensions\":{\"proxy\":{\"profile\":\"example\",\"extra\":true}}}",
+    "schema_valid": false
+  },
+  {
+    "id": "launcher-auth-extra",
+    "claim": "Closed containing draft rejects this invalid member; this is a schema verdict, not a production diagnostic",
+    "entry": "launcher",
+    "input_json": "{\"schema\":\"curator.launcher-config/3\",\"config_schema\":9,\"config_path\":\"/example/config.json\",\"extensions\":{\"claude_auth\":{\"type\":\"oauth\",\"store\":{\"type\":\"file\",\"path\":\"/example/oauth.json\",\"account\":\"extra\"}}}}",
+    "schema_valid": false
+  },
+  {
+    "id": "launcher-notification-extra",
+    "claim": "Closed containing draft rejects this invalid member; this is a schema verdict, not a production diagnostic",
+    "entry": "launcher",
+    "input_json": "{\"schema\":\"curator.launcher-config/3\",\"config_schema\":9,\"config_path\":\"/example/config.json\",\"extensions\":{\"notification\":{\"backend\":\"off\",\"contract\":\"curator-host-notification/1\"}}}",
+    "schema_valid": false
+  },
+  {
+    "id": "launcher-notification-missing-digest",
+    "claim": "Closed containing draft rejects this invalid member; this is a schema verdict, not a production diagnostic",
+    "entry": "launcher",
+    "input_json": "{\"schema\":\"curator.launcher-config/3\",\"config_schema\":9,\"config_path\":\"/example/config.json\",\"extensions\":{\"notification\":{\"backend\":\"host\",\"contract\":\"curator-host-notification/1\",\"workflow_reference\":\"example\"}}}",
+    "schema_valid": false
+  },
+  {
+    "id": "launcher-notification-wrong-contract",
+    "claim": "Closed containing draft rejects this invalid member; this is a schema verdict, not a production diagnostic",
+    "entry": "launcher",
+    "input_json": "{\"schema\":\"curator.launcher-config/3\",\"config_schema\":9,\"config_path\":\"/example/config.json\",\"extensions\":{\"notification\":{\"backend\":\"host\",\"contract\":\"other\",\"workflow_reference\":\"example/workflow@1\",\"workflow_sha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}}}",
+    "schema_valid": false
+  },
+  {
+    "id": "launcher-notification-bad-digest",
+    "claim": "Closed containing draft rejects this invalid member; this is a schema verdict, not a production diagnostic",
+    "entry": "launcher",
+    "input_json": "{\"schema\":\"curator.launcher-config/3\",\"config_schema\":9,\"config_path\":\"/example/config.json\",\"extensions\":{\"notification\":{\"backend\":\"host\",\"contract\":\"curator-host-notification/1\",\"workflow_reference\":\"example/workflow@1\",\"workflow_sha256\":\"GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG\"}}}",
+    "schema_valid": false
+  },
+  {
+    "id": "launcher-notification-null",
+    "claim": "Closed containing draft rejects this invalid member; this is a schema verdict, not a production diagnostic",
+    "entry": "launcher",
+    "input_json": "{\"schema\":\"curator.launcher-config/3\",\"config_schema\":9,\"config_path\":\"/example/config.json\",\"extensions\":{\"notification\":null}}",
+    "schema_valid": false
+  },
+  {
+    "id": "launcher-unknown-top",
+    "claim": "The complete outer candidate rejects unknown top-level fields",
+    "entry": "launcher",
+    "input_json": "{\"schema\":\"curator.launcher-config/3\",\"config_schema\":9,\"config_path\":\"/example/config.json\",\"extensions\":{},\"extra\":true}",
+    "schema_valid": false
+  },
+  {
+    "id": "launcher-old-schema",
+    "claim": "The typed successor requires its version pair and an absolute selected config path",
+    "entry": "launcher",
+    "input_json": "{\"schema\":\"curator.launcher-config/2\",\"config_schema\":9,\"config_path\":\"/example/config.json\",\"extensions\":{}}",
+    "schema_valid": false
+  },
+  {
+    "id": "launcher-old-config",
+    "claim": "The typed successor requires its version pair and an absolute selected config path",
+    "entry": "launcher",
+    "input_json": "{\"schema\":\"curator.launcher-config/3\",\"config_schema\":8,\"config_path\":\"/example/config.json\",\"extensions\":{}}",
+    "schema_valid": false
+  },
+  {
+    "id": "launcher-relative-path",
+    "claim": "The typed successor requires its version pair and an absolute selected config path",
+    "entry": "launcher",
+    "input_json": "{\"schema\":\"curator.launcher-config/3\",\"config_schema\":9,\"config_path\":\"relative/config.json\",\"extensions\":{}}",
+    "schema_valid": false
+  },
+  {
+    "id": "launcher-missing-extensions",
+    "claim": "The typed projection includes an explicit extensions object even when empty",
+    "entry": "launcher",
+    "input_json": "{\"schema\":\"curator.launcher-config/3\",\"config_schema\":9,\"config_path\":\"/example/config.json\"}",
+    "schema_valid": false
+  },
+  {
+    "id": "schema8-control",
+    "claim": "Same predecessor carrier admits notification without the successor member.",
+    "entry": "configuration-v8",
+    "input_json": "{\"schema_version\":8,\"skills_root\":\"/example/skills\",\"projects\":{},\"extensions\":{\"notification\":{\"backend\":\"off\"}}}",
+    "schema_valid": true
+  },
+  {
+    "id": "schema8-claude-env-refused",
+    "claim": "Same predecessor carrier refuses successor member without partial admission.",
+    "entry": "configuration-v8",
+    "input_json": "{\"schema_version\":8,\"skills_root\":\"/example/skills\",\"projects\":{},\"extensions\":{\"notification\":{\"backend\":\"off\"},\"claude_env\":{\"BASH_MAX_OUTPUT_LENGTH\":\"8000\"}}}",
+    "schema_valid": false
+  },
+  {
+    "id": "launcher2-control",
+    "claim": "Same predecessor carrier admits notification without the successor member.",
+    "entry": "launcher-v2",
+    "input_json": "{\"schema\":\"curator.launcher-config/2\",\"config_schema\":8,\"config_path\":\"/example/config.json\",\"extensions\":{\"notification\":{\"backend\":\"off\"}}}",
+    "schema_valid": true
+  },
+  {
+    "id": "launcher2-claude-env-refused",
+    "claim": "Same predecessor carrier refuses successor member without partial admission.",
+    "entry": "launcher-v2",
+    "input_json": "{\"schema\":\"curator.launcher-config/2\",\"config_schema\":8,\"config_path\":\"/example/config.json\",\"extensions\":{\"notification\":{\"backend\":\"off\"},\"claude_env\":{\"BASH_MAX_OUTPUT_LENGTH\":\"8000\"}}}",
+    "schema_valid": false
+  },
+  {
+    "id": "configuration-version-decimal",
+    "claim": "Containing integer-token profile rejects integral decimal/exponent spellings; valid integer 9 control remains admitted.",
+    "entry": "configuration",
+    "input_json": "{\"schema_version\":9.0,\"skills_root\":\"/example/skills\",\"projects\":{}}",
+    "schema_valid": false
+  },
+  {
+    "id": "configuration-version-exponent",
+    "claim": "Containing integer-token profile rejects integral decimal/exponent spellings; valid integer 9 control remains admitted.",
+    "entry": "configuration",
+    "input_json": "{\"schema_version\":9e0,\"skills_root\":\"/example/skills\",\"projects\":{}}",
+    "schema_valid": false
+  },
+  {
+    "id": "configuration-retention-integral",
+    "claim": "Version-token restriction preserves predecessor integer-value admission for retention.",
+    "entry": "configuration",
+    "input_json": "{\"schema_version\":9,\"skills_root\":\"x\",\"projects\":{},\"environments\":{\"backup_retention\":5.0}}",
+    "schema_valid": true
+  },
+  {
+    "id": "configuration-retention-fractional",
+    "claim": "Version-token restriction preserves predecessor integer-value admission for retention.",
+    "entry": "configuration",
+    "input_json": "{\"schema_version\":9,\"skills_root\":\"x\",\"projects\":{},\"environments\":{\"backup_retention\":5.5}}",
+    "schema_valid": false
+  }
+]

@@ -16,7 +16,7 @@ func notificationProjection(selection string) string {
 	if selection != "" {
 		extension = `"notification":` + selection
 	}
-	return `{"schema":"curator.launcher-config/2","config_schema":8,"config_path":"selected/config.json","extensions":{` + extension + `}}`
+	return `{"schema":"curator.launcher-config/2","config_schema":8,"config_path":"/selected/config.json","extensions":{` + extension + `}}`
 }
 
 // The real bounded subprocess reader retains Host metadata from a successful
@@ -47,7 +47,7 @@ func TestSelectedNotificationProjection(t *testing.T) {
 		t.Run(fmt.Sprint(i), func(t *testing.T) {
 			doc := notificationProjection(selection)
 			got, err := ParseSelected([]byte(doc))
-			if err != nil || got.ConfigSchema != 8 || got.ConfigPath != "selected/config.json" {
+			if err != nil || got.ConfigSchema != 8 || got.ConfigPath != "/selected/config.json" {
 				t.Fatalf("valid schema8 notification projection refused: %+v %v", got, err)
 			}
 			if selection == "" {

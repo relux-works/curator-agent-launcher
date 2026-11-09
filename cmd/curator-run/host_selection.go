@@ -97,6 +97,12 @@ func resolveHost(ctx context.Context, inv cli.Invocation, frag *fragment.Fragmen
 		if frag.Environment == fragment.EnvClaudeCode && deps.selectedConfig.ClaudeAuth != nil {
 			return errors.New("selected Claude OAuth source requires native execution")
 		}
+		// The hosted manager owns the child environment and resume; this
+		// revision delivers a claude_env selection to the native child only,
+		// and never drops it silently on another route.
+		if frag.Environment == fragment.EnvClaudeCode && deps.selectedConfig.ClaudeEnv.Selected() {
+			return errors.New("selected claude_env requires native execution")
+		}
 		// A hosted route cannot carry a network binding, explicit or the
 		// operator's filtering-gateway default; both refuse before any
 		// manager contact, resume and recovery included.
