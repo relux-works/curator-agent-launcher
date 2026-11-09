@@ -527,7 +527,14 @@ The executable supports `claude_code` (alias `claude`), `codex_cli`
 (alias `codex`), native `pi`, and Muse (`muse`).
 
 Muse requires `launch-env-fragment-v4`: exactly four XDG parents under one
-managed home plus `TBH_CREDENTIAL_BACKEND=file`, preserving inherited `HOME`.
+managed home, preserving inherited `HOME`, in one of two credential forms.
+In the file form (`credential_store.selection` is `file`) the fragment also
+sets `TBH_CREDENTIAL_BACKEND=file`, which beats any inherited value. In the
+native form (`selection` is `native`), which Curator emits on macOS for a
+shared home so that Muse uses the operator's default Keychain login, the
+fragment sets no backend variable. An inherited, owned, prompt or network
+value for that variable then refuses instead of being stripped. Keychain
+and mixed forms refuse.
 Older Muse fragments refuse `fragment_version_unsupported` before launch.
 The pinned agents-management v0.5.76 plugin owns the native plan; managed
 Muse refuses module versions older than v0.5.66. The optional frozen-copy

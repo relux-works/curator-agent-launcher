@@ -35,8 +35,19 @@ func v4Policy(root Value, f *Fragment) error {
 	expected := ""
 	switch f.Environment {
 	case EnvMuse:
-		if selection != "file" {
-			return invalid("/credential_store/selection", "Muse requires file")
+		// Two forms only: file, with the backend variable set to file; or
+		// native (Curator's shared-home Keychain form), with no backend
+		// variable, so Muse uses the operator's default store.
+		_, backend := f.Env[MuseCredentialBackend]
+		switch {
+		case selection == "file" && backend:
+		case selection == "native" && !backend:
+		case selection == "file":
+			return invalid("/env/"+MuseCredentialBackend, "required for the Muse file form")
+		case selection == "native":
+			return invalid("/env/"+MuseCredentialBackend, "forbidden for the Muse native form")
+		default:
+			return invalid("/credential_store/selection", "Muse requires file or native")
 		}
 	case EnvCodexCLI:
 		switch selection {

@@ -165,3 +165,63 @@ func TestV4SchemaSourcePin(t *testing.T) {
 		t.Fatalf("schema source changed: %s", got)
 	}
 }
+
+// museNativeForm is Curator's shared-home Keychain form: selection native and
+// no backend variable.
+func museNativeForm(m map[string]any) {
+	m["credential_store"] = map[string]any{"selection": "native"}
+	delete(m["env"].(map[string]any), MuseCredentialBackend)
+}
+
+// A v4 Muse fragment is admitted in exactly two credential forms: file with
+// the backend variable equal to file, or native with no backend variable.
+// Every mixed, keychain or override form refuses, next to the two accepted
+// controls; the native form keeps the four managed XDG paths only.
+func TestV4MuseCredentialForms(t *testing.T) {
+	file, err := Parse(v4Fixture(t, EnvMuse))
+	if err != nil || file.CredentialStore.Selection != "file" || file.Env[MuseCredentialBackend] != "file" {
+		t.Fatalf("file form: %v", err)
+	}
+	native, err := Parse(mutate(t, v4Fixture(t, EnvMuse), museNativeForm))
+	if err != nil {
+		t.Fatalf("native form refused: %v", err)
+	}
+	if native.CredentialStore.Selection != "native" || len(native.Env) != 4 {
+		t.Fatalf("native form parsed as %+v %v", native.CredentialStore, native.Env)
+	}
+	if _, ok := native.Env[MuseCredentialBackend]; ok {
+		t.Fatal("native form carries a backend")
+	}
+	for name, edit := range map[string]func(map[string]any){
+		"native-with-file-backend": func(m map[string]any) {
+			museNativeForm(m)
+			m["env"].(map[string]any)[MuseCredentialBackend] = "file"
+		},
+		"native-with-keychain-backend": func(m map[string]any) {
+			museNativeForm(m)
+			m["env"].(map[string]any)[MuseCredentialBackend] = "keychain"
+		},
+		"file-without-backend": func(m map[string]any) { delete(m["env"].(map[string]any), MuseCredentialBackend) },
+		"keychain-without-backend": func(m map[string]any) {
+			museNativeForm(m)
+			m["credential_store"] = map[string]any{"selection": "keychain"}
+		},
+		"keychain-with-file-backend": func(m map[string]any) {
+			m["credential_store"] = map[string]any{"selection": "keychain"}
+		},
+		"native-with-overrides": func(m map[string]any) {
+			museNativeForm(m)
+			m["credential_store"] = map[string]any{"selection": "native", "config_overrides": map[string]any{"cli_auth_credentials_store": "file"}}
+		},
+		"native-with-lowercase-backend": func(m map[string]any) {
+			museNativeForm(m)
+			m["env"].(map[string]any)["tbh_credential_backend"] = "file"
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if _, err := Parse(mutate(t, v4Fixture(t, EnvMuse), edit)); err == nil {
+				t.Fatal("invalid Muse credential form admitted")
+			}
+		})
+	}
+}
