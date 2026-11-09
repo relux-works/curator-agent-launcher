@@ -1,0 +1,50 @@
+[
+  {
+    "id": "unknown-name",
+    "claim": "Section2 rejects an additional name even beside the valid selected key",
+    "entry": "declaration",
+    "valid_json": "{\"BASH_MAX_OUTPUT_LENGTH\":\"8000\"}",
+    "invalid_json": "{\"BASH_MAX_OUTPUT_LENGTH\":\"8000\",\"UNLISTED\":\"SYNTHETIC_DO_NOT_ECHO\"}",
+    "want": "claude_env_name_not_allowed"
+  },
+  {
+    "id": "non-integer",
+    "claim": "Section2 rejects a fraction instead of coercing it",
+    "entry": "declaration",
+    "valid_json": "{\"BASH_MAX_OUTPUT_LENGTH\":\"8000\"}",
+    "invalid_json": "{\"BASH_MAX_OUTPUT_LENGTH\":\"1.5\"}",
+    "want": "claude_env_value_not_integer"
+  },
+  {
+    "id": "zero",
+    "claim": "Section2 requires a strictly positive integer",
+    "entry": "declaration",
+    "valid_json": "{\"BASH_MAX_OUTPUT_LENGTH\":\"8000\"}",
+    "invalid_json": "{\"BASH_MAX_OUTPUT_LENGTH\":\"0\"}",
+    "want": "claude_env_value_nonpositive"
+  },
+  {
+    "id": "negative",
+    "claim": "Section2 requires a strictly positive integer",
+    "entry": "declaration",
+    "valid_json": "{\"BASH_MAX_OUTPUT_LENGTH\":\"8000\"}",
+    "invalid_json": "{\"BASH_MAX_OUTPUT_LENGTH\":\"-1\"}",
+    "want": "claude_env_value_nonpositive"
+  },
+  {
+    "id": "over-bound",
+    "claim": "Section2 rejects the first integer above65536",
+    "entry": "declaration",
+    "valid_json": "{\"BASH_MAX_OUTPUT_LENGTH\":\"8000\"}",
+    "invalid_json": "{\"BASH_MAX_OUTPUT_LENGTH\":\"65537\"}",
+    "want": "claude_env_value_over_bound"
+  },
+  {
+    "id": "non-claude",
+    "claim": "Section3 rejects injection into another runtime while allowing its empty contribution",
+    "entry": "projection",
+    "valid_json": "{\"runtime\":\"claude_code\",\"env\":{\"BASH_MAX_OUTPUT_LENGTH\":\"8000\"}}",
+    "invalid_json": "{\"runtime\":\"codex_cli\",\"env\":{\"BASH_MAX_OUTPUT_LENGTH\":\"8000\"}}",
+    "want": "claude_env_runtime_ineligible"
+  }
+]

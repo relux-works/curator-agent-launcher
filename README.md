@@ -1111,8 +1111,9 @@ A user-layer `host_mode` or `delegated_trial` refuses and names the system path.
 [FRONT-DOOR §3.1](FRONT-DOOR.md#31-the-machine-mode).
 
 Core-selected machine metadata supplies optional proxy and standalone Claude
-OAuth references through `curator config launcher`; neither `launcher.json`
-layer supplies them. See [the configuration contract](docs/selected-launcher-config.md)
+OAuth references, Host notification selection and, as an unaccepted candidate,
+the Claude child's `BASH_MAX_OUTPUT_LENGTH` through `curator config launcher`;
+neither `launcher.json` layer supplies them. See [the configuration contract](docs/selected-launcher-config.md)
 for the selected-source transport, precedence, final-child injection and
 refusal behavior. Metadata reads never access a secret store.
 

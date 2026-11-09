@@ -217,6 +217,11 @@ func prepareWerkstatt(ctx context.Context, r *werkstatt.Record, c werkstatt.Comm
 	if err != nil {
 		return werkstatt.Prepared{}, err
 	}
+	// A Werkstatt runs through the hosted manager, which this revision gives
+	// no claude_env carrier; refuse rather than start the child without it.
+	if frag.Environment == fragment.EnvClaudeCode && selected.ClaudeEnv.Selected() {
+		return werkstatt.Prepared{}, errors.New("selected claude_env requires native execution")
+	}
 	files, err := defaults.LoadResolved(config)
 	if err != nil {
 		return werkstatt.Prepared{}, err

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"os/exec"
+	"path/filepath"
 	"time"
 
 	"github.com/relux-works/curator-agent-launcher/internal/fragment"
@@ -19,7 +20,15 @@ type Selected struct {
 	Proxy        *Proxy
 	ClaudeAuth   *ClaudeAuth
 	Notification *Notification
+	// ClaudeEnv is set only for a config schema 9 projection; nil otherwise.
+	ClaudeEnv *ClaudeEnv
 }
+
+// admitLauncherConfigV3 is the candidate gate for curator.launcher-config/3
+// (config schema 9, extensions.claude_env). CIP-0029 is in Review and Decision
+// 0035 is Proposed, so production readers keep refusing /3 until the
+// allocation is accepted; tests enable it to qualify the candidate receiver.
+var admitLauncherConfigV3 = false
 
 var ErrSelected = errors.New("invalid selected Core launcher configuration")
 
@@ -77,6 +86,10 @@ func ParseSelected(data []byte) (Selected, error) {
 		if stringMember(root, "schema") != "curator.launcher-config/2" {
 			return Selected{}, ErrSelected
 		}
+	case 9:
+		if !admitLauncherConfigV3 || stringMember(root, "schema") != "curator.launcher-config/3" {
+			return Selected{}, ErrSelected
+		}
 	default:
 		return Selected{}, ErrSelected
 	}
@@ -84,8 +97,13 @@ func ParseSelected(data []byte) (Selected, error) {
 	if !reference(path) {
 		return Selected{}, ErrSelected
 	}
+	// /2 and /3 name the selected source by a clean absolute path on the
+	// target platform. /1 keeps its admitted reference grammar.
+	if version.Int >= 8 && (!filepath.IsAbs(path) || filepath.Clean(path) != path) {
+		return Selected{}, ErrSelected
+	}
 	extensions, _ := root.Get("extensions")
-	if extensions.Kind != fragment.KindObject || (version.Int != 7 && version.Int != 8 && len(extensions.Obj) != 0) {
+	if extensions.Kind != fragment.KindObject || (version.Int < 7 && len(extensions.Obj) != 0) {
 		return Selected{}, ErrSelected
 	}
 	result := Selected{ConfigSchema: int(version.Int), ConfigPath: path}
@@ -96,10 +114,19 @@ func ParseSelected(data []byte) (Selected, error) {
 		case "claude_auth":
 			result.ClaudeAuth, err = parseClaudeAuth(member.Value)
 		case "notification":
-			if version.Int != 8 {
+			if version.Int < 8 {
 				return Selected{}, ErrSelected
 			}
 			result.Notification, err = parseNotification(member.Value)
+		case "claude_env":
+			if version.Int != 9 {
+				return Selected{}, ErrSelected
+			}
+			// Member refusals keep their stable code; the error still
+			// matches ErrSelected.
+			if result.ClaudeEnv, err = parseClaudeEnv(member.Value); err != nil {
+				return Selected{}, err
+			}
 		default:
 			return Selected{}, ErrSelected
 		}
