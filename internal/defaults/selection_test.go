@@ -12,8 +12,11 @@ import (
 )
 
 // Candidate tuples exactly cover the mapped system's driven model/effort
-// declarations, including no-effort rows; foreign systems/runtimes never enter.
-// The expected set comes directly from registry declarations, not Complete.
+// declarations that the module lineup lists, including no-effort rows; foreign
+// systems/runtimes never enter. Rows the module keeps out of every lineup
+// (operator-declared, unmeasured, or unranked, such as the explicit-only
+// claude-fable-5-2) are never candidates. The expected set comes directly from
+// registry declarations with that listing rule restated here, not from Complete.
 func TestSelectionCandidates(t *testing.T) {
 	reg := mustRegistry(t)
 	for _, env := range []string{"claude_code", "codex_cli", "pi", "muse"} {
@@ -43,6 +46,9 @@ func TestSelectionCandidates(t *testing.T) {
 				}
 				for _, model := range models {
 					if !model.DrivenBy(agentic.SystemID(target.System)) {
+						continue
+					}
+					if model.OperatorDeclared || model.Unmeasured != nil || model.Rank == nil {
 						continue
 					}
 					efforts := model.Effort.Vocabulary
@@ -185,4 +191,47 @@ func TestSelectionNativeEffort(t *testing.T) {
 			t.Fatalf("%s admission high=%v minimal=%v, want high and minimal=%v", tc.env, high, minimal, tc.minimal)
 		}
 	}
+}
+
+// The explicit-only claude-fable-5-2 row (SAM v0.5.76) is never a selection
+// candidate and never the claude_code default, yet an explicit --model binds it
+// to the claude runtime and fills its recommended effort (high). The neighbouring
+// measured row claude-fable-5-1 stays a candidate, so the exclusion is not blanket.
+func TestExplicitOnlyModelBindsButIsNeverOffered(t *testing.T) {
+	reg := mustRegistry(t)
+	cands, err := defaults.SelectionCandidates("claude_code", reg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sawFable51 := false
+	for _, cand := range cands {
+		if cand.Model == "claude-fable-5-2" {
+			t.Fatalf("explicit-only row offered as a candidate: %+v", cand)
+		}
+		if cand.Model == "claude-fable-5-1" {
+			sawFable51 = true
+		}
+	}
+	if !sawFable51 {
+		t.Fatal("measured neighbour claude-fable-5-1 missing from candidates")
+	}
+	files, err := defaults.Load(paths(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	def, err := files.Complete("claude_code", defaults.Pair{}, reg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if def.Model.Value == "claude-fable-5-2" {
+		t.Fatal("explicit-only row became the default")
+	}
+	got, err := files.Complete("claude_code", defaults.Pair{Model: member("claude-fable-5-2")}, reg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Runtime != "claude" {
+		t.Fatalf("runtime = %q, want claude", got.Runtime)
+	}
+	lineupOrigin(t, got.Effort, "high")
 }
