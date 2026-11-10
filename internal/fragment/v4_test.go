@@ -192,6 +192,17 @@ func TestV4MuseCredentialForms(t *testing.T) {
 	if _, ok := native.Env[MuseCredentialBackend]; ok {
 		t.Fatal("native form carries a backend")
 	}
+	// Canonical serialization preserves native selection and backend absence.
+	round, err := Parse(native.Canonical)
+	if err != nil {
+		t.Fatalf("native roundtrip: %v", err)
+	}
+	if round.Digest != native.Digest || round.CredentialStore.Selection != "native" || len(round.Env) != 4 {
+		t.Fatalf("native roundtrip changed policy: %+v", round)
+	}
+	if _, ok := round.Env[MuseCredentialBackend]; ok {
+		t.Fatal("native roundtrip introduced a backend")
+	}
 	for name, edit := range map[string]func(map[string]any){
 		"native-with-file-backend": func(m map[string]any) {
 			museNativeForm(m)

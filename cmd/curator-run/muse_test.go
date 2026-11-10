@@ -155,6 +155,103 @@ func TestMuseV4PlanBuildInteractive(t *testing.T) {
 	}
 }
 
+// Both credential forms pass Parse -> Context -> Build (the real tagged
+// BuildLaunchWithEnvironment) -> Compose without launching a provider. Native
+// retains HOME and all four managed XDG paths, with no backend in either output.
+// Deliberately corrupted parsed fragments also exercise the module's own
+// rejection boundary; these cases do not claim that Parse admits them.
+func TestMuseV4CredentialFormsPlanBoundary(t *testing.T) {
+	for _, name := range []string{"file", "native", "native-with-backend", "file-without-backend", "native-with-overrides"} {
+		t.Run(name, func(t *testing.T) {
+			f, _ := museFixture(t)
+			raw, err := os.ReadFile(filepath.Join(f.dir, "muse-fragment.json"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			var wire map[string]any
+			if err := json.Unmarshal(raw, &wire); err != nil {
+				t.Fatal(err)
+			}
+			selection := "file"
+			if strings.HasPrefix(name, "native") {
+				selection = "native"
+				wire["credential_store"] = map[string]any{"selection": selection}
+				delete(wire["env"].(map[string]any), fragment.MuseCredentialBackend)
+			}
+			raw, err = json.Marshal(wire)
+			if err != nil {
+				t.Fatal(err)
+			}
+			frag, err := fragment.Parse(raw)
+			if err != nil {
+				t.Fatal(err)
+			}
+			switch name {
+			case "native-with-backend":
+				frag.Env[fragment.MuseCredentialBackend] = "file"
+			case "file-without-backend":
+				delete(frag.Env, fragment.MuseCredentialBackend)
+			case "native-with-overrides":
+				frag.CredentialStore.ConfigOverrides = map[string]string{"cli_auth_credentials_store": "file"}
+			}
+			deps := plan.DefaultDeps(nil)
+			deps.Registry = f.deps.registry
+			reads := 0
+			deps.Availability = func(providerlimits.VerdictQuery) (vendorplugin.Availability, error) {
+				reads++
+				return vendorplugin.Availability{State: vendorplugin.AvailabilityHealthy}, nil
+			}
+			req := plan.Request{Runtime: "muse", Model: "muse-wonder-1.0-contributor", Effort: "xhigh",
+				PermissionMode: agentic.PermissionModeNative, ToolRelease: "1.4.6", Context: plan.Context(frag, ""),
+				Home: frag.Home(), WorkDir: f.dir, Env: append(f.deps.environ(), "TBH_CREDENTIAL_BACKEND=keychain")}
+			built, err := plan.Build(context.Background(), deps, req)
+			if name != selection {
+				want := map[string]string{
+					"native-with-backend":   "v4 muse native credential_store forbids TBH_CREDENTIAL_BACKEND",
+					"file-without-backend":  "v4 muse fragments require TBH_CREDENTIAL_BACKEND=file",
+					"native-with-overrides": "v4 muse fragments require credential_store exactly",
+				}[name]
+				if err == nil || !strings.Contains(err.Error(), "plan_refused") || !strings.Contains(err.Error(), want) || reads != 0 {
+					t.Fatalf("mixed policy must refuse before availability: err=%v reads=%d", err, reads)
+				}
+				f.assertNoChild(t)
+				return
+			}
+			if err != nil || reads != 1 {
+				t.Fatalf("%s admission: err=%v reads=%d", selection, err, reads)
+			}
+			provenance, present := built.Plan.CuratorContextProvenanceSnapshot()
+			if !present || provenance.Fragment.CredentialStore == nil || string(provenance.Fragment.CredentialStore.Selection) != selection {
+				t.Fatal("credential selection lost before sealing")
+			}
+			composed, err := composition.Compose(built.Plan, built.OwnedEnv, *frag, composition.PromptApplication{}, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			want := map[string]string{"HOME": f.dir, "PATH": f.dir, "MUSE_NO_AUTO_UPDATE": "1"}
+			for key, value := range frag.Env {
+				want[key] = value
+			}
+			got := map[string]string{}
+			for _, entry := range composed.Env {
+				key, value, _ := strings.Cut(entry, "=")
+				got[key] = value
+			}
+			if !reflect.DeepEqual(got, want) || len(composed.Env) != len(want) {
+				t.Fatalf("child env=%v want=%v", composed.Env, want)
+			}
+			wantLiterals := map[string]string{"MUSE_NO_AUTO_UPDATE": "1"}
+			for key, value := range frag.Env {
+				wantLiterals[key] = value
+			}
+			if !reflect.DeepEqual(composed.EnvLiterals, wantLiterals) {
+				t.Fatalf("child literals=%v want=%v", composed.EnvLiterals, wantLiterals)
+			}
+			f.assertNoChild(t)
+		})
+	}
+}
+
 func assertMuseEnv(t *testing.T, env []string, nativeHome string, frag *fragment.Fragment) {
 	t.Helper()
 	want := []string{"HOME=" + nativeHome, "MUSE_NO_AUTO_UPDATE=1", "PATH=" + nativeHome, "TBH_CREDENTIAL_BACKEND=file",

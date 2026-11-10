@@ -72,6 +72,11 @@ func TestMuseV4NativeForm(t *testing.T) {
 	if strings.Contains(strings.Join(v.Env, "\n"), "TBH_CREDENTIAL_BACKEND") || !strings.Contains(strings.Join(v.Env, "\n"), "HOME=/native") {
 		t.Fatalf("native child env: %v", v.Env)
 	}
+	for key := range v.EnvLiterals {
+		if strings.EqualFold(key, "TBH_CREDENTIAL_BACKEND") {
+			t.Fatalf("native literals carry a backend: %v", v.EnvLiterals)
+		}
+	}
 	if _, err := composition.ComposeWithNetwork(p, nil, f, composition.PromptApplication{}, nil, envpatch.Patch{Unset: []string{"TBH_CREDENTIAL_BACKEND"}}); err != nil {
 		t.Fatalf("harmless unset refused: %v", err)
 	}
@@ -87,6 +92,7 @@ func TestMuseV4NativeForm(t *testing.T) {
 		{name: "owned", owned: []string{"TBH_CREDENTIAL_BACKEND=keychain"}},
 		{name: "prompt", prompt: map[string]string{"TBH_CREDENTIAL_BACKEND": "file"}},
 		{name: "network set", patch: envpatch.Patch{Set: []envpatch.Pair{{Name: "TBH_CREDENTIAL_BACKEND", Value: "file"}}}},
+		{name: "network set lowercase", patch: envpatch.Patch{Set: []envpatch.Pair{{Name: "tbh_credential_backend", Value: "file"}}}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			plan := p

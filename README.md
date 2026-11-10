@@ -532,9 +532,11 @@ In the file form (`credential_store.selection` is `file`) the fragment also
 sets `TBH_CREDENTIAL_BACKEND=file`, which beats any inherited value. In the
 native form (`selection` is `native`), which Curator emits on macOS for a
 shared home so that Muse uses the operator's default Keychain login, the
-fragment sets no backend variable. An inherited, owned, prompt or network
-value for that variable then refuses instead of being stripped. Keychain
-and mixed forms refuse.
+fragment sets no backend variable. A value already admitted into the plan,
+owned environment, prompt overlay or network Set refuses instead of being
+stripped. Raw parent exports are filtered by the module's parent allowlist
+before plan admission; exporting this variable alone does not trigger that
+refusal. Keychain and mixed forms refuse.
 Older Muse fragments refuse `fragment_version_unsupported` before launch.
 The pinned agents-management v0.5.76 plugin owns the native plan; managed
 Muse refuses module versions older than v0.5.66. The optional frozen-copy
