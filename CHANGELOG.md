@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### Changed
+
+- Pin skill-agents-management v0.5.76 (was a v0.5.75 pre-release pseudo-version
+  at a48fa206). It adds the explicit-only `claude-fable-5-2` row (claude-code,
+  effort required, recommended high; never chosen by the lineup), the Codex
+  CLI 0.167.0 permission-grammar-v3 row and the native v4 Muse credential form
+  on the module side. The launcher's own v4 fragment reader still admits only
+  the file form for Muse.
+
 ### Fixed
 
 - Share the library's inclusive 512 MiB artifact snapshot ceiling, admitting

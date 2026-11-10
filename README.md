@@ -494,7 +494,7 @@ The executable supports `claude_code` (alias `claude`), `codex_cli`
 Muse requires `launch-env-fragment-v4`: exactly four XDG parents under one
 managed home plus `TBH_CREDENTIAL_BACKEND=file`, preserving inherited `HOME`.
 Older Muse fragments refuse `fragment_version_unsupported` before launch.
-The pinned agents-management v0.5.75 plugin owns the native plan; managed
+The pinned agents-management v0.5.76 plugin owns the native plan; managed
 Muse refuses module versions older than v0.5.66. The optional frozen-copy
 tuple otherwise leaves binary resolution on the handed PATH. `muse-wonder`
 resolves to `muse-wonder-1.0-contributor` with module-owned effort rules.
@@ -584,7 +584,7 @@ The launch pipeline follows these steps:
    `session_liveness_unknown`. No hosted refusal executes natively.
 
 The permission interface is implemented against upstream
-`skill-agents-management v0.5.75`. It owns
+`skill-agents-management v0.5.76`. It owns
 `LaunchRequest.PermissionMode`, the release-bound mapping, versioned native
 argument classification, stored-policy inspection, and the capability table.
 Claude Code and Codex CLI 0.153.2 use `permission-grammar-v2`, Codex CLI 0.164.0 uses `permission-grammar-v3`; Pi uses
@@ -889,9 +889,10 @@ present but invalid selected host refuses; it never silently switches helpers.
 
 Only those package-relative members are read. Links and special files refuse;
 rooted opens prevent an escaping resource lookup. Staging is bounded to 4,096
-entries, depth 32, 512 MiB per file, 64 KiB for package metadata and 1 GiB in
-total. The original 512 MiB main-artifact cap and its adapter BuildID/Evaluate
-policy remain unchanged. A separate receipt binds layout, declared version and
+entries, depth 32, 64 KiB for package metadata and 1 GiB in total. The 512 MiB
+cap applies to the main artifact (the entrypoint) only; other members are bounded
+by what remains of the 1 GiB total. The main artifact's adapter BuildID/Evaluate
+policy remains unchanged. A separate receipt binds layout, declared version and
 target, admitted release, selected host, relative file roles, modes, sizes and content hashes to
 that same main snapshot. These hashes prove captured content consistency; they
 do not authenticate a neighboring helper or extend adapter qualification.
