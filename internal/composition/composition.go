@@ -107,7 +107,7 @@ func ComposeWithNetwork(plan agentic.Plan, ownEnv []string, frag fragment.Fragme
 			return Value{}, err
 		}
 	}
-	if err := musePolicy(ownEnv, frag, prompt, patch); err != nil {
+	if err := musePolicy(ownEnv, plan.Env, frag, prompt, patch); err != nil {
 		return Value{}, err
 	}
 	own := envMap(ownEnv)

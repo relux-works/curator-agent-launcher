@@ -16,6 +16,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"slices"
 	"strings"
 	"unicode/utf8"
 )
@@ -35,6 +36,10 @@ const IdentityV4 = "launch-env-fragment-v4"
 
 // RootContext carries Curator's verified fact; its absence permits no inference.
 type RootContext struct{ Exclusive bool }
+
+// MuseCredentialBackend is the Muse credential backend variable. A v4 Muse
+// fragment carries it, equal to "file", only in the file credential form.
+const MuseCredentialBackend = "TBH_CREDENTIAL_BACKEND"
 
 // CredentialStore is the adapter-validated effective backend and typed overrides.
 type CredentialStore struct {
@@ -434,22 +439,28 @@ func fromValue(root Value) (*Fragment, error) {
 	// env: closed adapter variable set; Muse paths share one managed parent.
 	envObj, _ := root.Get("env")
 	variables := []string{homeVariable[env]}
+	var optionalVariables []string
 	if env == EnvMuse {
 		variables = []string{"XDG_CONFIG_HOME", "XDG_DATA_HOME", "XDG_STATE_HOME", "XDG_CACHE_HOME"}
 		if revision == IdentityV4 {
-			variables = append(variables, "TBH_CREDENTIAL_BACKEND")
+			// Present only in the file credential form; v4Policy binds its
+			// presence to credential_store.selection.
+			optionalVariables = []string{MuseCredentialBackend}
 		}
 	}
-	if err := closedObject("/env", envObj, variables, nil); err != nil {
+	if err := closedObject("/env", envObj, variables, optionalVariables); err != nil {
 		return nil, err
 	}
-	f.Env = make(map[string]string, len(variables))
+	f.Env = make(map[string]string, len(variables)+len(optionalVariables))
+	if _, ok := envObj.Get(MuseCredentialBackend); ok && len(optionalVariables) > 0 {
+		variables = append(slices.Clone(variables), MuseCredentialBackend)
+	}
 	for _, name := range variables {
 		value, err := stringMember("/env", envObj, name)
 		if err != nil {
 			return nil, err
 		}
-		if name == "TBH_CREDENTIAL_BACKEND" {
+		if name == MuseCredentialBackend {
 			if value != "file" {
 				return nil, invalid("/env/"+name, "must equal file")
 			}
