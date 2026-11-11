@@ -7,7 +7,7 @@ GOFMT ?= gofmt
 # (FRONT-DOOR §10). Curator's release workflow calls it per platform, then
 # signs, notarizes and packs. The launcher's optional GitHub artifact workflow
 # does the same after the build; neither signing nor publishing happens here.
-#   make release-binary VERSION=0.6.0 [GOOS=darwin GOARCH=arm64] [DIST=dist]
+#   make release-binary VERSION=0.7.0 [GOOS=darwin GOARCH=arm64] [DIST=dist]
 # The inputs are data. $(value ...) takes their text unexpanded, and the raw
 # VERSION and DIST are never exported. So a crafted value never runs in make
 # or in the shell, and scripts/release-binary.sh validates it before use.

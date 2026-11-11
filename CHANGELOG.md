@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.7.0 — 2026-11-11
+
 ### Changed
 
 - Pin skill-agents-management v0.5.76 (was a v0.5.75 pre-release pseudo-version

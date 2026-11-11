@@ -684,11 +684,11 @@ made from this host's tests.
 Install the tagged release with the Go toolchain specified by `go.mod`:
 
 ```bash
-go install github.com/relux-works/curator-agent-launcher/cmd/curator-run@v0.6.0
+go install github.com/relux-works/curator-agent-launcher/cmd/curator-run@v0.7.0
 curator-run --version
 ```
 
-The v0.6.0 release reports `0.6.0` (specification `0.5.1-draft`).
+The v0.7.0 release reports `0.7.0` (specification `0.5.1-draft`).
 Compatible with curator v0.15.0-rc.3 or later, once published.
 
 Alternatively, hosts without Go can download GitHub release artifacts.
@@ -1492,7 +1492,7 @@ make test       # go test ./... -count=1 (includes the CLI goldens)
 make race       # go test ./... -count=1 -race -timeout=12m (per package)
 make verify     # build, formatting, vet, test and release admission controls
 make check      # all of the above
-make release-binary VERSION=0.6.0 [GOOS=… GOARCH=…]  # reproducible binary + .sha256 in dist/
+make release-binary VERSION=0.7.0 [GOOS=… GOARCH=…]  # reproducible binary + .sha256 in dist/
 make release-repro                                 # two checkouts, identical bytes required
 ```
 
