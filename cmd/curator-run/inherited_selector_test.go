@@ -10,7 +10,7 @@ import (
 // The native, unmanaged Codex path carries an unshadowed caller selector to
 // an inert child byte for byte and does not synthesize an absent selector.
 // A later caller export replaces it, including with an empty value, without
-// an owned-collision warning. Injecting it into the closed Core fragment is
+// a selector warning. Injecting it into the closed Core fragment is
 // refused before the builder and child; the nearby inherited case is valid.
 // The scripted Core resolver proves neither real Core admission nor identity
 // authentication, enrollment, or a reserved-variable preservation policy.
@@ -83,9 +83,10 @@ func TestInheritedPublicSelectorReachesInertChild(t *testing.T) {
 			if tc.overlay == "caller" && got == caller {
 				t.Fatal("overlay incorrectly preserved the caller selector")
 			}
-			warned := bytes.Contains(stderr, []byte("environment override: "+name))
-			if warned {
-				t.Fatal("parent-only selector incorrectly treated as vendor-owned")
+			// These successful fixtures have no selector diagnostic. Other
+			// fixture diagnostics remain allowed; warning wording is not fixed.
+			if bytes.Contains(stderr, []byte(name)) {
+				t.Fatalf("unexpected selector diagnostic: %q", stderr)
 			}
 		})
 	}
