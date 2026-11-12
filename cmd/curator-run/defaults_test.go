@@ -34,8 +34,6 @@ func TestRunDefaultsPerMember(t *testing.T) {
 		{"flag-model-machine-effort", "codex_cli", `{"effort":"low"}`, "", []string{"--model", "gpt-6-astra"}, "model=gpt-6-astra (flag) effort=low (machine)"},
 		{"operator-model-machine-effort", "codex_cli", `{"model":"gpt-5.6-sol","effort":"low"}`, `{"model":"gpt-6-astra"}`, nil, "model=gpt-6-astra (operator) effort=low (machine)"},
 		{"flag-effort", "pi", "", "", []string{"--effort", "unsupported-word"}, "model=claude-fable-5 (lineup) effort=unsupported-word (flag)"},
-		{"explicit-empty", "pi", "", `{"model":"","effort":""}`, nil, "model= (operator) effort= (operator)"},
-		{"unknown-not-replaced", "pi", "", "", []string{"--model", "unknown"}, "model=unknown (flag) effort unset"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			sr := &scriptedRunner{stdout: fragmentLineFor(tc.env)}
@@ -52,6 +50,28 @@ func TestRunDefaultsPerMember(t *testing.T) {
 			if code != 1 || out.Len() != 0 || sr.calls != 1 || !strings.HasPrefix(stderr.String(), "curator-run: provider: path="+testProviderPath+"\ncurator-run: defaults: "+tc.want+"\ncurator-run: plan_refused: ") {
 				t.Fatalf("exit=%d calls=%d stdout=%q stderr=%q", code, sr.calls, out.String(), stderr.String())
 			}
+		})
+	}
+}
+
+// Explicit empty and unknown configured models are preserved as refusals,
+// never replaced by a lineup model or sent to a child.
+func TestRunInvalidConfiguredModelsRefuse(t *testing.T) {
+	for _, tc := range []struct{ name, row, model string }{
+		{"explicit-empty", `{"model":"","effort":""}`, ""},
+		{"unknown", `{"model":"unknown"}`, "unknown"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := entryFixture(t, "pi")
+			f.args = []string{"pi", "--permissions", "native"}
+			if err := os.WriteFile(f.deps.defaults.Operator, []byte(fmt.Sprintf(`{"schema":"curator-run-defaults-v1","defaults":{"pi":%s}}`, tc.row)), 0600); err != nil {
+				t.Fatal(err)
+			}
+			code, out, stderr := f.run()
+			if code != 1 || len(out) != 0 || f.builds != 0 || f.verdicts != 0 || !strings.Contains(string(stderr), "defaults_unresolvable: model "+fmt.Sprintf("%q", tc.model)) {
+				t.Fatalf("exit=%d builds=%d verdicts=%d stdout=%q stderr=%q", code, f.builds, f.verdicts, out, stderr)
+			}
+			f.assertNoChild(t)
 		})
 	}
 }

@@ -541,6 +541,12 @@ with no configured effort takes the lineup's effort for that model.
    the frozen runtime whose vendor carries its exact id, independently of
    this fallback preference.
 
+   A configured model with zero or multiple contributing runtimes MUST fail
+   with `defaults_unresolvable`, naming the model and environment. An explicit
+   effort MUST NOT bypass this check. Declared catalogue aliases remain valid;
+   unknown identifiers MUST NOT gain invented aliases. No empty or guessed
+   runtime is forwarded to the plan stage.
+
 **Permission-mode resolution (separate from model and effort).** The
 resolved mode follows this precedence, with the force-native lock of
 §4.6 above the entire ladder:
@@ -1399,7 +1405,7 @@ receiving registry, which recognizes codes the launcher never emits.
 |---|---|---|
 | usage | `usage` | invalid CLI grammar, removed `--name` or `--ax-profile` (message says removed in 0.6.0), locked override, repeated host request, native resume selector, or visible `yolo` under a force-native lock — exit 2, nothing resolved or launched |
 | resolve | `resolve_invocation_failed`, `resolve_environment_unknown`, `resolve_profile_unknown`, `resolve_repair_failed`, `resolve_lock_unavailable`, `resolve_fragment_invalid` | §4.1: the context plane could not produce a usable fragment — `curator` not startable, or a non-zero exit with an unmapped diagnostic, Curator's own code and message passed through verbatim; unregistered environment; uninstalled profile; the store cannot restore the stale home; the repair could not take Curator's mutation lock within its bounded wait; or the output is not a valid closed fragment |
-| defaults | `defaults_config_invalid`, `defaults_unresolvable` | §4.3, §4.6, and §4.7: a launcher-owned configuration file — `defaults.json`, `launcher.json`, or `selector.json` — is symlinked, non-regular, owned by a different identity than its configuration directory, group/world-writable on POSIX, grants a non-owner/non-owner-alias/non-system/non-administrators Windows DACL identity write/delete/security-control access, or cannot be read or parsed, or names an unknown env-id or member; this includes a v1 file carrying `permissions`, or a v1 or v2 file carrying `host` — a read failure is never absence; the lineup admits no model for the mapped system after earlier model levels are silent |
+| defaults | `defaults_config_invalid`, `defaults_unresolvable` | §4.3, §4.6, and §4.7: a launcher-owned configuration file — `defaults.json`, `launcher.json`, or `selector.json` — is symlinked, non-regular, owned by a different identity than its configuration directory, group/world-writable on POSIX, grants a non-owner/non-owner-alias/non-system/non-administrators Windows DACL identity write/delete/security-control access, or cannot be read or parsed, or names an unknown env-id or member; this includes a v1 file carrying `permissions`, or a v1 or v2 file carrying `host` — a read failure is never absence; the lineup admits no model for the mapped system after earlier model levels are silent, or an explicit/configured model has zero or multiple contributing runtimes |
 | selector | `selector_unavailable`, `selector_abstained` | FRONT-DOOR §3.4/11: enforcing selector failed (`reason=timeout/exit/invalid`) or returned a typed abstention (`code` matches `[a-z0-9_]{1,64}`); exit 1, no fallback. Messages: `selector unavailable` and `selector abstained`. |
 | registry | `session_manager_registry_invalid`, `session_manager_registry_unwritable`, `session_manager_registry_shadowed`, `session_manager_not_registered` | FRONT-DOOR §§4.2–4.3/11: invalid registry (`path`, `reason=unreadable/parse/schema/symlink/owner/mode`), unwritable explicit-scope target directory (`path`, `scope=system/user`, before locking/writing, no fallback), shadowed user mutation (`path`), or unknown id (`id`); exit 2 |
 | registry contention | `session_manager_registry_busy` | FRONT-DOOR §§4.3/11: exclusive transaction lock unavailable after 10 seconds; no details; exit 1 |

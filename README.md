@@ -1431,6 +1431,10 @@ Pi fallback uses the ordered convention `pi-anthropic`, `pi-openai`,
 `pi-google`, selecting the first runtime with a driven model and ranking only
 within that runtime. This is an operator convention, not a comparison of vendor
 scores. An explicit/configured model binds its own runtime independently.
+If that exact model has no unique contributing runtime, resolution refuses
+with `defaults_unresolvable`, naming the model and environment before planning.
+An explicit effort does not bypass this check. Declared catalogue aliases remain
+valid; the launcher does not invent aliases for unknown identifiers.
 
 ### Removed ax tracking
 

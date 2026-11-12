@@ -174,8 +174,8 @@ func TestCompletePerMemberFill(t *testing.T) {
 }
 
 // TestCompleteNoEffortSemantics proves a model with no effort axis gets
-// no effort — never an empty or invented one — and an unknown configured
-// model leaves the effort unset for the spawn plane to refuse.
+// no effort — never an empty or invented one — while an unknown configured
+// model refuses at resolution instead of forwarding an empty runtime.
 func TestCompleteNoEffortSemantics(t *testing.T) {
 	reg := mustRegistry(t)
 	t.Run("none-axis", func(t *testing.T) {
@@ -200,14 +200,9 @@ func TestCompleteNoEffortSemantics(t *testing.T) {
 			t.Fatal(err)
 		}
 		got, err := files.Complete("claude_code", defaults.Pair{Model: member("nope-not-a-model")}, reg)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if got.Model != resolved("nope-not-a-model", defaults.OriginFlag) {
-			t.Fatalf("model = %+v", got.Model)
-		}
-		if got.Effort != (defaults.ResolvedMember{}) {
-			t.Fatalf("effort = %+v, want unset so admission refuses the unknown model", got.Effort)
+		code(t, err, defaults.CodeUnresolvable)
+		if got != (defaults.Resolved{}) || !strings.Contains(err.Error(), `"nope-not-a-model"`) {
+			t.Fatalf("unknown model refusal: %+v, %v", got, err)
 		}
 	})
 	t.Run("pi-effortless-row", func(t *testing.T) {
@@ -232,9 +227,8 @@ func TestCompleteNoEffortSemantics(t *testing.T) {
 }
 
 // TestCompleteUnresolvable proves a system with no declared runtime fails
-// with the typed diagnostic and no invented model, while a fully
-// file-supplied pi pair with an unknown id still resolves (with no
-// runtime for the plan stage to refuse).
+// with the typed diagnostic and no invented model. A fully file-supplied
+// Pi pair with an unknown id likewise refuses instead of inventing a runtime.
 func TestCompleteUnresolvable(t *testing.T) {
 	reg := mustRegistry(t)
 	t.Run("no-declared-runtime", func(t *testing.T) {
@@ -260,14 +254,9 @@ func TestCompleteUnresolvable(t *testing.T) {
 			t.Fatal(err)
 		}
 		got, err := files.Complete("pi", defaults.Pair{}, reg)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if got.Model != resolved("m", defaults.OriginOperator) || got.Effort != resolved("e", defaults.OriginOperator) {
-			t.Fatalf("pair = %+v %+v", got.Model, got.Effort)
-		}
-		if got.Runtime != "" {
-			t.Fatalf("runtime = %q, want empty: no driven row claims the unknown id", got.Runtime)
+		code(t, err, defaults.CodeUnresolvable)
+		if got != (defaults.Resolved{}) || !strings.Contains(err.Error(), `"m"`) {
+			t.Fatalf("file-supplied unknown model: %+v, %v", got, err)
 		}
 	})
 }
@@ -297,7 +286,7 @@ func TestCompleteNoFirePastFailure(t *testing.T) {
 func TestCompletePreservesLocks(t *testing.T) {
 	reg := mustRegistry(t)
 	p := paths(t)
-	write(t, p.Machine, doc(`{"pi":{"model":"machine"}}`, true))
+	write(t, p.Machine, doc(`{"pi":{"model":"claude-opus-5"}}`, true))
 	write(t, p.Operator, doc(`{"pi":{"model":"operator","effort":"operator"}}`, false))
 	files, err := defaults.Load(p)
 	if err != nil {
@@ -307,7 +296,7 @@ func TestCompletePreservesLocks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Model != resolved("machine", defaults.OriginMachine) {
+	if got.Model != resolved("claude-opus-5", defaults.OriginMachine) {
 		t.Fatalf("model = %+v", got.Model)
 	}
 	if got.Effort != resolved("flag-effort", defaults.OriginFlag) {
@@ -508,6 +497,14 @@ func TestCompleteAmbiguousRuntime(t *testing.T) {
 		code(t, err, defaults.CodeUnresolvable)
 		if got != (defaults.Resolved{}) {
 			t.Fatalf("ambiguity resolved: %+v", got)
+		}
+	})
+	// An explicit effort must not bypass the same unique-contributor gate.
+	t.Run("configured-model-and-effort", func(t *testing.T) {
+		got, err := files.Complete("claude_code", defaults.Pair{Model: member("claude-opus-5"), Effort: member("high")}, reg)
+		code(t, err, defaults.CodeUnresolvable)
+		if got != (defaults.Resolved{}) || !strings.Contains(err.Error(), "several runtimes") {
+			t.Fatalf("full-pair ambiguity resolved: %+v, %v", got, err)
 		}
 	})
 }

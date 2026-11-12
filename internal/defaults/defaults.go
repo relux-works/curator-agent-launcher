@@ -1,6 +1,6 @@
 // Package defaults loads launcher-owned defaults.json files and resolves the
-// flags/operator/machine portion of SPEC §4.3. Unset members await lineup;
-// this package performs no model admission and writes no configuration.
+// flags/operator/machine portion of SPEC §4.3 and the registry lineup binding.
+// This package executes no provider and writes no configuration.
 package defaults
 
 import (

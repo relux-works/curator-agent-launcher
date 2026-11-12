@@ -429,7 +429,7 @@ func TestNetworkProbeFailureTerminates(t *testing.T) {
 	}
 }
 
-// TestNetworkAdmissionFailureSkipsProbe: a refused plan invokes neither
+// TestNetworkAdmissionFailureSkipsProbe: an unknown model invokes neither
 // the prober nor the workload, even with --network.
 func TestNetworkAdmissionFailureSkipsProbe(t *testing.T) {
 	f := printNetworkFixture(t)
@@ -441,8 +441,8 @@ func TestNetworkAdmissionFailureSkipsProbe(t *testing.T) {
 	if code != 1 || len(out) != 0 {
 		t.Fatalf("exit=%d out=%q stderr=%s", code, out, stderr)
 	}
-	if !strings.Contains(string(stderr), "curator-run: plan_refused: ") {
-		t.Fatalf("stderr=%s, want plan_refused, not a network code", stderr)
+	if !strings.Contains(string(stderr), "curator-run: defaults_unresolvable: model \"no-such-model-xyz\"") {
+		t.Fatalf("stderr=%s, want the model refusal before network admission", stderr)
 	}
 	if strings.Contains(string(stderr), "curator-run: network") {
 		t.Fatalf("network stage ran after admission failure: %s", stderr)

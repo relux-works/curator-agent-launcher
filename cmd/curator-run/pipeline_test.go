@@ -444,6 +444,7 @@ func TestProductionAdmissionRefusals(t *testing.T) {
 			switch shape {
 			case "unknown-model":
 				f.args[2] = "nonexistent-model"
+				expected = "defaults_unresolvable"
 			case "bad-effort":
 				f.args[4] = "unsupported-effort"
 			case "module-bytes":

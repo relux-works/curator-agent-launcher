@@ -12,9 +12,10 @@
 // the launcher never invents a model name, never substitutes one row's
 // effort for another's, and never retries past a refusal. A configured
 // model with no configured effort takes the lineup's effort for THAT
-// model; an unknown configured model leaves the effort unset so the spawn
-// plane's admission (a later stage) refuses it. When the lineup admits no
-// model for the system, the launch fails with defaults_unresolvable.
+// model. A configured model with no unique runtime contributor refuses with
+// defaults_unresolvable before an empty runtime reaches the spawn plane.
+// When the lineup admits no model for the system, the launch likewise fails
+// with defaults_unresolvable.
 //
 // Native Pi selects the first driven runtime in the SPEC preference before
 // ranking that runtime's vendor-local lineup. Configured models instead bind
@@ -50,8 +51,8 @@ import (
 	"github.com/relux-works/curator-agent-launcher/internal/mapping"
 )
 
-// CodeUnresolvable is the SPEC §6 defaults diagnostic for a system the
-// lineup admits no model for. It is owned here; diagnostics transcribes it.
+// CodeUnresolvable is the SPEC §6 defaults diagnostic for an empty lineup or
+// a configured model without a unique runtime. Diagnostics transcribes it.
 const CodeUnresolvable = "defaults_unresolvable"
 
 // OriginLineup marks a member the level-3 fallback supplied.
@@ -61,9 +62,8 @@ const OriginLineup Origin = "lineup"
 const piRuntimePreference = "pi-anthropic pi-openai pi-google"
 
 // Resolved is the §4.3 resolved pair plus the module runtime binding the
-// lineup completed it against. Runtime is empty exactly when the registry
-// admitted no runtime for the mapped system: the pair is then fully
-// file-supplied and the plan stage refuses the unknown runtime.
+// lineup completed it against. Successful resolution always binds the exact
+// unique contributor; unknown or ambiguous configured models refuse.
 type Resolved struct {
 	Model, Effort ResolvedMember
 	Runtime       string
@@ -169,25 +169,18 @@ func complete(environment string, target mapping.Target, partial Partial, reg *v
 	if len(cands) == 0 {
 		return Resolved{}, &Error{CodeUnresolvable, fmt.Errorf("the lineup admits no model for environment %q (system %q)", environment, target.System)}
 	}
-	if partial.Model.Present && partial.Effort.Present {
-		// Nothing missing: the lineup supplies nothing. Record the
-		// binding when exactly one of the system's runtimes drives the
-		// configured model; otherwise an empty Runtime leaves the
-		// unknown runtime to the plan stage.
-		if matches := contributorsFor(cands, partial.Model.Value); len(matches) == 1 {
-			out.Runtime = string(matches[0].runtime)
-		}
-		return out, nil
-	}
 	if partial.Model.Present {
-		// The effort is missing here: a full pair returned above, so
-		// this fill cannot overwrite an explicit value.
 		matches := contributorsFor(cands, partial.Model.Value)
+		if len(matches) == 0 {
+			return Resolved{}, &Error{CodeUnresolvable, fmt.Errorf("model %q for environment %q has no contributing runtime; use an exact admitted model identifier", partial.Model.Value, environment)}
+		}
 		if len(matches) > 1 {
 			return Resolved{}, &Error{CodeUnresolvable, fmt.Errorf("model %q for environment %q is driven by several runtimes; the launcher binds none", partial.Model.Value, environment)}
 		}
-		if len(matches) == 1 {
-			out.Runtime = string(matches[0].runtime)
+		out.Runtime = string(matches[0].runtime)
+		if !partial.Effort.Present {
+			// Fill only an absent effort; an explicit value remains unchanged
+			// for the canonical plan admission to validate.
 			if effort, ok := effortForRow(matches[0].model); ok {
 				out.Effort = ResolvedMember{Member: effort, Origin: OriginLineup}
 			}
