@@ -1,6 +1,7 @@
 package defaults_test
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -37,5 +38,44 @@ func TestExplicitCodexModelRuntimeBoundary(t *testing.T) {
 				t.Fatalf("unknown model refusal: %+v, %v", got, err)
 			}
 		})
+	}
+}
+
+// Machine-origin models use the same contributor gate with and without effort.
+// Valid rows retain their origin; unknown rows return no partial resolution.
+func TestMachineModelRuntimeBoundary(t *testing.T) {
+	for _, model := range []string{"gpt-6-luna", "gpt-6.1-luna", "unknown-machine-model"} {
+		for _, withEffort := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/effort-%v", model, withEffort), func(t *testing.T) {
+				p := paths(t)
+				row := fmt.Sprintf(`{"codex_cli":{"model":%q`, model)
+				if withEffort {
+					row += `,"effort":"max"`
+				}
+				write(t, p.Machine, doc(row+`}}`, false))
+				files, err := defaults.Load(p)
+				if err != nil {
+					t.Fatal(err)
+				}
+				got, err := files.Complete("codex_cli", defaults.Pair{}, mustRegistry(t))
+				if model != "gpt-6-luna" {
+					code(t, err, defaults.CodeUnresolvable)
+					if got != (defaults.Resolved{}) || !strings.Contains(err.Error(), fmt.Sprintf("%q", model)) {
+						t.Fatalf("machine refusal: %+v %v", got, err)
+					}
+					return
+				}
+				if err != nil || got.Runtime != "codex" || got.Model != resolved(model, defaults.OriginMachine) {
+					t.Fatalf("machine positive: %+v %v", got, err)
+				}
+				if withEffort {
+					if got.Effort != resolved("max", defaults.OriginMachine) {
+						t.Fatalf("machine effort: %+v", got.Effort)
+					}
+				} else if !got.Effort.Present || got.Effort.Origin != defaults.OriginLineup {
+					t.Fatalf("missing row recommendation: %+v", got.Effort)
+				}
+			})
+		}
 	}
 }

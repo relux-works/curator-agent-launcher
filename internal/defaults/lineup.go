@@ -258,7 +258,7 @@ func systemCandidates(system string, reg *vendorplugin.Registry) ([]candidate, e
 
 // contributorsFor looks a model id up among the candidates by exact id.
 // Names are never normalized, prefixed, or otherwise derived: a spelling
-// no vendor issued matches nothing, and the plan stage refuses it.
+// no vendor issued matches nothing, and defaults resolution refuses it.
 func contributorsFor(cands []candidate, id string) []candidate {
 	var matches []candidate
 	for _, cand := range cands {

@@ -228,7 +228,7 @@ change, not a flag addition.
 | `--profile <name>` | context | Forwarded verbatim to `curator env resolve` as its `--profile` operand. Absent, resolution uses the current profile for the applicable scope. |
 | `--member <existing-record-id>` | session | Explicit expected-input selection for Core-selected Host notification. Uses the existing local record directory and `[a-z0-9][a-z0-9-]{0,47}` IDs. Missing, incompatible or disabled selection refuses; there is no ambient default. Runtime, profile, pinned profile lock and physical workspace must match the resolved operation. Only notification member/reference/timeout fields enter the request; plain admission remains null, and model, effort, child environment and resume identity remain unchanged. The manager independently admits its configured actual record source before attachment effects. |
 | `--system-prompt <append\|replace>` | execution | Explicit opt-in that engages the fragment's system-prompt channel with the given semantics. The value is required: the opt-in states what it wants, and the launcher never chooses replacement by default. See §5. |
-| `--model <model>` | spawn | Level 1 of the §4.3 default precedence: passed through to the spawn plane's plan request as declared. The launcher does not validate model names; admission is the spawn plane's verdict. |
+| `--model <model>` | spawn | Level 1 of the §4.3 default precedence: passed through to the spawn plane's plan request as declared. Configuration parsing preserves the name; §4.3 requires its exact unique runtime contributor before forwarding it unchanged. Remaining model/effort admission is the spawn plane's verdict. |
 | `--effort <effort>` | spawn | Level 1 of the §4.3 default precedence: passed through as declared. Effort is per-model and the spawn plane injects no default; when no §4.3 level yields one for a model that requires it, the plane's refusal names the model, the accepted vocabulary, and the recommendation, and the launcher completes that error with its own flag spelling, `--effort`. |
 | `--permissions <native\|yolo>` | spawn | Permission mode resolved by §4.3. The launcher passes the selected mode to `LaunchRequest.PermissionMode` for `LaunchModeInteractive`; agents-management owns the mapping. |
 | `--yolo` | spawn | Exact alias of `--permissions yolo`, shipped in the same increment and occupying the same precedence level. Supplying both forms is a repeated permission request and a `usage` error. |
@@ -500,7 +500,9 @@ with no configured effort takes the lineup's effort for that model.
    `defaults` keys are env-ids of the §4.2 table (an unknown key is
    `defaults_config_invalid`); each value is an object of at most three
    members: `model`, `effort`, and `permissions`. The first two
-   are strings passed through unvalidated to admission; `permissions`,
+   are parsed as strings without catalogue validation. Resolution then checks the
+   model's exact unique runtime contributor (§4.3) before forwarding the
+   unchanged pair to spawn admission; `permissions`,
    when present, is exactly `native` or `yolo` and supplies the
    launcher-global mode level. The v3 `host` member is withdrawn: its presence
    refuses `host_member_withdrawn` (exit 2), naming `launcher.json`; see

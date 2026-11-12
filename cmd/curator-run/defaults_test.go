@@ -21,6 +21,8 @@ import (
 	"github.com/relux-works/skill-agents-management/pkg/vendorplugin/vendors/openai"
 )
 
+// Per-member defaults retain merged values and origins before an intentionally
+// stopped plan stage; this table does not assert successful child execution.
 func TestRunDefaultsPerMember(t *testing.T) {
 	for _, tc := range []struct {
 		name, env, machine, operator string

@@ -2,6 +2,9 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
+	"fmt"
+	"slices"
 	"testing"
 )
 
@@ -16,6 +19,14 @@ func TestExplicitModelDiagnosticBeforePlanning(t *testing.T) {
 		code, out, stderr := f.run()
 		if code != 0 || f.builds != 1 || f.verdicts != 1 || len(out) == 0 || f.request.Runtime != "codex" || string(f.request.Model) != "gpt-6-luna" || f.request.Effort != "max" {
 			t.Fatalf("admitted tuple: exit=%d builds=%d verdicts=%d stderr=%q", code, f.builds, f.verdicts, stderr)
+		}
+		var child childCapture
+		if err := json.Unmarshal(out, &child); err != nil {
+			t.Fatal(err)
+		}
+		want := []string{"-c", fmt.Sprintf("model_instructions_file=%q", f.prompt), "-p", "curator-mcp", "-m", "gpt-6-luna", "-c", `model_reasoning_effort="max"`, "", "--model=native", "a\nb"}
+		if !slices.Equal(child.Argv, want) {
+			t.Fatalf("final Luna argv=%q want=%q", child.Argv, want)
 		}
 	})
 	for _, withEffort := range []bool{false, true} {

@@ -239,7 +239,7 @@ func TestWerkstattBinary(t *testing.T) {
 				case "model":
 					w.record["model"] = "not-a-model"
 					w.write()
-					want, diagnostic, calls = 1, "plan_refused", []string{"describe", "list"}
+					want, diagnostic, calls = 1, `defaults_unresolvable: model "not-a-model"`, []string{"describe", "list"}
 				case "fragment":
 					writeFixture(t, filepath.Join(w.root, "fragment.json"), []byte("{"), 0600)
 					want, diagnostic, calls = 1, "resolve_fragment_invalid", []string{"describe", "list"}
