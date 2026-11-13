@@ -1259,7 +1259,8 @@ A user-layer `host_mode` or `delegated_trial` refuses and names the system path.
 
 Core-selected machine metadata supplies optional proxy and standalone Claude
 OAuth references through `curator config launcher`; neither `launcher.json`
-layer supplies them. See [the configuration contract](docs/selected-launcher-config.md)
+layer supplies them. Machine schema 11 retains the existing `/1` metadata
+projection; Core owns startup verification and its diagnostics. See [the configuration contract](docs/selected-launcher-config.md)
 for the selected-source transport, precedence, final-child injection and
 refusal behavior. Metadata reads never access a secret store.
 
