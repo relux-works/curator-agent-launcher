@@ -28,7 +28,10 @@ The transport is a closed object:
 ```
 
 Supported older Core schemas 1, 2, 3 and 5 may supply only empty extensions.
-Schema 7 supplies optional closed `proxy` and `claude_auth` members. Null,
+Schemas 7 and 11 supply optional closed `proxy` and `claude_auth` members under
+`curator.launcher-config/1`. Startup verification and verification-centre
+configuration stay in Core; neither enters the launcher projection. Schema 8
+retains its separate `curator.launcher-config/2` notification contract. Null,
 duplicate, unknown, malformed and mixed store metadata refuse without exposing
 input values or returning partial selections. References are metadata, not a
 qualification or permission to access a store.
@@ -89,3 +92,25 @@ responses, network admission and migration. Final-child injection and refusal
 controls also run with `go test ./cmd/curator-run`. Fixtures do not establish
 real Keychain access, credential acceptance by a vendor, or live runtime
 qualification.
+
+For docking against a separately qualified Core executable that supports machine
+schema 11, run:
+
+```sh
+CURATOR_RUN_CORE_TEST_BINARY=/absolute/path/to/curator go test -p 1 -parallel 1 -count=1 ./cmd/curator-run -run '^(TestStartupCoreDocking|TestStartupCoreHardlinkDocking)$'
+```
+
+This optional Unix suite installs profiles only into temporary fixture state,
+redirects every native adapter home with its supported selector, and preserves
+the real `HOME`. It runs the actual Core subprocess and production selected
+reader, fragment resolver and launcher entry, ending at an inert Go child.
+Fixtures cover all four levels, frozen complete evidence, legacy native and
+manifestless locks, mismatch warnings/refusals, strict same-pin snapshot repair,
+unsafe payload links, floor weakening, stderr delivery and preserved frozen
+evidence after startup. Paired intact context/MCP cases start the inert child at
+every level; an outside-snapshot hardlink then must refuse before the builder
+or child and preserve the complete fixture state and both file identities.
+It skips when
+the executable is not supplied; a normal test run therefore does not claim this
+cross-component qualification. It does not install Core, use real credentials,
+launch a vendor runtime or qualify network Git transport.

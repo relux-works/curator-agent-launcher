@@ -69,7 +69,7 @@ func ParseSelected(data []byte) (Selected, error) {
 		return Selected{}, ErrSelected
 	}
 	switch version.Int {
-	case 1, 2, 3, 5, 7:
+	case 1, 2, 3, 5, 7, 11:
 		if stringMember(root, "schema") != "curator.launcher-config/1" {
 			return Selected{}, ErrSelected
 		}
@@ -85,7 +85,7 @@ func ParseSelected(data []byte) (Selected, error) {
 		return Selected{}, ErrSelected
 	}
 	extensions, _ := root.Get("extensions")
-	if extensions.Kind != fragment.KindObject || (version.Int != 7 && version.Int != 8 && len(extensions.Obj) != 0) {
+	if extensions.Kind != fragment.KindObject || (version.Int != 7 && version.Int != 8 && version.Int != 11 && len(extensions.Obj) != 0) {
 		return Selected{}, ErrSelected
 	}
 	result := Selected{ConfigSchema: int(version.Int), ConfigPath: path}
