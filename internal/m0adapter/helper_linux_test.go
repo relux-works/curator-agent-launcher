@@ -78,12 +78,15 @@ func childAdapter(args []string) {
 		}
 	case "dup-fails":
 		ops.dup = func(int, int, int) error { return syscall.EIO }
-	case "writer-fd5":
+	case "writer-inherited":
 		writeFD := -1
 		ops.write = func(fd int, p []byte) (int, error) { writeFD = fd; return syscall.Write(fd, p) }
 		ops.close = func(fd int) error {
 			if fd == writeFD {
-				if err := syscall.Dup3(fd, 5, 0); err != nil {
+				// F_DUPFD (command 0) returns the lowest free descriptor at or
+				// above 10 without FD_CLOEXEC. A fixed target would fail with
+				// EINVAL whenever the writer already has that number.
+				if _, err := fcntl(fd, 0, 10); err != nil {
 					return err
 				}
 			}

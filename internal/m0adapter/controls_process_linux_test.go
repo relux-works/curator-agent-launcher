@@ -143,10 +143,10 @@ func TestRequiredDeniedLiterals(t *testing.T) {
 	}
 }
 
-// TestPromptPipeInheritedWriter proves a non-CLOEXEC writer at fd 5 refuses fd_sweep beside exact prompt/EOF delivery.
+// TestPromptPipeInheritedWriter proves a non-CLOEXEC duplicate of the writer above fd 2 refuses fd_sweep beside exact prompt/EOF delivery.
 func TestPromptPipeInheritedWriter(t *testing.T) {
 	requireRunnerPositive(t)
-	requireRefusal(t, runChild(t, childSpec{behavior: "writer-fd5"}), ReasonFDSweep)
+	requireRefusal(t, runChild(t, childSpec{behavior: "writer-inherited"}), ReasonFDSweep)
 }
 
 // TestPromptPipeSecondDescriptor proves pipe identity at fd 1 refuses fd_final even inside 0-2 beside exact delivery.
