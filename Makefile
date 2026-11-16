@@ -1,7 +1,7 @@
 GO ?= go
 GOFMT ?= gofmt
 
-.PHONY: build fmt-check vet test race verify check clean release-binary release-repro release-gate-test
+.PHONY: build fmt-check vet test race verify check clean release-binary release-repro release-gate-test observation-v2-controls
 
 # Reproducible release binary for the signed Curator distribution
 # (FRONT-DOOR §10). Curator's release workflow calls it per platform, then
@@ -60,3 +60,10 @@ release-repro:
 release-gate-test:
 	@mkdir -p .temp
 	scripts/release-gate-test.sh
+
+# Plant controls for the observation-v2 consumer: each plant weakens one gate
+# in a scratch copy of the tree and its named test must fail. The working tree
+# is never mutated.
+observation-v2-controls:
+	@mkdir -p .temp
+	scripts/observation-v2-controls.sh .temp/observation-v2-controls

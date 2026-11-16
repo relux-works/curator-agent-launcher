@@ -38,6 +38,11 @@ jobs:
       - name: Build, format, vet, test and release admission controls
         run: make verify
 
+      # One platform is enough: the plants and their named tests are portable.
+      - name: Observation v2 plant controls
+        if: matrix.os == 'ubuntu-latest'
+        run: make observation-v2-controls
+
   race:
     name: Race (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
