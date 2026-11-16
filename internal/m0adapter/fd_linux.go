@@ -13,10 +13,7 @@ const planFD = 3
 const maxInventory = 64
 
 // Linux fcntl commands not exported by package syscall.
-const (
-	fSetPipeSz = 1031 // F_SETPIPE_SZ
-	fGetPipeSz = 1032 // F_GETPIPE_SZ
-)
+const fGetPipeSz = 1032 // F_GETPIPE_SZ
 
 // fileID is kernel object identity by (device, inode).
 type fileID struct{ dev, ino uint64 }
@@ -114,10 +111,13 @@ func isPlanDuplicate(id, plan fileID) bool {
 	return id == plan
 }
 
-// planSnapshot is the FD3 identity and size observed at entry.
+// planSnapshot records FD3 and standard objects at package entry. The Go
+// runtime may already have repaired missing standard descriptors before this;
+// this snapshot is not proof of their pre-runtime provenance.
 type planSnapshot struct {
-	id   fileID
-	size int64
+	id       fileID
+	size     int64
+	standard [3]fileID
 }
 
 // entryInventory checks the descriptors present at entry: 0, 1, 2 and the
@@ -135,8 +135,17 @@ func entryInventory() (planSnapshot, error) {
 			have[fd] = true
 		}
 	}
-	if !have[0] || !have[1] || !have[2] {
-		return planSnapshot{}, refuse(ReasonFDStandardMissing)
+	var standard [3]fileID
+	for fd := range standard {
+		inh, err := inherited(fd)
+		if !have[fd] || err != nil || !inh {
+			return planSnapshot{}, refuse(ReasonFDStandardMissing)
+		}
+		id, _, err := fstatID(fd)
+		if err != nil {
+			return planSnapshot{}, refuse(ReasonFDStandardMissing)
+		}
+		standard[fd] = id
 	}
 	if !have[planFD] {
 		return planSnapshot{}, refuse(ReasonFDPlanMissing)
@@ -185,7 +194,7 @@ func entryInventory() (planSnapshot, error) {
 	if st.Size < 0 || st.Size > maxEncoded {
 		return planSnapshot{}, refuse(ReasonEntrySizeLimit)
 	}
-	return planSnapshot{id: plan, size: st.Size}, nil
+	return planSnapshot{id: plan, size: st.Size, standard: standard}, nil
 }
 
 // readPlan reads FD3 from offset 0 into one buffer of maxEncoded+1 bytes, so
@@ -224,13 +233,13 @@ func readPlan(snap planSnapshot) ([]byte, error) {
 // then verifies by kernel object identity that no descriptor still names the
 // plan object and that only 0-2 remain inherited. It runs before the stdin
 // pipe exists.
-func closePlanAndSweep(plan fileID) error {
+func closePlanAndSweep(plan planSnapshot) error {
 	return closePlanAndSweepWith(plan, syscall.Close)
 }
 
 // closePlanAndSweepWith permits deterministic close-failure injection without
 // changing the production syscall or installing a mutable global hook.
-func closePlanAndSweepWith(plan fileID, closeFD func(int) error) error {
+func closePlanAndSweepWith(plan planSnapshot, closeFD func(int) error) error {
 	if err := closeFD(planFD); err != nil {
 		return refuse(ReasonFDClose)
 	}
@@ -255,11 +264,12 @@ func closePlanAndSweepWith(plan fileID, closeFD func(int) error) error {
 	return verifyDescriptors(plan, nil)
 }
 
-// verifyDescriptors is the post-close and pre-exec check: 0-2 are present,
+// verifyDescriptors is the post-close and pre-exec check: 0-2 lack CLOEXEC
+// and retain their entry identities (except the intentional stdin replacement),
 // nothing above 2 is inherited, no descriptor names the plan object, and
 // when stdin is given, fd 0 is exactly that read-only pipe object and no
 // other descriptor (such as a leaked write end) names it.
-func verifyDescriptors(plan fileID, stdin *fileID) error {
+func verifyDescriptors(plan planSnapshot, stdin *fileID) error {
 	fds, err := listFDs()
 	if err != nil {
 		return err
@@ -273,14 +283,12 @@ func verifyDescriptors(plan fileID, stdin *fileID) error {
 		if err != nil {
 			return refuse(ReasonFDSweep)
 		}
-		if isPlanDuplicate(id, plan) {
+		if isPlanDuplicate(id, plan.id) {
 			return refuse(ReasonFDPlanDuplicate)
 		}
-		if fd > 2 {
-			inh, err := inherited(fd)
-			if err != nil || inh {
-				return refuse(ReasonFDSweep)
-			}
+		inh, err := inherited(fd)
+		if err != nil || (fd <= 2) != inh {
+			return refuse(ReasonFDSweep)
 		}
 		if stdin != nil {
 			if fd == 0 {
@@ -291,6 +299,9 @@ func verifyDescriptors(plan fileID, stdin *fileID) error {
 			} else if id == *stdin {
 				return refuse(ReasonFDFinal)
 			}
+		}
+		if fd <= 2 && (fd != 0 || stdin == nil) && id != plan.standard[fd] {
+			return refuse(ReasonFDFinal)
 		}
 	}
 	if have != 3 {

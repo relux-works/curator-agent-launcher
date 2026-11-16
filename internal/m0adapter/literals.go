@@ -14,7 +14,7 @@ import (
 //	  -X github.com/relux-works/curator-agent-launcher/internal/m0adapter.runnerCommand=run-codex \
 //	  -X github.com/relux-works/curator-agent-launcher/internal/m0adapter.clockProfile=<profile> \
 //	  -X github.com/relux-works/curator-agent-launcher/internal/m0adapter.keymakerMarker=<marker> \
-//	  -X github.com/relux-works/curator-agent-launcher/internal/m0adapter.deniedPathPrefix=/abs/l-owned \
+//	  -X github.com/relux-works/curator-agent-launcher/internal/m0adapter.deniedPathPrefix=/abs/protected-credentials \
 //	  -X github.com/relux-works/curator-agent-launcher/internal/m0adapter.originSocketMarker=<origin-marker>" \
 //	  ./cmd/curator-run-m0-adapter
 //
@@ -33,8 +33,8 @@ var (
 	// keymakerMarker is a configured Keymaker endpoint marker that must not
 	// appear in any environment name, value or runner argv element.
 	keymakerMarker string
-	// deniedPathPrefix is a path prefix owned by L (the dispatcher side) that
-	// must not appear in any environment name, value or runner argv element.
+	// deniedPathPrefix is the absolute prefix of the protected credential area;
+	// its bytes must not occur in any environment name, value or argv element.
 	deniedPathPrefix string
 	// originSocketMarker identifies the installation's credential origin socket.
 	originSocketMarker string

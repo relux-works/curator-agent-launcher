@@ -101,13 +101,17 @@ func codexArgv(lit Literals, m mapping) []string {
 }
 
 // runnerArgv selects the mapping by the immutable runner command literal.
-// Only run-codex is pinned; run-claude and unknown literals refuse through
-// the unpublished-variant seam, with no fallback.
+// Unknown literals never enter the proposed Claude mapping, even after that
+// seam is implemented. No variant falls back to another.
 func runnerArgv(lit Literals, m mapping) ([]string, error) {
-	if lit.RunnerCommand == codexRunnerCommand {
+	switch lit.RunnerCommand {
+	case codexRunnerCommand:
 		return codexArgv(lit, m), nil
+	case "run-claude":
+		return claudeRunnerArgv(lit.RunnerCommand, m)
+	default:
+		return nil, refuse(ReasonRunnerVariantPending)
 	}
-	return claudeRunnerArgv(lit.RunnerCommand, m)
 }
 
 // checkArgv enforces the storage bounds (each element <=1024 bytes; sum of
@@ -158,6 +162,16 @@ func prepare(lit Literals, e *Entry, env []string, nowMs int64) (*Launch, error)
 		return nil, err
 	}
 	return &Launch{Argv: argv, Prompt: e.Prompt, Timeout: t, NowMs: nowMs, entry: e, lit: lit}, nil
+}
+
+// checkFinalArgv validates the final decimal bound and repeats the complete
+// occurrence scan after any exec-time timeout rewrite.
+func (x *Launch) checkFinalArgv() error {
+	if x.Timeout < 1 || x.Timeout > maxTimeoutSeconds || len(x.Argv) != argvTimeoutIndex+1 ||
+		x.Argv[argvTimeoutIndex] != strconv.FormatInt(x.Timeout, 10) {
+		return refuse(ReasonTimeoutArithmetic)
+	}
+	return checkArgv(x.Argv, x.lit)
 }
 
 // refreshTimeout applies the re-read of the qualified clock at exec: T is

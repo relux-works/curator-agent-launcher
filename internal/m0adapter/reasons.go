@@ -1,6 +1,6 @@
 // Package m0adapter is the DRAFT M0 executor adapter: curator-run in the role
 // of swarma-dispatcher spec/m0-executor-entry.md (DRAFT m0-executor-entry/1 at
-// 0772cf3, with the no-feeder amendment and the Claude runner variant). It reads one closed, bounded entry from the immutable FD3, maps it
+// 4fbf13a7). It reads one closed, bounded entry from the immutable FD3, maps it
 // to the exact 19-element run-codex argv and a one-shot stdin pipe, and
 // execve-replaces itself with the pinned broker executable E.
 //
@@ -87,6 +87,8 @@ const (
 	ReasonEntryCatalogString  Reason = "entry_catalog_string_shape"
 	ReasonEntryPromptLength   Reason = "entry_prompt_length"
 	ReasonEntryPromptNUL      Reason = "entry_prompt_nul"
+	reasonEnvRead             Reason = "env_read_failed"
+	reasonEnvLimit            Reason = "env_block_limit"
 	ReasonEnvMalformed        Reason = "env_malformed"
 	ReasonEnvUnexpected       Reason = "env_unexpected"
 	ReasonEnvDuplicate        Reason = "env_duplicate"
@@ -127,7 +129,7 @@ var reasonTable = []Reason{
 	ReasonEntryType, ReasonEntryConstant, ReasonEntryID, ReasonEntryHash,
 	ReasonEntrySerial, ReasonEntryUID, ReasonEntryKey,
 	ReasonEntryExecutionID, ReasonEntrySelector, ReasonEntryCatalogString,
-	ReasonEntryPromptLength, ReasonEntryPromptNUL, ReasonEnvMalformed,
+	ReasonEntryPromptLength, ReasonEntryPromptNUL, reasonEnvRead, reasonEnvLimit, ReasonEnvMalformed,
 	ReasonEnvUnexpected, ReasonEnvDuplicate, ReasonEnvMissing,
 	ReasonEnvDenied, ReasonEnvHomeMismatch, ReasonEnvTmpdir, ReasonPathLimit,
 	ReasonClockRange, ReasonClockRegressed, ReasonTimeoutArithmetic,

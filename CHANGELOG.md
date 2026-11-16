@@ -32,12 +32,20 @@
   pipe, or exits 78 before exec. Durable C, the qualified clock and the
   Claude runner variant are refusing seams, so it launches nothing yet.
   The 88 closed controls have distinct adapter tests or explicit owning-component
-  classifications. The origin socket marker is a third required build-time
-  denied literal; argv and environment names/values use substring matching.
+  classifications, with active test-name resolution and executed per-instance counts.
+  The sole environment source is one bounded `/proc/self/environ` read; raw
+  duplicates and empty entries refuse rather than disappearing, and successful
+  exec preserves entry bytes and order. Incomplete reads never fall back.
+  Standard descriptor identity and CLOEXEC checks start at package entry;
+  Go's earlier runtime repair of missing standard descriptors remains a limit. The origin socket marker is a third required build-time
+  denied literal; argv and environment names/values use substring matching,
+  repeated after the exec-time timeout rewrite. Missing build literals refuse
+  `literal_missing` before the durable-C seam; unknown runner literals cannot
+  enter the proposed Claude mapping.
   Pipe writes permit at most one zero-byte EINTR retry; capacity equality is
   accepted. Unpinned and unknown runner literals refuse without a pipe write
-  or exec. `make m0-adapter-controls` runs thirteen plants with named baseline,
-  planted failure and restored-green evidence. No native qualification or
+  or exec. `make m0-adapter-controls` requires twenty-two applied plants and
+  equal named baseline, behavioral-failure and restored-green evidence counts. No native qualification or
   activation is claimed.
 
 ## 0.7.0 — 2026-11-11

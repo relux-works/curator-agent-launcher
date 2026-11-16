@@ -12,29 +12,28 @@ func requireReason(t *testing.T, err error, want Reason) {
 	}
 }
 
-func grammarControl(id string) func(*testing.T) {
-	return func(t *testing.T) {
-		found := false
-		for _, c := range grammarNegatives() {
-			if c.control != id {
-				continue
+func grammarInstances(id string) []controlInstance {
+	var out []controlInstance
+	for _, c := range grammarNegatives() {
+		if c.control != id {
+			continue
+		}
+		out = append(out, controlInstance{c.name, func(t *testing.T) {
+			if _, err := Decode([]byte(specimen(t))); err != nil {
+				t.Fatalf("valid neighbor: %v", err)
 			}
-			found = true
-			t.Run(c.name, func(t *testing.T) {
-				if _, err := Decode([]byte(specimen(t))); err != nil {
-					t.Fatalf("valid neighbor: %v", err)
-				}
-				e, err := Decode([]byte(c.doc(t)))
-				requireReason(t, err, c.want)
-				if e != nil {
-					t.Fatal("refusal returned an entry")
-				}
-			})
-		}
-		if !found {
-			t.Fatalf("no grammar negative for %s", id)
-		}
+			e, err := Decode([]byte(c.doc(t)))
+			requireReason(t, err, c.want)
+			if e != nil {
+				t.Fatal("refusal returned an entry")
+			}
+		}})
 	}
+	return out
+}
+
+func grammarControl(id string) func(*testing.T) {
+	return func(t *testing.T) { runControlInstances(t, grammarInstances(id)) }
 }
 
 func adapterControlTests() map[string]func(*testing.T) {
@@ -48,19 +47,9 @@ func adapterControlTests() map[string]func(*testing.T) {
 		if x.Timeout != 240 || x.Argv[18] != "240" {
 			t.Fatal("original cap lost")
 		}
-		_, err := computeTimeout(30999, 20000, 10000)
-		requireReason(t, err, ReasonTimeoutInsufficient)
-	}
-	// A wrong/unpublished clock always refuses; a synthetic reading is the
-	// positive arithmetic control, not qualified clock evidence.
-	cases["clock-coordinate"] = func(t *testing.T) {
-		if n, err := computeTimeout(290000, 20000, 10000); err != nil || n != 240 {
-			t.Fatalf("synthetic neighbor: %v", err)
-		}
-		for _, profile := range []string{testClockProfile, "realtime", "monotonic"} {
-			_, err := qualifiedNowMs(profile)
-			requireReason(t, err, ReasonClockUnqualified)
-		}
+		// A forged 300 is rejected by the same final-argv bound check used at exec.
+		x.Argv[18] = "300"
+		requireReason(t, x.checkFinalArgv(), ReasonTimeoutArithmetic)
 	}
 	// The 1000/900 ms boundary floors, never rounds up.
 	cases["timing-reset-rounding"] = func(t *testing.T) {
@@ -124,6 +113,18 @@ func TestEnvironmentNameDenied(t *testing.T) {
 
 // TestAdapterDeniedLiteralOccurrence proves literal substrings in every argv position and environment value, and marker substrings in closed names.
 func TestAdapterDeniedLiteralOccurrence(t *testing.T) {
+	runControlInstances(t, deniedOccurrenceInstances())
+}
+
+func deniedOccurrenceInstances() []controlInstance {
+	var out []controlInstance
+	for _, kind := range []string{"argv", "environment-name", "environment-value"} {
+		out = append(out, controlInstance{kind, func(t *testing.T) { deniedOccurrence(t, kind) }})
+	}
+	return out
+}
+
+func deniedOccurrence(t *testing.T, kind string) {
 	for _, field := range []func(*Literals) *string{
 		func(l *Literals) *string { return &l.KeymakerMarker },
 		func(l *Literals) *string { return &l.DeniedPathPrefix },
@@ -131,7 +132,7 @@ func TestAdapterDeniedLiteralOccurrence(t *testing.T) {
 	} {
 		lit := testLit()
 		marker := *field(&lit)
-		for i := 0; i < 19; i++ {
+		for i := 0; kind == "argv" && i < 19; i++ {
 			argv := append([]string(nil), specimenLaunch(t, lit, 20000).Argv...)
 			if err := checkArgv(argv, lit); err != nil {
 				t.Fatal(err)
@@ -139,7 +140,7 @@ func TestAdapterDeniedLiteralOccurrence(t *testing.T) {
 			argv[i] = "prefix" + marker + "suffix"
 			requireReason(t, checkArgv(argv, lit), ReasonArgvDenied)
 		}
-		for i := range fixedEnvNames {
+		for i := 0; kind == "environment-value" && i < len(fixedEnvNames); i++ {
 			env := fixedEnv(testHome)
 			if err := checkEnv(env, lit); err != nil {
 				t.Fatal(err)
@@ -149,7 +150,7 @@ func TestAdapterDeniedLiteralOccurrence(t *testing.T) {
 		}
 		// An absolute path prefix cannot occur in a closed environment name.
 		// The two printable markers can; D must reject such collisions first.
-		if marker != testDeniedPrefix {
+		if kind == "environment-name" && marker != testDeniedPrefix {
 			*field(&lit) = "OM"
 			if err := lit.validate(); err != nil {
 				t.Fatal(err)

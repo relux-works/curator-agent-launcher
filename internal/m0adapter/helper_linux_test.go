@@ -3,7 +3,9 @@
 package m0adapter
 
 import (
+	"bytes"
 	"encoding/json"
+	"io"
 	"os"
 	"strconv"
 	"strings"
@@ -26,8 +28,10 @@ func helperMain() {
 		childAdapter(os.Args[2:])
 	case childProductionArg:
 		Main()
-	case codexRunnerCommand:
-		fakeRunner()
+	default:
+		if runnerCommandShape(os.Args[1]) {
+			fakeRunner()
+		}
 	}
 }
 
@@ -47,7 +51,10 @@ func childAdapter(args []string) {
 	next := 0
 	lit := testLiterals(args[0], args[1])
 	ops := nativePromptSyscalls()
+	nativeWrite := ops.write
 	closeFD := syscall.Close
+	var readEnv func() ([]string, error)
+	execRunner := syscall.Exec
 	switch args[4] {
 	case "unknown-runner":
 		lit.RunnerCommand = "run-other"
@@ -59,6 +66,99 @@ func childAdapter(args []string) {
 		lit.KeymakerMarker = ""
 	case "prefix-missing":
 		lit.DeniedPathPrefix = ""
+	case "env-add-home", "env-add-model", "env-add-endpoint", "env-rewrite-path":
+		execRunner = func(path string, argv, env []string) error {
+			changed := append([]string(nil), env...)
+			switch args[4] {
+			case "env-add-home":
+				changed = append(changed, "CODEX_HOME=x")
+			case "env-add-model":
+				changed = append(changed, "MODEL=x")
+			case "env-add-endpoint":
+				changed = append(changed, "ENDPOINT=x")
+			case "env-rewrite-path":
+				for i, kv := range changed {
+					if strings.HasPrefix(kv, "PATH=") {
+						changed[i] = "PATH=/rewritten"
+					}
+				}
+			}
+			return syscall.Exec(path, argv, changed)
+		}
+	case "native-properties", "native-blocking":
+		nativePipe := ops.pipe2
+		capacity := 0
+		ops.pipe2 = func(p []int, flags int) error {
+			if err := nativePipe(p, flags); err != nil {
+				return err
+			}
+			var err error
+			capacity, err = fcntl(p[1], fGetPipeSz, 0)
+			return err
+		}
+		ops.write = func(fd int, p []byte) (int, error) {
+			if args[4] == "native-blocking" {
+				_ = syscall.SetNonblock(fd, false)
+			}
+			flags, err := fcntl(fd, syscall.F_GETFL, 0)
+			size, sizeErr := fcntl(fd, fGetPipeSz, 0)
+			if err != nil || sizeErr != nil || flags&syscall.O_NONBLOCK == 0 || size != capacity {
+				return 0, syscall.EINVAL
+			}
+			return nativeWrite(fd, p)
+		}
+		execRunner = func(path string, argv, env []string) error {
+			size, err := fcntl(0, fGetPipeSz, 0)
+			if err != nil || size != capacity {
+				return syscall.EINVAL
+			}
+			return syscall.Exec(path, argv, env)
+		}
+	case "environment-unreadable":
+		readEnv = func() ([]string, error) {
+			return readEnvironmentWith(func() (io.ReadCloser, error) { return nil, syscall.EACCES })
+		}
+	case "timeout-marker":
+		lit.KeymakerMarker = "9"
+		lit.Home, lit.Executable = testHome, "/example/broker"
+		execRunner = func(_ string, argv, env []string) error { return syscall.Exec(args[0], argv, env) }
+	case "stdout-closed":
+		_ = syscall.Close(1)
+	case "stdout-cloexec":
+		ops.dup = func(old, new, flags int) error {
+			syscall.CloseOnExec(1)
+			return syscall.Dup3(old, new, flags)
+		}
+	case "stdout-replaced":
+		ops.dup = func(old, new, flags int) error {
+			fd, err := syscall.Open(os.DevNull, syscall.O_WRONLY|syscall.O_CLOEXEC, 0)
+			if err != nil {
+				return err
+			}
+			defer syscall.Close(fd)
+			if err := syscall.Dup3(fd, 1, 0); err != nil {
+				return err
+			}
+			return syscall.Dup3(old, new, flags)
+		}
+	case "home-input", "prompt-twice":
+		ops.write = func(fd int, p []byte) (int, error) {
+			var data []byte
+			if args[4] == "home-input" {
+				var err error
+				data, err = os.ReadFile(lit.Home + "/prompt.txt")
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				data = bytes.Repeat(p, 2)
+			}
+			_, err := nativeWrite(fd, data)
+			if err != nil {
+				return 0, err
+			}
+			return len(p), nil
+		}
 	case "plan-close-fails":
 		closeFD = func(int) error { return syscall.EIO }
 	case "pipe2-fails":
@@ -69,7 +169,7 @@ func childAdapter(args []string) {
 		ops.setNonblock = func(int, bool) error { return syscall.EIO }
 	case "write-close-fails":
 		writeFD := -1
-		ops.write = func(fd int, p []byte) (int, error) { writeFD = fd; return syscall.Write(fd, p) }
+		ops.write = func(fd int, p []byte) (int, error) { writeFD = fd; return nativeWrite(fd, p) }
 		ops.close = func(fd int) error {
 			if fd == writeFD {
 				return syscall.EIO
@@ -80,7 +180,7 @@ func childAdapter(args []string) {
 		ops.dup = func(int, int, int) error { return syscall.EIO }
 	case "writer-inherited":
 		writeFD := -1
-		ops.write = func(fd int, p []byte) (int, error) { writeFD = fd; return syscall.Write(fd, p) }
+		ops.write = func(fd int, p []byte) (int, error) { writeFD = fd; return nativeWrite(fd, p) }
 		ops.close = func(fd int) error {
 			if fd == writeFD {
 				// F_DUPFD (command 0) returns the lowest free descriptor at or
@@ -125,8 +225,8 @@ func childAdapter(args []string) {
 			}
 			return v, nil
 		},
-		Environ: syscall.Environ(),
-		Exec:    syscall.Exec,
+		readEnviron: readEnv,
+		Exec:        execRunner,
 	}, ops, closeFD))
 }
 
@@ -147,6 +247,7 @@ type runnerReport struct {
 	EOF       bool     `json:"eof"`
 	Inherited []fdInfo `json:"inherited"`
 	Error     string   `json:"error,omitempty"`
+	Capacity  int      `json:"capacity"`
 }
 
 // fakeRunner stands in for the broker run-codex. It records its pid, argv,
@@ -155,7 +256,20 @@ type runnerReport struct {
 // account selector "status-N" (default 0). The observation code is
 // independent of the adapter's own descriptor helpers.
 func fakeRunner() {
-	rep := runnerReport{PID: os.Getpid(), Args: os.Args, Env: os.Environ()}
+	rep := runnerReport{PID: os.Getpid(), Args: os.Args}
+	// Independent raw observation: do not reuse the adapter reader or os.Environ.
+	block, envErr := os.ReadFile("/proc/self/environ")
+	if envErr != nil || len(block) == 0 || block[len(block)-1] != 0 {
+		rep.Error = "environment"
+	} else {
+		rep.Env = strings.Split(string(block[:len(block)-1]), "\x00")
+	}
+	size, _, errno := syscall.Syscall(syscall.SYS_FCNTL, 0, 1032, 0)
+	if errno != 0 {
+		rep.Error = "capacity"
+	} else {
+		rep.Capacity = int(size)
+	}
 	entries, err := os.ReadDir("/proc/self/fd")
 	if err != nil {
 		rep.Error = "readdir"

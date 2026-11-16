@@ -4,11 +4,8 @@ package m0adapter
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
-	"errors"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -32,20 +29,21 @@ func skipUnderRace(t *testing.T) {
 }
 
 type childSpec struct {
-	plan      []byte     // FD3 contents; nil with noPlan
-	noPlan    bool       // deliver no FD3 at all
-	planFile  *os.File   // explicit FD3 instead of plan bytes
-	extra     []*os.File // descriptors 4..
-	stdout    *os.File   // explicit fd 1
-	env       []string   // nil: fixedEnv(home)
-	exe       string     // E; empty: this test binary
-	now1      int64
-	now2      int64
-	mode      string // empty: adapter child
-	behavior  string // test-only literal/syscall mutation in the child
-	useHome   string
-	planPath  *string // receives the plan path
-	planStats *syscall.Stat_t
+	plan        []byte     // FD3 contents; nil with noPlan
+	noPlan      bool       // deliver no FD3 at all
+	planFile    *os.File   // explicit FD3 instead of plan bytes
+	extra       []*os.File // descriptors 4..
+	stdout      *os.File   // explicit fd 1
+	closeStdout bool       // start with fd 1 closed
+	env         []string   // nil: fixedEnv(home)
+	exe         string     // E; empty: this test binary
+	now1        int64
+	now2        int64
+	mode        string // empty: adapter child
+	behavior    string // test-only literal/syscall mutation in the child
+	useHome     string
+	planPath    *string // receives the plan path
+	planStats   *syscall.Stat_t
 }
 
 type childResult struct {
@@ -128,28 +126,72 @@ func runChild(t *testing.T, spec childSpec) childResult {
 	if mode == "" {
 		mode = childAdapterArg
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-	defer cancel()
-	cmd := exec.CommandContext(ctx, testBinary(t), mode, exe, home, strconv.FormatInt(now1, 10), strconv.FormatInt(now2, 10), spec.behavior)
-	cmd.Env = env
-	cmd.ExtraFiles = files
-	var stdout, stderr bytes.Buffer
+	// ForkExec preserves duplicate names and empty entries, unlike os/exec.
+	capture := func(name string) *os.File {
+		f, err := os.Create(filepath.Join(t.TempDir(), name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { f.Close() })
+		return f
+	}
+	stdout, stderr := capture("stdout"), capture("stderr")
+	input, err := os.Open(os.DevNull)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer input.Close()
+	fds := []uintptr{input.Fd(), stdout.Fd(), stderr.Fd()}
 	if spec.stdout != nil {
-		cmd.Stdout = spec.stdout
-	} else {
-		cmd.Stdout = &stdout
+		fds[1] = spec.stdout.Fd()
 	}
-	cmd.Stderr = &stderr
-	cmd.WaitDelay = 5 * time.Second
-	err := cmd.Run()
-	var ee *exec.ExitError
-	if err != nil && !errors.As(err, &ee) {
-		t.Fatalf("child did not run: %v", err)
+	if spec.closeStdout {
+		fds[1] = ^uintptr(0)
 	}
-	if ctx.Err() != nil {
-		t.Fatalf("child timed out (stdin EOF missing or a descriptor leaked): %s", stderr.Bytes())
+	for _, f := range files {
+		fds = append(fds, f.Fd())
 	}
-	return childResult{exit: cmd.ProcessState.ExitCode(), pid: cmd.Process.Pid, stdout: stdout.Bytes(), stderr: stderr.Bytes(), home: home, exe: exe}
+	args := []string{testBinary(t), mode, exe, home, strconv.FormatInt(now1, 10), strconv.FormatInt(now2, 10), spec.behavior}
+	pid, err := syscall.ForkExec(args[0], args, &syscall.ProcAttr{Env: env, Files: fds})
+	if err != nil {
+		t.Fatalf("child did not start: %v", err)
+	}
+	type waited struct {
+		status syscall.WaitStatus
+		err    error
+	}
+	done := make(chan waited, 1)
+	go func() {
+		var status syscall.WaitStatus
+		var err error
+		for {
+			_, err = syscall.Wait4(pid, &status, 0, nil)
+			if err != syscall.EINTR {
+				break
+			}
+		}
+		done <- waited{status, err}
+	}()
+	var result waited
+	select {
+	case result = <-done:
+	case <-time.After(15 * time.Second):
+		_ = syscall.Kill(pid, syscall.SIGKILL)
+		<-done
+		t.Fatal("child timed out: stdin EOF missing or a descriptor leaked")
+	}
+	if result.err != nil {
+		t.Fatal(result.err)
+	}
+	out, err := os.ReadFile(stdout.Name())
+	if err != nil {
+		t.Fatal(err)
+	}
+	diag, err := os.ReadFile(stderr.Name())
+	if err != nil {
+		t.Fatal(err)
+	}
+	return childResult{exit: result.status.ExitStatus(), pid: pid, stdout: out, stderr: diag, home: home, exe: exe}
 }
 
 // requireRefusal asserts exit 78, exactly one diagnostic line with the code,
@@ -284,6 +326,7 @@ func TestProcessPromptPipe(t *testing.T) {
 // exec, whatever its number: the same open file at fd 4, a second open of
 // the same file at fd 4, and the plan object as fd 1.
 func TestProcessPlanDuplicate(t *testing.T) {
+	requireRunnerPositive(t)
 	t.Run("same-description-fd4", func(t *testing.T) {
 		f, _ := writePlan(t, t.TempDir(), []byte(specimen(t)))
 		requireRefusal(t, runChild(t, childSpec{planFile: f, extra: []*os.File{f}}), ReasonFDPlanDuplicate)
@@ -359,6 +402,7 @@ func TestProcessDescriptorInventory(t *testing.T) {
 // Environment refusals happen in the real process too, before exec and
 // without clearing anything: an extra variable, HOME != H and a deny marker.
 func TestProcessEnvironmentRefusals(t *testing.T) {
+	requireRunnerPositive(t)
 	home := t.TempDir()
 	requireRefusal(t, runChild(t, childSpec{useHome: home, env: append(fixedEnv(home), "CODEX_HOME="+home)}), ReasonEnvUnexpected)
 	other := fixedEnv(home)
@@ -372,6 +416,7 @@ func TestProcessEnvironmentRefusals(t *testing.T) {
 // A malformed entry refuses 78 before exec and the diagnostic names only
 // the rule, never the prompt or the station path.
 func TestProcessGrammarRefusal(t *testing.T) {
+	requireRunnerPositive(t)
 	doc := replaceOnce(t, specimen(t), `"input": {`, `"v": 1,`+"\n  "+`"input": {`)
 	requireRefusal(t, runChild(t, childSpec{plan: []byte(doc)}), ReasonEntryDuplicate)
 }
@@ -379,14 +424,14 @@ func TestProcessGrammarRefusal(t *testing.T) {
 // A failed execve (absent or non-executable E) exits 78 exec_failed and no
 // runner starts.
 func TestProcessExecFailure(t *testing.T) {
+	requireRunnerPositive(t)
 	home := t.TempDir()
 	requireRefusal(t, runChild(t, childSpec{useHome: home, exe: home + "/absent-broker"}), ReasonExecFailed)
 	requireRefusal(t, runChild(t, childSpec{useHome: home, exe: home}), ReasonExecFailed)
 }
 
-// The production entry point refuses c_unpublished before any descriptor,
-// FD3 or environment work, even with a valid plan and environment: the
-// installed artifact cannot launch until the durable C is published.
+// TestProcessProductionMainRefuses proves the real main rejects an unconfigured artifact before descriptor or plan work.
 func TestProcessProductionMainRefuses(t *testing.T) {
-	requireRefusal(t, runChild(t, childSpec{mode: childProductionArg}), ReasonCUnpublished)
+	requireRunnerPositive(t)
+	requireRefusal(t, runChild(t, childSpec{mode: childProductionArg}), ReasonLiteralMissing)
 }

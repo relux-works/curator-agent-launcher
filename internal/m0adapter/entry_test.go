@@ -148,9 +148,10 @@ func grammarNegatives() []grammarCase {
 		{"name-escaped-non-ascii", "", sub(`"input": {`, `"v`+u("00e9")+`": 1,`+"\n  "+`"input": {`), ReasonEntryNameLength},
 		// Closed member table.
 		{"missing", "missing", sub(",\n    "+specimenPrompt, ""), ReasonEntryMissing},
-		{"missing-timing-member", "missing-timing", sub(",\n    \"slack_ms\": 10000", ""), ReasonEntryMissing},
-		{"missing-timing-object", "missing-timing", sub("  \"timing\": {\n    \"deadline_ms\": 290000,\n    \"slack_ms\": 10000\n  },\n", ""), ReasonEntryMissing},
-		{"extra-scalar", "extra", sub(specimenPrompt, specimenPrompt+`, "argv": "--resume"`), ReasonEntryUnknown},
+		{"missing-timing-slack", "missing-timing", sub(",\n    \"slack_ms\": 10000", ""), ReasonEntryMissing},
+		{"missing-timing-deadline", "missing-timing", sub("\"deadline_ms\": 290000,\n    ", ""), ReasonEntryMissing},
+		{"missing-timing-object", "", sub("  \"timing\": {\n    \"deadline_ms\": 290000,\n    \"slack_ms\": 10000\n  },\n", ""), ReasonEntryMissing},
+		{"extra-scalar", "", sub(specimenPrompt, specimenPrompt+`, "argv": "--resume"`), ReasonEntryUnknown},
 		{"injected-path", "injected-member", sub(specimenPrompt, specimenPrompt+`, "path": "/x"`), ReasonEntryUnknown},
 		{"injected-argv", "injected-member", sub(specimenPrompt, specimenPrompt+`, "argv": "x"`), ReasonEntryUnknown},
 		{"injected-env", "injected-member", sub(specimenPrompt, specimenPrompt+`, "env": "X=1"`), ReasonEntryUnknown},
@@ -224,6 +225,9 @@ func grammarNegatives() []grammarCase {
 func TestGrammarNegatives(t *testing.T) {
 	for _, c := range grammarNegatives() {
 		t.Run(c.name, func(t *testing.T) {
+			if _, err := Decode([]byte(specimen(t))); err != nil {
+				t.Fatalf("valid neighbor: %v", err)
+			}
 			doc := c.doc(t)
 			e, err := Decode([]byte(doc))
 			if got := reasonFor(err); got != c.want || e != nil {

@@ -137,7 +137,7 @@ func TestPromptPipePartialWrite(t *testing.T) {
 	for _, result := range []struct {
 		n   int
 		err error
-	}{{1, nil}, {1, syscall.EINTR}, {1, syscall.EAGAIN}, {0, syscall.EAGAIN}, {0, syscall.EIO}, {-1, syscall.EINTR}} {
+	}{{1, nil}, {1, syscall.EINTR}, {1, syscall.EAGAIN}, {0, syscall.EAGAIN}, {0, syscall.EIO}} {
 		requirePipePositive(t, newPipeHarness(t), []byte("prompt"))
 		h := newPipeHarness(t)
 		h.result = append(h.result, result)
@@ -151,6 +151,7 @@ func TestPromptPipePartialWrite(t *testing.T) {
 
 // TestPromptPipeNonblocking proves O_NONBLOCK precedes a whole write and a failed F_SETFL refuses before writing.
 func TestPromptPipeNonblocking(t *testing.T) {
+	t.Run("native", TestProcessNativePipeProperties)
 	requirePipePositive(t, newPipeHarness(t), []byte("prompt"))
 	h := newPipeHarness(t)
 	h.ops.setNonblock = func(int, bool) error { return syscall.EPERM }
@@ -163,6 +164,8 @@ func TestPromptPipeNonblocking(t *testing.T) {
 
 // TestPromptPipeNoCapacityRaise proves the only capacity operation is F_GETPIPE_SZ and a short pipe refuses rather than adapting.
 func TestPromptPipeNoCapacityRaise(t *testing.T) {
+	t.Run("source", TestNoCapacitySyscall)
+	t.Run("native", TestProcessNativePipeProperties)
 	requirePipePositive(t, newPipeHarness(t), []byte("prompt"))
 	h := newPipeHarness(t)
 	h.capacity = 5

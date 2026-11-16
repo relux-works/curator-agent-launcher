@@ -16,7 +16,7 @@ func requireRunnerPositive(t *testing.T) {
 	var plan syscall.Stat_t
 	r := runChild(t, childSpec{planStats: &plan})
 	rep := runnerOutput(t, r)
-	if r.exit != 0 || !rep.EOF || string(rep.Stdin) != specimenInput().Prompt || rep.PID != r.pid {
+	if r.exit != 0 || promptEvidence(rep, specimenInput().Prompt) != "" || rep.PID != r.pid {
 		t.Fatalf("valid runner exit %d", r.exit)
 	}
 	if len(rep.Inherited) != 3 {
@@ -30,8 +30,7 @@ func requireRunnerPositive(t *testing.T) {
 }
 
 func addProcessControlTests(cases map[string]func(*testing.T)) map[string]func(*testing.T) {
-	// A home-file decoy cannot replace the bound prompt; changed prompt bytes
-	// without matching worker-plan identity refuse before pipe creation.
+	// Qualification rejects an observed home-file substitution, not a hash mismatch.
 	cases["home-prompt"] = func(t *testing.T) {
 		home := t.TempDir()
 		if err := os.WriteFile(home+"/prompt.txt", []byte("unbound home-file decoy"), 0o600); err != nil {
@@ -44,8 +43,10 @@ func addProcessControlTests(cases map[string]func(*testing.T)) map[string]func(*
 		if rep := runnerOutput(t, r); r.exit != 0 || !rep.EOF || string(rep.Stdin) != v.Prompt {
 			t.Fatal("prompt replaced by home input")
 		}
-		bad := replaceOnce(t, doc, "bytes from bound FD3 only", "substituted home file bytes")
-		requireRefusal(t, runChild(t, childSpec{useHome: home, plan: []byte(bad), behavior: "guard-pipe"}), ReasonEntryWorkerPlan)
+		bad := runnerOutput(t, runChild(t, childSpec{useHome: home, plan: []byte(doc), behavior: "home-input"}))
+		if promptEvidence(bad, v.Prompt) != "prompt_bytes" {
+			t.Fatal("home-file substitution accepted by qualification")
+		}
 	}
 	// A plan duplicate is refused before exec beside the plan-free runner.
 	cases["fd3-left-open"] = func(t *testing.T) {
@@ -56,33 +57,20 @@ func addProcessControlTests(cases map[string]func(*testing.T)) map[string]func(*
 	// The runner sees the unchanged six entries, including a non-default PATH;
 	// added reserved names refuse rather than being silently cleared.
 	cases["environment"] = func(t *testing.T) {
-		home := t.TempDir()
-		env := fixedEnv(home)
-		env[3] = "PATH=/example/tools:/usr/bin:/bin"
-		r := runChild(t, childSpec{useHome: home, env: env})
-		if rep := runnerOutput(t, r); r.exit != 0 || strings.Join(rep.Env, "\x00") != strings.Join(env, "\x00") {
-			t.Fatal("helper environment rewritten")
-		}
-		requireRefusal(t, runChild(t, childSpec{useHome: home, env: append(env, "CODEX_HOME=x")}), ReasonEnvUnexpected)
+		runControlInstances(t, environmentControlInstances())
 	}
-	// One exact prompt then EOF is the only delivery; adding LF without a
-	// matching worker-plan identity refuses before writing.
+	// Qualification rejects a second observed delivery of the same valid prompt.
 	cases["prompt-replay"] = func(t *testing.T) {
 		requireRunnerPositive(t)
-		doc := replaceOnce(t, specimen(t), specimenPrompt, `"prompt": "Reply with the word example.\n"`)
-		requireRefusal(t, runChild(t, childSpec{plan: []byte(doc), behavior: "guard-pipe"}), ReasonEntryWorkerPlan)
+		r := runChild(t, childSpec{behavior: "prompt-twice"})
+		if promptEvidence(runnerOutput(t, r), specimenInput().Prompt) != "prompt_bytes" {
+			t.Fatal("replay accepted by qualification")
+		}
 	}
 	// The artifact literal supplies element 2; entry/env selectors refuse,
 	// and an unpinned artifact cannot fall back to the pinned variant.
 	cases["runner-variant-selection"] = func(t *testing.T) {
-		requireRunnerPositive(t)
-		doc := replaceOnce(t, specimen(t), `"input": {`, `"input": {"runner": "run-claude",`)
-		requireRefusal(t, runChild(t, childSpec{plan: []byte(doc)}), ReasonEntryUnknown)
-		home := t.TempDir()
-		requireRefusal(t, runChild(t, childSpec{useHome: home, env: append(fixedEnv(home), "RUNNER=run-claude")}), ReasonEnvUnexpected)
-		// The helper's own argv contains test arguments, not a runner selector;
-		// the valid runner report above still has literal run-codex at [1].
-		requireRefusal(t, runChild(t, childSpec{behavior: "claude-unpinned"}), ReasonRunnerVariantPending)
+		runControlInstances(t, runnerSelectionInstances())
 	}
 	// Direct replacement preserves every pinned runner status, never 78.
 	cases["status-remap"] = func(t *testing.T) {
@@ -129,18 +117,14 @@ func TestRunClaudeRefusesUntilBrokerContractPinned(t *testing.T) {
 
 // TestUnknownRunnerLiteralRefuses proves run-other refuses 78 before pipe creation beside the pinned run-codex control.
 func TestUnknownRunnerLiteralRefuses(t *testing.T) {
+	t.Run("closed-selection", TestRunnerSelectionClosed)
 	requireRunnerPositive(t)
 	requireRefusal(t, runChild(t, childSpec{behavior: "unknown-runner"}), ReasonRunnerVariantPending)
 }
 
 // TestRequiredDeniedLiterals proves each absent required member refuses literal_missing before any pipe or exec beside a complete tuple.
 func TestRequiredDeniedLiterals(t *testing.T) {
-	for _, behavior := range []string{"keymaker-missing", "prefix-missing", "origin-missing"} {
-		t.Run(behavior, func(t *testing.T) {
-			requireRunnerPositive(t)
-			requireRefusal(t, runChild(t, childSpec{behavior: behavior}), ReasonLiteralMissing)
-		})
-	}
+	runControlInstances(t, requiredLiteralInstances())
 }
 
 // TestPromptPipeInheritedWriter proves a non-CLOEXEC duplicate of the writer above fd 2 refuses fd_sweep beside exact prompt/EOF delivery.
@@ -163,20 +147,5 @@ func TestPromptPipeReadOnly(t *testing.T) {
 
 // TestProcessPipeStepFailures proves each listed failed syscall refuses its exact 78 code with no exec beside a valid process.
 func TestProcessPipeStepFailures(t *testing.T) {
-	for _, c := range []struct {
-		behavior string
-		want     Reason
-	}{
-		{"plan-close-fails", ReasonFDClose},
-		{"pipe2-fails", ReasonStdinPipe},
-		{"getsize-fails", ReasonStdinCapacity},
-		{"setfl-fails", ReasonStdinWrite},
-		{"write-close-fails", ReasonStdinWrite},
-		{"dup-fails", ReasonStdinPipe},
-	} {
-		t.Run(c.behavior, func(t *testing.T) {
-			requireRunnerPositive(t)
-			requireRefusal(t, runChild(t, childSpec{behavior: c.behavior}), c.want)
-		})
-	}
+	runControlInstances(t, pipeStepInstances())
 }

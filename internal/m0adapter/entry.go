@@ -207,7 +207,7 @@ func lowerHexOnly(s string) bool {
 }
 
 // isKey is "ed25519:" + 42 base64url characters + one final character whose
-// low four bits are zero, i.e. the canonical unpadded spelling of 32 bytes
+// low two bits are zero, i.e. the canonical unpadded spelling of 32 bytes
 // (signing-plan schema pattern ^ed25519:[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$).
 func isKey(s string) bool {
 	if len(s) != len(keyPrefix)+43 || s[:len(keyPrefix)] != keyPrefix {

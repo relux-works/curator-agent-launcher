@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -206,7 +207,7 @@ func TestForbiddenDecoder(t *testing.T) {
 		{"unknown", `"id": "missing"`, `"unknown": 1, "id": "missing"`, "control_unknown_member"},
 		{"case-alias", `"id": "missing"`, `"ID": "missing"`, "control_unknown_member"},
 		{"duplicate-id", `"id": "extra"`, `"id": "missing"`, "control_duplicate_id"},
-		{"duplicate-member", `"id": "missing"`, `"id": "missing", "\u0069d": "missing"`, "fixture_duplicate_member"},
+		{"duplicate-member", `"id": "missing"`, `"id": "missing", "` + u("0069") + `d": "missing"`, "fixture_duplicate_member"},
 		{"neighbor", `"matching-control"`, `"nonexistent-case"`, "control_neighbor"},
 		{"null-neighbors", "\"neighbors\": [\n      \"matching-control\"\n    ]", `"neighbors": null`, "control_required_member"},
 		{"empty-neighbors", "\"neighbors\": [\n      \"matching-control\"\n    ]", `"neighbors": []`, "control_required_member"},
@@ -219,6 +220,9 @@ func TestForbiddenDecoder(t *testing.T) {
 			bad := strings.Replace(string(base), c.old, c.new, 1)
 			if bad == string(base) {
 				t.Fatal("mutation not applied")
+			}
+			if c.name == "duplicate-member" && !strings.Contains(bad, `\u0069d`) {
+				t.Fatal("escaped alias absent from JSON bytes")
 			}
 			if _, err := decodeForbidden([]byte(bad), neighbors); err == nil || err.Error() != c.code {
 				t.Fatalf("got %v, want %s", err, c.code)
@@ -326,7 +330,7 @@ var forbiddenCoverage = map[string]controlCoverage{
 	"worker-protected-read":                {external: "D alone resolves protected metadata; worker lookup is forbidden by architecture."},
 	"missing-timing":                       {test: "TestAdapterControls/missing-timing"},
 	"tampered-timing":                      {external: "D checks both deadline and slack equality and provenance against originals."},
-	"clock-coordinate":                     {test: "TestAdapterControls/clock-coordinate"},
+	"clock-coordinate":                     {external: "Clock qualification is pending; the unpublished seam refuses correct and wrong profiles alike, so it is not discriminating evidence."},
 	"timing-reset-rounding":                {test: "TestAdapterControls/timing-reset-rounding"},
 	"status-attribution":                   {external: "D needs installed original fate evidence; numbers, signals and lost observations imply no absence."},
 	"status-collision":                     {external: "D and tuple qualification reject a runner status set containing 78."},
@@ -371,6 +375,11 @@ var forbiddenCoverage = map[string]controlCoverage{
 
 // TestForbiddenControlsClassified proves all 88 controls have distinct adapter tests or explicit owning-component reasons.
 func TestForbiddenControlsClassified(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("adapter conformance controls require Linux")
+	}
+	topTests := activeTopLevelTests(t)
+	instances := adapterInstanceTests()
 	neighbors, err := boundaryCases(readTestdata(t, "boundary.witnesses.json"))
 	if err != nil {
 		t.Fatal(err)
@@ -394,9 +403,27 @@ func TestForbiddenControlsClassified(t *testing.T) {
 				t.Errorf("bundled mapping: %s", cov.test)
 			}
 			seenTests[cov.test] = true
-			if strings.HasPrefix(cov.test, "TestAdapterControls/") && adapterControlTests()[c.ID] == nil {
+			parts := strings.Split(cov.test, "/")
+			if !topTests[parts[0]] {
+				t.Errorf("missing named test %s", cov.test)
+			}
+			if len(parts) > 1 && (len(parts) != 2 || parts[0] != "TestAdapterControls" || parts[1] != c.ID || adapterControlTests()[c.ID] == nil) {
 				t.Errorf("missing executable case %s", c.ID)
 			}
+			cases := instances[c.ID]
+			if len(cases) != listedInstanceCount(c.Change) {
+				t.Errorf("control %s exercises %d instances, fixture lists %d", c.ID, len(cases), listedInstanceCount(c.Change))
+			}
+			t.Run(c.ID, func(t *testing.T) {
+				seen := map[string]bool{}
+				for _, instance := range cases {
+					if instance.run == nil || seen[instance.name] {
+						t.Fatal("missing or duplicated instance evidence")
+					}
+					seen[instance.name] = true
+					t.Run(instance.name, instance.run)
+				}
+			})
 		}
 	}
 	for id := range adapterControlTests() {

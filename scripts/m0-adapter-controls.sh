@@ -33,20 +33,39 @@ mutants=(
 	'environment-name|env.go|TestEnvironmentNameDenied|lit.deniedMarker(fixedEnvNames[i])^^for i, v := range values {|false^^for _, v := range values {|omit the environment name scan'
 	'origin-required|literals.go|TestOriginSocketMarkerRequired|l.DeniedPathPrefix, l.OriginSocketMarker}|l.DeniedPathPrefix}|omit the required origin member'
 	'capacity-equality|fd_linux.go|TestPromptPipeCapacity|if size < len(prompt) {|if size <= len(prompt) {|require capacity greater than prompt length'
-	'unknown-runner|mapping.go|TestUnknownRunnerLiteralRefuses|if lit.RunnerCommand == codexRunnerCommand {|if lit.RunnerCommand != "run-claude" {|admit an unknown runner literal'
+	'unknown-runner|mapping.go|TestUnknownRunnerLiteralRefuses|switch lit.RunnerCommand {|switch codexRunnerCommand {|admit an unknown runner literal'
+	'raw-environment|run_linux.go|TestProcessRawEnvironment|readEnv = readRawEnvironment|readEnv = func() ([]string, error) { return syscall.Environ(), nil }|normalize the kernel environment'
+	'final-argv|mapping.go|TestProcessFinalArgvDenied|return checkArgv(x.Argv, x.lit)|return nil|omit the final argv scan'
+	'coverage-name|controls_test.go|TestForbiddenControlsClassified|"TestPromptPipePartialWrite"|"TestPromptPipePartialWriteAbsent"|cite an absent top-level test'
+	'missing-instance|entry_test.go|TestForbiddenControlsClassified|{"missing-timing-deadline", "missing-timing",|{"missing-timing-deadline", "",|omit a listed timing instance'
+	'arguments-input|run.go|TestForbiddenControlsClassified|type Config struct {|type Config struct { Arguments []string;|add an adapter argument input'
+	'standard-identity|fd_linux.go|TestProcessStandardDescriptors|id != plan.standard[fd]|false|omit standard object identity'
+	'standard-flags|fd_linux.go|TestProcessStandardDescriptors|(fd <= 2) != inh|fd > 2 && inh|omit standard close-on-exec check'
+	'native-nonblock|fd_linux.go|TestProcessNativePipeProperties|ops.setNonblock(w, true)|error(nil)|omit nonblocking setup on the real pipe'
+	'direct-capacity|fd_linux.go|TestNoCapacitySyscall|const fGetPipeSz = 1032|const forbiddenCapacityCommand = 1031; const fGetPipeSz = 1032|introduce a direct capacity-raise command'
 )
+expected=22
+if [ "${#mutants[@]}" -ne "$expected" ]; then
+	echo "m0-adapter-controls: plant count mismatch expected=$expected actual=${#mutants[@]}" >&2
+	exit 1
+fi
 
 copy_pkg() {
 	local dest=$1
-	mkdir -p "$dest"
-	printf 'module m0adaptercontrols\n\ngo %s\n' "$go_version" >"$dest/go.mod"
-	cp -R "$pkg" "$dest/m0adapter"
+	mkdir -p "$dest/internal" "$dest/cmd"
+	printf 'module github.com/relux-works/curator-agent-launcher\n\ngo %s\n' "$go_version" >"$dest/go.mod"
+	cp -R "$pkg" "$dest/internal/m0adapter"
+	cp -R "$root/cmd/curator-run-m0-adapter" "$dest/cmd/"
 }
 
 run_test() {
 	local dir=$1 test=$2 log=$3 rc=0
-	echo "command: go test ./m0adapter/ -count=1 -v -run ^${test}\$"
-	(cd "$dir" && go test ./m0adapter/ -count=1 -v -run "^${test}\$") >"$log" 2>&1 || rc=$?
+	echo "command: go test ./internal/m0adapter/ -count=1 -v -run ^${test}\$"
+	(cd "$dir" && go test ./internal/m0adapter/ -count=1 -v -run "^${test}\$") >"$log" 2>&1 || rc=$?
+	if [ "$rc" -eq 0 ] && { ! grep -Eq "^=== RUN   ${test}\$" "$log" || ! grep -Eq "^--- PASS: ${test}( |\$)" "$log"; }; then
+		echo "named test did not run and pass" >>"$log"
+		rc=3
+	fi
 	cat "$log"
 	echo "exit=$rc"
 	return "$rc"
@@ -54,17 +73,21 @@ run_test() {
 
 status=0
 evaluated=0
+baselines=0
+kills=0
+restores=0
 for m in "${mutants[@]}"; do
 	IFS='|' read -r id file test anchor replacement desc <<<"$m"
 	dir="$scratch/$id"
 	copy_pkg "$dir"
-	target="$dir/m0adapter/$file"
+	target="$dir/internal/m0adapter/$file"
 	cp "$target" "$dir/original.go"
 	if ! run_test "$dir" "$test" "$dir/baseline.log"; then
 		echo "$id: baseline FAIL - $desc" >&2
 		status=1
 		continue
 	fi
+	baselines=$((baselines + 1))
 	echo "$id: baseline PASS ($test)"
 	anchors=()
 	replacements=()
@@ -106,6 +129,7 @@ for m in "${mutants[@]}"; do
 		echo "$id: SURVIVED - $desc" >&2
 		status=1
 	elif grep -Eq "^--- FAIL: ${test}( |\$)" "$log"; then
+		kills=$((kills + 1))
 		echo "$id: KILLED by $test - $desc"
 	else
 		echo "$id: INVALID (no named behavioral failure) - $desc" >&2
@@ -113,15 +137,18 @@ for m in "${mutants[@]}"; do
 	fi
 	cp "$dir/original.go" "$target"
 	if run_test "$dir" "$test" "$dir/restored.log"; then
+		restores=$((restores + 1))
 		echo "$id: restored PASS ($test)"
 	else
 		echo "$id: restored FAIL ($test)" >&2
 		status=1
 	fi
 done
-if [ "$evaluated" -eq 0 ]; then
-	echo "m0-adapter-controls: no plant evaluated" >&2
-	status=1
-fi
-echo "m0-adapter-controls: evaluated=$evaluated exit=$status"
+for count in "$evaluated" "$baselines" "$kills" "$restores"; do
+	if [ "$count" -ne "$expected" ]; then
+		echo "m0-adapter-controls: incomplete evidence expected=$expected actual=$count" >&2
+		status=1
+	fi
+done
+echo "m0-adapter-controls: expected=$expected applied=$evaluated baselines=$baselines named_kills=$kills restores=$restores exit=$status"
 exit "$status"

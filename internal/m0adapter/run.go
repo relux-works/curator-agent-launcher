@@ -3,14 +3,15 @@ package m0adapter
 import "syscall"
 
 // Config is everything Run uses. Main passes the installed literals, the
-// three refusing seams, the process environment and syscall.Exec; nothing
-// else can construct a production Config. Tests substitute fakes.
+// refusing seams and syscall.Exec. The raw environment is read once at entry;
+// only in-package tests can substitute its source.
 type Config struct {
 	Literals Literals
 	WaitForC func() error
 	NowMs    func(profile string) (int64, error)
-	Environ  []string
 	Exec     func(path string, argv []string, env []string) error
+
+	readEnviron func() ([]string, error)
 }
 
 // Main is the production entry point. It never returns: it either becomes
@@ -20,7 +21,6 @@ func Main() {
 		Literals: installedLiterals(),
 		WaitForC: waitForC,
 		NowMs:    qualifiedNowMs,
-		Environ:  syscall.Environ(),
 		Exec:     syscall.Exec,
 	}))
 }
