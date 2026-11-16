@@ -13,9 +13,15 @@ import (
 
 // TestMain lets the test binary double as the process helpers of the Linux
 // process tests (adapter child, production child, fake runner). helperMain
-// returns at once in an ordinary test run.
+// returns at once in an ordinary test run. Before the tests run,
+// isolateDescriptors marks every descriptor above 2 that this test process
+// inherited (for example from the CI runner or make) close-on-exec, so the
+// children see exactly the descriptors each test chooses. The adapter itself
+// still refuses any such stray descriptor; this only keeps the harness's own
+// inheritance out of the children.
 func TestMain(m *testing.M) {
 	helperMain()
+	isolateDescriptors()
 	os.Exit(m.Run())
 }
 

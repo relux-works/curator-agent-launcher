@@ -130,3 +130,21 @@ func fakeRunner() {
 	}
 	os.Exit(status)
 }
+
+// isolateDescriptors marks every open descriptor above 2 close-on-exec in the
+// parent test process. Go's own descriptors already are; this covers those
+// inherited from outside (CI runner, make, go test), which would otherwise
+// leak into every child and make the adapter refuse fd_unexpected.
+func isolateDescriptors() {
+	entries, err := os.ReadDir("/proc/self/fd")
+	if err != nil {
+		return
+	}
+	for _, e := range entries {
+		fd, err := strconv.Atoi(e.Name())
+		if err != nil || fd <= 2 {
+			continue
+		}
+		syscall.CloseOnExec(fd)
+	}
+}
