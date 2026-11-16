@@ -626,8 +626,8 @@ and timeouts produce no stdout and one diagnostic line on stderr. Plugin text
 is never rendered, including on a legacy registry path. No new refusal code is
 introduced.
 
-**Observation v2** (observation-v2 contract d5; specified, implemented in a
-later unit). `--schema v2` writes `curator-run-session-observation-v2`
+**Observation v2** (observation-v2 contract d5; implemented). `--schema v2`
+writes `curator-run-session-observation-v2`
 (`session-observation-v2.schema.json`); the default stays v1, unchanged. v2
 requires `--expect-registered-at <ts>` and `--expect-generation <n>`, plus
 `--expect-executable <abs>` when one was frozen. These carry the frozen owner
@@ -793,8 +793,12 @@ The v1 capability tokens are closed. An unknown token confers nothing.
   protected local credential API, as the hosted token route of Appendix B
   requires. It is only an intake gate (§9).
 - **`labels/1`.** Labels are retained, and `list` filters by them.
-- **`process-observation/1`** (observation-v2 contract d5; specified,
-  implemented in a later unit). It is valid only together with `status/1`.
+- **`process-observation/1`** (observation-v2 contract d5; implemented for
+  `session-manager observe`, §4.3). It is valid only together with `status/1`.
+  Only `observe` negotiates it. Every other operation (launch, resume, stop,
+  list, cancel and operation status) still refuses `process`, `termination`
+  and `no_start`, also from a manager that advertises the token, until a
+  later unit admits them there.
   It admits the session-record 1.3.0 members (§5.4) and outcome 1.1.0
   `no_start`. Without the token, any of them is `session_host_protocol_error`
   (6). It changes no other operation.
@@ -1162,8 +1166,8 @@ Validation (§5.6 applies to the whole record):
   unreadable record or in any other state. Schema `1.1.0` adds it, and a
   `1.0.0` record stays valid.
 
-**1.3.0** (observation-v2 contract d5 §§3–4; specified, implemented in a
-later unit). Both the enveloped `session` and the envelope-free
+**1.3.0** (observation-v2 contract d5 §§3–4; implemented in the launcher
+consumer, `session-manager observe`, §4.3). Both the enveloped `session` and the envelope-free
 `session-record` are 1.3.0. With `process-observation/1`, a readable record
 may carry two optional closed members:
 

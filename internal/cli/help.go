@@ -97,10 +97,23 @@ Lists the layer read and registered managers, marking the selected one.
 Shows one registered manager and the layer read.
 `,
 	"observe": `usage: curator-run session-manager observe <manager-id> --session <SES-handle> --json
+       curator-run session-manager observe <manager-id> --session <SES-handle> --json --schema v2
+               --expect-registered-at <ts> --expect-generation <n> [--expect-executable <abs>]
 
 Emits one closed JSON observation of a registered manager and session.
-Both flags are required. Calls describe and one status, without local writes
-or reconciliation. Unknown/unreadable records remain evidence, not down.
+--session and --json are required. Calls describe and one status, without
+local writes or reconciliation. Unknown/unreadable records remain evidence,
+not down.
+--schema v1 is the default and its output is unchanged. --schema v2 adds
+capabilities.process_observation from the same describe and keeps the
+manager's process and termination members when it advertises
+process-observation/1.
+--schema v2 requires the owner binding frozen before submission:
+--expect-registered-at <ts> and --expect-generation <n>, plus
+--expect-executable <abs> when an executable was frozen. A registration,
+manager, session or generation that differs prints nothing and refuses
+session_generation_mismatch (1). The --expect flags without --schema v2, a
+repeated flag and any other --schema value refuse usage (2) before any call.
 `,
 	"register": `usage: curator-run session-manager register --manifest <path|-> [--select | --no-select] [--scope user|system]
 

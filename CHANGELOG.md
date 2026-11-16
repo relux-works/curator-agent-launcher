@@ -11,6 +11,18 @@
   added. Vectors and tests cover them. Observation v1 stays the 1.2.0
   projection, and werkstatt status output refuses both members. The `process-observation/1` launcher consumer is specified and
   ships in a later unit.
+- Add the observation-v2 launcher consumer. `session-manager observe --schema
+  v2` requires `--expect-registered-at` and `--expect-generation` (optionally
+  `--expect-executable`), admits evidence only from that frozen owner and
+  otherwise refuses `session_generation_mismatch` with empty stdout. It emits
+  `curator-run-session-observation-v2` with `process`/`termination` as sent and
+  `capabilities.process_observation` from the same `describe`. The client now
+  admits `process`, `termination` and `no_start` only under
+  `process-observation/1` with `status/1`; without the token they remain
+  `session_host_protocol_error`. The default v1 output is unchanged and is the
+  validated 1.2.0 projection over a capable manager. No refusal code is added.
+  Only `observe` negotiates the token: every other operation still refuses
+  the three members, also from a manager that advertises it.
 
 ## 0.7.0 — 2026-11-11
 

@@ -18,6 +18,11 @@ type Command struct {
 	Operation, ID, Manifest, Scope string
 	Session                        string
 	JSON, Select, NoSelect         bool
+	// Observation only. Schema is "v1" or "v2". The Expect values carry the
+	// owner binding frozen before submission and are set only with "v2";
+	// ExpectExecutable is empty when no executable was frozen.
+	Schema, ExpectRegisteredAt, ExpectExecutable string
+	ExpectGeneration                             int64
 }
 
 // Service boundaries allow registration policy and failed writes to be tested

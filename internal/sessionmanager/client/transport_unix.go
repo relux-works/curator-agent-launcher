@@ -30,6 +30,9 @@ type Client struct {
 	Entry       sessionmanager.Entry
 	Environment []string
 	CWD         string
+	// Admission is the zero value unless the caller negotiated it from this
+	// manager's describe; see Admission.
+	Admission Admission
 }
 
 func Deadline(operation string) time.Duration {
@@ -245,7 +248,7 @@ func (c Client) Call(ctx context.Context, operation string, request []byte) (Res
 	if exit < 0 {
 		return fail(unavailable("transport"))
 	}
-	response, decodeErr := DecodeResponse(operation, request, output.data, exit, c.ID)
+	response, decodeErr := DecodeAdmitted(operation, request, output.data, exit, c.ID, c.Admission)
 	var e *Error
 	if errors.As(decodeErr, &e) {
 		e.StderrBytes = stderr.bytes

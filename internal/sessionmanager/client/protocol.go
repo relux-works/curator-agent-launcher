@@ -185,6 +185,14 @@ func ValidateRequest(operation string, data []byte) error {
 // DecodeResponse validates the entire body before retaining any field. A failed
 // historical outcome is still a successful status operation; its code is data.
 func DecodeResponse(operation string, request, body []byte, exit int, manager string) (Response, error) {
+	return DecodeAdmitted(operation, request, body, exit, manager, Admission{})
+}
+
+// DecodeAdmitted is DecodeResponse under what the caller learned from the
+// same manager's describe and, for a frozen observation, from its own
+// pre-submission record. The complete body is validated first in every case;
+// nothing is removed to make a response pass.
+func DecodeAdmitted(operation string, request, body []byte, exit int, manager string, admission Admission) (Response, error) {
 	var envelope struct {
 		OK       bool              `json:"ok"`
 		Protocol string            `json:"protocol"`
@@ -236,7 +244,7 @@ func DecodeResponse(operation string, request, body []byte, exit int, manager st
 	if managerschema.Validate(schema+".schema.json", body) != nil {
 		return Response{}, protocolError()
 	}
-	if carriesObservationV2Members(body) {
+	if !admission.ProcessObservation && carriesObservationV2Members(body) {
 		return Response{}, protocolError()
 	}
 	switch {
@@ -268,6 +276,15 @@ func DecodeResponse(operation string, request, body []byte, exit int, manager st
 		}
 	case result.Session != nil:
 		_ = json.Unmarshal(body, result.Session)
+		if admission.FrozenGeneration != 0 && operation == "status" {
+			var asked struct {
+				Session string `json:"session"`
+			}
+			_ = json.Unmarshal(request, &asked)
+			if result.Session.Manager != manager || result.Session.Session != asked.Session || result.Session.Generation != admission.FrozenGeneration {
+				return Response{}, refusal("session_generation_mismatch", nil)
+			}
+		}
 		if result.Session.Manager != manager || (!result.Session.Readable && operation != "status") {
 			return Response{}, protocolError()
 		}

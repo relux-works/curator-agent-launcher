@@ -252,3 +252,72 @@ func TestObserveGrammar(t *testing.T) {
 		}
 	}
 }
+
+// Claim: the observation schema defaults to v1 and v1 carries no frozen
+// binding; --schema v2 parses only with --expect-registered-at and
+// --expect-generation, takes --expect-executable optionally, and accepts the
+// flags in any order. Beside those: the v2 flags without --schema v2, a
+// missing required flag, a repeated flag, a malformed value and any other
+// --schema value are usage errors that never echo a value.
+func TestObserveSchemaGrammar(t *testing.T) {
+	const at = "2026-01-01T00:00:00.125+00:00"
+	base := []string{"session-manager", "observe", "board", "--session", "SES-a", "--json"}
+	with := func(tail ...string) []string { return append(append([]string{}, base...), tail...) }
+	for _, args := range [][]string{base, with("--schema", "v1")} {
+		got, err := Parse(args)
+		if err != nil || got.SessionManager == nil || got.SessionManager.Schema != "v1" || got.SessionManager.ExpectRegisteredAt != "" || got.SessionManager.ExpectGeneration != 0 || got.SessionManager.ExpectExecutable != "" {
+			t.Fatal(args, got, err)
+		}
+	}
+	for _, tc := range []struct {
+		args       []string
+		generation int64
+		executable string
+	}{
+		{with("--schema", "v2", "--expect-registered-at", at, "--expect-generation", "1"), 1, ""},
+		{with("--expect-generation", "9007199254740991", "--expect-executable", "/opt/bin/manager", "--expect-registered-at", at, "--schema", "v2"), 9007199254740991, "/opt/bin/manager"},
+		{[]string{"session-manager", "observe", "board", "--schema", "v2", "--expect-executable", "/m", "--json", "--expect-generation", "42", "--session", "SES-a", "--expect-registered-at", at}, 42, "/m"},
+	} {
+		got, err := Parse(tc.args)
+		if err != nil || got.SessionManager == nil {
+			t.Fatal(tc.args, err)
+		}
+		c := got.SessionManager
+		if c.Schema != "v2" || c.ExpectRegisteredAt != at || c.ExpectGeneration != tc.generation || c.ExpectExecutable != tc.executable || c.Session != "SES-a" || !c.JSON {
+			t.Fatal(tc.args, *c)
+		}
+	}
+	v2 := with("--schema", "v2", "--expect-registered-at", at, "--expect-generation", "1")
+	for _, args := range [][]string{
+		with("--expect-registered-at", at), with("--expect-generation", "1"), with("--expect-executable", "/m"),
+		with("--expect-registered-at", at, "--expect-generation", "1"),
+		with("--schema", "v1", "--expect-registered-at", at, "--expect-generation", "1"),
+		with("--schema", "v2"), with("--schema", "v2", "--expect-generation", "1"), with("--schema", "v2", "--expect-registered-at", at),
+		with("--schema", "v2", "--expect-executable", "/m"),
+		append(append([]string{}, v2...), "--schema", "v2"), append(append([]string{}, v2...), "--schema", "v1"),
+		append(append([]string{}, v2...), "--expect-registered-at", at), append(append([]string{}, v2...), "--expect-generation", "1"),
+		append(append([]string{}, v2...), "--expect-executable", "/m", "--expect-executable", "/m"),
+		with("--schema", "v3"), with("--schema", "v3", "--expect-registered-at", at, "--expect-generation", "1"),
+		with("--schema", ""), with("--schema"), with("--schema", "V2"), with("--schema", "2"), with("--schema", "SENTINEL_SECRET"),
+		with("--schema", "v2", "--expect-registered-at", at, "--expect-generation", "0"),
+		with("--schema", "v2", "--expect-registered-at", at, "--expect-generation", "01"),
+		with("--schema", "v2", "--expect-registered-at", at, "--expect-generation", "-1"),
+		with("--schema", "v2", "--expect-registered-at", at, "--expect-generation", "1.0"),
+		with("--schema", "v2", "--expect-registered-at", at, "--expect-generation", "9007199254740992"),
+		with("--schema", "v2", "--expect-registered-at", at, "--expect-generation", "SENTINEL_SECRET"),
+		with("--schema", "v2", "--expect-registered-at", at, "--expect-generation"),
+		with("--schema", "v2", "--expect-generation", "1", "--expect-registered-at", "SENTINEL_SECRET"),
+		with("--schema", "v2", "--expect-generation", "1", "--expect-registered-at", "2026-01-01T01:00:00+01:00"),
+		with("--schema", "v2", "--expect-generation", "1", "--expect-registered-at", "2026-01-01 00:00:00Z"),
+		with("--schema", "v2", "--expect-generation", "1", "--expect-registered-at", at+"\n"),
+		with("--schema", "v2", "--expect-generation", "1", "--expect-registered-at"),
+		append(append([]string{}, v2...), "--expect-executable", "SENTINEL_SECRET"), append(append([]string{}, v2...), "--expect-executable", ""),
+		append(append([]string{}, v2...), "--expect-executable", "/m\x00n"), append(append([]string{}, v2...), "--expect-executable"),
+		append(append([]string{}, v2...), "--expect-manager", "board"), append(append([]string{}, v2...), "SENTINEL_SECRET"),
+	} {
+		got, err := Parse(args)
+		if !IsUsage(err) || got.SessionManager != nil || strings.Contains(err.Error(), "SENTINEL") || strings.Contains(err.Error(), at) {
+			t.Fatal(args, got, err)
+		}
+	}
+}
