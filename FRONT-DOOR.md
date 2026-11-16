@@ -626,6 +626,19 @@ and timeouts produce no stdout and one diagnostic line on stderr. Plugin text
 is never rendered, including on a legacy registry path. No new refusal code is
 introduced.
 
+**Observation v2** (observation-v2 contract d5; specified, implemented in a
+later unit). `--schema v2` writes `curator-run-session-observation-v2`
+(`session-observation-v2.schema.json`); the default stays v1, unchanged. v2
+requires `--expect-registered-at <ts>` and `--expect-generation <n>`, plus
+`--expect-executable <abs>` when one was frozen. These carry the frozen owner
+binding (§5.7, §6.5) and are compared as d5 §1.3a states. A mismatch prints
+nothing and refuses `session_generation_mismatch` (1). The RPCs are still one
+`describe` and one `status {session}`, with no writes. v2 copies `process` and
+`termination` byte for byte and adds `capabilities: {"process_observation":
+bool}` from that `describe`. Over a capable manager, v1 validates the complete
+record first and then removes exactly those two members. Invalid input
+refuses and is never stripped.
+
 ### 4.4 Install order
 
 1. The signed Curator distribution installs `curator` and `curator-run`
@@ -726,7 +739,7 @@ overrun is followed by reconciliation (§5.7); otherwise it is
 | `launch-exact` | CIP-0016 successor payload | terminal session | `launch-exact/2` |
 | `resume` | resume request (§5.3) | session record | `resume/1` |
 | `attach` | `{session, expected_generation}` on fd 3 | session exit status | `attach/1` |
-| `status` | exactly one of `{session}` or `{operation_id}` | session record, or an operation outcome (§5.7) | `status/1` |
+| `status` | exactly one of `{session}` or `{operation_id}` | session record, or an operation outcome (§5.7) | `status/1`; `process-observation/1` (below) |
 | `cancel` | `{operation_id}` | an operation outcome | `admission/1` |
 | `list` | `{labels?, cursor?, limit?}` | `{sessions: [record…], next_cursor: null\|string}` | `list/1` |
 | `stop` | `{session, expected_generation, mode: "graceful"\|"force", precondition: "none"\|"not-busy"}` | session record | `stop/1` |
@@ -780,6 +793,11 @@ The v1 capability tokens are closed. An unknown token confers nothing.
   protected local credential API, as the hosted token route of Appendix B
   requires. It is only an intake gate (§9).
 - **`labels/1`.** Labels are retained, and `list` filters by them.
+- **`process-observation/1`** (observation-v2 contract d5; specified,
+  implemented in a later unit). It is valid only together with `status/1`.
+  It admits the session-record 1.3.0 members (§5.4) and outcome 1.1.0
+  `no_start`. Without the token, any of them is `session_host_protocol_error`
+  (6). It changes no other operation.
 - **`survives-upgrade`, `drains-on-upgrade`.** The manager's upgrade
   behaviour (§3.3).
 
@@ -1143,6 +1161,22 @@ Validation (§5.6 applies to the whole record):
   An absent `draining` claims no reason. The member never appears on an
   unreadable record or in any other state. Schema `1.1.0` adds it, and a
   `1.0.0` record stays valid.
+
+**1.3.0** (observation-v2 contract d5 §§3–4; specified, implemented in a
+later unit). Both the enveloped `session` and the envelope-free
+`session-record` are 1.3.0. With `process-observation/1`, a readable record
+may carry two optional closed members:
+
+- `process {pid, uid, boot_id, start_time}`, in `starting`, `idle`, `busy` or
+  `draining`. `start_time` is `linux-stat-starttime {ticks, hz}` or
+  `darwin-pbi-start {sec, usec}`, with decimal strings;
+- `termination`, in `down` only.
+
+The incarnation is the byte-equal tuple (`boot_id`, `pid`, `start_time`), and
+`uid` must match too. Neither member appears on an unreadable record, and
+absence means unknown. Outcome 1.1.0 adds `no_start: "proved"` to `failed`
+and `cancelled` only. A 1.2.0 record stays valid. `werkstatt status` output
+does not carry either member.
 
 ### 5.5 Conformance
 
@@ -1511,6 +1545,11 @@ ordering in steps 3–4; do not run discovery before a terminal replay decision.
    authority. Unknown, unreachable, draining, missing/re-registered manager,
    exact down, detach and launcher death all retain protection. A future
    observation-v2 integration must satisfy HL09/HL23 before enabling any release.
+   The observation-v2 contract d5 §6 maps the §5.4 `process` tuple onto Core's
+   home-leases holder revision. This bind step then applies the d5 §1.3a
+   frozen-binding comparison against the prepared holder, and only Core's
+   independent kernel re-read can bind. This is specified and implemented in
+   a later unit, and it adds no release authority.
 
 The CLI consumer parses one bounded closed operation-specific v1 envelope,
 including its code/reason and exit combination, rejects duplicate/unknown

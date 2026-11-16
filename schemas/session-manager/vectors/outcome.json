@@ -1414,5 +1414,229 @@
         }
       }
     }
+  },
+  {
+    "name": "no_start-on-failed",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "policy_refused",
+      "no_start": "proved"
+    }
+  },
+  {
+    "name": "no_start-on-cancelled",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "cancelled",
+      "no_start": "proved"
+    }
+  },
+  {
+    "name": "no_start-on-not_found",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "not_found",
+      "no_start": "proved"
+    }
+  },
+  {
+    "name": "no_start-on-prepared",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "prepared",
+      "no_start": "proved"
+    }
+  },
+  {
+    "name": "no_start-on-admitted",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "admitted",
+      "no_start": "proved"
+    }
+  },
+  {
+    "name": "no_start-on-unknown",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "unknown",
+      "no_start": "proved"
+    }
+  },
+  {
+    "name": "no_start-on-started",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "started",
+      "session": {
+        "session": "SES-example",
+        "operation_id": "11111111-1111-4111-8111-111111111111",
+        "manager": "demo",
+        "runtime": "codex_cli",
+        "native_id": null,
+        "readable": true,
+        "state": "unknown",
+        "labels": {},
+        "generation": 1,
+        "started_at": "2026-01-01T00:00:00Z",
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        }
+      },
+      "no_start": "proved"
+    }
+  },
+  {
+    "name": "no_start-true-on-failed",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "policy_refused",
+      "no_start": true
+    }
+  },
+  {
+    "name": "no_start-true-on-cancelled",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "cancelled",
+      "no_start": true
+    }
+  },
+  {
+    "name": "no_start-null-on-failed",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "policy_refused",
+      "no_start": null
+    }
+  },
+  {
+    "name": "no_start-null-on-cancelled",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "cancelled",
+      "no_start": null
+    }
+  },
+  {
+    "name": "no_start-unproved-on-failed",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "policy_refused",
+      "no_start": "unproved"
+    }
+  },
+  {
+    "name": "no_start-unproved-on-cancelled",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "cancelled",
+      "no_start": "unproved"
+    }
+  },
+  {
+    "name": "no_start-uppercase-on-failed",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "policy_refused",
+      "no_start": "PROVED"
+    }
+  },
+  {
+    "name": "no_start-uppercase-on-cancelled",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "cancelled",
+      "no_start": "PROVED"
+    }
+  },
+  {
+    "name": "no_start-empty-on-failed",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "failed",
+      "code": "policy_refused",
+      "no_start": ""
+    }
+  },
+  {
+    "name": "no_start-empty-on-cancelled",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "cancelled",
+      "no_start": ""
+    }
+  },
+  {
+    "name": "no_start-inside-started-session",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "outcome": "started",
+      "session": {
+        "session": "SES-example",
+        "operation_id": "11111111-1111-4111-8111-111111111111",
+        "manager": "demo",
+        "runtime": "codex_cli",
+        "native_id": null,
+        "readable": true,
+        "state": "unknown",
+        "labels": {},
+        "generation": 1,
+        "started_at": "2026-01-01T00:00:00Z",
+        "last_activity_at": null,
+        "doorbell": {
+          "state": "off",
+          "uncertain": false,
+          "generation": null,
+          "reason": null
+        },
+        "no_start": "proved"
+      }
+    }
   }
 ]

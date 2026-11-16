@@ -198,6 +198,57 @@ Schema validation checks the original strict document, including every member.
 CCJ-1 signature omission applies to `CanonicalJSON` hashing only; it cannot
 make an unknown `sig` member acceptable to a closed protocol schema.
 
+### Observation v2 and process evidence
+
+These schemas implement the observation-v2 contract d5. The launcher consumer
+is specified there and implemented in a later unit.
+
+- The envelope-free `session-record` and the enveloped `session` (status,
+  launch, resume and stop replies) are both 1.3.0 and keep their URNs. They
+  move in lockstep: their duplicated definitions must stay identical apart
+  from `protocol`/`ok`, because the validator resolves only whole-document
+  references. A readable record may carry two
+  optional closed members. `process {pid, uid, boot_id, start_time}` is allowed
+  in states `starting`, `idle`, `busy` and `draining`. `termination` is allowed
+  only in state `down`, and is exactly `linux-cgroup`/`populated-0` or
+  `dedicated-uid`/`zero-process-proof`. Neither member may appear on an
+  unreadable record, and absence means unknown. `start_time` is either
+  `linux-stat-starttime {ticks, hz}` or `darwin-pbi-start {sec, usec}`.
+  `ticks` and `sec` are canonical unsigned decimal strings: `0`, or 1..20
+  digits without a leading zero. `boot_id` is a lowercase 36-character UUID
+  of any version. A 1.2.0 record stays valid unchanged. Started outcomes and
+  list rows reference this record, so the same members are structurally
+  admitted there too. `werkstatt-status` is launcher output that d5 does not
+  extend. Its `manager_session` refuses both members, as observation v1
+  does.
+- `outcome` 1.1.0 adds `no_start: "proved"` to `failed` and `cancelled` only.
+- `session-observation-v2.schema.json`
+  (`urn:relux:curator-run:session-observation-v2`) is v1 plus the closed
+  `capabilities: {process_observation}`. Its `session` is `session-record`
+  1.3.0. When `process_observation` is false, the session can carry neither
+  member. In v1 the `session` refuses `process` and `termination`: v1 output
+  is the legacy projection, a valid 1.2.0 record.
+- The describe token `process-observation/1` is valid only together with
+  `status/1`. `describe` keeps capability strings uninterpreted. The consumer
+  refuses `process`, `termination` or `no_start` from a manager without the
+  token with `session_host_protocol_error` (6). It also validates the complete
+  response before any v1 projection, so it never strips invalid input.
+
+A schema cannot compare one document with another, so these checks are
+consumer obligations, without schema vectors:
+
+- refuse a record whose `manager` is not the frozen owner;
+- refuse the same manager id with a changed executable, or after a
+  re-registration (different `registered_at`);
+- refuse a reused handle with a different generation. These refuse
+  `session_generation_mismatch` (1) and print nothing;
+- treat as different incarnations any tuples that are not byte-equal. The
+  `incarnation-pid-reuse-*` session-record vectors are well-formed records
+  that differ from `process-linux-stat-starttime` only in `start_time` (same
+  boot) or in `boot_id` (across boots);
+- refuse the bind when a tuple is well-formed but does not match Core's own
+  kernel reading. That refusal belongs to Curator's independent observer.
+
 ### Lease-bearing operation journals
 
 `operation.schema.json` 1.1 preserves legacy journals (no `phase`). New

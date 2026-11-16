@@ -32,7 +32,27 @@
       "additionalProperties": false
     },
     "session": {
-      "$ref": "urn:relux:curator-run:session-record"
+      "allOf": [
+        {
+          "$ref": "urn:relux:curator-run:session-record"
+        },
+        {
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "process"
+                ]
+              },
+              {
+                "required": [
+                  "termination"
+                ]
+              }
+            ]
+          }
+        }
+      ]
     },
     "observed_at": {
       "type": "string",

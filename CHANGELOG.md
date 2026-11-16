@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Added
+
+- Publish the observation-v2 contract d5 schemas in the nested session-manager
+  module. session and session-record 1.3.0 add optional closed `process` and
+  `termination` members, outcome 1.1.0 adds `no_start: "proved"` on
+  failed/cancelled, and a new `curator-run-session-observation-v2` schema is
+  added. Vectors and tests cover them. Observation v1 stays the 1.2.0
+  projection, and werkstatt status output refuses both members. The `process-observation/1` launcher consumer is specified and
+  ships in a later unit.
+
 ## 0.7.0 — 2026-11-11
 
 ### Changed

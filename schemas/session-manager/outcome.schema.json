@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:relux:curator-run:outcome",
-  "title": "outcome 1.0.0",
+  "title": "outcome 1.1.0",
   "oneOf": [
     {
       "type": "object",
@@ -144,6 +144,9 @@
             "werkstatt_already_up",
             "werkstatt_busy"
           ]
+        },
+        "no_start": {
+          "const": "proved"
         }
       },
       "required": [
@@ -165,6 +168,9 @@
         },
         "outcome": {
           "const": "cancelled"
+        },
+        "no_start": {
+          "const": "proved"
         }
       },
       "required": [

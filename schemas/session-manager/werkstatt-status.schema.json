@@ -24,7 +24,27 @@
             "type": "null"
           },
           {
-            "$ref": "urn:relux:curator-run:session"
+            "allOf": [
+              {
+                "$ref": "urn:relux:curator-run:session"
+              },
+              {
+                "not": {
+                  "anyOf": [
+                    {
+                      "required": [
+                        "process"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "termination"
+                      ]
+                    }
+                  ]
+                }
+              }
+            ]
           }
         ]
       },

@@ -9797,5 +9797,832 @@
         "remediation": "stop_force"
       }
     }
+  },
+  {
+    "name": "legacy-1.2.0-without-extensions",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "session": "SES-example",
+      "operation_id": "11111111-1111-4111-8111-111111111111",
+      "manager": "demo",
+      "runtime": "codex_cli",
+      "native_id": null,
+      "readable": true,
+      "state": "idle",
+      "labels": {},
+      "generation": 1,
+      "started_at": "2026-01-01T00:00:00Z",
+      "last_activity_at": null,
+      "doorbell": {
+        "state": "off",
+        "uncertain": false,
+        "generation": null,
+        "reason": null
+      }
+    }
+  },
+  {
+    "name": "process-linux-stat-starttime",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "session": "SES-example",
+      "operation_id": "11111111-1111-4111-8111-111111111111",
+      "manager": "demo",
+      "runtime": "codex_cli",
+      "native_id": null,
+      "readable": true,
+      "state": "idle",
+      "labels": {},
+      "generation": 1,
+      "started_at": "2026-01-01T00:00:00Z",
+      "last_activity_at": null,
+      "doorbell": {
+        "state": "off",
+        "uncertain": false,
+        "generation": null,
+        "reason": null
+      },
+      "process": {
+        "pid": 4242,
+        "uid": 1001,
+        "boot_id": "6f1c0e2a-8b44-4d1e-9a51-2f0c3d7e9b10",
+        "start_time": {
+          "kind": "linux-stat-starttime",
+          "ticks": "123456789",
+          "hz": 100
+        }
+      }
+    }
+  },
+  {
+    "name": "process-darwin-pbi-start",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "session": "SES-example",
+      "operation_id": "11111111-1111-4111-8111-111111111111",
+      "manager": "demo",
+      "runtime": "codex_cli",
+      "native_id": null,
+      "readable": true,
+      "state": "busy",
+      "labels": {},
+      "generation": 1,
+      "started_at": "2026-01-01T00:00:00Z",
+      "last_activity_at": null,
+      "doorbell": {
+        "state": "off",
+        "uncertain": false,
+        "generation": null,
+        "reason": null
+      },
+      "process": {
+        "pid": 4242,
+        "uid": 1001,
+        "boot_id": "6f1c0e2a-8b44-4d1e-9a51-2f0c3d7e9b10",
+        "start_time": {
+          "kind": "darwin-pbi-start",
+          "sec": "1763251200",
+          "usec": 250000
+        }
+      }
+    }
+  },
+  {
+    "name": "process-on-starting",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "session": "SES-example",
+      "operation_id": "11111111-1111-4111-8111-111111111111",
+      "manager": "demo",
+      "runtime": "codex_cli",
+      "native_id": null,
+      "readable": true,
+      "state": "starting",
+      "labels": {},
+      "generation": 1,
+      "started_at": "2026-01-01T00:00:00Z",
+      "last_activity_at": null,
+      "doorbell": {
+        "state": "off",
+        "uncertain": false,
+        "generation": null,
+        "reason": null
+      },
+      "process": {
+        "pid": 4242,
+        "uid": 1001,
+        "boot_id": "6f1c0e2a-8b44-4d1e-9a51-2f0c3d7e9b10",
+        "start_time": {
+          "kind": "linux-stat-starttime",
+          "ticks": "123456789",
+          "hz": 100
+        }
+      }
+    }
+  },
+  {
+    "name": "process-on-draining",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "session": "SES-example",
+      "operation_id": "11111111-1111-4111-8111-111111111111",
+      "manager": "demo",
+      "runtime": "codex_cli",
+      "native_id": null,
+      "readable": true,
+      "state": "draining",
+      "labels": {},
+      "generation": 1,
+      "started_at": "2026-01-01T00:00:00Z",
+      "last_activity_at": null,
+      "doorbell": {
+        "state": "off",
+        "uncertain": false,
+        "generation": null,
+        "reason": null
+      },
+      "process": {
+        "pid": 4242,
+        "uid": 1001,
+        "boot_id": "6f1c0e2a-8b44-4d1e-9a51-2f0c3d7e9b10",
+        "start_time": {
+          "kind": "linux-stat-starttime",
+          "ticks": "123456789",
+          "hz": 100
+        }
+      }
+    }
+  },
+  {
+    "name": "process-ticks-zero",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "session": "SES-example",
+      "operation_id": "11111111-1111-4111-8111-111111111111",
+      "manager": "demo",
+      "runtime": "codex_cli",
+      "native_id": null,
+      "readable": true,
+      "state": "idle",
+      "labels": {},
+      "generation": 1,
+      "started_at": "2026-01-01T00:00:00Z",
+      "last_activity_at": null,
+      "doorbell": {
+        "state": "off",
+        "uncertain": false,
+        "generation": null,
+        "reason": null
+      },
+      "process": {
+        "pid": 4242,
+        "uid": 1001,
+        "boot_id": "6f1c0e2a-8b44-4d1e-9a51-2f0c3d7e9b10",
+        "start_time": {
+          "kind": "linux-stat-starttime",
+          "ticks": "0",
+          "hz": 100
+        }
+      }
+    }
+  },
+  {
+    "name": "process-upper-bounds",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "session": "SES-example",
+      "operation_id": "11111111-1111-4111-8111-111111111111",
+      "manager": "demo",
+      "runtime": "codex_cli",
+      "native_id": null,
+      "readable": true,
+      "state": "idle",
+      "labels": {},
+      "generation": 1,
+      "started_at": "2026-01-01T00:00:00Z",
+      "last_activity_at": null,
+      "doorbell": {
+        "state": "off",
+        "uncertain": false,
+        "generation": null,
+        "reason": null
+      },
+      "process": {
+        "pid": 2147483647,
+        "uid": 4294967294,
+        "boot_id": "6f1c0e2a-8b44-4d1e-9a51-2f0c3d7e9b10",
+        "start_time": {
+          "kind": "linux-stat-starttime",
+          "ticks": "99999999999999999999",
+          "hz": 100000
+        }
+      }
+    }
+  },
+  {
+    "name": "termination-linux-cgroup",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "session": "SES-example",
+      "operation_id": "11111111-1111-4111-8111-111111111111",
+      "manager": "demo",
+      "runtime": "codex_cli",
+      "native_id": null,
+      "readable": true,
+      "state": "down",
+      "labels": {},
+      "generation": 1,
+      "started_at": "2026-01-01T00:00:00Z",
+      "last_activity_at": null,
+      "doorbell": {
+        "state": "off",
+        "uncertain": false,
+        "generation": null,
+        "reason": null
+      },
+      "termination": {
+        "scope": "linux-cgroup",
+        "witness": "populated-0"
+      }
+    }
+  },
+  {
+    "name": "termination-dedicated-uid",
+    "valid": true,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "session": "SES-example",
+      "operation_id": "11111111-1111-4111-8111-111111111111",
+      "manager": "demo",
+      "runtime": "codex_cli",
+      "native_id": null,
+      "readable": true,
+      "state": "down",
+      "labels": {},
+      "generation": 1,
+      "started_at": "2026-01-01T00:00:00Z",
+      "last_activity_at": null,
+      "doorbell": {
+        "state": "off",
+        "uncertain": false,
+        "generation": null,
+        "reason": null
+      },
+      "termination": {
+        "scope": "dedicated-uid",
+        "witness": "zero-process-proof"
+      }
+    }
+  },
+  {
+    "name": "process-pid-0",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "session": "SES-example",
+      "operation_id": "11111111-1111-4111-8111-111111111111",
+      "manager": "demo",
+      "runtime": "codex_cli",
+      "native_id": null,
+      "readable": true,
+      "state": "idle",
+      "labels": {},
+      "generation": 1,
+      "started_at": "2026-01-01T00:00:00Z",
+      "last_activity_at": null,
+      "doorbell": {
+        "state": "off",
+        "uncertain": false,
+        "generation": null,
+        "reason": null
+      },
+      "process": {
+        "pid": 0,
+        "uid": 1001,
+        "boot_id": "6f1c0e2a-8b44-4d1e-9a51-2f0c3d7e9b10",
+        "start_time": {
+          "kind": "linux-stat-starttime",
+          "ticks": "123456789",
+          "hz": 100
+        }
+      }
+    }
+  },
+  {
+    "name": "process-uid-4294967295",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "session": "SES-example",
+      "operation_id": "11111111-1111-4111-8111-111111111111",
+      "manager": "demo",
+      "runtime": "codex_cli",
+      "native_id": null,
+      "readable": true,
+      "state": "idle",
+      "labels": {},
+      "generation": 1,
+      "started_at": "2026-01-01T00:00:00Z",
+      "last_activity_at": null,
+      "doorbell": {
+        "state": "off",
+        "uncertain": false,
+        "generation": null,
+        "reason": null
+      },
+      "process": {
+        "pid": 4242,
+        "uid": 4294967295,
+        "boot_id": "6f1c0e2a-8b44-4d1e-9a51-2f0c3d7e9b10",
+        "start_time": {
+          "kind": "linux-stat-starttime",
+          "ticks": "123456789",
+          "hz": 100
+        }
+      }
+    }
+  },
+  {
+    "name": "process-boot_id-uppercase",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "session": "SES-example",
+      "operation_id": "11111111-1111-4111-8111-111111111111",
+      "manager": "demo",
+      "runtime": "codex_cli",
+      "native_id": null,
+      "readable": true,
+      "state": "idle",
+      "labels": {},
+      "generation": 1,
+      "started_at": "2026-01-01T00:00:00Z",
+      "last_activity_at": null,
+      "doorbell": {
+        "state": "off",
+        "uncertain": false,
+        "generation": null,
+        "reason": null
+      },
+      "process": {
+        "pid": 4242,
+        "uid": 1001,
+        "boot_id": "6F1C0E2A-8B44-4D1E-9A51-2F0C3D7E9B10",
+        "start_time": {
+          "kind": "linux-stat-starttime",
+          "ticks": "123456789",
+          "hz": 100
+        }
+      }
+    }
+  },
+  {
+    "name": "process-ticks-leading-zero",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "session": "SES-example",
+      "operation_id": "11111111-1111-4111-8111-111111111111",
+      "manager": "demo",
+      "runtime": "codex_cli",
+      "native_id": null,
+      "readable": true,
+      "state": "idle",
+      "labels": {},
+      "generation": 1,
+      "started_at": "2026-01-01T00:00:00Z",
+      "last_activity_at": null,
+      "doorbell": {
+        "state": "off",
+        "uncertain": false,
+        "generation": null,
+        "reason": null
+      },
+      "process": {
+        "pid": 4242,
+        "uid": 1001,
+        "boot_id": "6f1c0e2a-8b44-4d1e-9a51-2f0c3d7e9b10",
+        "start_time": {
+          "kind": "linux-stat-starttime",
+          "ticks": "0123",
+          "hz": 100
+        }
+      }
+    }
+  },
+  {
+    "name": "process-sec-21-digits",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "session": "SES-example",
+      "operation_id": "11111111-1111-4111-8111-111111111111",
+      "manager": "demo",
+      "runtime": "codex_cli",
+      "native_id": null,
+      "readable": true,
+      "state": "idle",
+      "labels": {},
+      "generation": 1,
+      "started_at": "2026-01-01T00:00:00Z",
+      "last_activity_at": null,
+      "doorbell": {
+        "state": "off",
+        "uncertain": false,
+        "generation": null,
+        "reason": null
+      },
+      "process": {
+        "pid": 4242,
+        "uid": 1001,
+        "boot_id": "6f1c0e2a-8b44-4d1e-9a51-2f0c3d7e9b10",
+        "start_time": {
+          "kind": "darwin-pbi-start",
+          "sec": "100000000000000000000",
+          "usec": 250000
+        }
+      }
+    }
+  },
+  {
+    "name": "process-hz-0",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "session": "SES-example",
+      "operation_id": "11111111-1111-4111-8111-111111111111",
+      "manager": "demo",
+      "runtime": "codex_cli",
+      "native_id": null,
+      "readable": true,
+      "state": "idle",
+      "labels": {},
+      "generation": 1,
+      "started_at": "2026-01-01T00:00:00Z",
+      "last_activity_at": null,
+      "doorbell": {
+        "state": "off",
+        "uncertain": false,
+        "generation": null,
+        "reason": null
+      },
+      "process": {
+        "pid": 4242,
+        "uid": 1001,
+        "boot_id": "6f1c0e2a-8b44-4d1e-9a51-2f0c3d7e9b10",
+        "start_time": {
+          "kind": "linux-stat-starttime",
+          "ticks": "123456789",
+          "hz": 0
+        }
+      }
+    }
+  },
+  {
+    "name": "process-usec-1000000",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "session": "SES-example",
+      "operation_id": "11111111-1111-4111-8111-111111111111",
+      "manager": "demo",
+      "runtime": "codex_cli",
+      "native_id": null,
+      "readable": true,
+      "state": "idle",
+      "labels": {},
+      "generation": 1,
+      "started_at": "2026-01-01T00:00:00Z",
+      "last_activity_at": null,
+      "doorbell": {
+        "state": "off",
+        "uncertain": false,
+        "generation": null,
+        "reason": null
+      },
+      "process": {
+        "pid": 4242,
+        "uid": 1001,
+        "boot_id": "6f1c0e2a-8b44-4d1e-9a51-2f0c3d7e9b10",
+        "start_time": {
+          "kind": "darwin-pbi-start",
+          "sec": "1763251200",
+          "usec": 1000000
+        }
+      }
+    }
+  },
+  {
+    "name": "process-unknown-kind",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "session": "SES-example",
+      "operation_id": "11111111-1111-4111-8111-111111111111",
+      "manager": "demo",
+      "runtime": "codex_cli",
+      "native_id": null,
+      "readable": true,
+      "state": "idle",
+      "labels": {},
+      "generation": 1,
+      "started_at": "2026-01-01T00:00:00Z",
+      "last_activity_at": null,
+      "doorbell": {
+        "state": "off",
+        "uncertain": false,
+        "generation": null,
+        "reason": null
+      },
+      "process": {
+        "pid": 4242,
+        "uid": 1001,
+        "boot_id": "6f1c0e2a-8b44-4d1e-9a51-2f0c3d7e9b10",
+        "start_time": {
+          "kind": "linux-jiffies",
+          "ticks": "1",
+          "hz": 100
+        }
+      }
+    }
+  },
+  {
+    "name": "process-extra-member",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "session": "SES-example",
+      "operation_id": "11111111-1111-4111-8111-111111111111",
+      "manager": "demo",
+      "runtime": "codex_cli",
+      "native_id": null,
+      "readable": true,
+      "state": "idle",
+      "labels": {},
+      "generation": 1,
+      "started_at": "2026-01-01T00:00:00Z",
+      "last_activity_at": null,
+      "doorbell": {
+        "state": "off",
+        "uncertain": false,
+        "generation": null,
+        "reason": null
+      },
+      "process": {
+        "pid": 4242,
+        "uid": 1001,
+        "boot_id": "6f1c0e2a-8b44-4d1e-9a51-2f0c3d7e9b10",
+        "start_time": {
+          "kind": "linux-stat-starttime",
+          "ticks": "123456789",
+          "hz": 100
+        },
+        "started_at": "2026-01-01T00:00:00Z"
+      }
+    }
+  },
+  {
+    "name": "process-on-down",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "session": "SES-example",
+      "operation_id": "11111111-1111-4111-8111-111111111111",
+      "manager": "demo",
+      "runtime": "codex_cli",
+      "native_id": null,
+      "readable": true,
+      "state": "down",
+      "labels": {},
+      "generation": 1,
+      "started_at": "2026-01-01T00:00:00Z",
+      "last_activity_at": null,
+      "doorbell": {
+        "state": "off",
+        "uncertain": false,
+        "generation": null,
+        "reason": null
+      },
+      "process": {
+        "pid": 4242,
+        "uid": 1001,
+        "boot_id": "6f1c0e2a-8b44-4d1e-9a51-2f0c3d7e9b10",
+        "start_time": {
+          "kind": "linux-stat-starttime",
+          "ticks": "123456789",
+          "hz": 100
+        }
+      }
+    }
+  },
+  {
+    "name": "process-on-unknown",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "session": "SES-example",
+      "operation_id": "11111111-1111-4111-8111-111111111111",
+      "manager": "demo",
+      "runtime": "codex_cli",
+      "native_id": null,
+      "readable": true,
+      "state": "unknown",
+      "labels": {},
+      "generation": 1,
+      "started_at": "2026-01-01T00:00:00Z",
+      "last_activity_at": null,
+      "doorbell": {
+        "state": "off",
+        "uncertain": false,
+        "generation": null,
+        "reason": null
+      },
+      "process": {
+        "pid": 4242,
+        "uid": 1001,
+        "boot_id": "6f1c0e2a-8b44-4d1e-9a51-2f0c3d7e9b10",
+        "start_time": {
+          "kind": "linux-stat-starttime",
+          "ticks": "123456789",
+          "hz": 100
+        }
+      }
+    }
+  },
+  {
+    "name": "termination-on-idle",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "session": "SES-example",
+      "operation_id": "11111111-1111-4111-8111-111111111111",
+      "manager": "demo",
+      "runtime": "codex_cli",
+      "native_id": null,
+      "readable": true,
+      "state": "idle",
+      "labels": {},
+      "generation": 1,
+      "started_at": "2026-01-01T00:00:00Z",
+      "last_activity_at": null,
+      "doorbell": {
+        "state": "off",
+        "uncertain": false,
+        "generation": null,
+        "reason": null
+      },
+      "termination": {
+        "scope": "linux-cgroup",
+        "witness": "populated-0"
+      }
+    }
+  },
+  {
+    "name": "termination-crossed-witness",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "session": "SES-example",
+      "operation_id": "11111111-1111-4111-8111-111111111111",
+      "manager": "demo",
+      "runtime": "codex_cli",
+      "native_id": null,
+      "readable": true,
+      "state": "down",
+      "labels": {},
+      "generation": 1,
+      "started_at": "2026-01-01T00:00:00Z",
+      "last_activity_at": null,
+      "doorbell": {
+        "state": "off",
+        "uncertain": false,
+        "generation": null,
+        "reason": null
+      },
+      "termination": {
+        "scope": "linux-cgroup",
+        "witness": "zero-process-proof"
+      }
+    }
+  },
+  {
+    "name": "process-on-unreadable",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "session": "SES-example",
+      "operation_id": null,
+      "manager": "demo",
+      "runtime": null,
+      "native_id": null,
+      "readable": false,
+      "state": "unknown",
+      "labels": {},
+      "generation": null,
+      "started_at": null,
+      "last_activity_at": null,
+      "doorbell": {
+        "state": "off",
+        "uncertain": false,
+        "generation": null,
+        "reason": null
+      },
+      "process": {
+        "pid": 4242,
+        "uid": 1001,
+        "boot_id": "6f1c0e2a-8b44-4d1e-9a51-2f0c3d7e9b10",
+        "start_time": {
+          "kind": "linux-stat-starttime",
+          "ticks": "123456789",
+          "hz": 100
+        }
+      }
+    }
+  },
+  {
+    "name": "termination-on-unreadable",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "session": "SES-example",
+      "operation_id": null,
+      "manager": "demo",
+      "runtime": null,
+      "native_id": null,
+      "readable": false,
+      "state": "unknown",
+      "labels": {},
+      "generation": null,
+      "started_at": null,
+      "last_activity_at": null,
+      "doorbell": {
+        "state": "off",
+        "uncertain": false,
+        "generation": null,
+        "reason": null
+      },
+      "termination": {
+        "scope": "dedicated-uid",
+        "witness": "zero-process-proof"
+      }
+    }
+  },
+  {
+    "name": "no_start-on-session",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "session": "SES-example",
+      "operation_id": "11111111-1111-4111-8111-111111111111",
+      "manager": "demo",
+      "runtime": "codex_cli",
+      "native_id": null,
+      "readable": true,
+      "state": "down",
+      "labels": {},
+      "generation": 1,
+      "started_at": "2026-01-01T00:00:00Z",
+      "last_activity_at": null,
+      "doorbell": {
+        "state": "off",
+        "uncertain": false,
+        "generation": null,
+        "reason": null
+      },
+      "no_start": "proved"
+    }
   }
 ]
