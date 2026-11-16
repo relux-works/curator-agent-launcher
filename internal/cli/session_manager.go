@@ -11,9 +11,9 @@ import (
 var observationHandle = regexp.MustCompile(`^SES-[A-Za-z0-9]{1,48}$`)
 
 // The frozen-binding values follow the published observation-v2 and
-// session-record shapes: a UTC RFC 3339 registration time, and a positive
-// generation within the safe-integer range.
-var observationRegisteredAt = regexp.MustCompile(`^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]+)?(Z|[+-]00:00)$`)
+// session-record shapes: a registration time under the registry's own rule
+// (sessionmanager.ValidRegisteredAt), and a positive generation within the
+// safe-integer range.
 var observationGeneration = regexp.MustCompile(`^[1-9][0-9]{0,15}$`)
 
 const observationMaxGeneration = 9007199254740991
@@ -89,7 +89,7 @@ func parseSessionManager(args []string) (sessionmanager.Command, error) {
 					return fail("--expect-registered-at given twice")
 				}
 				i++
-				if i == len(args) || !observationRegisteredAt.MatchString(args[i]) {
+				if i == len(args) || !sessionmanager.ValidRegisteredAt(args[i]) {
 					return fail("--expect-registered-at needs a UTC RFC 3339 timestamp")
 				}
 				c.ExpectRegisteredAt = args[i]

@@ -52,8 +52,9 @@ func TestProcessObservationToken(t *testing.T) {
 }
 
 // Claim: without the token, every response shape that the pinned 1.3.0/1.1.0
-// schemas admit with a negotiated member (launch, status, stop, a list row, a
-// started outcome's session, and failed or cancelled outcomes with no_start)
+// schemas admit with a negotiated member (launch, resume, status, stop, list
+// rows, a started outcome's session, and failed or cancelled outcomes with
+// no_start on cancel and on operation status)
 // is refused as session_host_protocol_error with no partial result. Each body
 // is first checked against the pinned schema, so the refusal comes from the
 // capability rule and not from validation. Beside each: the same body is
@@ -63,6 +64,7 @@ func TestProcessObservationMembersNeedToken(t *testing.T) {
 	statusReq := []byte(`{"session":"SES-example"}`)
 	stopReq := []byte(`{"session":"SES-example","expected_generation":1,"mode":"graceful","precondition":"none"}`)
 	launchReq := document(t, "launch")
+	resumeReq := document(t, "resume")
 
 	withProcess := envelopedRow("idle")
 	withProcess["process"] = liveProcess()
@@ -75,6 +77,13 @@ func TestProcessObservationMembersNeedToken(t *testing.T) {
 	}
 	processRow := plainRow()
 	processRow["process"] = liveProcess()
+	downRow := func() map[string]any {
+		row := sessionRow()
+		row["state"] = "down"
+		return row
+	}
+	terminationRow := downRow()
+	terminationRow["termination"] = map[string]any{"scope": "linux-cgroup", "witness": "populated-0"}
 
 	cases := []struct {
 		name, op, schema string
@@ -82,12 +91,17 @@ func TestProcessObservationMembersNeedToken(t *testing.T) {
 		with, without    map[string]any
 	}{
 		{"launch-process", "launch", "session", launchReq, withProcess, envelopedRow("idle")},
+		{"resume-process", "resume", "session", resumeReq, withProcess, envelopedRow("idle")},
 		{"status-process", "status", "session", statusReq, withProcess, envelopedRow("idle")},
 		{"stop-process", "stop", "session", stopReq, withProcess, envelopedRow("idle")},
+		{"stop-termination", "stop", "session", stopReq, withTermination, envelopedRow("down")},
 		{"status-termination", "status", "session", statusReq, withTermination, envelopedRow("down")},
 		{"list-row-process", "list", "list-page", []byte(`{}`),
 			map[string]any{"protocol": Protocol, "ok": true, "sessions": []map[string]any{processRow}, "next_cursor": nil},
 			map[string]any{"protocol": Protocol, "ok": true, "sessions": []map[string]any{plainRow()}, "next_cursor": nil}},
+		{"list-row-termination", "list", "list-page", []byte(`{}`),
+			map[string]any{"protocol": Protocol, "ok": true, "sessions": []map[string]any{terminationRow}, "next_cursor": nil},
+			map[string]any{"protocol": Protocol, "ok": true, "sessions": []map[string]any{downRow()}, "next_cursor": nil}},
 		{"started-outcome-process", "status", "outcome", statusRequest(),
 			map[string]any{"protocol": Protocol, "ok": true, "outcome": "started", "session": processRow},
 			map[string]any{"protocol": Protocol, "ok": true, "outcome": "started", "session": plainRow()}},
@@ -95,6 +109,12 @@ func TestProcessObservationMembersNeedToken(t *testing.T) {
 			map[string]any{"protocol": Protocol, "ok": true, "outcome": "failed", "code": "policy_refused", "no_start": "proved"},
 			map[string]any{"protocol": Protocol, "ok": true, "outcome": "failed", "code": "policy_refused"}},
 		{"cancel-cancelled-no-start", "cancel", "outcome", statusRequest(),
+			map[string]any{"protocol": Protocol, "ok": true, "outcome": "cancelled", "no_start": "proved"},
+			map[string]any{"protocol": Protocol, "ok": true, "outcome": "cancelled"}},
+		{"opstatus-failed-no-start", "status", "outcome", statusRequest(),
+			map[string]any{"protocol": Protocol, "ok": true, "outcome": "failed", "code": "policy_refused", "no_start": "proved"},
+			map[string]any{"protocol": Protocol, "ok": true, "outcome": "failed", "code": "policy_refused"}},
+		{"opstatus-cancelled-no-start", "status", "outcome", statusRequest(),
 			map[string]any{"protocol": Protocol, "ok": true, "outcome": "cancelled", "no_start": "proved"},
 			map[string]any{"protocol": Protocol, "ok": true, "outcome": "cancelled"}},
 	}
@@ -130,7 +150,8 @@ func TestProcessObservationMembersNeedToken(t *testing.T) {
 
 // Claim: the token admits the members only as the pinned schemas define them.
 // A malformed process, an unknown process member, process on a down record,
-// termination on a live record and no_start on a started outcome stay
+// termination on a live record and no_start on started or any other
+// non-failed/cancelled outcome stay
 // session_host_protocol_error with the token; beside them the well-formed
 // record is admitted and its status record keeps process unchanged.
 func TestProcessObservationTokenDoesNotWidenSchemas(t *testing.T) {
@@ -174,6 +195,10 @@ func TestProcessObservationTokenDoesNotWidenSchemas(t *testing.T) {
 	started["state"] = "idle"
 	_, err = DecodeAdmitted("status", statusRequest(), encoded(map[string]any{"protocol": Protocol, "ok": true, "outcome": "started", "session": started, "no_start": "proved"}), 0, "demo", token)
 	requireCode(t, err, "session_host_protocol_error")
+	for _, other := range []string{"prepared", "admitted", "not_found", "unknown"} {
+		_, err = DecodeAdmitted("status", statusRequest(), encoded(map[string]any{"protocol": Protocol, "ok": true, "outcome": other, "no_start": "proved"}), 0, "demo", token)
+		requireCode(t, err, "session_host_protocol_error")
+	}
 }
 
 // Claim: with a frozen generation, a direct status record must name this

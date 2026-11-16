@@ -23,6 +23,12 @@ import (
 // executed; the record half (manager, session, generation) is compared by the
 // client on the validated status record. Either mismatch prints nothing.
 func runManagerObservation(ctx context.Context, command sessionmanager.Command, stdout, stderr io.Writer, resolver configfile.Resolver, deps launchDeps) int {
+	// The frozen check must not rest on the CLI parser alone: a v2 command
+	// built without its required binding never reaches the registry, so no
+	// record can be printed as if the comparison had taken place.
+	if command.Schema == "v2" && (command.ExpectGeneration < 1 || command.ExpectRegisteredAt == "") {
+		return emitHostFailure(stderr, &client.Error{Code: "session_generation_mismatch"})
+	}
 	// Keep refusals to one closed diagnostic even for a deprecated registry path.
 	resolver.Stderr = io.Discard
 	registry, _, err := sessionmanager.Load(resolver)

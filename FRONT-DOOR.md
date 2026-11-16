@@ -619,7 +619,8 @@ and vectors are published in the nested session-manager module as
 `session-observation.schema.json` and `vectors/session-observation.json`.
 
 A valid `readable:false` or `state:unknown` record is evidence and exits 0
-unchanged; it does not release a home lease. A missing valid record refuses with
+unchanged; it does not release a home lease. In v2 an unreadable record has
+no generation evidence and refuses `session_generation_mismatch` (1). A missing valid record refuses with
 an existing closed code/exit (§11), including manager-returned not-found or
 liveness-unknown refusals. Invalid or unreachable managers, malformed responses
 and timeouts produce no stdout and one diagnostic line on stderr. Plugin text
@@ -634,8 +635,8 @@ requires `--expect-registered-at <ts>` and `--expect-generation <n>`, plus
 binding (§5.7, §6.5) and are compared as d5 §1.3a states. A mismatch prints
 nothing and refuses `session_generation_mismatch` (1). The RPCs are still one
 `describe` and one `status {session}`, with no writes. v2 copies `process` and
-`termination` byte for byte and adds `capabilities: {"process_observation":
-bool}` from that `describe`. Over a capable manager, v1 validates the complete
+`termination` token for token, without insignificant whitespace, and adds
+`capabilities: {"process_observation": bool}` from that `describe`. Over a capable manager, v1 validates the complete
 record first and then removes exactly those two members. Invalid input
 refuses and is never stripped.
 
@@ -793,15 +794,34 @@ The v1 capability tokens are closed. An unknown token confers nothing.
   protected local credential API, as the hosted token route of Appendix B
   requires. It is only an intake gate (§9).
 - **`labels/1`.** Labels are retained, and `list` filters by them.
-- **`process-observation/1`** (observation-v2 contract d5; implemented for
-  `session-manager observe`, §4.3). It is valid only together with `status/1`.
-  Only `observe` negotiates it. Every other operation (launch, resume, stop,
-  list, cancel and operation status) still refuses `process`, `termination`
-  and `no_start`, also from a manager that advertises the token, until a
-  later unit admits them there.
-  It admits the session-record 1.3.0 members (§5.4) and outcome 1.1.0
-  `no_start`. Without the token, any of them is `session_host_protocol_error`
-  (6). It changes no other operation.
+- **`process-observation/1`** (observation-v2 contract d5). It is valid only
+  together with `status/1` and admits the session-record 1.3.0 members
+  `process` and `termination` (§5.4) and outcome 1.1.0 `no_start`, on
+  top-level records, an outcome's embedded session and every list row.
+  Without the token, any of them is `session_host_protocol_error` (6) on
+  every path, and nothing is stripped to make a response pass. Where the
+  admission comes from is fixed per path, and the token changes no
+  operation's RPC sequence:
+  - `observe` (§4.3), a delegated launch or resume, and a Werkstatt `up`
+    (its launch or resume, the inventory `list`, and the read of a previous
+    session owned by the same manager) admit under the `describe` the same
+    run already makes to that manager, including the reconciliation through
+    operation status and `cancel` after a lost answer. On the leased paths
+    those capabilities are frozen into the lease admission before
+    submission;
+  - recovery of an operation that was already submitted admits under the
+    capabilities frozen in its lease admission, and only while the current
+    registry entry is still that frozen owner;
+  - every other path keeps the no-token rule: `stop`; the owner status
+    reads of Werkstatt `down`, `recycle` (draining polls) and
+    `status`/`update`/`recover`, including a rebind read; the read of a
+    previous session owned by another manager during `up`; and recovery of
+    an operation that holds no lease admission. Those paths make no
+    `describe` and hold no frozen capabilities, so admitting the members
+    there is an open point of the contract.
+
+  Only `observe --schema v2` prints the members; every other caller keeps
+  the 1.2.0 session shape it already consumes.
 - **`survives-upgrade`, `drains-on-upgrade`.** The manager's upgrade
   behaviour (§3.3).
 
@@ -1167,7 +1187,7 @@ Validation (§5.6 applies to the whole record):
   `1.0.0` record stays valid.
 
 **1.3.0** (observation-v2 contract d5 §§3–4; implemented in the launcher
-consumer, `session-manager observe`, §4.3). Both the enveloped `session` and the envelope-free
+consumer, §5.2). Both the enveloped `session` and the envelope-free
 `session-record` are 1.3.0. With `process-observation/1`, a readable record
 may carry two optional closed members:
 

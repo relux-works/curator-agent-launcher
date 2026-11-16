@@ -31,8 +31,17 @@ type Client struct {
 	Environment []string
 	CWD         string
 	// Admission is the zero value unless the caller negotiated it from this
-	// manager's describe; see Admission.
+	// manager's describe or from the capabilities frozen for its pending
+	// operation; see Admission.
 	Admission Admission
+}
+
+// WithAdmission returns a copy of the client that decodes under admission.
+// The receiver is unchanged, so admitting one operation never admits another
+// client bound to the same entry.
+func (c Client) WithAdmission(admission Admission) Client {
+	c.Admission = admission
+	return c
 }
 
 func Deadline(operation string) time.Duration {
@@ -257,7 +266,9 @@ func (c Client) Call(ctx context.Context, operation string, request []byte) (Res
 }
 
 // Start submits a plain launch/resume once. A lost or poisoned answer triggers
-// one bounded reconciliation loop; a formal refusal is already terminal.
+// one bounded reconciliation loop; a formal refusal is already terminal. The
+// client's Admission, negotiated by the caller from this manager's describe,
+// covers the submission and every reconciliation decode of the same start.
 // Werkstatt callers use Reconciler.Submit instead, to persist correlation first.
 func (c Client) Start(ctx context.Context, operation string, request []byte) (*Session, error) {
 	if operation != "launch" && operation != "resume" {

@@ -15,14 +15,25 @@
   v2` requires `--expect-registered-at` and `--expect-generation` (optionally
   `--expect-executable`), admits evidence only from that frozen owner and
   otherwise refuses `session_generation_mismatch` with empty stdout. It emits
-  `curator-run-session-observation-v2` with `process`/`termination` as sent and
+  `curator-run-session-observation-v2` with `process`/`termination` copied
+  token for token, without insignificant whitespace, and with
   `capabilities.process_observation` from the same `describe`. The client now
   admits `process`, `termination` and `no_start` only under
   `process-observation/1` with `status/1`; without the token they remain
   `session_host_protocol_error`. The default v1 output is unchanged and is the
   validated 1.2.0 projection over a capable manager. No refusal code is added.
-  Only `observe` negotiates the token: every other operation still refuses
-  the three members, also from a manager that advertises it.
+- Admit the observation-v2 members beyond `observe`. Delegated and Werkstatt
+  launches and resumes (including reconciliation through operation status and
+  `cancel`), the Werkstatt `up` inventory list and same-manager session reads
+  now decode `process`, `termination` and `no_start` under the `describe` the
+  run already makes, frozen into the lease admission at submission; recovery
+  of a submitted operation admits under those frozen capabilities while the
+  registry still names the frozen owner. Paths with neither source
+  (Werkstatt `down`/`status` owner reads, `stop`, rebind, cross-manager reads
+  and unleased recovery) still refuse the members. No operation gains an RPC
+  and no refusal code is added; only `observe --schema v2` prints the
+  members. An impossible `--expect-registered-at` date is now a usage
+  refusal, under the registry's own timestamp rule.
 
 ## 0.7.0 — 2026-11-11
 

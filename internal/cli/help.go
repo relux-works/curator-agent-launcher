@@ -111,9 +111,11 @@ process-observation/1.
 --schema v2 requires the owner binding frozen before submission:
 --expect-registered-at <ts> and --expect-generation <n>, plus
 --expect-executable <abs> when an executable was frozen. A registration,
-manager, session or generation that differs prints nothing and refuses
-session_generation_mismatch (1). The --expect flags without --schema v2, a
-repeated flag and any other --schema value refuse usage (2) before any call.
+executable, manager, session or generation that differs prints nothing and
+refuses session_generation_mismatch (1). In v2 an unreadable record has no
+generation evidence and refuses session_generation_mismatch (1).
+The --expect flags without --schema v2, a repeated flag and any other
+--schema value refuse usage (2) before any call.
 `,
 	"register": `usage: curator-run session-manager register --manifest <path|-> [--select | --no-select] [--scope user|system]
 

@@ -26,6 +26,9 @@ PROTOCOL=internal/sessionmanager/client/protocol.go
 TOKEN=internal/sessionmanager/client/process_observation.go
 OBSERVE=cmd/curator-run/observe.go
 PARSER=internal/cli/session_manager.go
+RECONCILE=internal/sessionmanager/client/reconcile_unix.go
+ADMISSION=internal/sessionmanager/client/admission_unix.go
+CLIENT=./internal/sessionmanager/client
 
 # Fields separated by "@@": id, file, package, named test, from, to.
 # from/to are literal text; the first occurrence is replaced.
@@ -43,7 +46,40 @@ plants=(
 	if managerschema.Validate(schema+".schema.json", body) != nil {'
   # Default to v2.
   "P4@@$PARSER@@./cmd/curator-run@@TestObserveDefaultSchemaIsV1@@c.Schema = \"v1\"@@c.Schema = \"v2\""
+  # Drop the frozen generation comparison: a reused handle is accepted.
+  "P5@@$PROTOCOL@@./cmd/curator-run@@TestObserveV2FrozenBinding/reused-handle-other-generation@@ || result.Session.Generation != admission.FrozenGeneration@@"
+  # Drop the frozen executable comparison: a replaced manager is accepted.
+  "P6@@$OBSERVE@@./cmd/curator-run@@TestObserveV2FrozenBinding/changed-executable@@ || (command.ExpectExecutable != \"\" && entry.Executable != command.ExpectExecutable)@@"
+  # Skip the v1 projection: v1 output keeps the 1.3.0 members.
+  "P7@@$OBSERVE@@./cmd/curator-run@@TestObserveV2CapableAndLegacy/capable-v1-projection-process@@if record, err = client.SessionRecordV1(record); err != nil {@@if false {"
+  # Drop the admission the operation's owner carries, so the reconciliation
+  # decode after a launch refuses the outcome's process member again.
+  "P8@@$RECONCILE@@$CLIENT@@TestLeasedLaunchAdmitsProcessObservation/reconciled-outcome-process@@cl.WithAdmission(frozenAdmission(p, entry))@@cl.WithAdmission(Admission{})"
+  # Admit recovery from a non-frozen manager: a re-registered id is called.
+  "P9@@$RECONCILE@@$CLIENT@@TestHomeLeaseCrashAndDrift/registration-changed@@ || p.Lease != nil && entry.RegisteredAt != p.Manager.RegisteredAt@@"
+  # Ignore status/1 in the token rule, witnessed on a non-observe path.
+  "P10@@$TOKEN@@$CLIENT@@TestFrozenAdmission@@return slices.Contains(d.Capabilities, \"status/1\") && slices.Contains(d.Capabilities, ProcessObservationCapability)@@return slices.Contains(d.Capabilities, ProcessObservationCapability)"
+  # Read the frozen capability without the owner comparison.
+  "P11@@$ADMISSION@@$CLIENT@@TestFrozenAdmission@@if p.Lease == nil || entry.Executable != p.Manager.Executable || entry.RegisteredAt != p.Manager.RegisteredAt {@@if p.Lease == nil {"
 )
+
+# A requested id that names no plant, or a run that evaluates none, must
+# never pass as if every plant had been killed.
+ids=""
+for p in "${plants[@]}"; do ids="$ids ${p%%@@*}"; done
+if [ -n "${CONTROLS_ONLY:-}" ]; then
+  requested=$(printf '%s' "$CONTROLS_ONLY" | tr ',' ' ')
+  for want in $requested; do
+    found=0
+    for id in $ids; do
+      if [ "$want" = "$id" ]; then found=1; fi
+    done
+    if [ "$found" = 0 ]; then
+      echo "unknown plant id in CONTROLS_ONLY: $want (known:$ids)" >&2
+      exit 1
+    fi
+  done
+fi
 
 run_named() { # package, named test, log
   local pattern="^${2//\//\$/^}\$"
@@ -51,11 +87,13 @@ run_named() { # package, named test, log
 }
 
 status=0
+evaluated=0
 summary="$out/summary.tsv"
 printf 'plant\tfile\tnamed_test\tcontrol_passed\tapplied\ttest_exit\tnamed_test_failed\tverdict\n' >"$summary"
 for p in "${plants[@]}"; do
   id="${p%%@@*}"; rest="${p#*@@}"
   if [ -n "${CONTROLS_ONLY:-}" ] && ! printf ',%s,' "$CONTROLS_ONLY" | grep -q ",$id,"; then continue; fi
+  evaluated=$((evaluated + 1))
   file="${rest%%@@*}"; rest="${rest#*@@}"
   pkg="${rest%%@@*}"; rest="${rest#*@@}"
   test="${rest%%@@*}"; rest="${rest#*@@}"
@@ -95,6 +133,10 @@ if src.count(f) == 1:
   printf '%s\t%s\t%s\tyes\tyes\t%s\t%s\t%s\n' "$id" "$file" "$test" "$code" "$failed" "$verdict" >>"$summary"
   cp "$root/$file" "$file"
 done
+if [ "$evaluated" -eq 0 ]; then
+  echo "no plants evaluated" >&2
+  status=1
+fi
 column -t -s $'\t' "$summary" 2>/dev/null || cat "$summary"
 echo "evidence: $out"
 exit "$status"

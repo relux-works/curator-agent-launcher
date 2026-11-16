@@ -1359,6 +1359,14 @@ manager v1 validates the complete record and then omits exactly those two
 members. The `--expect-*` values are the owner binding frozen before
 submission: a different `registered_at`, executable, manager, session or
 generation prints nothing and refuses `session_generation_mismatch` (1).
+In v2 an unreadable record has no generation evidence and refuses
+`session_generation_mismatch` (1). Launch, resume and Werkstatt `up` paths
+admit the same members under the `describe` they already make, frozen into
+the lease admission at submission, and recovery of a submitted operation
+admits under those frozen capabilities while the registry still names the
+frozen owner; paths with neither source (for example Werkstatt `down` and
+`status` owner reads and `stop`) still refuse them, and only
+`observe --schema v2` prints them.
 It never reads or writes launcher liveness, journals or Werkstatt state, and
 never locks or changes the registry. See [the contract](FRONT-DOOR.md#read-only-session-observation)
 and [the output schema](schemas/session-manager/session-observation.schema.json).
@@ -1790,6 +1798,7 @@ five signing secrets.
 | `.scripts/context-mutants.py` | check positive baselines, then narrow carrier engagement, reserved-member exclusion, permissions, deprecated-alias refusal, native suffix and replacement of the selected dependency in an isolated candidate copy; scrub fixture Git routing/config, with a five-minute bound per Go invocation | `python3 .scripts/context-mutants.py [evidence-dir]` | isolated copy, positive/per-mutant logs, `selected-module.json`, `restoration.json` and `summary.tsv`, default `.temp/context-mutants/` |
 | production pipeline mutants | narrow native late checks at `run(...)` in a scratch copy | `python3 .scripts/pipeline-mutants.py [evidence-dir]` | per-mutant logs and `summary.tsv`; 6 named narrowing probes |
 | CLI goldens | frozen accepted/rejected §3 shapes | `go test ./internal/cli -run TestGolden -update` to regenerate, then review the diff | `internal/cli/testdata/cases.golden` |
+| `scripts/observation-v2-controls.sh` | plant controls for the observation-v2 consumer: each plant weakens one gate in a scratch copy and its named test must fail | `make observation-v2-controls` (`CONTROLS_ONLY=P1,P2` selects a subset) | per-plant logs and `summary.tsv` under `.temp/observation-v2-controls/`; the working tree is never mutated |
 | `.scripts/hosted-mutants.sh` / `.scripts/host-launch-mutants.py` | Bounded host resolution, matrix and request controls; each plant requires its passing control and named behavioral assertion. Missing anchors fail closed. | `.scripts/hosted-mutants.sh [evidence-dir]` (`MUTANTS_ONLY=M-H1,M-H2` selects a subset) | isolated source copy, per-control logs and `summary.tsv` under `.temp/hosted-mutants/` by default; working source is untouched |
 | `internal/mutantguard` | committed check that runs required withdrawn-host, no-fallback, native-bypass and missing-registration mutants M-H1, M-H2, M-H3 and M-H22 through the harness in a scratch copy of the tree and requires each to be applied and killed | `go test ./internal/mutantguard` | scratch copy under the test temp dir; the working tree is never mutated |
 | `.scripts/cli-mutants.sh` | narrowing-mutant harness for the §3 gates: each mutant weakens one gate to admit one rejected shape and the named test must fail | `.scripts/cli-mutants.sh [evidence-dir]` (optional `MUTANT_PKGS`, `MUTANT_RUN` for bounded batches) | per-mutant logs and `summary.tsv` under the evidence dir (default `.temp/cli-mutants/`); the source tree is restored on exit |

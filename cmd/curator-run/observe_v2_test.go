@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/relux-works/curator-agent-launcher/internal/configfile"
 	"github.com/relux-works/curator-agent-launcher/internal/sessionmanager"
 	managerschema "github.com/relux-works/curator-agent-launcher/schemas/session-manager"
 )
@@ -136,6 +137,13 @@ func observeV2Run(t *testing.T, binary string, tc observeV2Case) []byte {
 	}
 	if calls := observeTrace(t, path); !slices.Equal(calls, tc.calls) {
 		t.Fatalf("RPC trace %v want %v", calls, tc.calls)
+	}
+	if len(tc.calls) == 0 {
+		// The trace alone cannot show that no manager ran: a spawned manager
+		// with no scripted step leaves only its pid record.
+		if _, err := os.Stat(path + ".pids"); !os.IsNotExist(err) {
+			t.Fatalf("manager spawned on a no-RPC case: %v", err)
+		}
 	}
 	if runner.calls != 0 {
 		t.Fatal("observation composed a launch")
@@ -388,6 +396,8 @@ func TestObserveV2Usage(t *testing.T) {
 		"generation-above-safe-integer":  with("--schema", "v2", "--expect-registered-at", observeV2Registered, "--expect-generation", "9007199254740992"),
 		"generation-not-a-number":        with("--schema", "v2", "--expect-registered-at", observeV2Registered, "--expect-generation", "SENTINEL_SECRET"),
 		"registered-at-not-a-timestamp":  with("--schema", "v2", "--expect-registered-at", "SENTINEL_SECRET", "--expect-generation", "1"),
+		"registered-at-impossible-date":  with("--schema", "v2", "--expect-registered-at", "2026-13-45T99:99:99Z", "--expect-generation", "1"),
+		"registered-at-february-30":      with("--schema", "v2", "--expect-registered-at", "2026-02-30T00:00:00Z", "--expect-generation", "1"),
 		"registered-at-non-utc-offset":   with("--schema", "v2", "--expect-registered-at", "2026-01-01T01:00:00+01:00", "--expect-generation", "1"),
 		"executable-relative":            observeV2Frozen("--expect-executable", "SENTINEL_SECRET/manager"),
 		"executable-empty":               observeV2Frozen("--expect-executable", ""),
@@ -421,6 +431,42 @@ func TestObserveV2Usage(t *testing.T) {
 				t.Fatalf("usage error reached a manager: %v", calls)
 			}
 			observeUnchanged(t, root, before)
+		})
+	}
+}
+
+// Claim: the v2 frozen check does not rest on the CLI parser alone. A command
+// built directly with schema v2 but no generation, a negative generation or
+// no registration time refuses session_generation_mismatch (1) with empty
+// stdout before any registry or manager work; beside them a directly built
+// complete v2 command passes the guard and reaches the registry stage.
+func TestObserveV2DirectCommandGuard(t *testing.T) {
+	base := sessionmanager.Command{Operation: "observe", ID: "demo", Session: "SES-example", JSON: true, Schema: "v2", ExpectRegisteredAt: observeV2Registered, ExpectGeneration: 1}
+	call := func(t *testing.T, command sessionmanager.Command) (int, string, string) {
+		t.Helper()
+		deps, _, loc := configHomeFixture(t)
+		var out, stderr bytes.Buffer
+		exit := runManagerObservation(context.Background(), command, &out, &stderr, configfile.Resolver{Locations: loc}, deps)
+		return exit, out.String(), stderr.String()
+	}
+	t.Run("valid-control", func(t *testing.T) {
+		_, out, stderr := call(t, base)
+		if out != "" || strings.Contains(stderr, "session_generation_mismatch") {
+			t.Fatalf("complete v2 command stopped at the guard: %q %q", out, stderr)
+		}
+	})
+	for name, mutate := range map[string]func(*sessionmanager.Command){
+		"generation-zero":     func(c *sessionmanager.Command) { c.ExpectGeneration = 0 },
+		"generation-negative": func(c *sessionmanager.Command) { c.ExpectGeneration = -1 },
+		"missing-registered":  func(c *sessionmanager.Command) { c.ExpectRegisteredAt = "" },
+	} {
+		t.Run(name, func(t *testing.T) {
+			command := base
+			mutate(&command)
+			exit, out, stderr := call(t, command)
+			if exit != 1 || out != "" || !strings.HasPrefix(stderr, "curator-run: session_generation_mismatch:") {
+				t.Fatalf("exit %d stdout %q stderr %q", exit, out, stderr)
+			}
 		})
 	}
 }

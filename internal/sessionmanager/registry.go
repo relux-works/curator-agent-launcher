@@ -34,6 +34,18 @@ var argumentPattern = regexp.MustCompile(`^[a-z0-9-]{1,32}$`)
 
 func ValidID(id string) bool { return idPattern.MatchString(id) }
 
+// ValidRegisteredAt reports whether s is a registry registration time: a UTC
+// RFC 3339 timestamp with a zero offset that names a date and time which
+// exist. Registry entries and frozen-binding inputs share this one rule.
+func ValidRegisteredAt(s string) bool {
+	stamp, err := time.Parse(time.RFC3339Nano, s)
+	if err != nil {
+		return false
+	}
+	_, offset := stamp.Zone()
+	return offset == 0 && timestampPattern.MatchString(s)
+}
+
 type Error struct {
 	Code, Path, Reason, ID, Scope string
 	Err                           error
@@ -144,9 +156,7 @@ func parseEntry(v fragment.Value, manifest bool) (Entry, error) {
 		if err != nil {
 			return Entry{}, err
 		}
-		stamp, e := time.Parse(time.RFC3339Nano, entry.RegisteredAt)
-		_, offset := stamp.Zone()
-		if e != nil || offset != 0 || !timestampPattern.MatchString(entry.RegisteredAt) {
+		if !ValidRegisteredAt(entry.RegisteredAt) {
 			return Entry{}, fmt.Errorf("registered_at must be UTC RFC3339")
 		}
 	}

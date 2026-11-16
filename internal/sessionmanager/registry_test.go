@@ -250,3 +250,31 @@ func TestRegistryGrammarBoundaries(t *testing.T) {
 		t.Fatal("empty prefix", err)
 	}
 }
+
+// Claim: the shared registration-time rule accepts the registry's own UTC
+// spellings, fractional seconds included, and refuses beside them a date
+// that does not exist, a non-zero offset and non-timestamp text, so the
+// observe parser and the registry can never drift apart.
+func TestValidRegisteredAt(t *testing.T) {
+	for _, value := range []string{
+		"2026-01-01T00:00:00Z",
+		"2026-01-01T00:00:00.125+00:00",
+		"2026-01-01T00:00:00.125Z",
+	} {
+		if !ValidRegisteredAt(value) {
+			t.Fatalf("valid control refused: %q", value)
+		}
+	}
+	for _, value := range []string{
+		"",
+		"2026-13-45T99:99:99Z",
+		"2026-02-30T00:00:00Z",
+		"2026-01-01T01:00:00+01:00",
+		"2026-01-01 00:00:00Z",
+		"not-a-timestamp",
+	} {
+		if ValidRegisteredAt(value) {
+			t.Fatalf("invalid registration time accepted: %q", value)
+		}
+	}
+}

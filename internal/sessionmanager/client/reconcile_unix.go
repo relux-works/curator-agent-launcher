@@ -34,10 +34,20 @@ func (r Reconciler) owner(p Pending) (Caller, error) {
 	if entry.Executable != p.Manager.Executable || p.Lease != nil && entry.RegisteredAt != p.Manager.RegisteredAt {
 		return nil, refusal("werkstatt_operation_unresolved", map[string]string{"reason": "manager_changed", "operation": p.OperationID})
 	}
+	remote := Caller(Client{ID: p.Manager.ID, Entry: entry})
 	if r.Caller != nil {
-		return r.Caller(p.Manager.ID, entry), nil
+		remote = r.Caller(p.Manager.ID, entry)
 	}
-	return Client{ID: p.Manager.ID, Entry: entry}, nil
+	// Every decode of this operation — the submission itself and each
+	// reconciliation through operation status and cancel — runs under the
+	// capabilities frozen for it. On a fresh leased submission those are the
+	// same capabilities this run's describe advertised, frozen into the lease
+	// admission before the first call. A caller that is not this package's
+	// transport decodes nothing here and keeps its own rule.
+	if cl, ok := remote.(Client); ok {
+		return cl.WithAdmission(frozenAdmission(p, entry)), nil
+	}
+	return remote, nil
 }
 func unresolved(operation string) *Error {
 	return refusal("session_liveness_unknown", map[string]string{"operation": operation})

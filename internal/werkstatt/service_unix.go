@@ -73,6 +73,16 @@ func call(ctx context.Context, c client.Caller, op string, request any) (client.
 	b, _ := json.Marshal(request)
 	return c.Call(ctx, op, b)
 }
+
+// admittedRemote returns remote decoding under admission when it is the
+// session-manager transport. Any other Remote answers without wire decoding
+// here and is returned unchanged.
+func admittedRemote(remote Remote, admission client.Admission) Remote {
+	if cl, ok := remote.(client.Client); ok {
+		return cl.WithAdmission(admission)
+	}
+	return remote
+}
 func owner(reg sessionmanager.Registry, l *client.Liveness) (sessionmanager.Entry, error) {
 	e, ok := reg.Managers[l.Manager.ID]
 	if !ok {
@@ -84,6 +94,13 @@ func owner(reg sessionmanager.Registry, l *client.Liveness) (sessionmanager.Entr
 	return e, nil
 }
 func (s Service) ownerRead(ctx context.Context, reg sessionmanager.Registry, l *client.Liveness) (*client.Session, error) {
+	return s.ownerReadAdmitted(ctx, reg, l, client.Admission{}, "")
+}
+
+// ownerReadAdmitted is ownerRead under an admission negotiated in this run
+// from the describe of managerID. It applies only when the liveness owner is
+// that same manager; reads for any other manager keep the no-token rule.
+func (s Service) ownerReadAdmitted(ctx context.Context, reg sessionmanager.Registry, l *client.Liveness, admission client.Admission, managerID string) (*client.Session, error) {
 	if l == nil || l.Session == "" {
 		return nil, nil
 	}
@@ -91,7 +108,11 @@ func (s Service) ownerRead(ctx context.Context, reg sessionmanager.Registry, l *
 	if err != nil {
 		return nil, err
 	}
-	response, err := call(ctx, s.remote(l.Manager.ID, e), "status", map[string]string{"session": l.Session})
+	remote := s.remote(l.Manager.ID, e)
+	if l.Manager.ID == managerID {
+		remote = admittedRemote(remote, admission)
+	}
+	response, err := call(ctx, remote, "status", map[string]string{"session": l.Session})
 	// Unavailability carries no owner evidence. Poison and admitted typed
 	// refusals retain their own diagnostic and must not become a refresh.
 	if err != nil && !client.IsCode(err, "session_host_unavailable") {
@@ -393,6 +414,12 @@ func (s Service) up(ctx context.Context, c Command, tx *client.Transaction, reg 
 	if err != nil {
 		return 0, err
 	}
+	// This run's describe admits the negotiated members on every later decode
+	// to the selected manager in this up: the inventory list below and, when
+	// the previous session belongs to the same manager, its status read. The
+	// leased submission itself carries the same capabilities frozen.
+	admission := client.Admission{ProcessObservation: client.ProcessObservation(*response.Describe)}
+	remote = admittedRemote(remote, admission)
 	trial, err := s.Trial()
 	if err != nil {
 		return 0, err
@@ -406,7 +433,7 @@ func (s Service) up(ctx context.Context, c Command, tx *client.Transaction, reg 
 	}
 	var confirmed *client.Session
 	if l != nil && l.State != "down" {
-		confirmed, err = s.ownerRead(ctx, reg, l)
+		confirmed, err = s.ownerReadAdmitted(ctx, reg, l, admission, selected.ID)
 		if err != nil {
 			return 0, err
 		}
