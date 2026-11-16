@@ -1,0 +1,320 @@
+[
+  {
+    "id": "missing",
+    "change": "remove /input/prompt",
+    "obligation": "lexical/shape",
+    "expected": "Adapter rejects malformed mapping before exec; 78 only with trustworthy original fate evidence of no runner start and confirmed bounded feeder cleanup, otherwise UNKNOWN with original debt"
+  },
+  {
+    "id": "extra",
+    "change": "add /input/argv = [\"--resume\",\"x\"]",
+    "obligation": "lexical/shape; argv/stdin",
+    "expected": "Adapter rejects malformed mapping before exec; 78 only with trustworthy original fate evidence of no runner start and confirmed bounded feeder cleanup, otherwise UNKNOWN with original debt"
+  },
+  {
+    "id": "null",
+    "change": "set /input/prompt = null",
+    "obligation": "lexical/shape",
+    "expected": "Adapter rejects malformed mapping before exec; 78 only with trustworthy original fate evidence of no runner start and confirmed bounded feeder cleanup, otherwise UNKNOWN with original debt"
+  },
+  {
+    "id": "duplicate",
+    "change": "append a second \"v\":1 top-level member",
+    "obligation": "lexical/shape",
+    "expected": "Adapter rejects malformed mapping before exec; 78 only with trustworthy original fate evidence of no runner start and confirmed bounded feeder cleanup, otherwise UNKNOWN with original debt"
+  },
+  {
+    "id": "escaped-duplicate",
+    "change": "append \"\\u0076\":1 top-level member",
+    "obligation": "lexical/shape",
+    "expected": "Adapter rejects malformed mapping before exec; 78 only with trustworthy original fate evidence of no runner start and confirmed bounded feeder cleanup, otherwise UNKNOWN with original debt"
+  },
+  {
+    "id": "invalid-utf8",
+    "change": "replace one prompt byte with FF",
+    "obligation": "lexical/shape",
+    "expected": "Adapter rejects malformed mapping before exec; 78 only with trustworthy original fate evidence of no runner start and confirmed bounded feeder cleanup, otherwise UNKNOWN with original debt"
+  },
+  {
+    "id": "bom",
+    "change": "prefix EF BB BF",
+    "obligation": "lexical/shape",
+    "expected": "Adapter rejects malformed mapping before exec; 78 only with trustworthy original fate evidence of no runner start and confirmed bounded feeder cleanup, otherwise UNKNOWN with original debt"
+  },
+  {
+    "id": "surrogate",
+    "change": "replace prompt with JSON string \"\\ud800\"",
+    "obligation": "lexical/shape",
+    "expected": "Adapter rejects malformed mapping before exec; 78 only with trustworthy original fate evidence of no runner start and confirmed bounded feeder cleanup, otherwise UNKNOWN with original debt"
+  },
+  {
+    "id": "noninteger",
+    "change": "replace top v token with 1.0 or 1e0",
+    "obligation": "lexical/shape",
+    "expected": "Adapter rejects malformed mapping before exec; 78 only with trustworthy original fate evidence of no runner start and confirmed bounded feeder cleanup, otherwise UNKNOWN with original debt"
+  },
+  {
+    "id": "negative-zero",
+    "change": "replace controller_epoch token with -0",
+    "obligation": "lexical/shape",
+    "expected": "Adapter rejects malformed mapping before exec; 78 only with trustworthy original fate evidence of no runner start and confirmed bounded feeder cleanup, otherwise UNKNOWN with original debt"
+  },
+  {
+    "id": "range",
+    "change": "set controller_epoch = 9007199254740992",
+    "obligation": "lexical/shape",
+    "expected": "Adapter rejects malformed mapping before exec; 78 only with trustworthy original fate evidence of no runner start and confirmed bounded feeder cleanup, otherwise UNKNOWN with original debt"
+  },
+  {
+    "id": "depth",
+    "change": "replace prompt with nine nested objects",
+    "obligation": "finite byte/work; lexical/shape",
+    "expected": "Adapter rejects malformed mapping before exec; 78 only with trustworthy original fate evidence of no runner start and confirmed bounded feeder cleanup, otherwise UNKNOWN with original debt"
+  },
+  {
+    "id": "size",
+    "change": "prefix enough JSON whitespace to reach 49153 bytes",
+    "obligation": "finite byte/work",
+    "expected": "Adapter rejects malformed mapping before exec; 78 only with trustworthy original fate evidence of no runner start and confirmed bounded feeder cleanup, otherwise UNKNOWN with original debt"
+  },
+  {
+    "id": "escape-size",
+    "change": "replace prompt with 24576 escaped U+0001 characters",
+    "obligation": "finite byte/work",
+    "expected": "Adapter rejects malformed mapping before exec; 78 only with trustworthy original fate evidence of no runner start and confirmed bounded feeder cleanup, otherwise UNKNOWN with original debt"
+  },
+  {
+    "id": "identity",
+    "change": "change worker.uid to 30003 without changing protected original",
+    "obligation": "protected identity/provenance",
+    "expected": "D refuses protected equality/typed admission before handoff against fixed authenticated original; original claim/effect retained, no fresh admission"
+  },
+  {
+    "id": "generation",
+    "change": "change worker.generation to 32 zeros",
+    "obligation": "protected identity/provenance",
+    "expected": "D refuses protected equality/typed admission before handoff against fixed authenticated original; original claim/effect retained, no fresh admission"
+  },
+  {
+    "id": "association",
+    "change": "change association.revision to 2 without original update",
+    "obligation": "protected identity/provenance",
+    "expected": "D refuses protected equality/typed admission before handoff against fixed authenticated original; original claim/effect retained, no fresh admission"
+  },
+  {
+    "id": "pins",
+    "change": "change catalog to sha256 plus 64 zeros",
+    "obligation": "protected identity/provenance",
+    "expected": "D refuses protected equality/typed admission before handoff against fixed authenticated original; original claim/effect retained, no fresh admission"
+  },
+  {
+    "id": "opaque",
+    "change": "replace input with {\"body\":\"opaque\"}",
+    "obligation": "lexical/shape; protected identity/provenance",
+    "expected": "D refuses protected equality/typed admission before handoff against fixed authenticated original; original claim/effect retained, no fresh admission"
+  },
+  {
+    "id": "selectors",
+    "change": "set account to --config or model to --resume",
+    "obligation": "argv/stdin",
+    "expected": "Adapter rejects malformed mapping before exec; 78 only with trustworthy original fate evidence of no runner start and confirmed bounded feeder cleanup, otherwise UNKNOWN with original debt"
+  },
+  {
+    "id": "injected-member",
+    "change": "add any of path,argv,env,token,resume,config,prompt_file to input",
+    "obligation": "argv/stdin",
+    "expected": "Adapter rejects malformed mapping before exec; 78 only with trustworthy original fate evidence of no runner start and confirmed bounded feeder cleanup, otherwise UNKNOWN with original debt"
+  },
+  {
+    "id": "catalog",
+    "change": "set reasoning_effort to printable noncatalog value",
+    "obligation": "protected identity/provenance",
+    "expected": "D refuses protected equality/typed admission before handoff against fixed authenticated original; original claim/effect retained, no fresh admission"
+  },
+  {
+    "id": "home-prompt",
+    "change": "replace Prompt bytes with an adapter home-file read",
+    "obligation": "argv/stdin",
+    "expected": "Refuse adapter mapping/qualification: exact prompt must derive only from bound FD3, never home-file input. Observed or unknown prompt/start effects retain original debt; no replay"
+  },
+  {
+    "id": "fd",
+    "change": "deliver an extra descriptor 4 or mutable/truncated FD3",
+    "obligation": "handle/drop/FD",
+    "expected": "Manager refuses descriptor/immutable FD3 admission or its native profile qualification before target code; observe only 0-3 and complete immutable plan object. No invented manager status or no-effect inference; original debt remains"
+  },
+  {
+    "id": "clock",
+    "change": "use timeout 300 after original 290 deadline, or round 0.9 remainder to 1",
+    "obligation": "original clocks/stop/replay",
+    "expected": "Adapter refuses T outside original bound or fractional upward rounding before exec; 78 requires attributable original fate evidence of no runner start and bounded feeder cleanup, otherwise UNKNOWN with original debt"
+  },
+  {
+    "id": "second-start",
+    "change": "retry physical start/prompt after unknown original effect",
+    "obligation": "original clocks/stop/replay",
+    "expected": "D rejects repeat start/prompt after unknown original effect; retain original clocks/claim/all debt"
+  },
+  {
+    "id": "unqualified",
+    "change": "mark unavailable qualification observer as satisfied",
+    "obligation": "qualification/config",
+    "expected": "Protected runner Resolve refuses 69 lease_harness_unqualified under attributable runner observation; no lease/admitted app-server, earlier qualification measurement remains possible; unknown observation retains original debt"
+  },
+  {
+    "id": "config",
+    "change": "treat unreadable dedicated-service config as absent/public-copy eligible",
+    "obligation": "qualification/config",
+    "expected": "Runner protected configuration read/admission refuses when unreadable; require attributable original runner phase/outcome evidence, no public copy or widened read. Unknown outcome retains original debt, no invented adapter status"
+  },
+  {
+    "id": "result",
+    "change": "consume old 0600 output after nonzero/unknown or call stdout authenticated durable Result",
+    "obligation": "Result/debt",
+    "expected": "D rejects status/bytes/stdout as Result or read authority; retain original publication/Result/effect and unknown cleanup debt"
+  },
+  {
+    "id": "qualification-measurement-order",
+    "change": "infer no native qualification measurement from absent/malformed qualified.json with readable protected root/lock and no in-progress/pending-activation",
+    "obligation": "qualification/config",
+    "expected": "Reject inference: Resolve may invoke Observe (Version first) before qualified.json; refusal 69 admits no lease/app-server, later runner versionProbe requires successful qualification; no probe authorized here"
+  },
+  {
+    "id": "unknown-publication",
+    "change": "infer old O preserved or absent O still absent after successful rename when D loses completion observation, or consume new 0600 bytes as authenticated Result",
+    "obligation": "Result/debt",
+    "expected": "Reject inference: rename replaces/creates O and fixes runner 0 despite later stop; retain original publication/Result/effect and unknown cleanup debt, no D read/consumption, success/failure disposition or fresh admission"
+  },
+  {
+    "id": "late-stop",
+    "change": "rewrite runner 0 after successful rename as runner 130",
+    "obligation": "Result/debt",
+    "expected": "D preserves runner terminal 0 after successful rename; separate D disposition/deadline, no inferred read authority"
+  },
+  {
+    "id": "native-adapter",
+    "change": "substitute a shebang adapter or npm/node Codex wrapper for the protected native binary",
+    "obligation": "handle/drop/FD; qualification/config",
+    "expected": "REFUSE qualification/selection; digest equality does not pin an interpreter"
+  },
+  {
+    "id": "fd3-left-open",
+    "change": "Retain admitted plan kernel object or any duplicate in feeder, run-codex or downstream, irrespective of descriptor number",
+    "obligation": "handle/drop/FD",
+    "expected": "Kernel object-identity observation must fail qualification; broker later reusing numeric 3 for another object is not a failure"
+  },
+  {
+    "id": "environment",
+    "change": "adapter adds CODEX_HOME/model/endpoint variables or rewrites helper PATH",
+    "obligation": "argv/stdin; qualification/config",
+    "expected": "REFUSE adapter mapping; pass only unchanged helper environment, broker constructs vendor environment"
+  },
+  {
+    "id": "d-path",
+    "change": "Claim the proposed vendor /usr/bin:/bin narrowing is already selected, or use it without full protected profile/plan equality",
+    "obligation": "protected identity/provenance; qualification/config",
+    "expected": "Pending owning selection, D refuses use without full protected profile/plan equality; if narrowing is selected, a protected PATH differing from fixed vendor /usr/bin:/bin refuses. No adapter rewrite, broker flag or R-EXEC permission"
+  },
+  {
+    "id": "transitive-exec",
+    "change": "infer an empty OS allowlist from text-only prompt, or admit an unqualified transitive shell/tool",
+    "obligation": "qualification/config",
+    "expected": "REFUSE use until actual minimum inventory and full R-EXEC invocation qualification exist"
+  },
+  {
+    "id": "drop",
+    "change": "enter adapter code before verified supplementary group removal and real/effective/saved GID/UID drop",
+    "obligation": "handle/drop/FD",
+    "expected": "REFUSE manager qualification; preserve original receipt/effect debt"
+  },
+  {
+    "id": "before-c",
+    "change": "run adapter decoder/loader/constructor before receiver durable C",
+    "obligation": "original clocks/stop/replay",
+    "expected": "REFUSE selected-A qualification; no decoder exemption"
+  },
+  {
+    "id": "pin-drift",
+    "change": "mutate each request plan pin, execution effect/epoch or protected original independently",
+    "obligation": "protected identity/provenance",
+    "expected": "D refuses exact protected equality before handoff; worker cannot replace protected reads, substitute pins or allocate new claim"
+  },
+  {
+    "id": "result-overflow",
+    "change": "discard unknown original outcome or stop/token/custody debt when capture fills",
+    "obligation": "Result/debt",
+    "expected": "Keep admission closed and original debt; no inferred no-effect or new launch"
+  },
+  {
+    "id": "agent-handle-reexec",
+    "change": "model tool inherits/reopens pinned agent executable or re-execs via inherited descriptor or /proc fd/exe path",
+    "obligation": "handle/drop/FD; qualification/config",
+    "expected": "REFUSE qualification/use until broker fix and actual native trace; path allowlist alone does not establish this property"
+  },
+  {
+    "id": "numeric-fd-false-positive",
+    "change": "call a later broker-owned non-plan descriptor numbered 3 a plan leak solely by its number",
+    "obligation": "handle/drop/FD",
+    "expected": "Reject evidence inference; identify original plan object/all duplicates, distinguish later broker objects"
+  },
+  {
+    "id": "path-kernel-conflation",
+    "change": "claim OS exec refusal because PATH differs or executable is absent from PATH",
+    "obligation": "qualification/config",
+    "expected": "Reject evidence inference; protected environment conformance and actual OS forbidden-exec evidence are separate"
+  },
+  {
+    "id": "worker-protected-read",
+    "change": "Make worker adapter resolve protected R/catalog/current policy or infer equality from FD3 hashes",
+    "obligation": "protected identity/provenance",
+    "expected": "Reject worker authority inference: D alone checks protected equality before handoff; manager binds immutable FD3 digest; adapter audit copy grants no protected lookup"
+  },
+  {
+    "id": "missing-timing",
+    "change": "Remove timing/deadline_ms or slack_ms",
+    "obligation": "lexical/shape; original clocks/stop/replay",
+    "expected": "D refuses unbound timing before handoff; adapter refuses missing closed members before exec; no worker defaults or fresh deadline"
+  },
+  {
+    "id": "tampered-timing",
+    "change": "Change FD3 deadline_ms or slack_ms without changing independently authenticated original/qualified tuple",
+    "obligation": "protected identity/provenance; original clocks/stop/replay",
+    "expected": "D refuses timing equality/provenance before handoff; no worker choice or hash-only authority"
+  },
+  {
+    "id": "clock-coordinate",
+    "change": "Use unrelated/unqualified clock or hidden protected clock-metadata read in adapter",
+    "obligation": "original clocks/stop/replay; qualification/config",
+    "expected": "Refuse clock qualification/use; common original-deadline coordinate/confidence/currentness and finite bounds required, no worker protected read"
+  },
+  {
+    "id": "timing-reset-rounding",
+    "change": "Reset original D/S on retry, overflow, or round 900 ms remainder upward",
+    "obligation": "original clocks/stop/replay",
+    "expected": "Reject new deadline/slack or upward rounding; checked integer floor cap, T below 1 refuses and all original clocks/debt remain"
+  },
+  {
+    "id": "status-attribution",
+    "change": "Treat numeric 78 or mixed/raw signal/lost exec observation as known no-effect adapter refusal",
+    "obligation": "handle/drop/FD; Result/debt",
+    "expected": "UNKNOWN completion without trustworthy original fate actor/phase/no-start/feeder-cleanup evidence; retain original publication/Result/effect/cleanup/lease/token/stop debt"
+  },
+  {
+    "id": "status-collision",
+    "change": "Remap runner status to adapter 78, or extend pinned runner status set with 78",
+    "obligation": "qualification/config; Result/debt",
+    "expected": "Reject collision/remap; 78 is proposed adapter pre-exec only pending owning review; unknown attribution retains all original debt"
+  },
+  {
+    "id": "feeder-lifecycle",
+    "change": "Wait for pipe drain before exec, retain plan object/duplicates in feeder, or leave feeder outside bounded original stop/join/disposal",
+    "obligation": "handle/drop/FD; original clocks/stop/replay",
+    "expected": "Refuse native qualification; both runner/feeder must lack plan object/all copies, finite non-deadlocking lifecycle and whole-account absence required"
+  },
+  {
+    "id": "prompt-replay",
+    "change": "Deliver prompt twice or restart feeder/runner after unknown original start",
+    "obligation": "argv/stdin; original clocks/stop/replay",
+    "expected": "Reject replay; one exact prompt then EOF per original execution, retain original claim and unknown effect/debt"
+  }
+]

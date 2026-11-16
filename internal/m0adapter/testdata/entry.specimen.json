@@ -1,0 +1,53 @@
+{
+  "v": 1,
+  "kind": "swarma-dispatcher m0-executor-entry/1",
+  "request": {
+    "v": 1,
+    "kind": "swarma-dispatcher m0-request/1",
+    "request_id": "00000000000000000000000000000001",
+    "receiver": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "policy": {
+      "id": "dddddddddddddddddddddddddddddddd",
+      "revision": 1
+    },
+    "association": {
+      "id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "revision": 1,
+      "uid": 30001,
+      "generation": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "key": "ed25519:11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
+      "registration_number": 1,
+      "master_epoch": 1
+    },
+    "worker": {
+      "uid": 30002,
+      "generation": "cccccccccccccccccccccccccccccccc"
+    },
+    "plan": {
+      "worker_plan": "sha256:c02aff6b4c3f3a0a79f47d6e407472e62bf8cd632c93a6c8268a0de31ddda080",
+      "profile": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+      "harness": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+      "exec_profile": "sha256:4444444444444444444444444444444444444444444444444444444444444444"
+    },
+    "op": "dispatch"
+  },
+  "execution": {
+    "effect_id": "ffffffffffffffffffffffffffffffff",
+    "execution_id": "EX-11111111111111111111111111111111",
+    "controller_epoch": 1
+  },
+  "catalog": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+  "qualification": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+  "timing": {
+    "deadline_ms": 290000,
+    "slack_ms": 10000
+  },
+  "input": {
+    "account": "example",
+    "profile": "codex-refresher-v0",
+    "model": "catalog-model",
+    "reasoning_effort": "catalog-effort",
+    "placement": "station-one-shot-v1",
+    "prompt": "Reply with the word example."
+  }
+}

@@ -1,0 +1,265 @@
+{
+  "status": "INERT documentary expectations; no execution, qualification or Result authority",
+  "source_boundary": "0b29c086608d808903b9abf286497d941297a078",
+  "qualification": {
+    "preconditions": "Hypothetical readable protected configuration/root/lock, admitted account/profile, no in-progress/pending-activation, and measurements otherwise available; no probe is run here",
+    "resolve_chain": [
+      "protectedAuthority.Resolve",
+      "productionQualifiedSet",
+      "static.Config.Qualified",
+      "qualification.Repository.Read"
+    ],
+    "cases": [
+      {
+        "id": "absent-qualified-record",
+        "qualified_json": "absent",
+        "expected_order": [
+          "Observe: native Version first",
+          "attempt qualified.json read",
+          "refuse 69 lease_harness_unqualified"
+        ],
+        "lease": false,
+        "admitted_app_server": false,
+        "later_runner_versionProbe": false
+      },
+      {
+        "id": "malformed-qualified-record",
+        "qualified_json": "malformed",
+        "expected_order": [
+          "Observe: native Version first",
+          "read/decode qualified.json",
+          "refuse 69 lease_harness_unqualified"
+        ],
+        "lease": false,
+        "admitted_app_server": false,
+        "later_runner_versionProbe": false
+      },
+      {
+        "id": "qualified-control",
+        "qualified_json": "valid with complete matching current protected evidence and activation",
+        "expected_order": [
+          "Observe: native Version first",
+          "read/validate qualified.json and all required evidence",
+          "successful protected qualification",
+          "later runner versionProbe subject to remaining preflight gates"
+        ],
+        "authority": "Conditional source-order control only; no actual qualification, lease or app-server admission authorized"
+      }
+    ],
+    "limit": "Unavailable observers may refuse before the record read; absent/malformed qualified.json never proves no earlier measurement. All native/OS/typed-plan/Result gates remain closed."
+  },
+  "publication": {
+    "preconditions": "Hypothetical otherwise qualified tuple; new O denotes the final text of this original execution. No filesystem operation is performed.",
+    "cases": [
+      {
+        "id": "prepublication-failure-old",
+        "before": "old O",
+        "event": "known staging I/O failure before rename",
+        "rename_succeeded": false,
+        "after": "old O",
+        "runner_terminal": 75,
+        "d_observation": "known prepublication refusal; never consume output as this run Result"
+      },
+      {
+        "id": "publication-success-old",
+        "before": "old O",
+        "event": "matching completed turn, confirmed cleanup/release, successful rename, later stop",
+        "rename_succeeded": true,
+        "after": "new O",
+        "runner_terminal": 0,
+        "d_observation": "runner 0 observed; D disposition/deadline and authenticated Result remain separate"
+      },
+      {
+        "id": "publication-unobserved-old",
+        "before": "old O",
+        "event": "matching completed turn, confirmed cleanup/release, successful rename, later stop, D loses reliable completion observation",
+        "rename_succeeded": true,
+        "after": "new O",
+        "runner_terminal": 0,
+        "d_observation": "unknown completion; no inferred D success/failure or fresh admission",
+        "debt": "original publication/Result/effect and unknown cleanup debt retained"
+      },
+      {
+        "id": "prepublication-failure-absent",
+        "before": "absent O",
+        "event": "known staging I/O failure before rename",
+        "rename_succeeded": false,
+        "after": "absent O",
+        "runner_terminal": 75,
+        "d_observation": "known prepublication refusal; never consume output as this run Result"
+      },
+      {
+        "id": "publication-success-absent",
+        "before": "absent O",
+        "event": "matching completed turn, confirmed cleanup/release, successful rename, later stop",
+        "rename_succeeded": true,
+        "after": "new O",
+        "runner_terminal": 0,
+        "d_observation": "runner 0 observed; D disposition/deadline and authenticated Result remain separate"
+      },
+      {
+        "id": "publication-unobserved-absent",
+        "before": "absent O",
+        "event": "matching completed turn, confirmed cleanup/release, successful rename, later stop, D loses reliable completion observation",
+        "rename_succeeded": true,
+        "after": "new O",
+        "runner_terminal": 0,
+        "d_observation": "unknown completion; no inferred D success/failure or fresh admission",
+        "debt": "original publication/Result/effect and unknown cleanup debt retained"
+      }
+    ],
+    "common_boundary": "Bytes/mode 0600 grant no D read/consumption authority, success/failure disposition or fresh admission. Runner status alone is no authenticated durable Result, account-wide absence or debt discharge.",
+    "unknown_boundary": "Keep original publication/Result/effect debt and unknown cleanup debt; no retry start, new claim or clock reset. No Result protocol, quota, ACL or cleanup/wipe authority is selected."
+  },
+  "handoff": {
+    "equality_actor": "Dispatcher D, once before handoff",
+    "protected_snapshots": 4,
+    "snapshot_body_bytes_max": 49152,
+    "metadata_storage_bytes_max": 262144,
+    "manager_admission": "Complete immutable FD3 by already-bound CCJ-1 entry digest in protected launch evidence; no new policy evaluator",
+    "adapter_request_role": "Already-bound audit copy; no new authority assertion",
+    "worker_protected_reads": false,
+    "mapping_inputs": "Immutable installed E/H/clock-profile literals, artifact-bound by D; unchanged fixed manager environment; full publication/currentness/qualification gate remains open",
+    "limit": "Hypothetical matching authenticated durable originals and complete current typed tuple required; none supplied by this specimen"
+  },
+  "timing": {
+    "bound_source": "FD3 timing, equality/provenance checked by D before handoff",
+    "common_coordinate": "Exact pinned qualified tuple, immutable installed clock profile; now only from that qualified clock",
+    "cases": [
+      {
+        "id": "bound-timing-control",
+        "deadline_ms": 290000,
+        "slack_ms": 10000,
+        "now_ms": 20000,
+        "expected_timeout_seconds": 240
+      },
+      {
+        "id": "one-second-control",
+        "deadline_ms": 31000,
+        "slack_ms": 10000,
+        "now_ms": 20000,
+        "expected_timeout_seconds": 1
+      },
+      {
+        "id": "fractional-remainder",
+        "deadline_ms": 30900,
+        "slack_ms": 10000,
+        "now_ms": 20000,
+        "expected_timeout_seconds": 0,
+        "expected": "Adapter pre-exec refuses; never round 900 ms upward; status attribution requires original fate evidence"
+      }
+    ],
+    "refusals": "Missing/tampered/unbound D/S refuses; wrong/unqualified/stale clock or conversion refuses; no retry resets, overflow or upward rounding",
+    "limit": "Proposed integer representation only; original absolute deadline conversion/confidence/currentness and finite syscall/stop/slack bounds UNQUALIFIED"
+  },
+  "process": {
+    "status": "INERT proposed process/status boundary, pending owning review; no native execution",
+    "model": "Native adapter directly execve-replaces itself with absolute pinned run-codex; no surviving adapter supervisor",
+    "reserved_adapter_preexec_status": 78,
+    "runner_statuses": [
+      0,
+      1,
+      64,
+      69,
+      75,
+      124,
+      130
+    ],
+    "plan_object_in_runner": false,
+    "plan_object_in_feeder": false,
+    "closure": "Close plan object/all copies before feeder creation; feeder owns bounded prompt copy/pipe write end/immutable qualified timing only, no unrelated inherited descriptors; runner inherits only 0-2",
+    "lifecycle": "Do not await pipe drain before exec; finite failure/deadline/broken-pipe/account-stop cancellation, join/reaping and prompt disposal required. Independent original fate/stop owner handles feeder after exec; unsupported mechanism remains UNQUALIFIED",
+    "prompt_deliveries_max": 1,
+    "cases": [
+      {
+        "id": "known-preexec-refusal",
+        "actor": "adapter",
+        "phase": "pre-exec",
+        "observation": "Hypothetical installed original fate observer binds execution/generation/process incarnation/adapter digest, exclusive pre-exec phase, exact exit 78, no runner start and feeder cancellation/join/disposal; mechanism UNQUALIFIED; exec not attempted",
+        "observed_status": 78,
+        "runner_started": false,
+        "feeder_cleanup": "confirmed",
+        "effects": "No runner start; worker preparation and original C/claim/debit remain",
+        "disposition": "Known adapter pre-exec refusal only under hypothetical trustworthy installed original fate observation; original spent claim/debit and preparation debt preserved, feeder cleanup confirmed"
+      },
+      {
+        "id": "known-failed-exec",
+        "actor": "adapter",
+        "phase": "pre-exec failed exec",
+        "observation": "Hypothetical installed original fate observer binds execution/generation/process incarnation/adapter digest, exclusive pre-exec phase, exact exit 78, no runner start and feeder cancellation/join/disposal; mechanism UNQUALIFIED; failed exec positively observed",
+        "observed_status": 78,
+        "runner_started": false,
+        "feeder_cleanup": "confirmed",
+        "effects": "Failed exec, no runner start; original preparation/claim/debit remain",
+        "disposition": "Known adapter pre-exec refusal only under hypothetical trustworthy installed original fate observation; original spent claim/debit and preparation debt preserved, feeder cleanup confirmed"
+      },
+      {
+        "id": "successful-exec-runner-success",
+        "actor": "runner (same process after exec)",
+        "phase": "post-exec publication",
+        "observation": "Hypothetical trustworthy original fate observation attributes exec success and runner terminal 0 after matching completed turn, release/cleanup and successful rename",
+        "observed_status": 0,
+        "runner_started": true,
+        "feeder_cleanup": "separately required and observed under qualified original fate ownership",
+        "effects": "New O; see old/absent publication neighbors",
+        "disposition": "Runner terminal 0; D deadline/disposition and authenticated Result separate, no status-based read or debt discharge"
+      },
+      {
+        "id": "successful-exec-runner-refusal",
+        "actor": "runner (same process after exec)",
+        "phase": "post-exec protected qualification",
+        "observation": "Hypothetical trustworthy original fate observation attributes exec success and runner 69 lease_harness_unqualified",
+        "observed_status": 69,
+        "runner_started": true,
+        "feeder_cleanup": "separately required; unknown cleanup retains debt",
+        "effects": "Qualification measurement may precede refusal; no lease/admitted app-server; see qualification neighbors",
+        "disposition": "Runner-owned 69 unchanged; not an adapter status or authenticated Result"
+      },
+      {
+        "id": "unknown-exec-or-feeder",
+        "actor": "unresolved adapter/runner/feeder",
+        "phase": "exec boundary unresolved",
+        "observation": "Exec/start outcome or feeder cleanup unobserved",
+        "observed_status": null,
+        "runner_started": "unknown",
+        "feeder_cleanup": "unknown",
+        "effects": "Runner/prompt/lease/publication effects not excluded",
+        "disposition": "UNKNOWN completion; retain all original publication/Result/effect/cleanup/lease/token/stop debt; no retry, admission, absence or read authority"
+      },
+      {
+        "id": "unattributed-reserved-number",
+        "actor": "unattributed",
+        "phase": "unknown",
+        "observation": "Numeric 78 only, without installed original fate evidence",
+        "observed_status": 78,
+        "runner_started": "unknown",
+        "feeder_cleanup": "unknown",
+        "effects": "No absence/no-effect inference",
+        "disposition": "UNKNOWN completion; retain all original publication/Result/effect/cleanup/lease/token/stop debt; no retry, admission, absence or read authority"
+      },
+      {
+        "id": "runner-status-collision",
+        "actor": "claimed runner",
+        "phase": "claimed post-exec",
+        "observation": "Status 78 conflicts with pinned runner set; mixed or unsupported attribution",
+        "observed_status": 78,
+        "runner_started": "unknown",
+        "feeder_cleanup": "unknown",
+        "effects": "Do not reinterpret as known adapter refusal or upstream status extension",
+        "disposition": "UNKNOWN completion; retain all original publication/Result/effect/cleanup/lease/token/stop debt; no retry, admission, absence or read authority"
+      },
+      {
+        "id": "raw-signal-or-lost-completion",
+        "actor": "unresolved",
+        "phase": "unknown",
+        "observation": "Raw signal or lost/mixed completion observation, no exclusive actor/phase evidence",
+        "observed_status": null,
+        "runner_started": "unknown",
+        "feeder_cleanup": "unknown",
+        "effects": "Original physical effects remain unresolved",
+        "disposition": "UNKNOWN completion; retain all original publication/Result/effect/cleanup/lease/token/stop debt; no retry, admission, absence or read authority"
+      }
+    ],
+    "limit": "Numeric 78 alone authenticates neither actor, phase nor absence; no Result/read authority, no new upstream status or implemented observer/feeder mechanism"
+  }
+}

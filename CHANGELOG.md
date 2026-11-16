@@ -23,6 +23,14 @@
   validated 1.2.0 projection over a capable manager. No refusal code is added.
   Only `observe` negotiates the token: every other operation still refuses
   the three members, also from a manager that advertises it.
+- DRAFT `curator-run-m0-adapter`, the M0 executor adapter for the proposed
+  swarma-dispatcher `m0-executor-entry/1` (962eeb9): a Linux-only native
+  binary that reads one bounded closed entry from FD3, verifies descriptor
+  identity, the fixed environment and `worker_plan`, and execs the pinned
+  broker `run-codex` with the exact 19-element argv and a one-shot stdin
+  pipe, or exits 78 before exec. Durable C, the qualified clock and the
+  Claude runner variant are refusing seams, so it launches nothing yet.
+  `make m0-adapter-controls` runs its plant controls in the ubuntu CI job.
 
 ## 0.7.0 — 2026-11-11
 

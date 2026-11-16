@@ -1,7 +1,7 @@
 GO ?= go
 GOFMT ?= gofmt
 
-.PHONY: build fmt-check vet test race verify check clean release-binary release-repro release-gate-test observation-v2-controls
+.PHONY: build fmt-check vet test race verify check clean release-binary release-repro release-gate-test observation-v2-controls m0-adapter-controls
 
 # Reproducible release binary for the signed Curator distribution
 # (FRONT-DOOR §10). Curator's release workflow calls it per platform, then
@@ -67,3 +67,10 @@ release-gate-test:
 observation-v2-controls:
 	@mkdir -p .temp
 	scripts/observation-v2-controls.sh .temp/observation-v2-controls
+
+# Linux-only plant controls for the DRAFT M0 executor adapter: each mutant
+# weakens one gate in a scratch copy of internal/m0adapter and its named test
+# must fail. The working tree is never mutated.
+m0-adapter-controls:
+	@mkdir -p .temp
+	scripts/m0-adapter-controls.sh
