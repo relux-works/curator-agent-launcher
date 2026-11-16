@@ -35,7 +35,7 @@ func helperMain() {
 // args are E, H, the first and the second qualified clock reading. Exec is
 // the real syscall.Exec.
 func childAdapter(args []string) {
-	if len(args) != 4 {
+	if len(args) != 5 {
 		Exit(ReasonInternal)
 	}
 	now1, err1 := strconv.ParseInt(args[2], 10, 64)
@@ -45,8 +45,75 @@ func childAdapter(args []string) {
 	}
 	readings := []int64{now1, now2}
 	next := 0
-	Exit(Run(Config{
-		Literals: testLiterals(args[0], args[1]),
+	lit := testLiterals(args[0], args[1])
+	ops := nativePromptSyscalls()
+	closeFD := syscall.Close
+	switch args[4] {
+	case "unknown-runner":
+		lit.RunnerCommand = "run-other"
+	case "claude-unpinned":
+		lit.RunnerCommand = "run-claude"
+	case "origin-missing":
+		lit.OriginSocketMarker = ""
+	case "keymaker-missing":
+		lit.KeymakerMarker = ""
+	case "prefix-missing":
+		lit.DeniedPathPrefix = ""
+	case "plan-close-fails":
+		closeFD = func(int) error { return syscall.EIO }
+	case "pipe2-fails":
+		ops.pipe2 = func([]int, int) error { return syscall.EIO }
+	case "getsize-fails":
+		ops.fcntl = func(int, int, int) (int, error) { return -1, syscall.EIO }
+	case "setfl-fails":
+		ops.setNonblock = func(int, bool) error { return syscall.EIO }
+	case "write-close-fails":
+		writeFD := -1
+		ops.write = func(fd int, p []byte) (int, error) { writeFD = fd; return syscall.Write(fd, p) }
+		ops.close = func(fd int) error {
+			if fd == writeFD {
+				return syscall.EIO
+			}
+			return syscall.Close(fd)
+		}
+	case "dup-fails":
+		ops.dup = func(int, int, int) error { return syscall.EIO }
+	case "writer-fd5":
+		writeFD := -1
+		ops.write = func(fd int, p []byte) (int, error) { writeFD = fd; return syscall.Write(fd, p) }
+		ops.close = func(fd int) error {
+			if fd == writeFD {
+				if err := syscall.Dup3(fd, 5, 0); err != nil {
+					return err
+				}
+			}
+			return syscall.Close(fd)
+		}
+	case "second-read-fd1":
+		ops.dup = func(old, new, flags int) error {
+			if err := syscall.Dup3(old, 1, 0); err != nil {
+				return err
+			}
+			return syscall.Dup3(old, new, flags)
+		}
+	case "stdin-rdwr":
+		ops.dup = func(old, new, flags int) error {
+			fd, err := syscall.Open("/proc/self/fd/"+strconv.Itoa(old), syscall.O_RDWR|syscall.O_CLOEXEC, 0)
+			if err != nil {
+				return err
+			}
+			defer syscall.Close(fd)
+			return syscall.Dup3(fd, new, flags)
+		}
+	}
+	if args[4] == "guard-pipe" || strings.HasSuffix(args[4], "-missing") || args[4] == "unknown-runner" || args[4] == "claude-unpinned" {
+		ops.pipe2 = func([]int, int) error {
+			_, _ = syscall.Write(2, []byte("unexpected_pipe_creation\n"))
+			return syscall.EIO
+		}
+	}
+	Exit(runWithSyscalls(Config{
+		Literals: lit,
 		WaitForC: func() error { return nil },
 		NowMs: func(string) (int64, error) {
 			v := readings[next]
@@ -57,7 +124,7 @@ func childAdapter(args []string) {
 		},
 		Environ: syscall.Environ(),
 		Exec:    syscall.Exec,
-	}))
+	}, ops, closeFD))
 }
 
 // fdInfo is one descriptor observed by the fake runner.

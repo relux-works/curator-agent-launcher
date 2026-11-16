@@ -44,8 +44,8 @@ func checkEnv(env []string, lit Literals) error {
 			return refuse(ReasonEnvMissing)
 		}
 	}
-	for _, v := range values {
-		if lit.deniedMarker(v) {
+	for i, v := range values {
+		if lit.deniedMarker(fixedEnvNames[i]) || lit.deniedMarker(v) {
 			return refuse(ReasonEnvDenied)
 		}
 	}

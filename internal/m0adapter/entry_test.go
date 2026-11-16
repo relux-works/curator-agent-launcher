@@ -7,15 +7,15 @@ import (
 	"testing"
 )
 
-// The copied fixtures are byte-identical to swarma-dispatcher 0772cf3
+// The copied fixtures are byte-identical to swarma-dispatcher 4fbf13a7
 // (testdata/README.md); an edit to them fails here rather than silently
 // changing what the witness tests prove.
 func TestFixtureBytesPinned(t *testing.T) {
 	want := map[string]string{
 		"entry.specimen.json":     "sha256:16b898164b1b4bd0568a37bf71cbdf2625dc89f45544730866793bc433217aad",
 		"mapping.witness.json":    "sha256:3e12262d5828688b47a25543a87ab6e22bffa2c84b7851b0509d1e3ad61c0e21",
-		"forbidden-controls.json": "sha256:e1f75a1921b3f2f625e5e53ae302c22aa011c4e301f70387b83ec8099a2944e5",
-		"boundary.witnesses.json": "sha256:a3df6f8ec7cc983bf82cd912a4e881dff308b1458ac75519c362195d37aa3160",
+		"forbidden-controls.json": "sha256:33b106ca985a23e09eb8d3a1b39ca350aac2f3612a41cf70007d18defe20db3f",
+		"boundary.witnesses.json": "sha256:38a258ac70a9d6cf8236b76236e69b707d63394e5ad88a0d74be21c755b51729",
 	}
 	for name, digest := range want {
 		if got := sha(readTestdata(t, name)); got != digest {
@@ -152,6 +152,7 @@ func grammarNegatives() []grammarCase {
 		{"missing-timing-object", "missing-timing", sub("  \"timing\": {\n    \"deadline_ms\": 290000,\n    \"slack_ms\": 10000\n  },\n", ""), ReasonEntryMissing},
 		{"extra-scalar", "extra", sub(specimenPrompt, specimenPrompt+`, "argv": "--resume"`), ReasonEntryUnknown},
 		{"injected-path", "injected-member", sub(specimenPrompt, specimenPrompt+`, "path": "/x"`), ReasonEntryUnknown},
+		{"injected-argv", "injected-member", sub(specimenPrompt, specimenPrompt+`, "argv": "x"`), ReasonEntryUnknown},
 		{"injected-env", "injected-member", sub(specimenPrompt, specimenPrompt+`, "env": "X=1"`), ReasonEntryUnknown},
 		{"injected-token", "injected-member", sub(specimenPrompt, specimenPrompt+`, "token": "t"`), ReasonEntryUnknown},
 		{"injected-resume", "injected-member", sub(specimenPrompt, specimenPrompt+`, "resume": "r"`), ReasonEntryUnknown},
@@ -219,6 +220,7 @@ func grammarNegatives() []grammarCase {
 	}
 }
 
+// TestGrammarNegatives proves every tagged malformed entry refuses its exact code.
 func TestGrammarNegatives(t *testing.T) {
 	for _, c := range grammarNegatives() {
 		t.Run(c.name, func(t *testing.T) {

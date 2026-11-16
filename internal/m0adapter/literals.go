@@ -14,7 +14,8 @@ import (
 //	  -X github.com/relux-works/curator-agent-launcher/internal/m0adapter.runnerCommand=run-codex \
 //	  -X github.com/relux-works/curator-agent-launcher/internal/m0adapter.clockProfile=<profile> \
 //	  -X github.com/relux-works/curator-agent-launcher/internal/m0adapter.keymakerMarker=<marker> \
-//	  -X github.com/relux-works/curator-agent-launcher/internal/m0adapter.deniedPathPrefix=/abs/l-owned" \
+//	  -X github.com/relux-works/curator-agent-launcher/internal/m0adapter.deniedPathPrefix=/abs/l-owned \
+//	  -X github.com/relux-works/curator-agent-launcher/internal/m0adapter.originSocketMarker=<origin-marker>" \
 //	  ./cmd/curator-run-m0-adapter
 //
 // Nothing in this package assigns them: there is no flag, environment
@@ -30,40 +31,41 @@ var (
 	// clockProfile selects the qualified clock; see qualifiedNowMs.
 	clockProfile string
 	// keymakerMarker is a configured Keymaker endpoint marker that must not
-	// appear in any environment value or runner argv element (hook H3 defence in depth).
+	// appear in any environment name, value or runner argv element.
 	keymakerMarker string
 	// deniedPathPrefix is a path prefix owned by L (the dispatcher side) that
-	// must not appear in any environment value or runner argv element.
+	// must not appear in any environment name, value or runner argv element.
 	deniedPathPrefix string
+	// originSocketMarker identifies the installation's credential origin socket.
+	originSocketMarker string
 )
-
-// originSocketMarker is the fixed origin-socket deny marker (hook H3 defence in depth).
-const originSocketMarker = "origin.sock"
 
 // Literals is the validated immutable installation tuple seen by Run.
 type Literals struct {
-	Executable       string // E
-	Home             string // H
-	RunnerCommand    string
-	ClockProfile     string
-	KeymakerMarker   string
-	DeniedPathPrefix string
+	Executable         string // E
+	Home               string // H
+	RunnerCommand      string
+	ClockProfile       string
+	KeymakerMarker     string
+	DeniedPathPrefix   string
+	OriginSocketMarker string
 }
 
 // installedLiterals returns the build-time literals; only Main calls it.
 func installedLiterals() Literals {
 	return Literals{
-		Executable:       brokerExecutable,
-		Home:             stationHome,
-		RunnerCommand:    runnerCommand,
-		ClockProfile:     clockProfile,
-		KeymakerMarker:   keymakerMarker,
-		DeniedPathPrefix: deniedPathPrefix,
+		Executable:         brokerExecutable,
+		Home:               stationHome,
+		RunnerCommand:      runnerCommand,
+		ClockProfile:       clockProfile,
+		KeymakerMarker:     keymakerMarker,
+		DeniedPathPrefix:   deniedPathPrefix,
+		OriginSocketMarker: originSocketMarker,
 	}
 }
 
 func (l Literals) validate() error {
-	for _, v := range []string{l.Executable, l.Home, l.RunnerCommand, l.ClockProfile, l.KeymakerMarker, l.DeniedPathPrefix} {
+	for _, v := range []string{l.Executable, l.Home, l.RunnerCommand, l.ClockProfile, l.KeymakerMarker, l.DeniedPathPrefix, l.OriginSocketMarker} {
 		if v == "" {
 			return refuse(ReasonLiteralMissing)
 		}
@@ -71,7 +73,7 @@ func (l Literals) validate() error {
 	if !cleanAbsolute(l.Executable) || !cleanAbsolute(l.Home) || !cleanAbsolute(l.DeniedPathPrefix) {
 		return refuse(ReasonLiteralInvalid)
 	}
-	if !runnerCommandShape(l.RunnerCommand) || !profileShape(l.ClockProfile) || !printableASCII(l.KeymakerMarker, maxStringBytes) {
+	if !runnerCommandShape(l.RunnerCommand) || !profileShape(l.ClockProfile) || !printableASCII(l.KeymakerMarker, maxStringBytes) || !printableASCII(l.OriginSocketMarker, maxStringBytes) {
 		return refuse(ReasonLiteralInvalid)
 	}
 	return nil
@@ -131,9 +133,9 @@ func printableASCII(s string, limit int) bool {
 }
 
 // deniedMarker reports whether s contains any build-time deny marker: the
-// origin socket name, the Keymaker endpoint marker or the L-owned prefix.
+// origin socket marker, the Keymaker endpoint marker or the denied path prefix.
 func (l Literals) deniedMarker(s string) bool {
-	return strings.Contains(s, originSocketMarker) ||
+	return strings.Contains(s, l.OriginSocketMarker) ||
 		strings.Contains(s, l.KeymakerMarker) ||
 		strings.Contains(s, l.DeniedPathPrefix)
 }

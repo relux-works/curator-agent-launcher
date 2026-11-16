@@ -1,14 +1,6 @@
 #!/usr/bin/env bash
-# Plant controls for internal/m0adapter (DRAFT M0 executor adapter).
-#
-# Each mutant weakens exactly one adapter gate in a scratch copy of the
-# package (its own throwaway module, standard library only) and requires the
-# named behavioral test to FAIL with a "--- FAIL:" line for that test. First
-# the unmutated copy must pass every named test (positive control). A mutant
-# whose anchor is not found exactly once, that leaves the file unchanged, or
-# whose test passes or fails only to build, is a control failure. The real
-# tree is never modified. Linux only: the descriptor mutant needs the Linux
-# process tests.
+# Each plant changes a scratch copy only: a named green test, one diff,
+# that same test failing behaviorally, then a green test after restoration.
 set -eu -o pipefail
 
 root=$(cd "$(dirname "$0")/.." && pwd -P)
@@ -22,26 +14,26 @@ if [ -z "$go_version" ]; then
 	echo "m0-adapter-controls: no go directive in go.mod" >&2
 	exit 2
 fi
-mkdir -p "$root/.temp"
-scratch=$(mktemp -d "$root/.temp/m0-adapter-controls.XXXXXX")
-scratch=$(cd "$scratch" && pwd -P)
+scratch=$(mktemp -d "${TMPDIR:-/tmp}/m0-adapter-controls.XXXXXX")
 trap 'rm -rf "$scratch"' EXIT
-export GOWORK=off GOFLAGS=-mod=mod
+export GOWORK=off GOFLAGS=-mod=readonly
 
-# Fields separated by "|": id, file, test, anchor, replacement, description.
-# Anchors are exact literal text; the replacement keeps the code compiling.
-# A mutant may weaken several spots at once: its anchor and replacement
-# fields then hold the same number of parts separated by "^^", and every
-# anchor must match exactly once.
+# Fields: id|file|named test|exact anchor|replacement|claim.
+# Multiple edits of one plant use ^^ between corresponding parts.
 mutants=(
 	'M1|parse.go|TestGrammarNegatives|return jvalue{}, refuse(ReasonEntryDuplicate)|break|drop the duplicate-name refusal'
 	'M2|fd_linux.go|TestProcessPlanDuplicate|return id == plan|return false|drop the plan-object duplicate sweep'
-	'M3|env.go|TestEnvironment|return refuse(ReasonEnvUnexpected)|continue|skip extra environment variables instead of refusing'
-	'M4|parse.go|TestTokenBound|maxTokens       = 512|maxTokens       = 513|widen the token bound to 513'
-	'M5|mapping.go|TestTimeoutVectors|t := rem / 1000|t := (rem + 999) / 1000|round T up instead of down'
-	'M6|fd_linux.go|TestPromptPipeCapacity|if size < len(prompt) {|if false && size < len(prompt) {|skip the up-front pipe capacity refusal'
-	'M7|fd_linux.go|TestProcessSpecimenExecsRunner|err = syscall.Close(w)|err = syscall.Dup3(w, 2, 0)|leak the prompt write end to fd 2 instead of closing it'
-	'M8|fd_linux.go|TestProcessSpecimenExecsRunner|err = syscall.Close(w)^^} else if id == *stdin {|err = syscall.Dup3(w, 2, 0)^^} else if false && id == *stdin {|leak the write end into the runner past the final check (no EOF)'
+	'M3|env.go|TestEnvironment|return refuse(ReasonEnvUnexpected)|continue|silently skip extra environment variables'
+	'M4|parse.go|TestTokenBound|maxTokens       = 512|maxTokens       = 513|widen the token bound'
+	'M5|mapping.go|TestTimeoutVectors|t := rem / 1000|t := (rem + 999) / 1000|round T upward'
+	'M6|fd_linux.go|TestPromptPipeCapacity|if size < len(prompt) {|if false && size < len(prompt) {|skip the capacity refusal'
+	'M7|fd_linux.go|TestProcessSpecimenExecsRunner|err = ops.close(w)|err = ops.dup(w, 2, 0)|leak the writer to fd 2'
+	'M8|fd_linux.go|TestProcessSpecimenExecsRunner|err = ops.close(w)^^} else if id == *stdin {|err = ops.dup(w, 2, 0)^^} else if false && id == *stdin {|leak the writer past identity checking'
+	'eintr-bound|fd_linux.go|TestPromptPipeEINTRBound|n == 0 && attempt == 0|n == 0|retry a second EINTR'
+	'environment-name|env.go|TestEnvironmentNameDenied|lit.deniedMarker(fixedEnvNames[i])^^for i, v := range values {|false^^for _, v := range values {|omit the environment name scan'
+	'origin-required|literals.go|TestOriginSocketMarkerRequired|l.DeniedPathPrefix, l.OriginSocketMarker}|l.DeniedPathPrefix}|omit the required origin member'
+	'capacity-equality|fd_linux.go|TestPromptPipeCapacity|if size < len(prompt) {|if size <= len(prompt) {|require capacity greater than prompt length'
+	'unknown-runner|mapping.go|TestUnknownRunnerLiteralRefuses|if lit.RunnerCommand == codexRunnerCommand {|if lit.RunnerCommand != "run-claude" {|admit an unknown runner literal'
 )
 
 copy_pkg() {
@@ -51,34 +43,29 @@ copy_pkg() {
 	cp -R "$pkg" "$dest/m0adapter"
 }
 
-run_tests() {
-	local dir=$1 pattern=$2 log=$3
-	(cd "$dir" && go test ./m0adapter/ -count=1 -v -run "$pattern") >"$log" 2>&1
+run_test() {
+	local dir=$1 test=$2 log=$3 rc=0
+	echo "command: go test ./m0adapter/ -count=1 -v -run ^${test}\$"
+	(cd "$dir" && go test ./m0adapter/ -count=1 -v -run "^${test}\$") >"$log" 2>&1 || rc=$?
+	cat "$log"
+	echo "exit=$rc"
+	return "$rc"
 }
 
 status=0
-names=()
-for m in "${mutants[@]}"; do
-	IFS='|' read -r _ _ test _ _ _ <<<"$m"
-	names+=("$test")
-done
-pattern="^($(IFS='|'; echo "${names[*]}"))\$"
-
-copy_pkg "$scratch/baseline"
-if run_tests "$scratch/baseline" "$pattern" "$scratch/baseline.log"; then
-	echo "baseline: PASS ($pattern)"
-else
-	echo "baseline: FAIL; the unmutated copy must pass every named test" >&2
-	cat "$scratch/baseline.log" >&2
-	exit 1
-fi
-
+evaluated=0
 for m in "${mutants[@]}"; do
 	IFS='|' read -r id file test anchor replacement desc <<<"$m"
 	dir="$scratch/$id"
 	copy_pkg "$dir"
 	target="$dir/m0adapter/$file"
 	cp "$target" "$dir/original.go"
+	if ! run_test "$dir" "$test" "$dir/baseline.log"; then
+		echo "$id: baseline FAIL - $desc" >&2
+		status=1
+		continue
+	fi
+	echo "$id: baseline PASS ($test)"
 	anchors=()
 	replacements=()
 	while [ -n "$anchor" ]; do
@@ -90,7 +77,7 @@ for m in "${mutants[@]}"; do
 		if [ "$replacement" = "${replacement#*^^}" ]; then replacement=''; else replacement=${replacement#*^^}; fi
 	done
 	if [ "${#anchors[@]}" -ne "${#replacements[@]}" ]; then
-		echo "$id: NOT_APPLIED (anchor and replacement part counts differ) - $desc" >&2
+		echo "$id: NOT_APPLIED (part counts differ)" >&2
 		status=1
 		continue
 	fi
@@ -101,27 +88,40 @@ for m in "${mutants[@]}"; do
 			applied=0
 		fi
 	done
-	if [ "$applied" -ne 1 ]; then
-		echo "$id: NOT_APPLIED (an anchor not found exactly once in $file) - $desc" >&2
+	if [ "$applied" -ne 1 ] || cmp -s "$target" "$dir/original.go"; then
+		echo "$id: NOT_APPLIED (anchor not unique or file unchanged)" >&2
 		status=1
 		continue
 	fi
-	if cmp -s "$target" "$dir/original.go"; then
-		echo "$id: NOT_APPLIED (file unchanged) - $desc" >&2
+	diff_rc=0
+	diff -u --label "a/$file" --label "b/$file" "$dir/original.go" "$target" || diff_rc=$?
+	if [ "$diff_rc" -ne 1 ]; then
+		echo "$id: INVALID diff exit=$diff_rc" >&2
 		status=1
 		continue
 	fi
-	log="$scratch/$id.log"
-	if run_tests "$dir" "^${test}\$" "$log"; then
-		echo "$id: SURVIVED ($test passed) - $desc" >&2
-		cat "$log" >&2
+	evaluated=$((evaluated + 1))
+	log="$dir/planted.log"
+	if run_test "$dir" "$test" "$log"; then
+		echo "$id: SURVIVED - $desc" >&2
 		status=1
 	elif grep -Eq "^--- FAIL: ${test}( |\$)" "$log"; then
 		echo "$id: KILLED by $test - $desc"
 	else
-		echo "$id: INVALID ($test did not report its own failure; build or setup error) - $desc" >&2
-		cat "$log" >&2
+		echo "$id: INVALID (no named behavioral failure) - $desc" >&2
+		status=1
+	fi
+	cp "$dir/original.go" "$target"
+	if run_test "$dir" "$test" "$dir/restored.log"; then
+		echo "$id: restored PASS ($test)"
+	else
+		echo "$id: restored FAIL ($test)" >&2
 		status=1
 	fi
 done
+if [ "$evaluated" -eq 0 ]; then
+	echo "m0-adapter-controls: no plant evaluated" >&2
+	status=1
+fi
+echo "m0-adapter-controls: evaluated=$evaluated exit=$status"
 exit "$status"

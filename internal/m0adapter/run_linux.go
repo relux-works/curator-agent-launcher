@@ -2,6 +2,8 @@
 
 package m0adapter
 
+import "syscall"
+
 // Run executes the pipeline in spec order and returns a reason only when it
 // refuses before exec. On a successful exec it does not return: the process
 // is the runner and its status is the runner's.
@@ -16,6 +18,11 @@ package m0adapter
 //  8. qualified clock re-read (T only lowered) and final descriptor check;
 //  9. execve(E, argv, unchanged environment).
 func Run(cfg Config) Reason {
+	return runWithSyscalls(cfg, nativePromptSyscalls(), syscall.Close)
+}
+
+// runWithSyscalls keeps fault injection local to a test invocation.
+func runWithSyscalls(cfg Config, ops promptSyscalls, closeFD func(int) error) Reason {
 	if err := cfg.WaitForC(); err != nil {
 		return reasonOf(err)
 	}
@@ -31,7 +38,7 @@ func Run(cfg Config) Reason {
 	if err != nil {
 		return reasonOf(err)
 	}
-	if err := closePlanAndSweep(snap.id); err != nil {
+	if err := closePlanAndSweepWith(snap.id, closeFD); err != nil {
 		return reasonOf(err)
 	}
 	entry, err := Decode(raw)
@@ -47,7 +54,7 @@ func Run(cfg Config) Reason {
 	if err != nil {
 		return reasonOf(err)
 	}
-	stdin, err := installPrompt(launch.Prompt)
+	stdin, err := installPromptWith(launch.Prompt, ops)
 	clear(launch.Prompt)
 	if err != nil {
 		return reasonOf(err)

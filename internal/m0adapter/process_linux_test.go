@@ -42,6 +42,7 @@ type childSpec struct {
 	now1      int64
 	now2      int64
 	mode      string // empty: adapter child
+	behavior  string // test-only literal/syscall mutation in the child
 	useHome   string
 	planPath  *string // receives the plan path
 	planStats *syscall.Stat_t
@@ -129,7 +130,7 @@ func runChild(t *testing.T, spec childSpec) childResult {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, testBinary(t), mode, exe, home, strconv.FormatInt(now1, 10), strconv.FormatInt(now2, 10))
+	cmd := exec.CommandContext(ctx, testBinary(t), mode, exe, home, strconv.FormatInt(now1, 10), strconv.FormatInt(now2, 10), spec.behavior)
 	cmd.Env = env
 	cmd.ExtraFiles = files
 	var stdout, stderr bytes.Buffer

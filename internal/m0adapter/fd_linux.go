@@ -225,7 +225,13 @@ func readPlan(snap planSnapshot) ([]byte, error) {
 // plan object and that only 0-2 remain inherited. It runs before the stdin
 // pipe exists.
 func closePlanAndSweep(plan fileID) error {
-	if err := syscall.Close(planFD); err != nil {
+	return closePlanAndSweepWith(plan, syscall.Close)
+}
+
+// closePlanAndSweepWith permits deterministic close-failure injection without
+// changing the production syscall or installing a mutable global hook.
+func closePlanAndSweepWith(plan fileID, closeFD func(int) error) error {
+	if err := closeFD(planFD); err != nil {
 		return refuse(ReasonFDClose)
 	}
 	fds, err := listFDs()
@@ -241,7 +247,7 @@ func closePlanAndSweep(plan fileID) error {
 			return refuse(ReasonFDSweep)
 		}
 		if inh {
-			if err := syscall.Close(fd); err != nil {
+			if err := closeFD(fd); err != nil {
 				return refuse(ReasonFDClose)
 			}
 		}
@@ -270,6 +276,12 @@ func verifyDescriptors(plan fileID, stdin *fileID) error {
 		if isPlanDuplicate(id, plan) {
 			return refuse(ReasonFDPlanDuplicate)
 		}
+		if fd > 2 {
+			inh, err := inherited(fd)
+			if err != nil || inh {
+				return refuse(ReasonFDSweep)
+			}
+		}
 		if stdin != nil {
 			if fd == 0 {
 				fl, err := fcntl(0, syscall.F_GETFL, 0)
@@ -280,12 +292,6 @@ func verifyDescriptors(plan fileID, stdin *fileID) error {
 				return refuse(ReasonFDFinal)
 			}
 		}
-		if fd > 2 {
-			inh, err := inherited(fd)
-			if err != nil || inh {
-				return refuse(ReasonFDSweep)
-			}
-		}
 	}
 	if have != 3 {
 		return refuse(ReasonFDStandardMissing)
@@ -293,51 +299,79 @@ func verifyDescriptors(plan fileID, stdin *fileID) error {
 	return nil
 }
 
-// installPrompt replaces the feeder of the spec with one bounded write: a
-// fresh pipe whose capacity, read with F_GETPIPE_SZ, must already hold the
-// whole prompt receives the exact prompt bytes once, without blocking; the
-// write end is closed, so the reader sees EOF right after the prompt; the read
-// end becomes fd 0. Nothing waits for a reader. A capacity below the prompt
-// length, or a failed F_GETPIPE_SZ, refuses before any byte is written; the
-// capacity is never raised (a review condition on the no-feeder design).
+// promptSyscalls is an explicit, per-call fault-injection seam. Production
+// always supplies nativePromptSyscalls; tests never replace package globals.
+type promptSyscalls struct {
+	pipe2       func([]int, int) error
+	fcntl       func(int, int, int) (int, error)
+	setNonblock func(int, bool) error
+	write       func(int, []byte) (int, error)
+	close       func(int) error
+	stat        func(int) (fileID, syscall.Stat_t, error)
+	dup         func(int, int, int) error
+}
+
+func nativePromptSyscalls() promptSyscalls {
+	return promptSyscalls{syscall.Pipe2, fcntl, syscall.SetNonblock,
+		func(fd int, p []byte) (int, error) {
+			n, err := syscall.Write(fd, p)
+			// syscall.Write represents a failed kernel write as (-1, errno),
+			// meaning no bytes were written, not a partial write.
+			if n < 0 && err != nil {
+				n = 0
+			}
+			return n, err
+		}, syscall.Close, fstatID, syscall.Dup3}
+}
+
+// installPrompt pre-fills one fresh non-blocking pipe without a feeder or
+// capacity increase, closes the writer and installs its read-only end at 0.
 func installPrompt(prompt []byte) (fileID, error) {
+	return installPromptWith(prompt, nativePromptSyscalls())
+}
+
+func installPromptWith(prompt []byte, ops promptSyscalls) (fileID, error) {
 	var p [2]int
-	if err := syscall.Pipe2(p[:], syscall.O_CLOEXEC); err != nil {
+	if err := ops.pipe2(p[:], syscall.O_CLOEXEC); err != nil {
 		return fileID{}, refuse(ReasonStdinPipe)
 	}
-	return fillPromptPipe(p[0], p[1], prompt)
+	return fillPromptPipeWith(p[0], p[1], prompt, ops)
 }
 
 // fillPromptPipe performs installPrompt's checks and write on an already
 // created pipe (r, w). It owns both descriptors: on refusal it closes them.
 func fillPromptPipe(r, w int, prompt []byte) (fileID, error) {
+	return fillPromptPipeWith(r, w, prompt, nativePromptSyscalls())
+}
+
+func fillPromptPipeWith(r, w int, prompt []byte, ops promptSyscalls) (fileID, error) {
 	fail := func(reason Reason) (fileID, error) {
-		syscall.Close(r)
+		ops.close(r)
 		if w >= 0 {
-			syscall.Close(w)
+			ops.close(w)
 		}
 		return fileID{}, refuse(reason)
 	}
 	if r <= 2 || w <= 2 {
 		return fail(ReasonStdinPipe)
 	}
-	size, err := fcntl(w, fGetPipeSz, 0)
+	size, err := ops.fcntl(w, fGetPipeSz, 0)
 	if err != nil {
 		return fail(ReasonStdinCapacity)
 	}
 	if size < len(prompt) {
 		return fail(ReasonStdinCapacity)
 	}
-	if err := syscall.SetNonblock(w, true); err != nil {
+	if err := ops.setNonblock(w, true); err != nil {
 		return fail(ReasonStdinWrite)
 	}
 	// One non-blocking write of the exact prompt bytes. EAGAIN, a short write
 	// or any other error refuses; nothing is retried after a byte is written
-	// and a blocking write is never used. EINTR before any byte is written is
-	// retried, since the pipe is still empty.
-	for {
-		n, err := syscall.Write(w, prompt)
-		if err == syscall.EINTR && n <= 0 {
+	// and a blocking write is never used. Only one zero-byte EINTR retry is
+	// permitted; a second EINTR or any partial write refuses.
+	for attempt := 0; ; attempt++ {
+		n, err := ops.write(w, prompt)
+		if err == syscall.EINTR && n == 0 && attempt == 0 {
 			continue
 		}
 		if err != nil || n != len(prompt) {
@@ -345,19 +379,19 @@ func fillPromptPipe(r, w int, prompt []byte) (fileID, error) {
 		}
 		break
 	}
-	err = syscall.Close(w)
+	err = ops.close(w)
 	w = -1
 	if err != nil {
 		return fail(ReasonStdinWrite)
 	}
-	id, _, err := fstatID(r)
+	id, _, err := ops.stat(r)
 	if err != nil {
 		return fail(ReasonStdinPipe)
 	}
-	if err := syscall.Dup3(r, 0, 0); err != nil {
+	if err := ops.dup(r, 0, 0); err != nil {
 		return fail(ReasonStdinPipe)
 	}
-	if err := syscall.Close(r); err != nil {
+	if err := ops.close(r); err != nil {
 		return fileID{}, refuse(ReasonStdinPipe)
 	}
 	return id, nil

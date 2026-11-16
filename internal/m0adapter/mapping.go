@@ -101,8 +101,8 @@ func codexArgv(lit Literals, m mapping) []string {
 }
 
 // runnerArgv selects the mapping by the immutable runner command literal.
-// run-codex is implemented; any other command is the future Claude variant,
-// which refuses through its seam.
+// Only run-codex is pinned; run-claude and unknown literals refuse through
+// the unpublished-variant seam, with no fallback.
 func runnerArgv(lit Literals, m mapping) ([]string, error) {
 	if lit.RunnerCommand == codexRunnerCommand {
 		return codexArgv(lit, m), nil

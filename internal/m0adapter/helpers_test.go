@@ -30,6 +30,7 @@ const (
 	testKeymakerMarker = "keymaker-endpoint.invalid"
 	testDeniedPrefix   = "/nonexistent-l-owned-prefix"
 	testClockProfile   = "test-clock"
+	testOriginMarker   = "origin.sock"
 )
 
 type witness struct {
@@ -193,7 +194,7 @@ func testLiterals(e, h string) Literals {
 	return Literals{
 		Executable: e, Home: h, RunnerCommand: codexRunnerCommand,
 		ClockProfile: testClockProfile, KeymakerMarker: testKeymakerMarker,
-		DeniedPathPrefix: testDeniedPrefix,
+		DeniedPathPrefix: testDeniedPrefix, OriginSocketMarker: testOriginMarker,
 	}
 }
 

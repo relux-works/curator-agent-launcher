@@ -24,13 +24,21 @@
   Only `observe` negotiates the token: every other operation still refuses
   the three members, also from a manager that advertises it.
 - DRAFT `curator-run-m0-adapter`, the M0 executor adapter for the proposed
-  swarma-dispatcher `m0-executor-entry/1` (0772cf3, with the no-feeder amendment and the Claude runner variant): a Linux-only native
+  swarma-dispatcher `m0-executor-entry/1` (4fbf13a7, final executor-entry
+  documentary fixtures): a Linux-only native
   binary that reads one bounded closed entry from FD3, verifies descriptor
   identity, the fixed environment and `worker_plan`, and execs the pinned
   broker `run-codex` with the exact 19-element argv and a one-shot stdin
   pipe, or exits 78 before exec. Durable C, the qualified clock and the
   Claude runner variant are refusing seams, so it launches nothing yet.
-  `make m0-adapter-controls` runs its plant controls in the ubuntu CI job.
+  The 88 closed controls have distinct adapter tests or explicit owning-component
+  classifications. The origin socket marker is a third required build-time
+  denied literal; argv and environment names/values use substring matching.
+  Pipe writes permit at most one zero-byte EINTR retry; capacity equality is
+  accepted. Unpinned and unknown runner literals refuse without a pipe write
+  or exec. `make m0-adapter-controls` runs thirteen plants with named baseline,
+  planted failure and restored-green evidence. No native qualification or
+  activation is claimed.
 
 ## 0.7.0 — 2026-11-11
 
