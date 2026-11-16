@@ -4,7 +4,7 @@ These four JSON files are verbatim copies of the inert documentary fixtures of
 the DRAFT `swarma-dispatcher m0-executor-entry/1` proposal:
 
 - source repository: `github.com/relux-works/swarma-dispatcher`
-- source commit: `c19c58b` (swarma-dispatcher PR #25: the no-feeder amendment and the Claude runner variant, on top of `962eeb9`)
+- source commit: `0772cf3` (swarma-dispatcher PR #25 after its rebase: the no-feeder amendment and the Claude runner variant; the fixture bytes equal those at the earlier `c19c58b`)
 - source directory: `fixtures/m0-executor-entry/`
 
 | File | SHA-256 |

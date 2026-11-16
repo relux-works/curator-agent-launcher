@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-// The copied fixtures are byte-identical to swarma-dispatcher c19c58b
+// The copied fixtures are byte-identical to swarma-dispatcher 0772cf3
 // (testdata/README.md); an edit to them fails here rather than silently
 // changing what the witness tests prove.
 func TestFixtureBytesPinned(t *testing.T) {
