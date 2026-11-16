@@ -7,15 +7,15 @@ import (
 	"testing"
 )
 
-// The copied fixtures are byte-identical to swarma-dispatcher 962eeb9
+// The copied fixtures are byte-identical to swarma-dispatcher cf72502
 // (testdata/README.md); an edit to them fails here rather than silently
 // changing what the witness tests prove.
 func TestFixtureBytesPinned(t *testing.T) {
 	want := map[string]string{
 		"entry.specimen.json":     "sha256:16b898164b1b4bd0568a37bf71cbdf2625dc89f45544730866793bc433217aad",
 		"mapping.witness.json":    "sha256:3e12262d5828688b47a25543a87ab6e22bffa2c84b7851b0509d1e3ad61c0e21",
-		"forbidden-controls.json": "sha256:6ba57c7beb6a52e2621cee6c9706c09df27b694ee310c9796d27aa433ed5f07b",
-		"boundary.witnesses.json": "sha256:3f5d29ff8df7ea758db33d94e96d95504ebdc8ff3f795d02ea75ea1982745ffa",
+		"forbidden-controls.json": "sha256:71cd6e8becaac27674dd65f3dc92e7a8e88093e6051e86ce47badae12da7e262",
+		"boundary.witnesses.json": "sha256:a3df6f8ec7cc983bf82cd912a4e881dff308b1458ac75519c362195d37aa3160",
 	}
 	for name, digest := range want {
 		if got := sha(readTestdata(t, name)); got != digest {

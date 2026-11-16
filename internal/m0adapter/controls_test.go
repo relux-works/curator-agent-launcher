@@ -51,17 +51,18 @@ var forbiddenCoverage = map[string]controlCoverage{
 	"injected-member":   {classGrammar, "TestGrammarNegatives/injected-*"},
 	"missing-timing":    {classGrammar, "TestGrammarNegatives/missing-timing-*"},
 
-	"clock":                 {classAdapter, "TestTimeoutVectors (cap 240, 900 ms refuses, no upward rounding)"},
-	"timing-reset-rounding": {classAdapter, "TestTimeoutVectors; TestRefreshTimeoutOnlyLowers"},
-	"clock-coordinate":      {classAdapter, "TestSeamsRefuse: qualifiedNowMs refuses every profile"},
-	"before-c":              {classAdapter, "TestSeamsRefuse; TestProcessProductionMainRefuses (c_unpublished before any decoding)"},
-	"fd":                    {classAdapter, "TestProcessDescriptorInventory (extra fd 4, mutable/oversized FD3)"},
-	"fd3-left-open":         {classAdapter, "TestProcessPlanDuplicate; TestProcessSpecimenExecsRunner (runner lacks the plan object)"},
-	"environment":           {classAdapter, "TestEnvironment; TestProcessSpecimenExecsRunner (environment passed unchanged)"},
-	"home-prompt":           {classAdapter, "TestProcessSpecimenExecsRunner (stdin is exactly the FD3 prompt; no file lookup exists)"},
-	"feeder-lifecycle":      {classAdapter, "TestProcessPromptPipe (no feeder: one non-blocking write into a capacity-checked pipe)"},
-	"prompt-replay":         {classAdapter, "TestProcessPromptPipe (one prompt then EOF)"},
-	"status-collision":      {classAdapter, "TestProcessRunnerStatusPassThrough; TestReasonTable"},
+	"clock":                     {classAdapter, "TestTimeoutVectors (cap 240, 900 ms refuses, no upward rounding)"},
+	"timing-reset-rounding":     {classAdapter, "TestTimeoutVectors; TestRefreshTimeoutOnlyLowers"},
+	"clock-coordinate":          {classAdapter, "TestSeamsRefuse: qualifiedNowMs refuses every profile"},
+	"before-c":                  {classAdapter, "TestSeamsRefuse; TestProcessProductionMainRefuses (c_unpublished before any decoding)"},
+	"fd":                        {classAdapter, "TestProcessDescriptorInventory (extra fd 4, mutable/oversized FD3)"},
+	"fd3-left-open":             {classAdapter, "TestProcessPlanDuplicate; TestProcessSpecimenExecsRunner (runner lacks the plan object)"},
+	"environment":               {classAdapter, "TestEnvironment; TestProcessSpecimenExecsRunner (environment passed unchanged)"},
+	"home-prompt":               {classAdapter, "TestProcessSpecimenExecsRunner (stdin is exactly the FD3 prompt; no file lookup exists)"},
+	"stdin-pipe-lifecycle":      {classAdapter, "TestProcessPromptPipe (one non-blocking whole write, write end closed, runner sees EOF); plants M7/M8"},
+	"stdin-pipe-capacity-short": {classAdapter, "TestPromptPipeCapacity (shrunk pipe refuses before any write); plant M6"},
+	"prompt-replay":             {classAdapter, "TestProcessPromptPipe (one prompt then EOF)"},
+	"status-collision":          {classAdapter, "TestProcessRunnerStatusPassThrough; TestReasonTable"},
 
 	"identity":        {classShapeValid, "TestDOwnedChangesAreShapeValid/identity"},
 	"generation":      {classShapeValid, "TestDOwnedChangesAreShapeValid/generation"},
@@ -100,8 +101,8 @@ func TestForbiddenControlsClassified(t *testing.T) {
 	if err := json.Unmarshal(readTestdata(t, "forbidden-controls.json"), &controls); err != nil {
 		t.Fatal(err)
 	}
-	if len(controls) != 53 {
-		t.Fatalf("fixture has %d controls, want 53", len(controls))
+	if len(controls) != 54 {
+		t.Fatalf("fixture has %d controls, want 54", len(controls))
 	}
 	inFixture := map[string]bool{}
 	for _, c := range controls {

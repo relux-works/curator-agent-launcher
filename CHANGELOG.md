@@ -24,7 +24,7 @@
   Only `observe` negotiates the token: every other operation still refuses
   the three members, also from a manager that advertises it.
 - DRAFT `curator-run-m0-adapter`, the M0 executor adapter for the proposed
-  swarma-dispatcher `m0-executor-entry/1` (962eeb9): a Linux-only native
+  swarma-dispatcher `m0-executor-entry/1` (cf72502, with the no-feeder amendment): a Linux-only native
   binary that reads one bounded closed entry from FD3, verifies descriptor
   identity, the fixed environment and `worker_plan`, and execs the pinned
   broker `run-codex` with the exact 19-element argv and a one-shot stdin

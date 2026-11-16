@@ -1,6 +1,6 @@
 // Package m0adapter is the DRAFT M0 executor adapter: curator-run in the role
 // of swarma-dispatcher spec/m0-executor-entry.md (DRAFT m0-executor-entry/1 at
-// 962eeb9). It reads one closed, bounded entry from the immutable FD3, maps it
+// cf72502, the no-feeder amendment). It reads one closed, bounded entry from the immutable FD3, maps it
 // to the exact 19-element run-codex argv and a one-shot stdin pipe, and
 // execve-replaces itself with the pinned broker executable E.
 //
