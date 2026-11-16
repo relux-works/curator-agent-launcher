@@ -49,7 +49,11 @@ func verdict(t *testing.T, schema string, value any, valid bool) {
 		if (err == nil) != valid {
 			t.Fatalf("%s valid=%t: %v", identity, valid, err)
 		}
-		if err != nil && !strings.HasPrefix(err.Error(), "schema violation at $") {
+		// A refusal is either a schema violation or the strict reader's own
+		// refusal of the bytes (for example a non-integer number such as 1.5,
+		// which is never admitted as an integer); any other error class is a
+		// harness or validator fault.
+		if err != nil && !strings.HasPrefix(err.Error(), "schema violation at $") && err.Error() != "invalid protocol JSON" {
 			t.Fatalf("unexpected refusal class through %s: %v", identity, err)
 		}
 	}
