@@ -236,6 +236,9 @@ func DecodeResponse(operation string, request, body []byte, exit int, manager st
 	if managerschema.Validate(schema+".schema.json", body) != nil {
 		return Response{}, protocolError()
 	}
+	if carriesObservationV2Members(body) {
+		return Response{}, protocolError()
+	}
 	switch {
 	case result.Describe != nil:
 		_ = json.Unmarshal(body, result.Describe)
