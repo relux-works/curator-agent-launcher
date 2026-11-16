@@ -141,6 +141,12 @@ func entryInventory() (planSnapshot, error) {
 	if !have[planFD] {
 		return planSnapshot{}, refuse(ReasonFDPlanMissing)
 	}
+	// Only an inherited descriptor can be the manager's plan. A descriptor at
+	// 3 with close-on-exec set was created in this process image (for example
+	// by the Go runtime before main), so the plan is missing, not that object.
+	if inh, err := inherited(planFD); err != nil || !inh {
+		return planSnapshot{}, refuse(ReasonFDPlanMissing)
+	}
 	plan, st, err := fstatID(planFD)
 	if err != nil {
 		return planSnapshot{}, refuse(ReasonFDPlanRead)
@@ -325,20 +331,19 @@ func fillPromptPipe(r, w int, prompt []byte) (fileID, error) {
 	if err := syscall.SetNonblock(w, true); err != nil {
 		return fail(ReasonStdinWrite)
 	}
-	for off := 0; off < len(prompt); {
-		n, err := syscall.Write(w, prompt[off:])
-		if err == syscall.EINTR {
+	// One non-blocking write of the exact prompt bytes. EAGAIN, a short write
+	// or any other error refuses; nothing is retried after a byte is written
+	// and a blocking write is never used. EINTR before any byte is written is
+	// retried, since the pipe is still empty.
+	for {
+		n, err := syscall.Write(w, prompt)
+		if err == syscall.EINTR && n <= 0 {
 			continue
 		}
-		if err == syscall.EAGAIN {
-			// Unreachable after the capacity check; a partial write is a write
-			// failure, distinct from the up-front capacity refusal.
+		if err != nil || n != len(prompt) {
 			return fail(ReasonStdinWrite)
 		}
-		if err != nil || n <= 0 {
-			return fail(ReasonStdinWrite)
-		}
-		off += n
+		break
 	}
 	err = syscall.Close(w)
 	w = -1

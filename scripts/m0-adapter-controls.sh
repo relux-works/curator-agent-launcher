@@ -30,6 +30,9 @@ export GOWORK=off GOFLAGS=-mod=mod
 
 # Fields separated by "|": id, file, test, anchor, replacement, description.
 # Anchors are exact literal text; the replacement keeps the code compiling.
+# A mutant may weaken several spots at once: its anchor and replacement
+# fields then hold the same number of parts separated by "^^", and every
+# anchor must match exactly once.
 mutants=(
 	'M1|parse.go|TestGrammarNegatives|return jvalue{}, refuse(ReasonEntryDuplicate)|break|drop the duplicate-name refusal'
 	'M2|fd_linux.go|TestProcessPlanDuplicate|return id == plan|return false|drop the plan-object duplicate sweep'
@@ -37,6 +40,8 @@ mutants=(
 	'M4|parse.go|TestTokenBound|maxTokens       = 512|maxTokens       = 513|widen the token bound to 513'
 	'M5|mapping.go|TestTimeoutVectors|t := rem / 1000|t := (rem + 999) / 1000|round T up instead of down'
 	'M6|fd_linux.go|TestPromptPipeCapacity|if size < len(prompt) {|if false && size < len(prompt) {|skip the up-front pipe capacity refusal'
+	'M7|fd_linux.go|TestProcessSpecimenExecsRunner|err = syscall.Close(w)|err = syscall.Dup3(w, 2, 0)|leak the prompt write end to fd 2 instead of closing it'
+	'M8|fd_linux.go|TestProcessSpecimenExecsRunner|err = syscall.Close(w)^^} else if id == *stdin {|err = syscall.Dup3(w, 2, 0)^^} else if false && id == *stdin {|leak the write end into the runner past the final check (no EOF)'
 )
 
 copy_pkg() {
@@ -74,9 +79,30 @@ for m in "${mutants[@]}"; do
 	copy_pkg "$dir"
 	target="$dir/m0adapter/$file"
 	cp "$target" "$dir/original.go"
-	if ! ANCHOR="$anchor" REPLACEMENT="$replacement" perl -0777 -i -pe \
-		'BEGIN { $n = 0 } $n += s/\Q$ENV{ANCHOR}\E/$ENV{REPLACEMENT}/g; END { exit($n == 1 ? 0 : 3) }' "$target"; then
-		echo "$id: NOT_APPLIED (anchor not found exactly once in $file) - $desc" >&2
+	anchors=()
+	replacements=()
+	while [ -n "$anchor" ]; do
+		anchors+=("${anchor%%^^*}")
+		if [ "$anchor" = "${anchor#*^^}" ]; then anchor=''; else anchor=${anchor#*^^}; fi
+	done
+	while [ -n "$replacement" ]; do
+		replacements+=("${replacement%%^^*}")
+		if [ "$replacement" = "${replacement#*^^}" ]; then replacement=''; else replacement=${replacement#*^^}; fi
+	done
+	if [ "${#anchors[@]}" -ne "${#replacements[@]}" ]; then
+		echo "$id: NOT_APPLIED (anchor and replacement part counts differ) - $desc" >&2
+		status=1
+		continue
+	fi
+	applied=1
+	for i in "${!anchors[@]}"; do
+		if ! ANCHOR="${anchors[$i]}" REPLACEMENT="${replacements[$i]}" perl -0777 -i -pe \
+			'BEGIN { $n = 0 } $n += s/\Q$ENV{ANCHOR}\E/$ENV{REPLACEMENT}/g; END { exit($n == 1 ? 0 : 3) }' "$target"; then
+			applied=0
+		fi
+	done
+	if [ "$applied" -ne 1 ]; then
+		echo "$id: NOT_APPLIED (an anchor not found exactly once in $file) - $desc" >&2
 		status=1
 		continue
 	fi
