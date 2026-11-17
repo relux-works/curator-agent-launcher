@@ -343,14 +343,31 @@ func check(s map[string]any, value any, field string, depth int) error {
 // The published lease and process patterns end with `$(?![\s\S])` so regex
 // engines where `$` also matches before a final newline (Python, PCRE) still
 // require the end of the text. RE2 has no lookahead, so that exact terminal
-// suffix is translated to `\z`, which is the same end-of-text assertion here.
-// Any other lookahead stays a compile error and fails closed in check.
+// suffix is translated to `\z`, the same end-of-text assertion, but only when
+// its `$` is a metacharacter: an odd run of backslashes before it, or a `\Q`
+// literal block anywhere, makes the suffix text, and the pattern is refused.
+// Every other lookaround, including a second or non-terminal copy of the
+// suffix, stays an RE2 compile error. A refused pattern is reported as a
+// mismatch by check; TestSchemaCatalog compiles every published pattern, so a
+// refused pattern cannot be published.
 func compilePattern(pattern string) (*regexp.Regexp, error) {
 	const endAnchor = `$(?![\s\S])`
-	if strings.HasSuffix(pattern, endAnchor) {
-		pattern = strings.TrimSuffix(pattern, endAnchor) + `\z`
+	if body, ok := strings.CutSuffix(pattern, endAnchor); ok {
+		if trailingBackslashes(body)%2 == 1 || strings.Contains(body, `\Q`) {
+			return nil, errors.New("schema pattern end anchor is not a metacharacter")
+		}
+		pattern = body + `\z`
 	}
 	return regexp.Compile(pattern)
+}
+
+// trailingBackslashes counts the backslashes that end s.
+func trailingBackslashes(s string) int {
+	n := 0
+	for n < len(s) && s[len(s)-1-n] == '\\' {
+		n++
+	}
+	return n
 }
 
 func within(s map[string]any, minKey, maxKey string, n float64) bool {

@@ -196,3 +196,132 @@ func TestValidateRetainsUnknownMembers(t *testing.T) {
 		t.Fatal("canonical hashing contract changed", string(b), err)
 	}
 }
+
+// TestCompilePatternEndAnchor proves that only the exact terminal
+// `$(?![\s\S])` whose `$` is a metacharacter becomes RE2's end of text, and
+// that every other form fails closed instead of compiling to a different,
+// weaker pattern. It covers the translation, not the published schemas,
+// which TestSchemaCatalog compiles.
+func TestCompilePatternEndAnchor(t *testing.T) {
+	for _, tc := range []struct {
+		name, pattern string
+		compiles      bool
+		match, miss   []string
+	}{
+		{name: "terminal-anchor", pattern: `^[a-z]{1,3}$(?![\s\S])`, compiles: true, match: []string{"abc"}, miss: []string{"abc\n", "abcd", ""}},
+		{name: "even-backslashes-before-anchor", pattern: `^a\\$(?![\s\S])`, compiles: true, match: []string{`a\`}, miss: []string{"a\\\n", "a"}},
+		{name: "plain-dollar-unchanged", pattern: `^a$`, compiles: true, match: []string{"a"}, miss: []string{"ab"}},
+		{name: "escaped-dollar-refused", pattern: `^a\$(?![\s\S])`},
+		{name: "three-backslashes-refused", pattern: `^a\\\$(?![\s\S])`},
+		{name: "literal-block-refused", pattern: `^\Qa$(?![\s\S])`},
+		{name: "literal-block-closed-refused", pattern: `^\Qa\E$(?![\s\S])`},
+		{name: "non-terminal-suffix-refused", pattern: `^a$(?![\s\S])b`},
+		{name: "doubled-suffix-refused", pattern: `^a$(?![\s\S])$(?![\s\S])`},
+		{name: "other-lookahead-refused", pattern: `^a(?=b)`},
+		{name: "negative-lookbehind-refused", pattern: `^(?<!x)a$(?![\s\S])`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			r, err := compilePattern(tc.pattern)
+			if !tc.compiles {
+				if err == nil {
+					t.Fatalf("compilePattern(%q) = %q, want a refusal", tc.pattern, r)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("compilePattern(%q): %v", tc.pattern, err)
+			}
+			for _, s := range tc.match {
+				if !r.MatchString(s) {
+					t.Fatalf("%q does not match %q", r, s)
+				}
+			}
+			for _, s := range tc.miss {
+				if r.MatchString(s) {
+					t.Fatalf("%q matches %q", r, s)
+				}
+			}
+		})
+	}
+}
+
+// endAnchoredPatterns returns every `pattern` in node and the ones that do
+// not end with the engine-independent end anchor `$(?![\s\S])`.
+func endAnchoredPatterns(node any) (all, loose []string) {
+	switch v := node.(type) {
+	case map[string]any:
+		for key, child := range v {
+			if p, ok := child.(string); ok && key == "pattern" {
+				all = append(all, p)
+				if !strings.HasSuffix(p, `$(?![\s\S])`) {
+					loose = append(loose, p)
+				}
+				continue
+			}
+			a, l := endAnchoredPatterns(child)
+			all, loose = append(all, a...), append(loose, l...)
+		}
+	case []any:
+		for _, child := range v {
+			a, l := endAnchoredPatterns(child)
+			all, loose = append(all, a...), append(loose, l...)
+		}
+	}
+	return all, loose
+}
+
+// TestHomeLeasePatternsEndAnchored proves that every pattern of the two lease
+// schemas, and of the process tuple inside the session and session-record
+// schemas, ends with `$(?![\s\S])`. Go's RE2 treats a plain `$` as the end of
+// text, so no vector can tell the two apart in Go; this test is the witness
+// that the published grammar also holds in engines where `$` matches before a
+// final newline. The in-test control shows that one reverted pattern is
+// reported. It does not check patterns outside these subtrees.
+func TestHomeLeasePatternsEndAnchored(t *testing.T) {
+	load := func(name string) map[string]any {
+		t.Helper()
+		data, err := Documents.ReadFile(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var doc map[string]any
+		if err := json.Unmarshal(data, &doc); err != nil {
+			t.Fatal(err)
+		}
+		return doc
+	}
+	process := func(doc map[string]any) any {
+		t.Helper()
+		branches, _ := doc["oneOf"].([]any)
+		if len(branches) == 0 {
+			t.Fatal("no oneOf branch")
+		}
+		first, _ := branches[0].(map[string]any)
+		props, _ := first["properties"].(map[string]any)
+		p, ok := props["process"]
+		if !ok {
+			t.Fatal("no process member in the first branch")
+		}
+		return p
+	}
+	subtrees := map[string]any{
+		"lease-holder.schema.json":           load("lease-holder.schema.json"),
+		"lease-result.schema.json":           load("lease-result.schema.json"),
+		"session.schema.json process":        process(load("session.schema.json")),
+		"session-record.schema.json process": process(load("session-record.schema.json")),
+	}
+	for name, node := range subtrees {
+		all, loose := endAnchoredPatterns(node)
+		if len(all) == 0 {
+			t.Fatalf("%s: no pattern found", name)
+		}
+		if len(loose) != 0 {
+			t.Fatalf("%s: patterns without the end anchor: %q", name, loose)
+		}
+	}
+	// Control: the same check reports a pattern reverted to a plain `$`.
+	reverted := map[string]any{"pattern": `^[0-9]{1,20}$`, "properties": map[string]any{"x": map[string]any{"pattern": `^a$(?![\s\S])`}}}
+	if _, loose := endAnchoredPatterns(reverted); len(loose) != 1 || loose[0] != `^[0-9]{1,20}$` {
+		t.Fatalf("control: reverted pattern not reported: %q", loose)
+	}
+}
