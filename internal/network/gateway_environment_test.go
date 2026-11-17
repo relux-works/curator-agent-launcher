@@ -82,7 +82,7 @@ func TestGatewayKnownEnvironmentContract(t *testing.T) {
 	}
 }
 
-// The final check accepts only the three exact registration-owned pairs,
+// The final check accepts only the four exact registration-owned pairs,
 // rejects surviving controls in all representations, and cannot be widened by
 // mutating the public patch after registration. Changing only a final owned
 // environment value also refuses while the literal map remains exact.

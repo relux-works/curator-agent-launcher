@@ -983,12 +983,16 @@ unfiltered fallback. The child then gets `ANTHROPIC_BASE_URL` set to the
 gateway's base, `ANTHROPIC_CUSTOM_HEADERS` carrying the launch token in the
 gateway's header, `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1` and
 `CLAUDE_CODE_MODEL_CATALOG=off`, in its launch-private environment only. The
-last pair exists because Claude Code fetches its published model catalog from
-`downloads.claude.ai` when the base URL is not first-party, and the
-nonessential-traffic switch does not stop that fetch: an admitted 2.1.318
-gateway launch was observed opening TLS to that host without it. All four
-names are owned by the gateway: an overlay or settings `env` entry naming one
-refuses. Claude Code reads over a thousand names in
+last pair is set because an admitted Claude Code 2.1.318 gateway launch, run
+without it, was observed opening TLS to `downloads.claude.ai`; the published
+2.1.318 darwin-arm64 binary fetches a signed model catalog from that host, its
+own release note names `CLAUDE_CODE_MODEL_CATALOG=off` as the switch that
+turns the fetch off, and the fetch is not gated by the nonessential-traffic
+switch (a static reading of that binary). That the pair stops the observed
+connection is not yet witnessed at runtime: a launch with it must show it
+before the build is relied on (the runtime witness below). All four names are
+owned by the gateway; as before, an overlay or settings `env` entry naming any
+`CLAUDE_*` name outside the allowlist refuses. Claude Code reads over a thousand names in
 its own namespaces (`CLAUDE_*`, `ANTHROPIC_*`, `CCR_*`), and they select
 providers, endpoints, transports, settings sources, remote and background
 sessions and runtime modes. Under a gateway those namespaces are held to an
@@ -1086,7 +1090,7 @@ sandbox or a claim that arbitrary tool/loader values are inert.
 
 After all sources are composed, a gateway-only check validates the final
 environment, literal values and remaining MCP lookup names before provenance
-or spawn. It accepts only the three exact registration-owned reserved pairs;
+or spawn. It accepts only the four exact registration-owned reserved pairs;
 missing, altered, duplicated or differently cased aliases refuse. A generic
 managed patch does not enable or widen this gateway authority.
 The namespaces' own mode selectors (safe, bare, restricted,

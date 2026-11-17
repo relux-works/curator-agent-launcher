@@ -6,13 +6,13 @@
 
 ### Fixed
 
-- Under a filtering gateway, Claude Code no longer fetches its published model
-  catalog from `downloads.claude.ai`: the gateway sets
-  `CLAUDE_CODE_MODEL_CATALOG=off` in the child's launch-private environment
-  and owns the name like its other pairs, so an overlay or a settings `env`
-  entry naming it refuses. An admitted Claude Code 2.1.318 launch had opened
-  that direct connection, which `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1`
-  does not stop.
+- Under a filtering gateway, the launcher now sets
+  `CLAUDE_CODE_MODEL_CATALOG=off` in Claude Code's launch-private environment
+  and requires it in the final composed environment, like its other three
+  owned pairs. An admitted Claude Code 2.1.318 launch without it was observed
+  opening TLS to `downloads.claude.ai`; by a static reading of that build, the
+  pair turns off its published model-catalog fetch from that host. Its
+  runtime effect is not yet witnessed.
 - The gateway qualification recipe now requires a runtime witness that the
   launched process makes no direct Anthropic connection.
 
