@@ -25,8 +25,13 @@ import (
 
 // Claude Code settings the gateway patch owns. A composed overlay naming
 // one of them refuses: the gateway's base URL and token header must be the
-// only ones the child sees.
-var gatewayClaudeNames = []string{"ANTHROPIC_BASE_URL", "ANTHROPIC_CUSTOM_HEADERS", "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"}
+// only ones the child sees. CLAUDE_CODE_MODEL_CATALOG=off is read from the
+// published Claude Code 2.1.318 darwin-arm64 bundle: its release note names
+// it as the switch for the signed model-catalog fetch from
+// downloads.claude.ai, which that build makes for a non-first-party base URL
+// and does not gate on the nonessential-traffic switch. Its runtime effect
+// needs the README's runtime witness.
+var gatewayClaudeNames = []string{"ANTHROPIC_BASE_URL", "ANTHROPIC_CUSTOM_HEADERS", "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC", "CLAUDE_CODE_MODEL_CATALOG"}
 
 // claudeRouteNames select another provider route or endpoint in Claude Code
 // 2.1.312 and 2.1.314 (read from their bundles): any of them could send the
@@ -130,6 +135,7 @@ func prepareGateway(ctx context.Context, req Request, result *resolve.Result, id
 			{Name: "ANTHROPIC_BASE_URL", Value: reg.AnthropicBase},
 			{Name: "ANTHROPIC_CUSTOM_HEADERS", Value: reg.TokenHeader + ": " + reg.Token},
 			{Name: "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC", Value: "1"},
+			{Name: "CLAUDE_CODE_MODEL_CATALOG", Value: "off"},
 		},
 	}
 	bound := binding.Binding{
@@ -184,6 +190,7 @@ func gatewayCompositionCheck(subject, base, header string) func([]string, map[st
 		"ANTHROPIC_BASE_URL":                       base,
 		"ANTHROPIC_CUSTOM_HEADERS":                 header,
 		"CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
+		"CLAUDE_CODE_MODEL_CATALOG":                "off",
 	}
 	return func(env []string, literals map[string]string, names []string) error {
 		refuse := func(name string) error {

@@ -155,7 +155,7 @@ func TestGatewayLaunchLifecycleThroughRun(t *testing.T) {
 		env[name] = value
 	}
 	if env["ANTHROPIC_BASE_URL"] != "http://127.0.0.1:47811/anthropic" || env["ANTHROPIC_CUSTOM_HEADERS"] != "X-Netproxy-Token: "+e2eToken ||
-		env["CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"] != "1" {
+		env["CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"] != "1" || env["CLAUDE_CODE_MODEL_CATALOG"] != "off" {
 		t.Fatalf("child env lacks the gateway settings: %v", env)
 	}
 	for _, name := range []string{"HTTPS_PROXY", "HTTP_PROXY", "https_proxy", "ALL_PROXY"} {

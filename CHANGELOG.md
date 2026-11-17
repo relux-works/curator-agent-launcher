@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Under a filtering gateway, the launcher sets `CLAUDE_CODE_MODEL_CATALOG=off`
+  in Claude Code's launch-private environment and requires it in the final
+  composed environment, like its other three owned pairs (forward-port of
+  0.7.1). The gateway qualification recipe requires a runtime witness that
+  the launched process makes no direct Anthropic connection.
+
 ### Added
 
 - Publish the observation-v2 contract d5 schemas in the nested session-manager

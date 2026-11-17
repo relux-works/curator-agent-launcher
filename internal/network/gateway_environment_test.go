@@ -82,7 +82,7 @@ func TestGatewayKnownEnvironmentContract(t *testing.T) {
 	}
 }
 
-// The final check accepts only the three exact registration-owned pairs,
+// The final check accepts only the four exact registration-owned pairs,
 // rejects surviving controls in all representations, and cannot be widened by
 // mutating the public patch after registration. Changing only a final owned
 // environment value also refuses while the literal map remains exact.
@@ -99,6 +99,7 @@ func TestGatewayComposedEnvironmentBoundary(t *testing.T) {
 		"ANTHROPIC_BASE_URL":                       "http://127.0.0.1:47811/anthropic",
 		"ANTHROPIC_CUSTOM_HEADERS":                 "X-Netproxy-Token: " + gwToken,
 		"CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
+		"CLAUDE_CODE_MODEL_CATALOG":                "off",
 	}
 	valid := func() ([]string, map[string]string, []string) {
 		env := []string{"MCP_SDK_GENERATION=v2", "UNRELATED_EXTENSION_SETTING=kept"}
@@ -110,7 +111,7 @@ func TestGatewayComposedEnvironmentBoundary(t *testing.T) {
 	if err := got.CheckComposed(valid()); err != nil {
 		t.Fatalf("exact gateway patch refused: %v", err)
 	}
-	for _, which := range []string{"env", "literals", "lookup", "alias", "changed-token", "changed-env-base", "changed-env-token", "changed-env-traffic", "missing", "duplicate", "mutated-patch"} {
+	for _, which := range []string{"env", "literals", "lookup", "alias", "changed-token", "changed-env-base", "changed-env-token", "changed-env-traffic", "changed-env-catalog", "missing-catalog", "missing", "duplicate", "mutated-patch"} {
 		t.Run(which, func(t *testing.T) {
 			env, literals, names := valid()
 			switch which {
@@ -124,11 +125,20 @@ func TestGatewayComposedEnvironmentBoundary(t *testing.T) {
 				env = append(env, "anthropic_base_url="+owned["ANTHROPIC_BASE_URL"])
 			case "changed-token":
 				literals["ANTHROPIC_CUSTOM_HEADERS"] = "private-canary"
-			case "changed-env-base", "changed-env-token", "changed-env-traffic":
+			case "missing-catalog":
+				var kept []string
+				for _, pair := range env {
+					if !strings.HasPrefix(pair, "CLAUDE_CODE_MODEL_CATALOG=") {
+						kept = append(kept, pair)
+					}
+				}
+				env = kept
+			case "changed-env-base", "changed-env-token", "changed-env-traffic", "changed-env-catalog":
 				name := map[string]string{
 					"changed-env-base":    "ANTHROPIC_BASE_URL",
 					"changed-env-token":   "ANTHROPIC_CUSTOM_HEADERS",
 					"changed-env-traffic": "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC",
+					"changed-env-catalog": "CLAUDE_CODE_MODEL_CATALOG",
 				}[which]
 				for i, pair := range env {
 					if strings.HasPrefix(pair, name+"=") {

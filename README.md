@@ -984,8 +984,18 @@ directory, an audit session id, runtime `claude-code`) over
 `netproxy-control/1`. Any failure refuses `network_proxy_unreachable` with no
 unfiltered fallback. The child then gets `ANTHROPIC_BASE_URL` set to the
 gateway's base, `ANTHROPIC_CUSTOM_HEADERS` carrying the launch token in the
-gateway's header, and `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1`, in its
-launch-private environment only. Claude Code reads over a thousand names in
+gateway's header, `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1` and
+`CLAUDE_CODE_MODEL_CATALOG=off`, in its launch-private environment only. The
+last pair is set because an admitted Claude Code 2.1.318 gateway launch, run
+without it, was observed opening TLS to `downloads.claude.ai`; the published
+2.1.318 darwin-arm64 binary fetches a signed model catalog from that host, its
+own release note names `CLAUDE_CODE_MODEL_CATALOG=off` as the switch that
+turns the fetch off, and the fetch is not gated by the nonessential-traffic
+switch (a static reading of that binary). That the pair stops the observed
+connection is not yet witnessed at runtime: a launch with it must show it
+before the build is relied on (the runtime witness below). All four names are
+owned by the gateway; as before, an overlay or settings `env` entry naming any
+`CLAUDE_*` name outside the allowlist refuses. Claude Code reads over a thousand names in
 its own namespaces (`CLAUDE_*`, `ANTHROPIC_*`, `CCR_*`), and they select
 providers, endpoints, transports, settings sources, remote and background
 sessions and runtime modes. Under a gateway those namespaces are held to an
@@ -1083,7 +1093,7 @@ sandbox or a claim that arbitrary tool/loader values are inert.
 
 After all sources are composed, a gateway-only check validates the final
 environment, literal values and remaining MCP lookup names before provenance
-or spawn. It accepts only the three exact registration-owned reserved pairs;
+or spawn. It accepts only the four exact registration-owned reserved pairs;
 missing, altered, duplicated or differently cased aliases refuse. A generic
 managed patch does not enable or widen this gateway authority.
 The namespaces' own mode selectors (safe, bare, restricted,
@@ -1212,7 +1222,11 @@ Contract A narrows the launch; it does not isolate it. Its written residual:
   source gates its principal policy read/fetch/poll paths on first-party
   base-URL eligibility; that static observation is not a runtime connection
   witness or a guarantee about every later path. Actual gateway qualification
-  must check that the launched process makes no direct Anthropic connection;
+  must check that the launched process makes no direct Anthropic connection:
+  the runtime witness (for example the open connections of the child for the
+  first minutes of a session show only the gateway's local listener) is a
+  required step for every grounded build, because static checks alone passed
+  a build that still opened a direct connection;
 - the launch token is usable only at the gateway's same-host loopback
   listener.
 
