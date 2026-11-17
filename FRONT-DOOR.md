@@ -831,13 +831,19 @@ The v1 capability tokens are closed. An unknown token confers nothing.
   lease bind; only `observe --schema v2` with its `--expect-*` frozen
   binding yields owner evidence.
 
-  **Landing condition.** The no-token paths above use the same
-  `status {session}` read as `observe`, so a manager that attaches
-  `process` to live records — as an `observe --schema v2` consumer needs —
-  makes Werkstatt `down`, `status`, `recycle` and `werkstatt list` refuse
-  `session_host_protocol_error` (6) for lanes on that manager. Until the
-  contract admits those reads, a manager that hosts Werkstatt lanes must
-  not advertise `process-observation/1`.
+  **Landing condition.** The no-token paths above decode the same
+  `status {session}` read, and the `stop` reply, that a capable manager
+  answers with `process` on live records and `termination` on a down
+  record — as an `observe --schema v2` consumer needs — so attaching
+  those members makes each of these refuse `session_host_protocol_error`
+  (6) for lanes on that manager: Werkstatt `down` (its owner read and
+  its `stop` reply), `status`, `update`, `recover` (including the
+  rebind read), `recycle`, `werkstatt list`, and `up` when the previous
+  owner is another capable manager. The contract revision that admits
+  these reads is agreed (liveness `capabilities` frozen at `up`) and is
+  a later unit; until it is implemented the landing condition holds: a
+  manager that hosts Werkstatt lanes must not advertise
+  `process-observation/1`.
 - **`survives-upgrade`, `drains-on-upgrade`.** The manager's upgrade
   behaviour (§3.3).
 

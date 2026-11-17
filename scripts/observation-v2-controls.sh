@@ -72,6 +72,12 @@ plants=(
 	remote = admittedRemote(remote, admission)@@	admission := client.Admission{ProcessObservation: client.ProcessObservation(*response.Describe)}'
   # Admit the down stop decode: a termination member on stop is accepted.
   "P14@@$WERKSTATT@@$WERKPKG@@TestServiceProcessObservationAdmission/down-stop-termination@@call(ctx, s.remote(l.Manager.ID, e), \"stop\"@@call(ctx, admittedRemote(s.remote(l.Manager.ID, e), client.Admission{ProcessObservation: true}), \"stop\""
+  # Admit the rebind read: a process member on the rebind status is accepted
+  # and the binding is rewritten before the next read.
+  "P15@@$WERKSTATT@@$WERKPKG@@TestServiceProcessObservationAdmission/rebind-process@@call(ctx, s.remote(l.Manager.ID, e), \"status\"@@call(ctx, admittedRemote(s.remote(l.Manager.ID, e), client.Admission{ProcessObservation: true}), \"status\""
+  # Admit the recycle draining poll: a process member on the poll is
+  # accepted and the loop polls once more past the script.
+  "P16@@$WERKSTATT@@$WERKPKG@@TestServiceProcessObservationAdmission/recycle-poll-process@@s.ownerRead(pollCtx, reg, l)@@s.ownerReadAdmitted(pollCtx, reg, l, client.Admission{ProcessObservation: true}, l.Manager.ID)"
 )
 
 # A requested id that names no plant, or a run that evaluates none, must

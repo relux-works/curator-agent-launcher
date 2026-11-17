@@ -106,30 +106,52 @@ func admSession(t *testing.T, manager, state, member string) string {
 	return body
 }
 
-// admList is one list page from manager: a down row carrying termination
-// followed by a live row carrying process, both labelled for the fixture.
-func admList(t *testing.T, manager string) string {
+func admListRow(t *testing.T, manager, session, state, member string) map[string]any {
 	t.Helper()
-	row := func(session, state, member string) map[string]any {
-		r := admVector(t, "session")
-		delete(r, "protocol")
-		delete(r, "ok")
-		r["manager"], r["session"], r["state"] = manager, session, state
-		r["labels"] = map[string]any{"werkstatt": "example"}
-		if member == "process" {
-			r["process"] = admProcess()
-		}
-		if member == "termination" {
-			r["termination"] = map[string]any{"scope": "dedicated-uid", "witness": "zero-process-proof"}
-		}
-		return r
+	r := admVector(t, "session")
+	delete(r, "protocol")
+	delete(r, "ok")
+	r["manager"], r["session"], r["state"] = manager, session, state
+	r["labels"] = map[string]any{"werkstatt": "example"}
+	if member == "process" {
+		r["process"] = admProcess()
 	}
-	page := map[string]any{"protocol": client.Protocol, "ok": true, "sessions": []map[string]any{row("SES-previous", "down", "termination"), row("SES-example", "idle", "process")}, "next_cursor": nil}
+	if member == "termination" {
+		r["termination"] = map[string]any{"scope": "dedicated-uid", "witness": "zero-process-proof"}
+	}
+	return r
+}
+
+func admListPage(t *testing.T, rows []map[string]any) string {
+	t.Helper()
+	page := map[string]any{"protocol": client.Protocol, "ok": true, "sessions": rows, "next_cursor": nil}
 	body := string(encoded(page))
 	if err := schema.Validate("list-page.schema.json", []byte(body)); err != nil {
 		t.Fatalf("list fixture invalid: %v", err)
 	}
 	return body
+}
+
+// admList is one list page from manager: a down row carrying termination
+// followed by a live row carrying process, both labelled for the fixture.
+func admList(t *testing.T, manager string) string {
+	t.Helper()
+	return admListPage(t, []map[string]any{admListRow(t, manager, "SES-previous", "down", "termination"), admListRow(t, manager, "SES-example", "idle", "process")})
+}
+
+// admListMember is one list page from manager carrying only member, so a
+// no-token refusal can be attributed to that member alone.
+func admListMember(t *testing.T, manager, member string) string {
+	t.Helper()
+	switch member {
+	case "termination":
+		return admListPage(t, []map[string]any{admListRow(t, manager, "SES-previous", "down", "termination")})
+	case "process":
+		return admListPage(t, []map[string]any{admListRow(t, manager, "SES-example", "idle", "process")})
+	default:
+		t.Fatalf("unknown member %q", member)
+		return ""
+	}
 }
 
 func admTrace(t *testing.T, script string) []string {
@@ -153,6 +175,21 @@ func admTrace(t *testing.T, script string) []string {
 		calls = append(calls, row.Operation)
 	}
 	return calls
+}
+
+// admPidCount counts scripted-manager invocations; the manager appends its
+// pid before the step check, so an exhausted extra call counts even though
+// it writes no trace and its empty body decodes as exit 6.
+func admPidCount(t *testing.T, script string) int {
+	t.Helper()
+	b, err := os.ReadFile(script + ".pids")
+	if errors.Is(err, os.ErrNotExist) {
+		return 0
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	return len(strings.Fields(string(b)))
 }
 
 func admCleanup(t *testing.T, script string) {
@@ -242,12 +279,22 @@ func admLiveness(binary, owner, state string, stale bool) *client.Liveness {
 	return l
 }
 
-// Claim: Werkstatt up admits process/termination only under the selected manager's own capable describe (inventory list and same-manager owner read), refuses 6 without the token or across managers, and down/status/recycle/rebind keep refusing 6.
+// TestServiceProcessObservationAdmission pins each Werkstatt admission path
+// against the scripted manager. Every case states its own claim below and
+// asserts its refusal code (exit 6 for protocol refusals), the exact
+// per-manager trace and that the pid-line count equals the expected call
+// count, so an extra call past an exhausted script cannot hide behind the
+// empty-body 6. Admitted positives are witnessed by werkstatt_already_up
+// on a live record, not by a completed launch or resume; the no-token
+// cases below the up group make no describe, so their traces also pin
+// that no describe is added on those paths.
 func TestServiceProcessObservationAdmission(t *testing.T) {
 	binary := admBinary(t)
 	describeCapable := admDescribe(t, "demo", true)
 	describeLegacy := admDescribe(t, "demo", false)
 	listMembers := admList(t, "demo")
+	listTerminationOnly := admListMember(t, "demo", "termination")
+	listProcessOnly := admListMember(t, "demo", "process")
 	idleProcessDemo := admSession(t, "demo", "idle", "process")
 	idleProcessOther := admSession(t, "other", "idle", "process")
 	idlePlain := admSession(t, "demo", "idle", "")
@@ -270,30 +317,55 @@ func TestServiceProcessObservationAdmission(t *testing.T) {
 		otherCall []string
 	}
 	cases := []admCase{
+		// Claim: up list admits a down termination row and a live process row under the selected manager's capable describe, reaching already_up.
 		{name: "up-list-process-termination-admitted", command: Command{Action: "up", ID: "example"},
 			demo: []admStep{{"describe", describeCapable}, {"list", listMembers}}, want: "werkstatt_already_up", demoCalls: []string{"describe", "list"}},
-		{name: "up-list-no-token-process-termination", command: Command{Action: "up", ID: "example"},
-			demo: []admStep{{"describe", describeLegacy}, {"list", listMembers}}, want: protocolErr, demoCalls: []string{"describe", "list"}},
+		// Claim: up list refuses 6 a termination-only page under a legacy describe, with the list as the only decode that can refuse.
+		{name: "up-list-no-token-termination", command: Command{Action: "up", ID: "example"},
+			demo: []admStep{{"describe", describeLegacy}, {"list", listTerminationOnly}}, want: protocolErr, demoCalls: []string{"describe", "list"}},
+		// Claim: up list refuses 6 a process-only page under a legacy describe, with the list as the only decode that can refuse.
+		{name: "up-list-no-token-process", command: Command{Action: "up", ID: "example"},
+			demo: []admStep{{"describe", describeLegacy}, {"list", listProcessOnly}}, want: protocolErr, demoCalls: []string{"describe", "list"}},
+		// Claim: up owner read admits process when the previous owner is the selected manager and its describe is capable, reaching already_up.
 		{name: "up-owner-same-manager-process", command: Command{Action: "up", ID: "example"}, owner: "demo", liveState: "idle",
 			demo: []admStep{{"describe", describeCapable}, {"status", idleProcessDemo}}, want: "werkstatt_already_up", demoCalls: []string{"describe", "status"}},
+		// Claim: up owner read refuses 6 the same process record when the selected same-manager describe carries no token.
 		{name: "up-owner-same-manager-no-token", command: Command{Action: "up", ID: "example"}, owner: "demo", liveState: "idle",
 			demo: []admStep{{"describe", describeLegacy}, {"status", idleProcessDemo}}, want: protocolErr, demoCalls: []string{"describe", "status"}},
+		// Claim: up owner read admits termination on a down record from the selected same manager under its capable describe, then reaches already_up via the list.
+		{name: "up-owner-same-manager-termination", command: Command{Action: "up", ID: "example"}, owner: "demo", liveState: "idle",
+			demo: []admStep{{"describe", describeCapable}, {"status", downTermination}, {"list", listMembers}}, want: "werkstatt_already_up", demoCalls: []string{"describe", "status", "list"}},
+		// Claim: up owner read refuses 6 the same termination record when the selected same-manager describe carries no token, and no list follows.
+		{name: "up-owner-same-manager-termination-no-token", command: Command{Action: "up", ID: "example"}, owner: "demo", liveState: "idle",
+			demo: []admStep{{"describe", describeLegacy}, {"status", downTermination}}, want: protocolErr, demoCalls: []string{"describe", "status"}},
+		// Claim: up does not admit an owner read from another manager under the selected manager's capable describe; that read refuses 6.
 		{name: "up-owner-other-manager-process", command: Command{Action: "up", ID: "example"}, owner: "other", liveState: "idle",
 			demo: []admStep{{"describe", describeCapable}}, other: []admStep{{"status", idleProcessOther}}, want: protocolErr, demoCalls: []string{"describe"}, otherCall: []string{"status"}},
+		// Claim: down refuses 6 termination on the stop reply, after a plain owner read, with no admission on that path.
 		{name: "down-stop-termination", command: Command{Action: "down", ID: "example"}, owner: "demo", liveState: "idle",
 			demo: []admStep{{"status", idlePlain}, {"stop", downTermination}}, want: protocolErr, demoCalls: []string{"status", "stop"}},
+		// Claim: down refuses 6 process on its first owner read and never reaches stop, with exactly one manager invocation.
+		{name: "down-owner-process", command: Command{Action: "down", ID: "example"}, owner: "demo", liveState: "idle",
+			demo: []admStep{{"status", idleProcessDemo}}, want: protocolErr, demoCalls: []string{"status"}},
+		// Claim: down with plain owner and stop records succeeds and prints down, so the members above are the only cause of refusal.
 		{name: "down-stop-plain-control", command: Command{Action: "down", ID: "example"}, owner: "demo", liveState: "idle",
 			demo: []admStep{{"status", idlePlain}, {"stop", downPlain}}, demoCalls: []string{"status", "stop"}},
+		// Claim: status owner read refuses 6 process with no admission on that path.
 		{name: "status-owner-process", command: Command{Action: "status", ID: "example", JSON: true}, owner: "demo", liveState: "idle",
 			demo: []admStep{{"status", idleProcessDemo}}, want: protocolErr, demoCalls: []string{"status"}},
+		// Claim: status with a plain owner record succeeds, so process above is the only cause of refusal.
 		{name: "status-owner-plain-control", command: Command{Action: "status", ID: "example", JSON: true}, owner: "demo", liveState: "idle",
 			demo: []admStep{{"status", idlePlain}}, demoCalls: []string{"status"}},
+		// Claim: recycle draining poll refuses 6 process and polls no further; the pid count pins that no extra poll ran past the script.
 		{name: "recycle-poll-process", command: Command{Action: "recycle", ID: "example"}, owner: "demo", liveState: "idle",
 			demo: []admStep{{"status", drainingPlain}, {"stop", drainingPlain}, {"status", drainingProcess}}, want: protocolErr, demoCalls: []string{"status", "stop", "status"}},
+		// Claim: recycle with a plain unknown poll ends in session_liveness_unknown; with its three-call trace and pid count this shows a plain poll decodes.
 		{name: "recycle-poll-plain-control", command: Command{Action: "recycle", ID: "example"}, owner: "demo", liveState: "idle",
 			demo: []admStep{{"status", drainingPlain}, {"stop", drainingPlain}, {"status", unknownPlain}}, want: "session_liveness_unknown", demoCalls: []string{"status", "stop", "status"}},
+		// Claim: recover rebind read refuses 6 process, calls the manager once, and leaves the stored binding at /previous (no rebind write).
 		{name: "rebind-process", command: Command{Action: "recover", ID: "example", RebindManager: true, JSON: true}, owner: "demo", liveState: "idle", stale: true,
 			demo: []admStep{{"status", idleProcessDemo}}, want: protocolErr, demoCalls: []string{"status"}},
+		// Claim: recover rebind with plain records succeeds over two status calls and refreshes the binding to the current executable.
 		{name: "rebind-plain-control", command: Command{Action: "recover", ID: "example", RebindManager: true, JSON: true}, owner: "demo", liveState: "idle", stale: true,
 			demo: []admStep{{"status", idlePlain}, {"status", idlePlain}}, demoCalls: []string{"status", "status"}},
 	}
@@ -328,8 +400,20 @@ func TestServiceProcessObservationAdmission(t *testing.T) {
 			if got := admTrace(t, paths["other"]); !slices.Equal(got, tc.otherCall) {
 				t.Fatalf("other manager calls=%v want=%v", got, tc.otherCall)
 			}
+			if got := admPidCount(t, paths["demo"]); got != len(tc.demoCalls) {
+				t.Fatalf("selected manager invocations=%d want=%d (pid lines)", got, len(tc.demoCalls))
+			}
+			if got := admPidCount(t, paths["other"]); got != len(tc.otherCall) {
+				t.Fatalf("other manager invocations=%d want=%d (pid lines)", got, len(tc.otherCall))
+			}
 			if tc.name == "down-stop-plain-control" && out.String() != "down\n" {
 				t.Fatalf("down control stdout=%q", out.String())
+			}
+			if tc.name == "rebind-process" {
+				got, snapErr := s.Store.Snapshot("example")
+				if snapErr != nil || got == nil || got.Manager.Executable != "/previous" {
+					t.Fatalf("rebind refusal rewrote the binding: %v %v", got, snapErr)
+				}
 			}
 			if tc.name == "rebind-plain-control" {
 				got, snapErr := s.Store.Snapshot("example")

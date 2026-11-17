@@ -28,17 +28,24 @@
   now decode `process`, `termination` and `no_start` under the `describe` the
   run already makes, frozen into the lease admission at submission; recovery
   of a submitted operation admits under those frozen capabilities while the
-  registry still names the frozen owner. Paths with neither source
-  (Werkstatt `down`/`status` owner reads, `stop`, rebind, cross-manager reads
-  and unleased recovery) still refuse the members. No operation gains an RPC
+  registry still names the frozen owner. Paths with neither source still
+  refuse the members: Werkstatt `down` (its owner read and its `stop`
+  reply), `status`, `update`, `recover` (including the rebind read),
+  `recycle`, `werkstatt list`, `up` when the previous owner is another
+  capable manager, and unleased recovery. No operation gains an RPC
   and no refusal code is added; only `observe --schema v2` prints the
   members. An impossible `--expect-registered-at` date is now a usage
   refusal, under the registry's own timestamp rule. Landing condition: a
   manager that hosts Werkstatt lanes must not yet advertise
-  `process-observation/1`, because the no-token Werkstatt reads share
-  `status {session}` with `observe` and attaching `process` to live
-  records makes `down`, `status`, `recycle` and `werkstatt list` refuse
-  `session_host_protocol_error` (6) until the contract admits those reads.
+  `process-observation/1`, because those no-token paths decode the same
+  `status {session}` read, and the `stop` reply, that a capable manager
+  answers with the members, so Werkstatt `down` (owner read and `stop`
+  reply), `status`, `update`, `recover` (including the rebind read),
+  `recycle`, `werkstatt list` and a cross-manager `up` refuse
+  `session_host_protocol_error` (6) for its lanes. The contract revision
+  that admits these reads is agreed (liveness `capabilities` frozen at
+  `up`) and is a later unit; until it is implemented the landing
+  condition holds.
 
 ## 0.7.0 — 2026-11-11
 
