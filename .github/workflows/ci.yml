@@ -43,6 +43,10 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: make observation-v2-controls
 
+      - name: Home-lease bind plant controls
+        if: matrix.os == 'ubuntu-latest'
+        run: make home-lease-bind-controls
+
   race:
     name: Race (${{ matrix.os }})
     runs-on: ${{ matrix.os }}

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/relux-works/curator-agent-launcher/internal/sessionmanager"
+	schema "github.com/relux-works/curator-agent-launcher/schemas/session-manager"
 )
 
 type Caller interface {
@@ -104,7 +105,7 @@ func (r Reconciler) Submit(ctx context.Context, tx *Transaction, p Pending, requ
 	if response.Session == nil || response.Session.OperationID != p.OperationID {
 		return r.Recover(ctx, tx)
 	}
-	return r.finish(tx, p, expected, Outcome{Outcome: "started", Session: response.Session})
+	return r.finish(ctx, tx, p, expected, Outcome{Outcome: "started", Session: response.Session})
 }
 
 // Recover consumes cancel's answer directly. Only a confirmed terminal outcome
@@ -143,7 +144,7 @@ func (r Reconciler) recoverOwned(ctx context.Context, tx *Transaction, p Pending
 			if outcome.Outcome == "started" && (outcome.Session == nil || outcome.Session.OperationID != p.OperationID) {
 				return nil, unresolved(p.OperationID)
 			}
-			return r.finish(tx, p, expected, outcome)
+			return r.finish(ctx, tx, p, expected, outcome)
 		case "not_found", "prepared":
 			response, err = remote.Call(ctx, "cancel", data)
 		case "admitted":
@@ -160,7 +161,7 @@ func (r Reconciler) recoverOwned(ctx context.Context, tx *Transaction, p Pending
 		}
 	}
 }
-func (r Reconciler) finish(tx *Transaction, p Pending, expected Expected, outcome Outcome) (*Session, error) {
+func (r Reconciler) finish(ctx context.Context, tx *Transaction, p Pending, expected Expected, outcome Outcome) (*Session, error) {
 	var result *Session
 	var resultErr error
 	switch outcome.Outcome {
@@ -188,13 +189,7 @@ func (r Reconciler) finish(tx *Transaction, p Pending, expected Expected, outcom
 	}
 	if p.Lease != nil {
 		if outcome.Outcome == "started" {
-			p.Phase = "bind_pending"
-			if err := tx.updateLease(p); err != nil {
-				return result, err
-			}
-			e := leaseFailure("process_incarnation_unavailable")
-			e.Details["session"] = result.Session
-			return result, e
+			return r.bindStarted(ctx, tx, p, result)
 		}
 		if err := tx.settleLease(p, outcome.Outcome, outcome.Outcome, r.now()); err != nil {
 			return result, err
@@ -205,6 +200,94 @@ func (r Reconciler) finish(tx *Transaction, p Pending, expected Expected, outcom
 		return result, err
 	}
 	return result, resultErr
+}
+
+func ensureBindPending(tx *Transaction, p Pending) (Pending, error) {
+	order := []string{"lease_requested", "lease_prepared", "possibly_submitted", "bind_pending"}
+	idx := map[string]int{"lease_requested": 0, "lease_prepared": 1, "possibly_submitted": 2, "bind_pending": 3}
+	cur, ok := idx[p.Phase]
+	if !ok {
+		p.Phase = "bind_pending"
+		if err := tx.updateLease(p); err != nil {
+			return p, err
+		}
+		return p, nil
+	}
+	if cur == 3 {
+		if err := tx.updateLease(p); err != nil {
+			return p, err
+		}
+		return p, nil
+	}
+	for cur < 3 {
+		p.Phase = order[cur+1]
+		if err := tx.updateLease(p); err != nil {
+			return p, err
+		}
+		cur++
+	}
+	return p, nil
+}
+func (r Reconciler) bindStarted(ctx context.Context, tx *Transaction, p Pending, result *Session) (*Session, error) {
+	admitted := ProcessObservation(Describe{Capabilities: p.Lease.Capabilities}) && processIsTuple(result.Process)
+	if p.Lease.Record != nil && isBoundHolder(p.Lease.Record.Holder) {
+		held := p.Lease.Record.Holder
+		reason := ""
+		switch {
+		case !preparedMembersEqual(p.Lease.Holder, held):
+			reason = "manager_incarnation_changed"
+		case held.Session == nil || *held.Session != result.Session || held.Generation == nil || *held.Generation != result.Generation:
+			reason = "session_generation_changed"
+		case !admitted || !processEqual(held.Process, result.Process):
+			reason = "process_incarnation_mismatch"
+		}
+		if reason == "" {
+			if err := tx.clearTerminal(p.OperationID, "started"); err != nil {
+				return result, err
+			}
+			return result, nil
+		}
+		if _, err := ensureBindPending(tx, p); err != nil {
+			return result, err
+		}
+		return result, holderMismatch(reason, result.Session)
+	}
+	if !admitted || p.Lease.Record == nil {
+		if _, err := ensureBindPending(tx, p); err != nil {
+			return result, err
+		}
+		e := leaseFailure("process_incarnation_unavailable")
+		e.Details["session"] = result.Session
+		return result, e
+	}
+	bound := boundHolder(p.Lease.Holder, result.Session, result.Generation, result.Process)
+	hb, err := json.Marshal(bound)
+	if err != nil || schema.Validate("lease-holder.schema.json", hb) != nil {
+		if _, err := ensureBindPending(tx, p); err != nil {
+			return result, err
+		}
+		e := leaseFailure("process_incarnation_unavailable")
+		e.Details["session"] = result.Session
+		return result, e
+	}
+	p, err = ensureBindPending(tx, p)
+	if err != nil {
+		return result, err
+	}
+	if _, err := r.leaseCLI().Bind(ctx, p, bound); err != nil {
+		if e, ok := err.(*Error); ok {
+			if e.Details == nil {
+				e.Details = map[string]string{}
+			}
+			e.Details["session"] = result.Session
+			return result, e
+		}
+		return result, err
+	}
+	if err := tx.clearTerminal(p.OperationID, "started"); err != nil {
+		return result, err
+	}
+	return result, nil
 }
 
 // ReconcilePlain follows the same bounded protocol without local correlation;

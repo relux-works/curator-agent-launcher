@@ -180,7 +180,7 @@ func TestTerminalLivenessFailure(t *testing.T) {
 				t.Fatal(err)
 			}
 			s := session()
-			got, err := (Reconciler{}).finish(tx, p, Expected{}, Outcome{Outcome: "started", Session: &s})
+			got, err := (Reconciler{}).finish(context.Background(), tx, p, Expected{}, Outcome{Outcome: "started", Session: &s})
 			requireCode(t, err, "werkstatt_liveness_write_failed")
 			if got == nil || got.Session != s.Session {
 				t.Fatal("confirmed live handle lost")

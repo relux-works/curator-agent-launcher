@@ -94,6 +94,9 @@ type Draining struct {
 // Session is a validated record. If Readable is false, lifecycle fields
 // have no evidence and decode to zero values; only its handle, manager and
 // index labels may be used. The schema enforces the exact null projection.
+// Process retains the validated process member's bytes from a decode under
+// Admission, together with Session and Generation, for the home-lease bind
+// only. It is never persisted and never taken from a stored record.
 type Session struct {
 	Protocol       string              `json:"protocol,omitempty"`
 	OK             bool                `json:"ok,omitempty"`
@@ -111,6 +114,7 @@ type Session struct {
 	Doorbell       Doorbell            `json:"doorbell"`
 	Draining       *Draining           `json:"draining,omitempty"`
 	Notification   *NotificationResult `json:"notification,omitempty"`
+	Process        json.RawMessage     `json:"process,omitempty"`
 }
 type Outcome struct {
 	Outcome string   `json:"outcome"`

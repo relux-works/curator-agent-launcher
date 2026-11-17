@@ -166,7 +166,7 @@ func (r Reconciler) runLeased(ctx context.Context, tx *Transaction, p Pending, r
 	if err = tx.updateLease(p); err != nil {
 		return nil, err
 	}
-	if p.Phase == "possibly_submitted" || p.Phase == "bind_pending" {
+	if p.Phase == "possibly_submitted" || p.Phase == "bind_pending" || isBoundHolder(record.Holder) {
 		return r.recoverSubmittedLease(ctx, tx, p, remote)
 	}
 	if recovery {
@@ -219,7 +219,7 @@ func (r Reconciler) runLeased(ctx context.Context, tx *Transaction, p Pending, r
 	if err != nil || answer.Session == nil || answer.Session.OperationID != p.OperationID {
 		return r.recoverSubmittedLease(ctx, tx, p, remote)
 	}
-	return r.finish(tx, p, live.Expected(), Outcome{Outcome: "started", Session: answer.Session})
+	return r.finish(ctx, tx, p, live.Expected(), Outcome{Outcome: "started", Session: answer.Session})
 }
 func (r Reconciler) recoverSubmittedLease(ctx context.Context, tx *Transaction, p Pending, remote Caller) (*Session, error) {
 	return r.recoverOwned(ctx, tx, p, remote)
@@ -381,7 +381,12 @@ func validateLeaseCorrelation(p Pending) bool {
 	}
 	if l.Record != nil {
 		record := l.Record
-		if record.Environment != l.Environment || record.Profile != p.Profile || record.LockSHA256 != l.LockSHA256 || !reflect.DeepEqual(record.Holder, h) || record.Phase != "prepared" {
+		if record.Environment != l.Environment || record.Profile != p.Profile || record.LockSHA256 != l.LockSHA256 {
+			return false
+		}
+		prepared := record.Phase == "prepared" && reflect.DeepEqual(record.Holder, h)
+		bound := record.Phase == "active" && isBoundHolder(record.Holder) && preparedMembersEqual(h, record.Holder)
+		if !prepared && !bound {
 			return false
 		}
 	}

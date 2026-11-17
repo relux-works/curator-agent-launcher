@@ -26,10 +26,20 @@ type leaseStep struct {
 
 func leaseReply(operation, reason string, records ...LeaseRecord) json.RawMessage {
 	result := map[string]any{"leases": records}
-	if operation == "acquire" {
+	if operation == "acquire" || operation == "bind" {
 		result = map[string]any{"changed": false, "lease": records[0]}
 	}
 	return encoded(map[string]any{"schema_version": 1, "operation": operation, "ok": true, "exit": 0, "code": nil, "reason": reason, "result": result, "details": nil})
+}
+func boundRecord(p Pending, process map[string]any) LeaseRecord {
+	r := leaseRecord(p)
+	r.Phase = "active"
+	r.Revision = 2
+	r.Holder = boundHolder(p.Lease.Holder, "SES-example", 1, encoded(process))
+	return r
+}
+func leaseRefusalFor(operation, code, reason string, exit int) json.RawMessage {
+	return encoded(map[string]any{"schema_version": 1, "operation": operation, "ok": false, "exit": exit, "code": code, "reason": reason, "result": nil, "details": map[string]any{"lease_id": nil, "revision": nil, "holders": []any{}, "count": 0}})
 }
 func leaseFixture(t *testing.T, binary string, steps ...leaseStep) (LeaseCLI, func() [][]string) {
 	t.Helper()

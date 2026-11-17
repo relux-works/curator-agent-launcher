@@ -219,8 +219,8 @@ func TestTransportListStopStatusAdmission(t *testing.T) {
 
 // Claim (the L1 regression witness): a leased launch whose describe carries
 // the token admits process on the launch reply and, after a lost answer, on
-// the started outcome read back through operation status. The started
-// session is reported and stops only at the existing lease bind gate.
+// the started outcome read back through operation status. The admitted
+// tuple binds and settles the journal.
 // Beside it the same script under a describe without the token stays refused
 // on both decodes and the operation is reported unknown, journal retained.
 func TestLeasedLaunchAdmitsProcessObservation(t *testing.T) {
@@ -237,7 +237,8 @@ func TestLeasedLaunchAdmitsProcessObservation(t *testing.T) {
 		leases, _ := leaseFixture(t, leasesBin,
 			leaseStep{"list", leaseReply("list", "listed", []LeaseRecord{}...), 0},
 			leaseStep{"acquire", leaseReply("acquire", "acquired", record), 0},
-			leaseStep{"list", leaseReply("list", "listed", record), 0})
+			leaseStep{"list", leaseReply("list", "listed", record), 0},
+			leaseStep{"bind", leaseReply("bind", "bound", boundRecord(base, liveProcess())), 0})
 		r := reconciler(c)
 		r.Leases = &leases
 		p := Pending{OperationID: operationID, Kind: "launch", SubmittedAt: stamp, AdmissionKey: "werkstatt:example", Manager: base.Manager, CWD: base.CWD}
@@ -246,27 +247,19 @@ func TestLeasedLaunchAdmitsProcessObservation(t *testing.T) {
 	}
 	t.Run("direct-launch-process", func(t *testing.T) {
 		s, err, tx, traces := submit(t, capable, step{Operation: "launch", Body: processEnvelopeBody()})
-		leaseReason(t, err, "process_incarnation_unavailable")
-		if s == nil || s.Session != "SES-example" || len(traces()) != 1 {
-			t.Fatalf("started session lost: %v traces=%d", s, len(traces()))
+		if err != nil || s == nil || s.Session != "SES-example" || len(traces()) != 1 {
+			t.Fatalf("bound session lost: %v %v traces=%d", s, err, len(traces()))
 		}
-		pending, err := tx.Pending()
-		if err != nil || pending == nil || pending.Phase != "bind_pending" {
-			t.Fatalf("journal did not reach bind_pending: %v %v", pending, err)
-		}
+		assertPending(t, tx, false)
 	})
 	t.Run("reconciled-outcome-process", func(t *testing.T) {
 		s, err, tx, traces := submit(t, capable,
 			step{Operation: "launch", Body: `{}`},
 			step{Operation: "status", Body: startedOutcomeProcessBody()})
-		leaseReason(t, err, "process_incarnation_unavailable")
-		if s == nil || len(traces()) != 2 {
-			t.Fatalf("reconciled session lost: %v traces=%d", s, len(traces()))
+		if err != nil || s == nil || len(traces()) != 2 {
+			t.Fatalf("reconciled bound session lost: %v %v traces=%d", s, err, len(traces()))
 		}
-		pending, err := tx.Pending()
-		if err != nil || pending == nil || pending.Phase != "bind_pending" {
-			t.Fatalf("journal did not reach bind_pending: %v %v", pending, err)
-		}
+		assertPending(t, tx, false)
 	})
 	t.Run("no-token-process-refused", func(t *testing.T) {
 		s, err, tx, traces := submit(t, delegatedDescription(),
@@ -304,7 +297,7 @@ func TestFrozenRecoveryAdmitsProcessObservation(t *testing.T) {
 		record := leaseRecord(p)
 		p.Lease.Record = &record
 		p.Lease.Capabilities = caps
-		leases, _ := leaseFixture(t, leasesBin, leaseStep{"acquire", leaseReply("acquire", "acquired", record), 0})
+		leases, _ := leaseFixture(t, leasesBin, leaseStep{"acquire", leaseReply("acquire", "acquired", record), 0}, leaseStep{"bind", leaseReply("bind", "bound", boundRecord(p, liveProcess())), 0})
 		r := reconciler(c)
 		r.Leases = &leases
 		if mutate != nil {
@@ -316,11 +309,11 @@ func TestFrozenRecoveryAdmitsProcessObservation(t *testing.T) {
 	}
 	status := step{Operation: "status", Body: startedOutcomeProcessBody()}
 	t.Run("exact-match-process", func(t *testing.T) {
-		s, err, _, traces := recoverWith(t, capableCaps(), nil, status)
-		leaseReason(t, err, "process_incarnation_unavailable")
-		if s == nil || len(traces()) != 1 || traces()[0].Operation != "status" {
-			t.Fatalf("frozen recovery lost the session: %v traces=%v", s, traces())
+		s, err, tx, traces := recoverWith(t, capableCaps(), nil, status)
+		if err != nil || s == nil || len(traces()) != 1 || traces()[0].Operation != "status" {
+			t.Fatalf("frozen recovery lost the bound session: %v %v traces=%v", s, err, traces())
 		}
+		assertPending(t, tx, false)
 	})
 	t.Run("frozen-without-token", func(t *testing.T) {
 		s, err, tx, _ := recoverWith(t, delegatedDescription().Capabilities, nil, status)

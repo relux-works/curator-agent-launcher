@@ -1,7 +1,7 @@
 GO ?= go
 GOFMT ?= gofmt
 
-.PHONY: build fmt-check vet test race verify check clean release-binary release-repro release-gate-test observation-v2-controls
+.PHONY: build fmt-check vet test race verify check clean release-binary release-repro release-gate-test observation-v2-controls home-lease-bind-controls
 
 # Reproducible release binary for the signed Curator distribution
 # (FRONT-DOOR §10). Curator's release workflow calls it per platform, then
@@ -67,3 +67,8 @@ release-gate-test:
 observation-v2-controls:
 	@mkdir -p .temp
 	scripts/observation-v2-controls.sh .temp/observation-v2-controls
+
+# Plant controls for the home-lease bind consumer, in the same style.
+home-lease-bind-controls:
+	@mkdir -p .temp
+	scripts/home-lease-bind-controls.sh .temp/home-lease-bind-controls

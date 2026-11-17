@@ -57,19 +57,20 @@ Optional liveness and operation-journal profile evidence preserves old-file
 compatibility without inference (§5.7).
 
 **2026-10-27 home-lease amendment (spec gate):** the accepted
-[home-lease contract](https://github.com/relux-works/curator-spec/blob/e8f0f6e7/protocol/home-leases.md)
+[home-lease contract](https://github.com/relux-works/curator-spec/blob/264244b3/protocol/home-leases.md)
 HL21–HL24 adds launcher-owned reservation, replay and allocation obligations
 (§§5.3, 5.7, 6.2, 6.5, 11). This amendment specifies the consumer before code;
 it does not advertise an implemented lease capability. Initial implementation
 is **refuse-only, protection retained**: acquire/replay, attempted bind and lane
 allocation, with **no launcher release calls**. Only the **lease-capable route**
 of §5.2 is eligible; incompatible hosted routes refuse rather than bypass the
-lease. Exact-bind success, no-start release and every evidence-based release
-remain unqualified until an accepted observation v2 and session-host proof
-contract supplies OS process incarnation,
-independent no-start, descendant termination and ownership reconciliation. The
+lease. The launcher now binds with the observation-v2 process tuple when the
+frozen manager admits it (§5.7); no-start release and every evidence-based
+release remain unqualified until independent no-start, descendant
+termination and ownership reconciliation are supplied. The
 closed observation v1 of §4.3 is unchanged. Review acceptance of this amendment
 precedes consumer code and the schema-first publication described in §5.7.
+(The launcher previously pinned this contract at `e8f0f6e7`.)
 
 **Proposed reliable-inbox amendment (source review only):**
 [Native launcher/carrier composition](docs/reliable-inbox-native-composition.md)
@@ -1570,22 +1571,42 @@ ordering in steps 3–4; do not run discovery before a terminal replay decision.
 6. **Attempt bind immediately after started (HL22, L2).** Keep the lease and
    operation correlation while binding with `--if-revision` and the exact
    manager id/registration, session handle, generation, OS process incarnation
-   and nullable Werkstatt id. A crash between start and bind leaves the
+   and nullable Werkstatt id. The bound holder is the prepared holder's frozen
+   members plus the exact session, positive generation and the four-field
+   process tuple `{pid, uid, boot_id, start_time}` retained byte-equal from
+   a leased launch/resume reply, or its reconciliation outcome's embedded
+   session, decoded under the frozen admission. A successful bind is safe
+   settlement: after the liveness record is committed, clear `op.json`
+   exactly like the non-lease `started` path and write no `lease-settlement`
+   record. A crash between start and bind leaves the
    prepared lease blocking; reconciliation uses the manager's authoritative
    started record and retries binding before clearing correlation. A conflicting
    bind or Curator refusal is not success: keep the prepared lease and pending
    bind correlation, report the session handle, and refuse
    `session_home_lease_unavailable`. Do not start another generation to repair
-   a bind failure.
+   a bind failure. A retry or reconciliation re-binds only with the acquired
+   revision and a payload re-derived from a fresh reconciled outcome decoded
+   under the frozen admission, never from a persisted payload. On acquire
+   replay, an `active` reply whose bound holder's prepared members equal the
+   journal's frozen prepared holder and whose session, generation and process
+   equal that freshly reconciled outcome is settled without a re-bind; any
+   other `active` bound holder refuses `environment_lease_holder_mismatch`
+   locally, keeps the journal and sends nothing. An unknown or lost bind
+   reply likewise keeps the lease blocking and the journal for reconciliation.
 7. **No invented proof; no release in this implementation (HL23, L3).** The
-   published bound holder requires `{pid, started_at}` for the OS process;
-   session-record v1 supplies neither. A session's `started_at` is not that
-   proof, and the launcher PID is not the provider's incarnation. If a valid
-   bound payload cannot be constructed from accepted authoritative evidence,
-   retain protection and report `process_incarnation_unavailable` rather than
-   send fabricated holder values. Curator's current observer also refuses
-   otherwise well-formed bind attempts. Exact-bind positive qualification is
-   therefore a gap. This unit sends **no release command**, including after a
+   bound holder requires exactly the four-field process tuple above, with
+   exactly one tagged `start_time` variant. Never construct, convert or
+   complete a tuple, and never take it from any other decode, a stored
+   record, the launcher's own PID or clock; legacy prepared `{pid,
+   started_at}` data never binds. Without an admitted tuple (no token, no
+   `process`, legacy prepared data, or a decode not under the frozen
+   admission), make no bind call, retain protection at `bind_pending` and
+   report `process_incarnation_unavailable`. Every bind result of the closed
+   home-lease table, including `process_incarnation_mismatch`,
+   `environment_lease_authority_refused/authority_unavailable` and
+   `usage/invalid_holder`, is reported as a Curator lease result under the
+   closed-details rule of §11; `invalid_holder` is never retried within the
+   invocation. This unit sends **no release command**, including after a
    journal settles with no manager call. No-start settlement is retained for
    a future independent observation contract; it is not caller-supplied release
    authority. Unknown, unreachable, draining, missing/re-registered manager,
@@ -1594,8 +1615,7 @@ ordering in steps 3–4; do not run discovery before a terminal replay decision.
    The observation-v2 contract d5 §6 maps the §5.4 `process` tuple onto Core's
    home-leases holder revision. This bind step then applies the d5 §1.3a
    frozen-binding comparison against the prepared holder, and only Core's
-   independent kernel re-read can bind. This is specified and implemented in
-   a later unit, and it adds no release authority.
+   independent kernel re-read can bind. It adds no release authority.
 
 The CLI consumer parses one bounded closed operation-specific v1 envelope,
 including its code/reason and exit combination, rejects duplicate/unknown

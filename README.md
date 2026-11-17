@@ -14,7 +14,7 @@ No implementation, qualification or activation is claimed.
 | Entry | Composer | Process/lifetime owner | Status |
 |---|---|---|---|
 | Direct human `curator-run <env-id> …` | Caller-side interactive launcher | Launcher starts and waits for native child | Existing API below. |
-| Hosted launch | Validated caller policy; plugin composes delegated launches | Registered session manager | Delegated launch requires a lease-capable selected manager; start currently retains protection at the process-incarnation gate. Refusal never falls back to native. |
+| Hosted launch | Validated caller policy; plugin composes delegated launches | Registered session manager | Delegated launch requires a lease-capable selected manager; start binds with the admitted process tuple when present, otherwise it retains protection at the process-incarnation gate. Refusal never falls back to native. |
 | Trusted same-user non-chat | Explicit current-user assignment, frozen inputs and exact execution tuple | Target launcher adapter/supervisor; no child a2a/board presence | [Contract/1](docs/same-user-nonchat-contract.md) and [Stage1 wire source/2](docs/same-user-executor-wire.md), with closed records and inert manual cases; untrusted decoding/FD-argument syntax in `internal/memberwire` and bounded explicit N/A handle byte observations in `internal/memberinput` (Darwin/Linux), and retained content-addressed O observations in `internal/memberobjects` (Darwin/Linux), without full six-FD custody. **No admission, qualified tuple, executor or shipped CLI.** |
 | Agent one-shot exec | Caller composes; dispatcher admits/provisions/tracks | `curator-run` under `worker-<label>` verifies and executes; dispatcher/helper own stop and cleanup | **Target amendment (version pending), not implemented**; [SPEC §10](SPEC.md#10-agent-account-one-shot-exec-contract-target-amendment). |
 
@@ -154,9 +154,13 @@ exact manager registration, skips held locks, refuses multiple matches and
 ends the invocation after recovering one. Run the command again for a fresh
 admission after settlement.
 
-**Current bind limit:** session-record v1 supplies no authoritative provider
-`{pid, started_at}`. After start, the launcher reports the validated session
-handle and `session_home_lease_unavailable`,
+After start, the launcher binds immediately with the four-field process
+tuple `{pid, uid, boot_id, start_time}` retained from a launch or resume
+reply, or its reconciled outcome, decoded under the frozen
+`process-observation/1` admission, using the acquired revision. A successful
+bind settles the journal after liveness commits. Without that admitted
+tuple the launcher reports the validated session handle and
+`session_home_lease_unavailable`,
 `reason=process_incarnation_unavailable`. It retains the prepared lease and
 pending bind journal, makes no fabricated bind call and does not attach or
 report successful hosted admission. Recovery reconciles the same operation;
@@ -176,8 +180,7 @@ separate operator break command using the current lease id/revision; an
 unavailable revision produces an inspection hint instead. Neither abandonment
 nor terminal manager status proves release authority. Settlements live under
 `${XDG_STATE_HOME:-~/.local/state}/swarma/launcher/operations/settled/`.
-Exact bind and safe release remain qualification gaps pending authoritative
-process and independent observation contracts.
+Safe release remains a qualification gap pending independent observation.
 
 ## Hosted doorbells
 
@@ -606,7 +609,7 @@ The launch pipeline follows these steps:
    Native launch retains its existing pre-exec checks and prompt preparation.
    Delegated launch sends the resolved profile hashes, model/effort, permission
    source, prompt semantics and selector-free native tail to `launch`, with a durable home-lease journal before submission.
-   Current starts stop at the process-incarnation bind gate described above;
+   Starts without an admitted process tuple stop at the process-incarnation bind gate described above;
    generation-fenced `attach` is reachable only after successful binding. `--board-goal` asks for
    `workspace` and requires `board-goal/1`; ordinary requests use `none`.
    Selector decision ids are copied verbatim to the `selector` label. Credential

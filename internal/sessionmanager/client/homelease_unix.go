@@ -3,6 +3,7 @@
 package client
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -12,6 +13,7 @@ import (
 	"os/exec"
 	"reflect"
 	"slices"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -76,8 +78,8 @@ func leaseFailure(reason string) *Error {
 	return refusal("session_home_lease_unavailable", map[string]string{"reason": reason})
 }
 
-// LeaseCLI speaks only the published read/acquire API. No release or break
-// method exists: neither termination nor settlement grants that authority.
+// LeaseCLI speaks only the published list/acquire/bind API. No release or
+// break method exists: neither termination nor settlement grants that authority.
 type LeaseCLI struct{ Environment []string }
 type leaseOutput struct {
 	data     []byte
@@ -200,11 +202,115 @@ func (c LeaseCLI) Acquire(ctx context.Context, p Pending) (*LeaseRecord, string,
 	if e.Reason == "already_released" || e.Reason == "already_broken" {
 		return r, e.Reason, nil
 	}
-	if e.Reason != "acquired" || r.Phase != "prepared" || !reflect.DeepEqual(r.Holder, l.Holder) {
+	if e.Reason != "acquired" {
 		return nil, "", leaseFailure("curator_lease_protocol_error")
 	}
-
-	return r, e.Reason, nil
+	if r.Phase == "prepared" {
+		if !reflect.DeepEqual(r.Holder, l.Holder) {
+			return nil, "", leaseFailure("curator_lease_protocol_error")
+		}
+		return r, e.Reason, nil
+	}
+	// A lost bind reply is learned here: an active bound replay is returned
+	// for comparison with the freshly reconciled outcome, never launched over.
+	if r.Phase == "active" && isBoundHolder(r.Holder) && preparedMembersEqual(l.Holder, r.Holder) {
+		return r, e.Reason, nil
+	}
+	return nil, "", leaseFailure("curator_lease_protocol_error")
+}
+func (c LeaseCLI) Bind(ctx context.Context, p Pending, bound PreparedHolder) (*LeaseRecord, error) {
+	l := p.Lease
+	if l == nil || l.Record == nil {
+		return nil, leaseFailure("curator_lease_protocol_error")
+	}
+	leaseID := l.Record.LeaseID
+	ifRevision := l.Record.Revision
+	h, err := json.Marshal(bound)
+	if err != nil {
+		return nil, leaseFailure("curator_lease_protocol_error")
+	}
+	e, err := c.call(ctx, "bind", "--lease", leaseID, "--if-revision", strconv.FormatInt(ifRevision, 10), "--holder", string(h))
+	if err != nil {
+		return nil, err
+	}
+	r := e.Result.Lease
+	if e.Reason != "bound" || r == nil || r.LeaseID != leaseID || r.Environment != l.Environment || r.Profile != p.Profile || r.LockSHA256 != l.LockSHA256 || r.ManagerRootID != l.Record.ManagerRootID || r.HomeID != l.Record.HomeID || r.Revision != ifRevision+1 || (r.Phase != "active" && r.Phase != "unknown") || !holdersEqual(r.Holder, bound) {
+		return nil, leaseFailure("curator_lease_protocol_error")
+	}
+	return r, nil
+}
+func processCanonical(v any) ([]byte, bool) {
+	if v == nil {
+		return nil, false
+	}
+	raw, err := json.Marshal(v)
+	if err != nil || string(raw) == "null" || len(raw) == 0 {
+		return nil, false
+	}
+	dec := json.NewDecoder(bytes.NewReader(raw))
+	dec.UseNumber()
+	var decoded any
+	if dec.Decode(&decoded) != nil {
+		return nil, false
+	}
+	b, err := json.Marshal(decoded)
+	if err != nil {
+		return nil, false
+	}
+	return b, true
+}
+func processIsTuple(v any) bool {
+	b, ok := processCanonical(v)
+	if !ok {
+		return false
+	}
+	var m map[string]json.RawMessage
+	if json.Unmarshal(b, &m) != nil || len(m) != 4 {
+		return false
+	}
+	for _, k := range []string{"pid", "uid", "boot_id", "start_time"} {
+		if _, ok := m[k]; !ok {
+			return false
+		}
+	}
+	return true
+}
+func processEqual(a, b any) bool {
+	ab, aok := processCanonical(a)
+	bb, bok := processCanonical(b)
+	if aok != bok {
+		return false
+	}
+	if !aok {
+		return true
+	}
+	return bytes.Equal(ab, bb)
+}
+func holdersEqual(a, b PreparedHolder) bool {
+	return a.Kind == b.Kind && a.Launcher == b.Launcher && a.ManagerID == b.ManagerID && a.ManagerRegisteredAt == b.ManagerRegisteredAt && a.RequestID == b.RequestID && reflect.DeepEqual(a.Werkstatt, b.Werkstatt) && reflect.DeepEqual(a.Session, b.Session) && reflect.DeepEqual(a.Generation, b.Generation) && processEqual(a.Process, b.Process)
+}
+func preparedMembersEqual(frozen, h PreparedHolder) bool {
+	return h.Launcher == frozen.Launcher && h.ManagerID == frozen.ManagerID && h.ManagerRegisteredAt == frozen.ManagerRegisteredAt && h.RequestID == frozen.RequestID && reflect.DeepEqual(h.Werkstatt, frozen.Werkstatt)
+}
+func isBoundHolder(h PreparedHolder) bool {
+	return h.Kind == "bound" && h.Session != nil && *h.Session != "" && h.Generation != nil && *h.Generation >= 1 && processIsTuple(h.Process)
+}
+func boundHolder(frozen PreparedHolder, session string, generation int64, process json.RawMessage) PreparedHolder {
+	h := frozen
+	h.Kind = "bound"
+	s := session
+	g := generation
+	h.Session = &s
+	h.Generation = &g
+	h.Process = process
+	return h
+}
+func holderMismatch(reason, session string) *Error {
+	e := refusal("session_home_lease_unavailable", map[string]string{"curator_code": "environment_lease_holder_mismatch", "reason": reason})
+	if session != "" {
+		e.Details["session"] = session
+	}
+	return e
 }
 func blocking(r LeaseRecord) bool {
 	return r.Phase == "prepared" || r.Phase == "active" || r.Phase == "unknown"

@@ -47,6 +47,7 @@
   `up`) and is a later unit; until it is implemented the landing
   condition holds.
 - Publish the 264244b3 home-lease grammar in the nested session-manager module: lease-holder 1.1.0 admits the four-field process tuple on bound holders (legacy `{pid, started_at}` stays parseable on prepared holders only), and lease-result 1.1.0 adds bind-only `process_incarnation_mismatch`. Schemas and vectors only; the launcher pin follows separately.
+- Re-pin the home-lease contract to curator-spec `264244b3` and bind with the process tuple. A leased launch or resume reply, or its reconciled outcome, decoded under the frozen `process-observation/1` admission retains its validated four-field tuple for one `curator env lease bind` with the acquired revision and the bound holder; a successful bind clears the journal after liveness commits. Without an admitted tuple the previous `bind_pending` and `process_incarnation_unavailable` behaviour is unchanged, every closed-table bind result maps as a Curator lease result, a lost bind reply settles only through a matching active acquire replay, and no release is sent on any path. No refusal code is added.
 
 ## 0.7.0 — 2026-11-11
 
