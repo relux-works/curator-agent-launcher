@@ -38,6 +38,18 @@ plants=(
   "B3@@$HOMELEASE@@$CLIENT@@TestBindDirectLaunchExactHolder/linux-stat-starttime@@strconv.FormatInt(ifRevision, 10)@@strconv.FormatInt(ifRevision+1, 10)"
   # Send a release after a successful bind.
   "B4@@$HOMELEASE@@$CLIENT@@TestBindNeverReleases/success-no-release@@return r, nil@@_, _ = c.call(ctx, \"release\", \"--lease\", leaseID); return r, nil"
+  # Settle a bound lease on a non-started outcome: forget the bound record.
+  "B5@@$RECONCILE@@$CLIENT@@TestBindLostReplySettledViaAcquireReplay/bound-failed-no-settle@@return p.Lease != nil && p.Lease.Record != nil && isBoundHolder(p.Lease.Record.Holder)@@return false"
+  # Report a bound started outcome with no process as a tuple mismatch.
+  "B6@@$RECONCILE@@$CLIENT@@TestBindLostReplySettledViaAcquireReplay/bound-started-no-process-unavailable@@case !admitted:@@case false:"
+  # Bind with a prepared replay revision that differs from the journaled one.
+  "B7@@$HOMELEASE@@$CLIENT@@TestBindPreparedReplayRevisionGuard/prepared-replay-revision-differs@@if l.Record != nil && r.Revision != l.Record.Revision {@@if false {"
+  # Label the local holder-mismatch refusal as a Curator result again.
+  "B8@@$HOMELEASE@@$CLIENT@@TestBindLostReplySettledViaAcquireReplay/process-mutated@@\"source\": \"launcher\"@@\"curator_code\": \"environment_lease_holder_mismatch\""
+  # Retry a refused bind within the same invocation.
+  "B9@@$RECONCILE@@$CLIENT@@TestBindInvalidHolderOneBindPerInvocation/invalid-holder-once-per-invocation@@if _, err := r.leaseCLI().Bind(ctx, p, bound); err != nil {@@if _, err := r.leaseCLI().Bind(ctx, p, bound); err != nil { _, _ = r.leaseCLI().Bind(ctx, p, bound)"
+  # Accept an unknown-phase bound replay instead of the protocol error.
+  "B10@@$HOMELEASE@@$CLIENT@@TestBindLostReplySettledViaAcquireReplay/bound-unknown-phase-protocol-error@@if r.Phase == \"active\" && isBoundHolder(r.Holder) && preparedMembersEqual(l.Holder, r.Holder) {@@if (r.Phase == \"active\" || r.Phase == \"unknown\") && isBoundHolder(r.Holder) && preparedMembersEqual(l.Holder, r.Holder) {"
 )
 
 # A requested id that names no plant, or a run that evaluates none, must

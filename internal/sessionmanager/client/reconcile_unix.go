@@ -136,9 +136,18 @@ func (r Reconciler) recoverOwned(ctx context.Context, tx *Transaction, p Pending
 	response, err := remote.Call(ctx, "status", data)
 	for {
 		if err != nil || ctx.Err() != nil || response.Outcome == nil {
+			if boundLeaseRecord(p) {
+				if _, e := ensureBindPending(tx, p); e != nil {
+					return nil, e
+				}
+			}
 			return nil, unresolved(p.OperationID)
 		}
 		outcome := *response.Outcome
+		// A bound lease settles only on a matching started outcome; admitted may still become started.
+		if boundLeaseRecord(p) && outcome.Outcome != "started" && outcome.Outcome != "admitted" {
+			return r.refuseBoundNonStarted(tx, p)
+		}
 		switch outcome.Outcome {
 		case "started", "failed", "cancelled":
 			if outcome.Outcome == "started" && (outcome.Session == nil || outcome.Session.OperationID != p.OperationID) {
@@ -152,6 +161,11 @@ func (r Reconciler) recoverOwned(ctx context.Context, tx *Transaction, p Pending
 			select {
 			case <-ctx.Done():
 				timer.Stop()
+				if boundLeaseRecord(p) {
+					if _, e := ensureBindPending(tx, p); e != nil {
+						return nil, e
+					}
+				}
 				return nil, unresolved(p.OperationID)
 			case <-timer.C:
 			}
@@ -160,6 +174,19 @@ func (r Reconciler) recoverOwned(ctx context.Context, tx *Transaction, p Pending
 			return nil, unresolved(p.OperationID)
 		}
 	}
+}
+func boundLeaseRecord(p Pending) bool {
+	return p.Lease != nil && p.Lease.Record != nil && isBoundHolder(p.Lease.Record.Holder)
+}
+func (r Reconciler) refuseBoundNonStarted(tx *Transaction, p Pending) (*Session, error) {
+	if _, err := ensureBindPending(tx, p); err != nil {
+		return nil, err
+	}
+	session := ""
+	if p.Lease.Record.Holder.Session != nil {
+		session = *p.Lease.Record.Holder.Session
+	}
+	return nil, holderMismatch("session_generation_changed", session)
 }
 func (r Reconciler) finish(ctx context.Context, tx *Transaction, p Pending, expected Expected, outcome Outcome) (*Session, error) {
 	var result *Session
@@ -190,6 +217,9 @@ func (r Reconciler) finish(ctx context.Context, tx *Transaction, p Pending, expe
 	if p.Lease != nil {
 		if outcome.Outcome == "started" {
 			return r.bindStarted(ctx, tx, p, result)
+		}
+		if boundLeaseRecord(p) {
+			return r.refuseBoundNonStarted(tx, p)
 		}
 		if err := tx.settleLease(p, outcome.Outcome, outcome.Outcome, r.now()); err != nil {
 			return result, err
@@ -230,7 +260,7 @@ func ensureBindPending(tx *Transaction, p Pending) (Pending, error) {
 }
 func (r Reconciler) bindStarted(ctx context.Context, tx *Transaction, p Pending, result *Session) (*Session, error) {
 	admitted := ProcessObservation(Describe{Capabilities: p.Lease.Capabilities}) && processIsTuple(result.Process)
-	if p.Lease.Record != nil && isBoundHolder(p.Lease.Record.Holder) {
+	if boundLeaseRecord(p) {
 		held := p.Lease.Record.Holder
 		reason := ""
 		switch {
@@ -238,7 +268,14 @@ func (r Reconciler) bindStarted(ctx context.Context, tx *Transaction, p Pending,
 			reason = "manager_incarnation_changed"
 		case held.Session == nil || *held.Session != result.Session || held.Generation == nil || *held.Generation != result.Generation:
 			reason = "session_generation_changed"
-		case !admitted || !processEqual(held.Process, result.Process):
+		case !admitted:
+			if _, err := ensureBindPending(tx, p); err != nil {
+				return result, err
+			}
+			e := leaseFailure("process_incarnation_unavailable")
+			e.Details["session"] = result.Session
+			return result, e
+		case !processEqual(held.Process, result.Process):
 			reason = "process_incarnation_mismatch"
 		}
 		if reason == "" {

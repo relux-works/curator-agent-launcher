@@ -1591,8 +1591,22 @@ ordering in steps 3–4; do not run discovery before a terminal replay decision.
    journal's frozen prepared holder and whose session, generation and process
    equal that freshly reconciled outcome is settled without a re-bind; any
    other `active` bound holder refuses `environment_lease_holder_mismatch`
-   locally, keeps the journal and sends nothing. An unknown or lost bind
-   reply likewise keeps the lease blocking and the journal for reconciliation.
+   locally, keeps the journal and sends nothing. When the lease record holds
+   a bound holder, only that matching `started` outcome settles: every other
+   outcome (`not_found`, `prepared`, `failed`, `cancelled`, `unknown`, or a
+   `started` that differs) ensures `bind_pending`, refuses locally, writes no
+   `lease-settlement`, clears nothing and sends no manager `cancel`. A bound
+   replay whose fresh `started` outcome has no process refuses
+   `process_incarnation_unavailable` (absence is unknown, not mismatch), with
+   the journal kept; a `started` outcome with a different tuple refuses
+   `process_incarnation_mismatch`. This `bind_pending` state, and an
+   `unknown`-phase bound replay (which keeps the existing
+   `curator_lease_protocol_error`), have only one exit: the Curator audited
+   break (HL12-HL13), an operator act. A prepared replay whose revision
+   differs from the journaled record's revision refuses the same local holder
+   mismatch with no bind; a bind always uses the journaled acquired revision.
+   An unknown or lost bind reply likewise keeps the lease blocking and the
+   journal for reconciliation.
 7. **No invented proof; no release in this implementation (HL23, L3).** The
    bound holder requires exactly the four-field process tuple above, with
    exactly one tagged `start_time` variant. Never construct, convert or
@@ -1606,7 +1620,9 @@ ordering in steps 3–4; do not run discovery before a terminal replay decision.
    `environment_lease_authority_refused/authority_unavailable` and
    `usage/invalid_holder`, is reported as a Curator lease result under the
    closed-details rule of §11; `invalid_holder` is never retried within the
-   invocation. This unit sends **no release command**, including after a
+   invocation; a later invocation re-derives the same payload and may send
+   it again, and Curator refuses it identically. This unit sends **no
+   release command**, including after a
    journal settles with no manager call. No-start settlement is retained for
    a future independent observation contract; it is not caller-supplied release
    authority. Unknown, unreachable, draining, missing/re-registered manager,
@@ -2569,7 +2585,7 @@ Detail vocabularies are closed (§5.6). Grammar names:
 | `session_manager_registry_shadowed` | 2 | user mutation while a system registry exists | `path` |
 | `session_manager_not_registered` | 2 | `use` (or deprecated `select`)/`unregister` of an unknown id | `id`: `<id>` |
 | `session_manager_registry_busy` | 1 | another registry mutation holds the lock (§4.3 rule 8) | none |
-| `session_home_lease_unavailable` | 1 | hosted lease support/admission/bind/allocation unavailable (§5.7); launcher-only | `curator_code`, `reason`: closed vocabularies below; optional launcher-validated `session`: `<handle>` after start |
+| `session_home_lease_unavailable` | 1 | hosted lease support/admission/bind/allocation unavailable (§5.7); launcher-only | `curator_code`, `reason`: closed vocabularies below; optional launcher-validated `session`: `<handle>` after start; `source`: `launcher` on a local bound-holder refusal |
 | `session_operation_conflict` | 1 | a reused `operation_id` with a different request digest (§5.7) | none |
 | `session_operation_expired` | 1 | `submitted_at` is older than the retention window (§5.7) | none |
 | `session_generation_mismatch` | 1 | `expected_generation` differs from the current one (§5.2) | none |
@@ -2600,6 +2616,9 @@ Detail vocabularies are closed (§5.6). Grammar names:
 **Closed home-lease details (L5).** `curator_code` is absent for local
 failures and otherwise comes only from the accepted home-lease v1 result
 code vocabulary (HL20), including `usage`; raw stderr is never copied.
+The `environment_lease_holder_mismatch` refusal of §5.7 step 6 may come
+from the launcher's own bound-holder comparison: locally it carries
+`source=launcher`, an HL20 holder-mismatch `reason` and no `curator_code`.
 `reason` is the paired Curator code/reason vocabulary from HL20, plus terminal
 replay `already_released`/`already_broken` or these launcher-owned tokens:
 `curator_lease_unsupported`, `curator_lease_protocol_error`,

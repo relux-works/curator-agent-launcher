@@ -209,6 +209,10 @@ func (c LeaseCLI) Acquire(ctx context.Context, p Pending) (*LeaseRecord, string,
 		if !reflect.DeepEqual(r.Holder, l.Holder) {
 			return nil, "", leaseFailure("curator_lease_protocol_error")
 		}
+		// Recovery binds only with the journaled acquired revision.
+		if l.Record != nil && r.Revision != l.Record.Revision {
+			return nil, "", holderMismatch("revision_changed", "")
+		}
 		return r, e.Reason, nil
 	}
 	// A lost bind reply is learned here: an active bound replay is returned
@@ -306,7 +310,7 @@ func boundHolder(frozen PreparedHolder, session string, generation int64, proces
 	return h
 }
 func holderMismatch(reason, session string) *Error {
-	e := refusal("session_home_lease_unavailable", map[string]string{"curator_code": "environment_lease_holder_mismatch", "reason": reason})
+	e := refusal("session_home_lease_unavailable", map[string]string{"reason": reason, "source": "launcher"})
 	if session != "" {
 		e.Details["session"] = session
 	}

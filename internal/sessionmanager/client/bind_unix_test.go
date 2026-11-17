@@ -455,7 +455,7 @@ func TestBindIdempotentRetrySameRevisionAndPayload(t *testing.T) {
 	assertBindArgv(t, binds[1], liveProcess())
 }
 
-// Claim: a matching active acquire replay settles without a re-bind and any other bound holder refuses locally sending nothing.
+// Claim: a bound replay settles only on an exactly matching started outcome; every other outcome keeps the journal, writes no settlement and sends no cancel or bind.
 func TestBindLostReplySettledViaAcquireReplay(t *testing.T) {
 	leasesBin := buildLeaseFixture(t)
 	manager := buildScript(t)
@@ -475,6 +475,38 @@ func TestBindLostReplySettledViaAcquireReplay(t *testing.T) {
 		s, err := r.Recover(bounded(t), tx)
 		return s, err, tx, calls(), traces()
 	}
+	runStatus := func(t *testing.T, held LeaseRecord, body string) (*Session, error, *Transaction, [][]string, []trace) {
+		t.Helper()
+		c, traces := scripted(t, manager, step{Operation: "status", Body: body})
+		tx := transaction(t)
+		p := leasePending(t, tx, Binding{ID: c.ID, Executable: c.Entry.Executable, RegisteredAt: stamp})
+		p.Phase = "possibly_submitted"
+		rec := leaseRecord(p)
+		p.Lease.Record = &rec
+		p.Lease.Capabilities = capableCaps()
+		leases, calls := leaseFixture(t, leasesBin, leaseStep{"acquire", leaseReply("acquire", "acquired", held), 0})
+		r := reconciler(c)
+		r.Leases = &leases
+		putPending(t, tx, p)
+		s, err := r.Recover(bounded(t), tx)
+		return s, err, tx, calls(), traces()
+	}
+	assertBoundKept := func(t *testing.T, err error, tx *Transaction, calls [][]string, traces []trace) {
+		t.Helper()
+		leaseReason(t, err, "session_generation_changed")
+		e := requireCode(t, err, "session_home_lease_unavailable")
+		if _, ok := e.Details["curator_code"]; ok || e.Details["source"] != "launcher" {
+			t.Fatalf("local marking: %v", e.Details)
+		}
+		if len(traces) != 1 || traces[0].Operation != "status" || len(bindCalls(calls)) != 0 || len(calls) != 1 {
+			t.Fatalf("cancel or bind sent for bound lease: traces=%v calls=%v", traces, calls)
+		}
+		p, e2 := tx.Pending()
+		if e2 != nil || p == nil || p.Phase != "bind_pending" {
+			t.Fatalf("journal not kept at bind_pending: %v %v", p, e2)
+		}
+		assertNoSettlement(t, tx)
+	}
 	basePending := func(t *testing.T) Pending {
 		t.Helper()
 		tx := transaction(t)
@@ -493,8 +525,9 @@ func TestBindLostReplySettledViaAcquireReplay(t *testing.T) {
 		mut["start_time"] = map[string]any{"kind": "linux-stat-starttime", "ticks": "123456790", "hz": 100}
 		s, err, tx, calls, traces := run(t, boundRecord(basePending(t), mut))
 		leaseReason(t, err, "process_incarnation_mismatch")
-		if requireCode(t, err, "session_home_lease_unavailable").Details["curator_code"] != "environment_lease_holder_mismatch" {
-			t.Fatalf("code: %v", err)
+		e := requireCode(t, err, "session_home_lease_unavailable")
+		if _, ok := e.Details["curator_code"]; ok || e.Details["source"] != "launcher" {
+			t.Fatalf("local marking: %v", e.Details)
 		}
 		if s == nil || len(traces) != 1 || len(bindCalls(calls)) != 0 {
 			t.Fatalf("changed payload sent: %v calls=%v", s, calls)
@@ -526,6 +559,49 @@ func TestBindLostReplySettledViaAcquireReplay(t *testing.T) {
 		}
 		assertPending(t, tx, true)
 	})
+	for _, tc := range []struct {
+		name, body string
+	}{
+		{"bound-not-found-no-cancel", outcome("not_found")},
+		{"bound-prepared-no-cancel", outcome("prepared")},
+		{"bound-failed-no-settle", outcome("failed")},
+		{"bound-cancelled-no-settle", outcome("cancelled")},
+		{"bound-unknown-keeps-journal", outcome("unknown")},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s, err, tx, calls, traces := runStatus(t, boundRecord(basePending(t), liveProcess()), tc.body)
+			if s != nil {
+				t.Fatalf("non-started bound outcome returned a session: %v", s)
+			}
+			assertBoundKept(t, err, tx, calls, traces)
+		})
+	}
+	t.Run("bound-started-no-process-unavailable", func(t *testing.T) {
+		s, err, tx, calls, traces := runStatus(t, boundRecord(basePending(t), liveProcess()), outcome("started"))
+		leaseReason(t, err, "process_incarnation_unavailable")
+		if requireCode(t, err, "session_home_lease_unavailable").Details["session"] != "SES-example" {
+			t.Fatalf("session detail: %v", err)
+		}
+		if s == nil || len(traces) != 1 || len(bindCalls(calls)) != 0 {
+			t.Fatalf("no-process bound started sent: %v traces=%v calls=%v", s, traces, calls)
+		}
+		p, e := tx.Pending()
+		if e != nil || p == nil || p.Phase != "bind_pending" {
+			t.Fatalf("journal: %v %v", p, e)
+		}
+		assertNoSettlement(t, tx)
+	})
+	t.Run("bound-unknown-phase-protocol-error", func(t *testing.T) {
+		held := boundRecord(basePending(t), liveProcess())
+		held.Phase = "unknown"
+		s, err, tx, calls, traces := runStatus(t, held, startedBody(liveProcess()))
+		leaseReason(t, err, "curator_lease_protocol_error")
+		if s != nil || len(traces) != 0 || len(bindCalls(calls)) != 0 {
+			t.Fatalf("unknown-phase bound replay reached the manager: %v traces=%v calls=%v", s, traces, calls)
+		}
+		assertPending(t, tx, true)
+		assertNoSettlement(t, tx)
+	})
 }
 
 // Claim: no release or break command is sent on bind success, refusal, unknown or settled paths.
@@ -555,5 +631,93 @@ func TestBindNeverReleases(t *testing.T) {
 		_, err, _, calls, _ := submitBind(t, leasesBin, manager, capable, leaseRefusalFor("bind", "environment_lease_holder_mismatch", "process_incarnation_mismatch", 1), 1, step{Operation: "launch", Body: processBody(liveProcess())})
 		leaseReason(t, err, "process_incarnation_mismatch")
 		check(t, calls())
+	})
+}
+
+// Claim: a prepared replay at the journaled revision re-binds, and one at any other revision refuses locally with no bind and no manager call.
+func TestBindPreparedReplayRevisionGuard(t *testing.T) {
+	leasesBin := buildLeaseFixture(t)
+	withTuple := func() *Session {
+		s := session()
+		s.State = "idle"
+		s.Process = encoded(liveProcess())
+		return &s
+	}
+	t.Run("journaled-revision-rebinds", func(t *testing.T) {
+		tx0 := transaction(t)
+		p0 := leasePending(t, tx0, Binding{ID: "demo", Executable: "/plugin", RegisteredAt: stamp})
+		s, err, tx, calls, ops := recoverFake(t, leasesBin, capableCaps(), withTuple(), leaseRecord(p0))
+		if err != nil || s == nil || len(bindCalls(calls())) != 1 || len(*ops) != 1 {
+			t.Fatalf("control: %v %v calls=%v ops=%v", s, err, calls(), *ops)
+		}
+		assertPending(t, tx, false)
+	})
+	t.Run("prepared-replay-revision-differs", func(t *testing.T) {
+		tx0 := transaction(t)
+		p0 := leasePending(t, tx0, Binding{ID: "demo", Executable: "/plugin", RegisteredAt: stamp})
+		acquire := leaseRecord(p0)
+		acquire.Revision = 3
+		s, err, tx, calls, ops := recoverFake(t, leasesBin, capableCaps(), withTuple(), acquire)
+		leaseReason(t, err, "revision_changed")
+		e := requireCode(t, err, "session_home_lease_unavailable")
+		if _, ok := e.Details["curator_code"]; ok || e.Details["source"] != "launcher" {
+			t.Fatalf("local marking: %v", e.Details)
+		}
+		if s != nil || len(*ops) != 0 || len(bindCalls(calls())) != 0 || len(calls()) != 1 {
+			t.Fatalf("revision-drifted replay sent: %v ops=%v calls=%v", s, *ops, calls())
+		}
+		assertPending(t, tx, true)
+		assertNoSettlement(t, tx)
+	})
+}
+
+// Claim: invalid_holder is sent exactly once per invocation, and a later invocation re-derives and may send the identical bind once more.
+func TestBindInvalidHolderOneBindPerInvocation(t *testing.T) {
+	leasesBin := buildLeaseFixture(t)
+	manager := buildScript(t)
+	capable := delegatedDescription()
+	capable.Capabilities = capableCaps()
+	t.Run("valid-settles", func(t *testing.T) {
+		tx0 := transaction(t)
+		base0 := leasePending(t, tx0, Binding{ID: "demo", Executable: "/unused", RegisteredAt: stamp})
+		s, err, tx, calls, _ := submitBind(t, leasesBin, manager, capable, leaseReply("bind", "bound", boundRecord(base0, liveProcess())), 0, step{Operation: "launch", Body: processBody(liveProcess())})
+		if err != nil || s == nil || len(bindCalls(calls())) != 1 {
+			t.Fatalf("valid: %v %v calls=%v", s, err, calls())
+		}
+		assertPending(t, tx, false)
+	})
+	t.Run("invalid-holder-once-per-invocation", func(t *testing.T) {
+		c, traces := scripted(t, manager,
+			step{Operation: "launch", Body: processBody(liveProcess())},
+			step{Operation: "status", Body: startedBody(liveProcess())})
+		tx := transaction(t)
+		base := leasePending(t, tx, Binding{ID: c.ID, Executable: c.Entry.Executable, RegisteredAt: stamp})
+		record := leaseRecord(base)
+		refusal := leaseRefusalFor("bind", "usage", "invalid_holder", 2)
+		leases, calls := leaseFixture(t, leasesBin,
+			leaseStep{"list", leaseReply("list", "listed", []LeaseRecord{}...), 0},
+			leaseStep{"acquire", leaseReply("acquire", "acquired", record), 0},
+			leaseStep{"list", leaseReply("list", "listed", record), 0},
+			leaseStep{"bind", refusal, 2},
+			leaseStep{"acquire", leaseReply("acquire", "acquired", record), 0},
+			leaseStep{"bind", refusal, 2})
+		r := reconciler(c)
+		r.Leases = &leases
+		p := Pending{OperationID: operationID, Kind: "launch", SubmittedAt: stamp, AdmissionKey: "werkstatt:example", Manager: base.Manager, CWD: base.CWD}
+		s, err := r.SubmitLeased(bounded(t), tx, p, base.Request, capable)
+		leaseReason(t, err, "invalid_holder")
+		if s == nil || len(bindCalls(calls())) != 1 {
+			t.Fatalf("first invocation bind count: %v calls=%v", s, calls())
+		}
+		s, err = r.Recover(bounded(t), tx)
+		leaseReason(t, err, "invalid_holder")
+		binds := bindCalls(calls())
+		if s == nil || len(traces()) != 2 || len(binds) != 2 || !reflect.DeepEqual(binds[0], binds[1]) {
+			t.Fatalf("second invocation bind count or payload: %v traces=%d binds=%v", s, len(traces()), binds)
+		}
+		pending, e := tx.Pending()
+		if e != nil || pending == nil || pending.Phase != "bind_pending" {
+			t.Fatalf("journal: %v %v", pending, e)
+		}
 	})
 }
