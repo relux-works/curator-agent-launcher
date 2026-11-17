@@ -25,7 +25,7 @@ const (
 
 // claudeNamespaceAdmitted is the allowlist of names in the runtime's own
 // environment namespaces (CLAUDE_, ANTHROPIC_, CCR_) that a launch under the
-// filtering gateway may carry. The 2.1.314 runtime reads over a thousand
+// filtering gateway may carry. The grounded runtimes read over a thousand
 // names there, and they select providers, endpoints, transports, settings
 // sources, remote and background sessions, and runtime modes (safe, bare,
 // restricted, coordinator, agent teams, among others); a list of refused

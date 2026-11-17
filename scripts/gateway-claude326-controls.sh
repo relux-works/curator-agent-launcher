@@ -45,8 +45,14 @@ plants=(
   # Never select a non-empty legacy file: its route-bearing env goes unchecked.
   "G6@@$GUARD@@$NETPKG@@TestPrepareGatewayGlobalFile326Cases/route_in_the_selected_legacy_file,_no_new_file@@if info.Size() > 0 {@@if false && info.Size() > 0 {"
   # Admit the catalog-URL selector in the closed namespace: a supplied
-  # file: URL reaches the child and reopens the catalog path beside off.
+  # file: URL reaches the child. Beside the owned off it cannot fetch
+  # (env_off precedes the file: bypass; record claim 6), but the
+  # selector must stay closed if the pair ever changes.
   "G7@@$GUARD@@$NETPKG@@TestPrepareGatewayModelCatalogURLEnv/supplied_in_fragment@@\"CLAUDE_CODE_OAUTH_TOKEN\":              true,@@\"CLAUDE_CODE_OAUTH_TOKEN\":              true, \"CLAUDE_CODE_MODEL_CATALOG_URL\": true,"
+  # Make the production listing check answer listed for any entry: a
+  # case-variant legacy name then passes as exact, and the listing
+  # refusal can never fire through the real function.
+  "G8@@$GUARD@@$NETPKG@@TestExactLegacyListedReal/not_listed_under_exact_name@@if entry.Name() == base {@@if entry.Name() != \"\" {"
 )
 
 # A requested id that names no plant, or a run that evaluates none, must
