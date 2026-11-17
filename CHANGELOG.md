@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Admitting Claude Code 2.1.326 under a filtering gateway adds user-visible
+  refusals: the native-tail words `--ignore-persisted-trust`,
+  `--managed-settings-in-initialize`, `worktree-hook` and `workspace-trust`
+  now refuse in every position (a prompt that is exactly one of them refuses
+  too), and a managed home whose legacy `.config.json` and `.claude.json`
+  are both non-empty and distinct while the legacy file is not listed under
+  its exact name (a case-variant name on a case-insensitive filesystem)
+  refuses instead of guessing which file the runtime reads.
+
 ## 0.7.1 — 2026-11-17
 
 ### Fixed

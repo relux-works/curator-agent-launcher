@@ -19,7 +19,7 @@ const (
 
 // gatewayNativeOptions is the allowlist of Claude Code options a native tail
 // may carry under a filtering gateway, with their value shapes as the
-// 2.1.314 bundle declares them. Each is local to the session it starts: none
+// grounded bundles declare them. Each is local to the session it starts: none
 // selects settings sources, a working directory, a stored or remote session,
 // plugins, a transport or an endpoint. Every other option refuses, so an
 // option the bundle adds later is refused until it is reviewed here.
@@ -74,7 +74,7 @@ var gatewayNativeShortOptions = map[string]argShape{
 	"-n": argRequired,
 }
 
-// claudeReservedArgs are the words the 2.1.314 runtime dispatches on outside
+// claudeReservedArgs are the words the grounded runtimes dispatch on outside
 // its option parser, or before it runs: every command name and alias it
 // registers (.command(), the background-session commands, the alias tables
 // and the parser's implicit help), the words its entry path matches anywhere

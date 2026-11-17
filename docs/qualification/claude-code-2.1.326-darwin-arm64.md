@@ -1,7 +1,8 @@
 # Claude Code 2.1.326 darwin-arm64 artifact check (gateway admission contract A)
 
 Read-only artifact analysis, 2026-11-17, revised after review of the first
-draft of this report. Published npm `@anthropic-ai/claude-code-darwin-arm64`
+draft of this report and again after the review of record for this change.
+Published npm `@anthropic-ai/claude-code-darwin-arm64`
 tarballs at 2.1.316, 2.1.318 and 2.1.326 were unpacked as data and searched
 only; nothing was executed. Counts are literal occurrences in the extracted
 binary (`grep -a -o -F`, one token per pass unless noted), calibrated
@@ -13,11 +14,18 @@ that rests on a name shared across chunks is marked as a fingerprint, not a
 proof of identity.
 
 **Verdict: 2.1.326 is grounded together with the launcher change that
-carries this record.** Grounding is not effective until that change lands
-and an operator records the 2.1.326 binary hash below in the strict tuple
-with this record as its evidence; a hash entry alone does not establish
-these semantics, and the hash must not be recorded without the launcher
-change. Three findings of the first draft change verdict on tracing: the
+carries this record.** Grounding is not effective until that change lands,
+an operator records the 2.1.326 binary hash below in the strict tuple
+with this record as its evidence, and the README's runtime
+no-direct-connection witness has been run for this build; a hash entry
+alone does not establish these semantics, and the hash must not be
+recorded without the launcher change. This evidence supports an `exec`
+(print) strict-tuple entry. It does not by itself qualify an
+`interactive` entry: the interactive session mounts UI setup effects this
+check mostly does not exercise, one of which (the official-marketplace
+auto-install fetch, claim 6) is named there, so an `interactive` entry
+needs its own recipe evaluation and witness even when it names this
+record. Three findings of the first draft change verdict on tracing: the
 connector download path is statically unreachable inside the gateway
 boundary (claim 2d, with the runtime no-direct-connection witness kept as a
 written residual), the eager scanner's value-slot coverage of the allowlist
@@ -66,7 +74,8 @@ witness.
 | 5a | `settings.json` / `cowork_settings.json` selection and `.claude.json` path under `CLAUDE_CONFIG_DIR` | HOLDS |
 | 5b | Legacy `.config.json` handling | DIFFERS: the chooser mechanism expanded. Exact-name contract-A states choose the same file as 2.1.316; the one build-divergent state is refused by the launcher change |
 | 5c | Exact predicate of the new project/local settings-path suppression guard | CANNOT TELL in leaf detail; its only effect is to return no path, and the launcher already checks a superset of those files |
-| 6 | The direct `downloads.claude.ai` connection is the signed model-catalog fetch, switched off by `CLAUDE_CODE_MODEL_CATALOG=off`, in all three builds | HOLDS as a static attribution (identical fetch, gate and switch in 2.1.316/2.1.318/2.1.326); that the pair stops the observed connection still needs the runtime witness |
+| 6a | The signed model-catalog fetch, its gate and its `CLAUDE_CODE_MODEL_CATALOG=off` switch are identical in all three builds, and the fetch is off under the gateway's composed environment | HOLDS (static; every `downloads.claude.ai` occurrence in 2.1.318/2.1.326 is classified in claim 6, and each gate predicate is identified there) |
+| 6b | The observed direct `downloads.claude.ai` connection is that catalog fetch | CANNOT TELL, and not the catalog fetch on this evidence: in the observed launch's environment the catalog gate already returned `essential_traffic`. One other startup fetch to the host is not gated by the four gateway conditions (official-marketplace auto-install); which path fired is for the runtime witness to decide |
 
 ## Literal occurrences in the bundled binary
 
@@ -128,12 +137,12 @@ witness.
 Full companion literals such as `remote-settings.json.signature.json` occur
 0 times in all three builds because the names are constructed from suffixes;
 the suffix builders are quoted under claim 1. Load-bearing counts are
-paired with quoted code below. For three high-churn tokens
-(`ANTHROPIC_UNIX_SOCKET`, `CLAUDE_CONFIG_DIR`, `settings.json`) the delta
-is accounted by rename-invariant signature counts and role classification
-under claims 3 and 5; individually attributing each net-new occurrence
-among renamed contexts was not separable, and no verdict rests on those
-counts alone.
+paired with quoted code below. For two high-churn tokens
+(`ANTHROPIC_UNIX_SOCKET`, `CLAUDE_CONFIG_DIR`) the delta is accounted by
+rename-invariant signature counts and role classification under claims 3
+and 5, and no verdict rests on those counts alone; for `settings.json`
+and `downloads.claude.ai` each net-new or raw occurrence in
+2.1.318/2.1.326 is individually attributed under claims 5 and 6.
 
 ## Claim 1: plist, cache files, closed subset, native schema
 
@@ -388,8 +397,14 @@ Two additions are recorded against this claim:
   It is not one of the principal read/fetch/poll paths the README
   describes, and it does not widen what a cache can do.
 - Socket-token delta. `ANTHROPIC_UNIX_SOCKET` is 66/73/76. Signature
-  counts for 2.1.318 → 2.1.326: quoted 10/10, key position 2/2, assignment
-  form 6/6, bare entry 1/1, property reads 50/55. The exception site
+  counts for 2.1.318 → 2.1.326, partitioned by the byte before the token
+  so they sum to the totals: property reads
+  (`.ANTHROPIC_UNIX_SOCKET`) 50/55, quoted spellings 10/10, all other
+  contexts (bare string-table entries and name-list spellings) 13/11;
+  50+10+13=73 and 55+10+11=76, so the net change is five more property
+  reads and two fewer other-context spellings. Finer signatures overlap
+  those classes and are unchanged (key position 2/2 is a subset of the
+  quoted spellings; an `=` after the token, 6/6, cuts across both). The exception site
   itself is fingerprint-identical (above), the `"unix_socket"` transport
   classifications are unchanged (8/8/8), and every 2.1.326 property-read
   context read for this revision is a presence check that classifies the
@@ -399,7 +414,7 @@ Two additions are recorded against this claim:
   are an unrelated HTTP CONNECT decision (`"tunnel"` vs `"direct"` /
   `"refuse"`) in proxy handling whose proxy selectors the launcher refuses
   and removes. The claim rests on the quoted eligibility code, not on
-  attributing the three net-new reads; see "Method and limits".
+  attributing the five net-new property reads; see "Method and limits".
 
 The policy-limits identifier surface is otherwise unchanged except one
 added event name (`policyLimitsRefreshed`, 0/0/4), and the `Policy limits:`
@@ -621,22 +636,69 @@ move a gateway child's managed home.
 `settings.json` grows 453/467/502, mostly embedded documentation:
 `.claude/settings.json` path mentions are 202/211/227 and
 `managed-settings.json` is flat at 58/58/57. Quoted code literals are
-42/45/54. Adjacent-literal pairs around the quoted name are unchanged
-except one new list, `["settings.json","cowork_settings.json"]` in the
-host task scan that classifies the two user settings paths as sensitive
-(the `cowork_settings.json` 4/4/7 delta is that scan, a subdirectory
-sensitive-file list, and their shared context; no new writer to the
-user's file appears in any of them). Two further new quoted sites read
-directly: an in-memory staged-files lookup (`files.get("settings.json")`,
-checking one boolean inside it) and a directory walk that skips a
-`.claude/settings.json` entry under a predicate while collecting other
-settings. Two new `join(…, "settings.json")` sites were counted but not
-individually attributed among renamed contexts. No new writer to the
-user's `settings.json` or `cowork_settings.json` was found in the
-extracts. A hypothetical new writer would in any case land inside the
-existing residuals: those files are read-only regular files under
-contract A, file modes are same-uid-erasable, and a settings change after
-the boundary check is the documented mid-session reroute.
+42/45/54. Every net-new quoted site in 2.1.326 is attributed here;
+pairing is by surrounding-context fingerprint modulo renames, and each
+2.1.318 site has a 2.1.326 twin except the sites below.
+
+- The adjacent-literal change is one new list,
+  `["settings.json","cowork_settings.json"]` in a host task scan that
+  reads a task manifest's declared `CLAUDE_CONFIG_DIR` and classifies
+  the two user settings paths under it as sensitive file accesses (the
+  `cowork_settings.json` 4/4/7 delta is that scan, a subdirectory
+  sensitive-file list, and their shared context). It classifies paths;
+  it reads no settings content and applies no `env`.
+- One new `join(…, "settings.json")` site is the plugin validator's
+  per-directory check (2.1.326 `jo(e)`): it reads
+  `<plugin root>/settings.json` for the directory being validated and
+  returns at most two deprecation notes, for the `agent` and
+  `subagentStatusLine` keys. It produces a validation result; nothing
+  is applied. The plugin loader that does consume that file (present in
+  both builds) parses it against a schema admitting exactly those two
+  keys (`["agent","subagentStatusLine"]` in both builds), so an `env`
+  member in a plugin's `settings.json` is not read as settings in
+  either build.
+- The other new `join` site only formats a path for a diagnostic in
+  the self-hosted runner (`[runner:stuck] write <dir>/settings.json`).
+  The write it names seeds the runner's per-session config directory
+  with a document the runner constructs itself,
+  `{"skipWebFetchPreflight":true}`, taken from one boolean of the
+  operator snapshot's staged `settings.json`
+  (`files.get("settings.json")`, the remaining new quoted site; only
+  that boolean is read). No `env` is copied or applied, and the path
+  runs only while provisioning a hosted session, a mode the gateway
+  tail cannot select.
+- The new directory walk is in the added-folder plugin collection
+  (2.1.326 `z()`, beside `Rye()`; 2.1.318 twins `Are()`/`Noo()`). For
+  each additional directory — `--add-dir` values and directories a
+  checked settings source admits through
+  `permissions.additionalDirectories` — it reads
+  `<dir>/.claude/settings.json` and `settings.local.json` (the subset
+  the enabled setting sources allow) and counts only their
+  `extraKnownMarketplaces` keys and `enabledPlugins` values, to warn
+  that entries from an untrusted added directory are ignored. It skips
+  the `settings.json` entry when the file's directory physically
+  resolves to the config home, so the user's own settings file is not
+  double-counted. The collectors that do apply something from those
+  files read the same two members in both builds and nothing else; no
+  `env` is read or applied from an added folder's settings, and
+  2.1.326 only adds trust and download-folder filtering before the
+  same two members are honoured.
+- Two further new occurrences are the fallback label
+  `??"settings.json"` when formatting the user-settings path in
+  background-daemon error messages. Display only.
+
+So in 2.1.326 the files whose `env` the runtime applies are exactly the
+tier sources the guard already reads: the user `settings.json` and
+`cowork_settings.json`, the one selected global file (claim 5b), every
+project/local `.claude/settings.json` and `settings.local.json` the
+guard walks, the managed file and drop-ins, and an explicit settings
+input, which the gateway tail refuses. No new source applies `env`, and
+no new writer to the user's `settings.json` or
+`cowork_settings.json` was found in the extracts. A hypothetical new
+writer would in any case land inside the existing residuals: those
+files are read-only regular files under contract A, file modes are
+same-uid-erasable, and a settings change after the boundary check is
+the documented mid-session reroute.
 
 ### 5b. The legacy global-file chooser: case table
 
@@ -763,66 +825,184 @@ outside-namespace reads; the first is exhaustive for whole namespace
 tokens spelled in the bundle text (a name constructed by concatenation
 would evade both, as it would have in the grounded builds).
 
-## Claim 6: the model-catalog fetch to `downloads.claude.ai`
+## Claim 6: every `downloads.claude.ai` path, and the model-catalog gate
 
 An admitted 2.1.318 gateway launch without the catalog pair was
-observed opening TLS directly to `downloads.claude.ai`. This claim
-checks, in all three published binaries, whether that host is the
-signed model-catalog fetch and whether `CLAUDE_CODE_MODEL_CATALOG=off`
-switches it off before any other gate. It is a static attribution; no
-HOLDS here witnesses a connection.
+observed opening TLS directly to `downloads.claude.ai`. The build that
+launch ran is the published 2.1.318 darwin-arm64 binary, SHA-256
+`677a2ea7bf576cedd20e191d973914ed8a41796f53a63b1923381ddc4d5b5e7d`
+(the grounded table above; recomputed from the staged tarball for this
+revision, as were both other binary hashes). If a future observation
+cannot name the hash it ran, the attribution below does not transfer
+to it. This claim classifies every occurrence of the host in the
+2.1.318 and 2.1.326 binaries, identifies each fetch path's gates, and
+evaluates them under the gateway's composed conditions:
+`ANTHROPIC_BASE_URL` the registration-owned loopback base (not
+first-party), `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1`,
+`CLAUDE_CODE_MODEL_CATALOG=off`, and `DISABLE_AUTOUPDATER=1` where an
+operator sets it (the launcher does not; where that matters it is
+stated). It is a static classification; no HOLDS here witnesses a
+connection.
 
-The fetch is present and identical in shape in 2.1.316, 2.1.318 and
-2.1.326. Each binary carries the default document URL
-`https://downloads.claude.ai/model-catalog/v1/catalog.json` (3/3/3,
-with its `.raw-sig.json` signature companion and the matching
-`model-catalog/v1/schema.json` at 2/2/2), the feature flag
-`tengu_delegated_quail` (2/2/2, default `{mode:"off"}` for the served
-document), and the policy key `allow_model_catalog` (6/6/6). The
-2.1.316 and 2.1.318 bundles carry the release note verbatim: "load
-model settings from a signed file on downloads.claude.ai; set
-CLAUDE_CODE_MODEL_CATALOG=off to turn this off" (1/1/0; the 2.1.326
-bundle no longer carries that changelog sentence, which accounts for
-its one-fewer `CLAUDE_CODE_MODEL_CATALOG` and `downloads.claude.ai`
-occurrences — the code, strings and gate below are all still present).
+### Occurrence classification
 
-The off-switch is the first test of the catalog gate in every build
-(2.1.316 `vUt`, 2.1.318 `c6t`, 2.1.326 `Fan`, otherwise token-identical
-modulo renames): if the environment value reads as off the gate
-returns `"env_off"` immediately, ahead of the bare-mode, essential-
-traffic, Unix-socket, first-party and `allow_model_catalog` policy
-tests, and the caller maps any non-null gate result to mode `"off"`,
-so no document is fetched. No later branch re-enables it: the one
-essential-traffic bypass re-runs the same gate with that single test
-skipped, still behind `env_off`, and only when the catalog URL is a
-`file:` URL. That bypass is why the URL selector matters (below); it
-cannot revive the `downloads.claude.ai` fetch beside `off`.
+Raw byte occurrences are 30 in 2.1.318 and 29 in 2.1.326 (2.1.316 also
+has 30; it was not reclassified line by line). Eleven per build sit in
+the embedded bytecode string table and duplicate literals whose code
+sits in the bundled-JavaScript region; they are not separate paths.
+Grouped by the code or data that carries them (counts are raw
+occurrences, string-table copies included; 2.1.318/2.1.326):
 
-Two neighbouring facts bound the switch. First, the runtime itself
-refuses to let project settings turn the catalog back on ("a project's
-settings can only turn the model catalog off"), and the gateway is
-stricter still: `CLAUDE_CODE_MODEL_CATALOG` is a gateway-owned pair,
-so any supplied settings or overlay entry for it refuses and the final
-composed environment must hold exactly `off`. Second, the document
-URL can be redirected by `CLAUDE_CODE_MODEL_CATALOG_URL` (4/4/4; the
-bundle documents it as a gateway/mirror override, `file:` included).
-That name is not admitted by the gateway: supplied in any layer it
-refuses under the existing closed `CLAUDE_` namespace rule, and an
-inherited value is removed, so beside the owned `off` pair no launch
-input can point the (disabled) fetch elsewhere or take the `file:`
-bypass. This is pinned by `TestPrepareGatewayModelCatalogURLEnv`
-(plant G7); it needs no production change.
+| Class | What it is | Occurrences |
+| --- | --- | ---: |
+| Catalog fetch constant (`…/model-catalog/v1/catalog.json`) | The published-catalog fetch's default URL in code. (The literal full URL occurs 3/3/3 in total: this constant's two copies plus one spelling inside the desktop text below.) | 2/2 |
+| Catalog schema URL (`…/model-catalog/v1/schema.json`) | The `$schema` member of the catalog document bundled into the binary as data; never fetched | 2/2 |
+| Updater releases base (`…/claude-code-releases`) | Two code constants: the auto-update version pointer fetch, and the install/update path's channel, manifest (with `manifest.json.raw-sig.json` sidecar) and binary downloads | 3/3 |
+| Official-marketplace base (`…/claude-code-releases/plugins/claude-plugins-official`) | The marketplace fetch: `latest` pointer, then the versioned zip | 2/2 |
+| Marketplace telemetry host literal | The `host` field of the `tengu_plugin_remote_fetch` event the marketplace fetch emits; not a fetch | 2/2 |
+| Downloads-client guard text | The error the CDN-only HTTP client throws for a non-CDN URL; the client itself is the direct-connection mechanism the three fetches above share | 2/2 |
+| Client-data error text | Three message strings of the `--client-data-url` signed-document loader, whose URL must name this host | 6/6 |
+| Desktop egress/metadata text | The `VM_BUNDLE_HOST` constant and the desktop app's configuration and egress-service descriptions (auto-update, model catalog, catalog-URL mirror, including one spelling of the catalog URL), compiled into the CLI binary; no CLI fetch reads them | 9/9 |
+| Release-note sentence | "load model settings from a signed file on downloads.claude.ai; set CLAUDE_CODE_MODEL_CATALOG=off to turn this off", in the bundled changelog | 1/0 |
+| Health-check instruction text | Prose telling the assistant which version URL to read with its tools, and to skip the lookup when nonessential traffic is disabled; not a runtime fetch | 1/1 |
 
-What this does not prove: that the pair stops the observed connection
-at runtime, or that no other direct connection exists. The gate order
-makes `off` unconditional on the extracts, but the leaf predicates
-(the exact off-spellings, the first-party test's provider classes, and
-when the fetch is attempted during start-up) were not traced to source
-level, and the runtime observation itself post-dates every static
-check that passed 2.1.318. The README therefore keeps the runtime
-no-direct-connection witness as a required step for every grounded
-build, 2.1.326 included, and the catalog pair is defence the witness
-must still confirm, not a substitute for it.
+So exactly four code paths in each build can open a connection to the
+host: the published model catalog, the updater, the official
+marketplace, and the client-data document. (A second catalog, the
+account-served one, is fetched through the API client from
+`/api/model_selector/…`, i.e. through `ANTHROPIC_BASE_URL`; it never
+names this host.) Each is gated as follows; helper identifications are
+by unique body fingerprint in the shared chunks, read in both builds.
+
+### 6a. The catalog gate, predicate by predicate — HOLDS
+
+The gate (2.1.316 `vUt`, 2.1.318 `c6t`, 2.1.326 `Fan`, token-identical
+modulo renames) is, in order: off-spelling test on
+`CLAUDE_CODE_MODEL_CATALOG` → `"env_off"`; bare mode → `"bare"`;
+essential-traffic test → `"essential_traffic"`; `ANTHROPIC_UNIX_SOCKET`
+set → `"unix_socket"`; first-party test → `"not_first_party"`; account
+scope; `allow_model_catalog` policy → `"policy"`; else null.
+
+- The off-spelling test reads a boolean as its negation and otherwise
+  matches the lower-cased, trimmed value against
+  `["0","false","no","off"]`. The gateway's `off` trips it. The served
+  catalog's mode function maps any non-null gate result to `"off"`.
+- The essential-traffic test is the presence of
+  `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC` in the process
+  environment (the same helper the artifact and telemetry gates use,
+  returning their `"essential_traffic_only"` reasons). The gateway
+  owns that pair at `1`, so it trips independently of `env_off`.
+- The first-party test is: provider `firstParty` (no `CLAUDE_CODE_USE_*`
+  selector and no host-held gateway credential) AND (the client-data
+  first-party assumption of claim 3, or no `ANTHROPIC_BASE_URL`, or a
+  base whose host is exactly `api.anthropic.com`). The loopback
+  gateway base fails it, so the *served* catalog is off a third way.
+- The *published* catalog — the one fetched from this host — passes
+  the gate result through a translator (2.1.318 `z4n`/`y`/`w`, 2.1.326
+  twins read here). `"env_off"`, `"bare"`, `"essential_traffic"`,
+  `"unix_socket"` and `"policy"` pass through as off reasons.
+  `"essential_traffic"` is re-run with that one test skipped only when
+  the configured catalog URL — the managed source, else
+  `CLAUDE_CODE_MODEL_CATALOG_URL` — parses as a `file:` URL; beside the
+  owned `off` the re-run still returns `"env_off"` first, and under
+  the gateway there is no such URL at all (below), so the bypass
+  cannot fire. `"not_first_party"` is translated by provider:
+  a host-held `gateway` provider yields `"cloud_gateway"` (off); the
+  gateway's plain first-party-with-custom-base shape yields
+  `"gateway_flag_off"` while the `tengu_delegated_quail` published
+  mode is off (its compiled default is `{mode:"off"}`), and
+  `"release_off"` behind that, because the release predicate it
+  consults reads a compile-time constant that is `false` with no
+  writer in either build. Bedrock/Vertex/Foundry/Mantle providers —
+  unreachable under the gateway, whose route selectors refuse — are
+  the shapes that translation exists to admit.
+- Both network consumers (the start-up primary path, timed at start-up
+  as `model_catalog_decision_ms`, and the shadow-compare path) return
+  before constructing a request unless that translation is null; the
+  fetch itself then goes through the CDN-only client directly to the
+  catalog URL and its `.raw-sig.json` sidecar.
+
+Under the gateway's composed environment the published fetch is
+therefore off three independent ways, in 2.1.316, 2.1.318 and 2.1.326
+alike. That corrects what main previously said: the fetch *is* gated
+by the nonessential-traffic switch, and `CLAUDE_CODE_MODEL_CATALOG=off`
+is kept as the first, unconditional test and as the switch the
+runtime itself refuses to let project settings reopen ("a project's
+settings can only turn the model catalog off"); the gateway is
+stricter still, owning the pair outright. The comment in
+`gateway.go` and the README's contract-A sentence are corrected in
+this change to say so.
+
+The document URL can be redirected by `CLAUDE_CODE_MODEL_CATALOG_URL`
+(4/4/4; a mirror override, `file:` included). That name is not
+admitted by the gateway: supplied in any layer it refuses under the
+existing closed `CLAUDE_` namespace rule, and an inherited value is
+removed. Beside the owned `off` it could not fetch in any case —
+`env_off` precedes the `file:` bypass — so the refusal is defence in
+depth that keeps the selector closed if the pair ever changes, not a
+second switch. This is pinned by `TestPrepareGatewayModelCatalogURLEnv`
+(plant G7, whose comment now says the same); it needs no production
+change.
+
+### The other three fetches under the gateway conditions
+
+- **Updater.** The background version-pointer fetch returns null
+  immediately under the essential-traffic test (both builds), and the
+  auto-update checks return earlier still under the shared
+  disabled-reason helper: `DISABLE_UPDATES`, `DISABLE_AUTOUPDATER`
+  read as true, nonessential traffic disabled, or `autoUpdates`
+  config — so the nonessential pair alone suffices, `DISABLE_AUTOUPDATER=1`
+  or not. The manifest, sidecar and binary downloads are reached only
+  from an update the check found, or from the `update`/`install`
+  commands, which are reserved words in a gateway tail. Not reachable.
+- **Client-data document.** Loading starts only from
+  `CLAUDE_CODE_CLIENT_DATA_URL` or `--client-data-url`; the variable
+  refuses when supplied and is removed when inherited, and the flag
+  is not allowlisted (claim 3 covers its first-party writer). Not
+  reachable.
+- **Official marketplace.** The fetch (`latest`, then the zip) has
+  three callers, identical in both builds (and present already in
+  2.1.316): the bulk and single marketplace refreshes behind the
+  `plugin` command (a reserved word, so unreachable from a gateway
+  tail; the install-time refresh variants are additionally behind the
+  essential-traffic test or the auto-updater disabled reason), and
+  the one-shot official-marketplace auto-install. The auto-install is
+  driven by an interactive-session setup effect and checks none of
+  the four gateway conditions: its gates are its own
+  attempted/installed/backoff state in the global file, its
+  `CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL` kill switch
+  (which the gateway removes when inherited and refuses when
+  supplied, so a gateway launch cannot carry it), already-installed,
+  and the enterprise marketplace allowlist (no list applies inside
+  the boundary, claim 3). In a home where it has not yet run, an
+  interactive gateway launch can therefore still fetch
+  `…/claude-plugins-official/latest` and the zip directly from this
+  host. Whether the setup effect also mounts in print launches could
+  not be settled statically. This is the one path to the host that
+  remains reachable under the gateway's conditions; it is unchanged
+  in 2.1.326 and is not closed by this grounding.
+
+### 6b. The observed connection — CANNOT TELL
+
+The observed 2.1.318 launch already ran with the other three owned
+pairs, `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1` included, so on
+the extracts its catalog gate returned `"essential_traffic"` and no
+catalog document was fetched: the observed connection was not the
+model-catalog fetch, and adding the pair cannot be credited with
+stopping it. Of the remaining paths, the marketplace auto-install is
+the only one a gateway launch of that shape could have taken, but
+which path actually fired — or whether the connection was something
+this static pass cannot see — is exactly what the runtime witness
+exists to decide, ideally recording the request path (marketplace
+`latest`/zip versus `model-catalog/v1/catalog.json`) and the binary
+hash it ran. The README therefore keeps the witness as a required
+step for every grounded build, 2.1.326 included, now naming the
+marketplace auto-install beside connector downloads; the catalog pair
+is defence the witness must still confirm, not a substitute for it.
+Closing the auto-install path from the launcher (for example owning
+its kill-switch variable as a fifth pair) is a separate decision this
+record does not take: nothing in this grounding depends on it, and
+the witness remains required either way.
 
 ## What this grounding required
 
@@ -838,10 +1018,10 @@ on the grounded builds.
 | 2 | Reserve `worktree-hook`, `workspace-trust` | Global | `claudeReservedArgs` in `native_args.go` | `TestPrepareGateway326DispatchWords` | G2, G2b |
 | 3 | Reserve `--managed-settings-in-initialize` (coverage proven in claim 4; `--bg` precedent) | Global | `claudeReservedArgs` in `native_args.go` | `TestPrepareGateway326DispatchWords` | G3 |
 | 4 | `CLAUDE_CODE_IGNORE_PERSISTED_TRUST`: supplied refuses, inherited removed (existing closed-namespace rule; no code change) | Global (existing) | `gatewayRefusedName` in `settings_guard.go` | `TestPrepareGatewayIgnorePersistedTrustEnv` (new pin) | G4 (admits the name) |
-| 5 | Refuse the build-divergent global-file state (both non-empty, distinct, exact legacy name unlisted) | Global (triggers only where choice would be build-dependent) | `selectedGlobalFile`, `exactLegacyListed` in `settings_guard.go` | `TestPrepareGatewayGlobalFileCaseVariant`, `TestPrepareGatewayGlobalFile326Cases` | G5, G6 |
+| 5 | Refuse the build-divergent global-file state (both non-empty, distinct, exact legacy name unlisted) | Global (triggers only where choice would be build-dependent) | `selectedGlobalFile`, `exactLegacyListed` in `settings_guard.go` | `TestPrepareGatewayGlobalFileCaseVariant`, `TestPrepareGatewayGlobalFile326Cases`, `TestExactLegacyListedReal` (the production lister, not a stub) | G5, G6, G8 |
 | 6 | Connector: no cache narrowing; README bounds the no-literal-consumer sentence and names connector downloads beside the runtime witness (claim 2d) | Text only | — | Existing policy-cache vectors keep passing | — |
 | 7 | `upcoming_minimum_version` and every new restriction key: keep refusing (existing closed subset) | Global (existing) | `policyCachePath` in `policy_cache.go` (unchanged behaviour) | Existing policy-cache vectors | — |
-| 8 | Model catalog (claim 6): the gateway sets and requires `CLAUDE_CODE_MODEL_CATALOG=off`; already landed independently of this change, relied on here, not duplicated | Global (existing) | `gatewayClaudeNames`, the registration patch and `gatewayCompositionCheck` in `gateway.go` | `TestPrepareGatewayBindsQualifiedClaude`, `TestGatewayComposedEnvironmentBoundary`, the settings-conflict catalog case | — |
+| 8 | Model catalog (claim 6a): the gateway sets and requires `CLAUDE_CODE_MODEL_CATALOG=off`; already landed independently of this change, relied on here, not duplicated; its `gateway.go` comment is corrected there (the fetch is also gated by the nonessential-traffic switch) | Global (existing) | `gatewayClaudeNames`, the registration patch and `gatewayCompositionCheck` in `gateway.go` | `TestPrepareGatewayBindsQualifiedClaude`, `TestGatewayComposedEnvironmentBoundary`, the settings-conflict catalog case | — |
 | 9 | `CLAUDE_CODE_MODEL_CATALOG_URL`: supplied refuses, inherited removed (existing closed-namespace rule; no code change) | Global (existing) | `gatewayRefusedName` in `settings_guard.go` | `TestPrepareGatewayModelCatalogURLEnv` (new pin) | G7 (admits the name) |
 
 Refusals reuse the existing codes: native-tail refusals are the
@@ -892,13 +1072,16 @@ Limits that bound the verdicts:
 - Dynamic behaviour (feature-flag state beyond the quoted checks, sign-in
   state, actual connections) is out of scope; no verdict witnesses a
   running process.
-- Three count deltas are accounted at signature and role level, not by
-  pairing every occurrence with a context: `ANTHROPIC_UNIX_SOCKET` (claim
-  3), `CLAUDE_CONFIG_DIR` and `settings.json` (claim 5). Minified renames
-  make exact context diffs report almost every context as new, so the
-  revision instead quotes the load-bearing sites directly and classifies
-  the rest. The two unattributed `join(…, "settings.json")` sites are the
-  visible edge of that limit.
+- Two count deltas are accounted at signature and role level, not by
+  pairing every occurrence with a context: `ANTHROPIC_UNIX_SOCKET`
+  (claim 3) and `CLAUDE_CONFIG_DIR` (claim 5). For `settings.json` and
+  `downloads.claude.ai` every net-new (claim 5) or every raw (claim 6)
+  occurrence in 2.1.318/2.1.326 is attributed above; pairing is by
+  surrounding-context fingerprint modulo renames, and 2.1.316 was
+  spot-checked, not reclassified line by line. Minified renames make
+  exact context diffs report almost every context as new, so the
+  remaining deltas quote the load-bearing sites directly and classify
+  the rest.
 - Allowlisted option value domains and effects were not examined
   (claim 4a is declaration shapes only), exactly as in the checks that
   grounded 2.1.316/2.1.318.

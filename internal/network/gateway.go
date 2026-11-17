@@ -28,9 +28,12 @@ import (
 // only ones the child sees. CLAUDE_CODE_MODEL_CATALOG=off is read from the
 // published Claude Code 2.1.318 darwin-arm64 bundle: its release note names
 // it as the switch for the signed model-catalog fetch from
-// downloads.claude.ai, which that build makes for a non-first-party base URL
-// and does not gate on the nonessential-traffic switch. Its runtime effect
-// needs the README's runtime witness.
+// downloads.claude.ai, which that build makes for a non-first-party base
+// URL. The bundle's catalog gate in fact tests this switch first and the
+// nonessential-traffic switch second (claim 6 of the 2.1.326 qualification
+// record), so the pair is the unconditional first test, not the only one;
+// either way, no direct connection is witnessed here, and the README's
+// runtime witness remains required.
 var gatewayClaudeNames = []string{"ANTHROPIC_BASE_URL", "ANTHROPIC_CUSTOM_HEADERS", "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC", "CLAUDE_CODE_MODEL_CATALOG"}
 
 // claudeRouteNames select another provider route or endpoint in Claude Code

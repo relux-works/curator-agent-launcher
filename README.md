@@ -985,12 +985,18 @@ gateway's header, `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1` and
 `CLAUDE_CODE_MODEL_CATALOG=off`, in its launch-private environment only. The
 last pair is set because an admitted Claude Code 2.1.318 gateway launch, run
 without it, was observed opening TLS to `downloads.claude.ai`; the published
-2.1.318 darwin-arm64 binary fetches a signed model catalog from that host, its
-own release note names `CLAUDE_CODE_MODEL_CATALOG=off` as the switch that
-turns the fetch off, and the fetch is not gated by the nonessential-traffic
-switch (a static reading of that binary). That the pair stops the observed
-connection is not yet witnessed at runtime: a launch with it must show it
-before the build is relied on (the runtime witness below). All four names are
+2.1.318 darwin-arm64 binary (the `677a2ea7…` hash in the grounded table below)
+fetches a signed model catalog from that host for a non-first-party base, and
+its own release note names `CLAUDE_CODE_MODEL_CATALOG=off` as the switch that
+turns the fetch off. A later static reading of that binary (claim 6 of the
+2.1.326 record below, which classifies every `downloads.claude.ai` occurrence
+in 2.1.318 and 2.1.326) shows the catalog gate tests `off` first and the
+nonessential-traffic switch second, so the observed launch — which already ran
+with nonessential traffic disabled — had the catalog fetch off, and the
+observed connection was something else; the pair is kept as the unconditional
+first test, not credited with stopping that connection. What stops the
+observed connection is not yet witnessed at runtime: a launch with the pair
+must show it before the build is relied on (the runtime witness below). All four names are
 owned by the gateway; as before, an overlay or settings `env` entry naming any
 `CLAUDE_*` name outside the allowlist refuses. Claude Code reads over a thousand names in
 its own namespaces (`CLAUDE_*`, `ANTHROPIC_*`, `CCR_*`), and they select
@@ -1066,8 +1072,9 @@ command name and alias (`doctor`, `mcp`, `ultrareview`, `remote-control`,
 and the raw tokens it or a later mode getter searches for (`--handle-uri`,
 `--session-tunnel`, `--agent-teams`, `--hard-fail`, `--worktree`, `-w`,
 `--tmux`, `--bg`, `--background`, `-c`, `--continue`, `-r`, `--resume`,
-`--from-pr`, `--gh-standin`, the version shortcuts and the dashed helper
-modes). `--safe-mode` and `--bare` are searched for only before the first
+`--from-pr`, `--gh-standin`, `--ignore-persisted-trust`,
+`--managed-settings-in-initialize`, the version shortcuts and the dashed
+helper modes). `--safe-mode` and `--bare` are searched for only before the first
 standalone `--`, so they refuse before it and are ordinary operands after
 it. A prompt that is exactly such a word refuses too. The environment names
 the runtime reads outside its own namespaces to pick another mode, session
@@ -1154,15 +1161,6 @@ grounds a hash, not a version label):
 | Claude Code 2.1.318 darwin-arm64 | `677a2ea7bf576cedd20e191d973914ed8a41796f53a63b1923381ddc4d5b5e7d` |
 | Claude Code 2.1.326 darwin-arm64 | `e214ad76dcc0e846b03be28ed1c2734aacd4e27acb527cb7f8a9e2bed644e837` |
 
-All three grounded builds carry the same signed model-catalog fetch
-from `downloads.claude.ai` and the same `CLAUDE_CODE_MODEL_CATALOG=off`
-switch (the attribution is verified build by build in claim 6 of the
-2.1.326 record above); the gateway-owned pair set for every gateway
-launch and the required runtime witness below cover 2.1.326 exactly as
-they cover the earlier builds, and the catalog URL override
-(`CLAUDE_CODE_MODEL_CATALOG_URL`) is refused when supplied and removed
-when inherited, like the other closed-namespace selectors.
-
 An operator's build hash entry does not establish these
 semantics for another build; that build needs the same artifact check. Both
 absent caches remain valid. Present caches must be readable
@@ -1193,9 +1191,12 @@ subset, not full native policy-schema support. The published 2.1.316 and
 admitted booleans follow the generic non-enforcing restriction evaluator.
 2.1.326 adds a policy-table entry and literal evaluator calls for that key,
 but under the gateway eligibility condition below the admitted value is
-inert in exactly the same way: with policy never read, the evaluator
+inert in exactly the same way: with cached policy never read, the evaluator
 returns the same result whatever the cache holds, and connector downloads
-stop at an earlier eligibility refusal (see the 2.1.326 record). Unknown
+stop at an earlier eligibility refusal (see the 2.1.326 record; that
+record also notes a new 2.1.326 feedback-access fetch of the same policy
+endpoint through the gateway's base, which can only deny product feedback
+and reads no cache). Unknown
 restriction names never inherit that admission. In an eligible first-party session an explicit
 connector `true` can suppress a hinted denial; isolation `false` can suppress
 hinted enforcement. Neither is universally equivalent to an absent entry.
@@ -1248,7 +1249,9 @@ Contract A narrows the launch; it does not isolate it. Its written residual:
   static evidence of its record); those static observations are not a
   runtime connection witness or a guarantee about every later path. Actual
   gateway qualification must check that the launched process makes no
-  direct Anthropic connection, connector downloads included: the runtime
+  direct Anthropic connection, connector downloads and the
+  official-marketplace auto-install fetch (claim 6 of the 2.1.326
+  record) included: the runtime
   witness (for example the open connections of the child for the first
   minutes of a session show only the gateway's local listener) is a
   required step for every grounded build, because static checks alone
