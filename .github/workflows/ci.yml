@@ -43,6 +43,11 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: make observation-v2-controls
 
+      # Plant controls need the Linux descriptor tests; the scratch copy lives under TMPDIR.
+      - name: M0 executor adapter plant controls
+        if: matrix.os == 'ubuntu-latest'
+        run: make m0-adapter-controls
+
   race:
     name: Race (${{ matrix.os }})
     runs-on: ${{ matrix.os }}

@@ -23,6 +23,32 @@
   validated 1.2.0 projection over a capable manager. No refusal code is added.
   Only `observe` negotiates the token: every other operation still refuses
   the three members, also from a manager that advertises it.
+- DRAFT `curator-run-m0-adapter`, the M0 executor adapter for the proposed
+  swarma-dispatcher `m0-executor-entry/1` (4fbf13a7, final executor-entry
+  documentary fixtures): a Linux-only native
+  binary that reads one bounded closed entry from FD3, verifies descriptor
+  identity, the fixed environment and `worker_plan`, and execs the pinned
+  broker `run-codex` with the exact 19-element argv and a one-shot stdin
+  pipe, or exits 78 before exec. Durable C, the qualified clock and the
+  Claude runner variant are refusing seams, so it launches nothing yet.
+  The 88 closed controls have distinct adapter tests or explicit owning-component
+  classifications, with active test-name resolution and executed per-instance counts.
+  The sole environment source is one bounded `/proc/self/environ` read; raw
+  duplicates and empty entries refuse rather than disappearing, and successful
+  exec preserves entry bytes and order. Incomplete reads never fall back.
+  Standard descriptor identity and CLOEXEC checks start at package entry;
+  Go's earlier runtime repair of missing standard descriptors remains a limit. The origin socket marker is a third required build-time
+  denied literal; argv and environment names/values use substring matching,
+  repeated after the exec-time timeout rewrite. Durable C is the first adapter
+  step, before the environ read and literal validation, so an unconfigured
+  build refuses `c_unpublished` from the installed entry point and missing
+  build literals refuse `literal_missing` only once C is satisfied; unknown
+  runner literals cannot enter the proposed Claude mapping.
+  Pipe writes permit at most one zero-byte EINTR retry; capacity equality is
+  accepted. Unpinned and unknown runner literals refuse without a pipe write
+  or exec. `make m0-adapter-controls` requires twenty-three applied plants and
+  equal named baseline, behavioral-failure and restored-green evidence counts. No native qualification or
+  activation is claimed.
 
 ## 0.7.0 — 2026-11-11
 

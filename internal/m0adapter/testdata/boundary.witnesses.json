@@ -1,0 +1,465 @@
+{
+  "status": "INERT documentary expectations; no execution, qualification or Result authority",
+  "source_boundary": "0b29c086608d808903b9abf286497d941297a078",
+  "qualification": {
+    "preconditions": "Hypothetical readable protected configuration/root/lock, admitted account/profile, no in-progress/pending-activation, and measurements otherwise available; no probe is run here",
+    "resolve_chain": [
+      "protectedAuthority.Resolve",
+      "productionQualifiedSet",
+      "static.Config.Qualified",
+      "qualification.Repository.Read"
+    ],
+    "cases": [
+      {
+        "id": "absent-qualified-record",
+        "qualified_json": "absent",
+        "expected_order": [
+          "Observe: native Version first",
+          "attempt qualified.json read",
+          "refuse 69 lease_harness_unqualified"
+        ],
+        "lease": false,
+        "admitted_app_server": false,
+        "later_runner_versionProbe": false
+      },
+      {
+        "id": "malformed-qualified-record",
+        "qualified_json": "malformed",
+        "expected_order": [
+          "Observe: native Version first",
+          "read/decode qualified.json",
+          "refuse 69 lease_harness_unqualified"
+        ],
+        "lease": false,
+        "admitted_app_server": false,
+        "later_runner_versionProbe": false
+      },
+      {
+        "id": "qualified-control",
+        "qualified_json": "valid with complete matching current protected evidence and activation",
+        "expected_order": [
+          "Observe: native Version first",
+          "read/validate qualified.json and all required evidence",
+          "successful protected qualification",
+          "later runner versionProbe subject to remaining preflight gates"
+        ],
+        "authority": "Conditional source-order control only; no actual qualification, lease or app-server admission authorized"
+      }
+    ],
+    "limit": "Unavailable observers may refuse before the record read; absent/malformed qualified.json never proves no earlier measurement. All native/OS/typed-plan/Result gates remain closed."
+  },
+  "publication": {
+    "preconditions": "Hypothetical otherwise qualified tuple; new O denotes the final text of this original execution. No filesystem operation is performed.",
+    "cases": [
+      {
+        "id": "prepublication-failure-old",
+        "before": "old O",
+        "event": "known staging I/O failure before rename",
+        "rename_succeeded": false,
+        "after": "old O",
+        "runner_terminal": 75,
+        "d_observation": "known prepublication refusal; never consume output as this run Result"
+      },
+      {
+        "id": "publication-success-old",
+        "before": "old O",
+        "event": "matching completed turn, confirmed cleanup/release, successful rename, later stop",
+        "rename_succeeded": true,
+        "after": "new O",
+        "runner_terminal": 0,
+        "d_observation": "runner 0 observed; D disposition/deadline and authenticated Result remain separate"
+      },
+      {
+        "id": "publication-unobserved-old",
+        "before": "old O",
+        "event": "matching completed turn, confirmed cleanup/release, successful rename, later stop, D loses reliable completion observation",
+        "rename_succeeded": true,
+        "after": "new O",
+        "runner_terminal": 0,
+        "d_observation": "unknown completion; no inferred D success/failure or fresh admission",
+        "debt": "original publication/Result/effect and unknown cleanup debt retained"
+      },
+      {
+        "id": "prepublication-failure-absent",
+        "before": "absent O",
+        "event": "known staging I/O failure before rename",
+        "rename_succeeded": false,
+        "after": "absent O",
+        "runner_terminal": 75,
+        "d_observation": "known prepublication refusal; never consume output as this run Result"
+      },
+      {
+        "id": "publication-success-absent",
+        "before": "absent O",
+        "event": "matching completed turn, confirmed cleanup/release, successful rename, later stop",
+        "rename_succeeded": true,
+        "after": "new O",
+        "runner_terminal": 0,
+        "d_observation": "runner 0 observed; D disposition/deadline and authenticated Result remain separate"
+      },
+      {
+        "id": "publication-unobserved-absent",
+        "before": "absent O",
+        "event": "matching completed turn, confirmed cleanup/release, successful rename, later stop, D loses reliable completion observation",
+        "rename_succeeded": true,
+        "after": "new O",
+        "runner_terminal": 0,
+        "d_observation": "unknown completion; no inferred D success/failure or fresh admission",
+        "debt": "original publication/Result/effect and unknown cleanup debt retained"
+      }
+    ],
+    "common_boundary": "Bytes/mode 0600 grant no D read/consumption authority, success/failure disposition or fresh admission. Runner status alone is no authenticated durable Result, account-wide absence or debt discharge.",
+    "unknown_boundary": "Keep original publication/Result/effect debt and unknown cleanup debt; no retry start, new claim or clock reset. No Result protocol, quota, ACL or cleanup/wipe authority is selected."
+  },
+  "handoff": {
+    "equality_actor": "Dispatcher D, once before handoff",
+    "protected_snapshots": 4,
+    "snapshot_body_bytes_max": 49152,
+    "metadata_storage_bytes_max": 262144,
+    "manager_admission": "Complete immutable FD3 by already-bound CCJ-1 entry digest in protected launch evidence; no new policy evaluator",
+    "adapter_request_role": "Already-bound audit copy; no new authority assertion",
+    "worker_protected_reads": false,
+    "mapping_inputs": "Immutable installed E/H/clock-profile literals, artifact-bound by D; unchanged fixed manager environment; full publication/currentness/qualification gate remains open",
+    "limit": "Hypothetical matching authenticated durable originals and complete current typed tuple required; none supplied by this specimen"
+  },
+  "timing": {
+    "bound_source": "FD3 timing, equality/provenance checked by D before handoff",
+    "common_coordinate": "Exact pinned qualified tuple, immutable installed clock profile; now only from that qualified clock",
+    "cases": [
+      {
+        "id": "bound-timing-control",
+        "deadline_ms": 290000,
+        "slack_ms": 10000,
+        "now_ms": 20000,
+        "expected_timeout_seconds": 240
+      },
+      {
+        "id": "one-second-control",
+        "deadline_ms": 31000,
+        "slack_ms": 10000,
+        "now_ms": 20000,
+        "expected_timeout_seconds": 1
+      },
+      {
+        "id": "fractional-remainder",
+        "deadline_ms": 30900,
+        "slack_ms": 10000,
+        "now_ms": 20000,
+        "expected_timeout_seconds": 0,
+        "expected": "Adapter pre-exec refuses; never round 900 ms upward; status attribution requires original fate evidence"
+      }
+    ],
+    "refusals": "Missing/tampered/unbound D/S refuses; wrong/unqualified/stale clock or conversion refuses; no retry resets, overflow or upward rounding",
+    "limit": "Proposed integer representation only; original absolute deadline conversion/confidence/currentness and finite syscall/stop/slack bounds UNQUALIFIED"
+  },
+  "process": {
+    "status": "INERT proposed process/status boundary, pending owning review; no native execution",
+    "model": "Native adapter directly execve-replaces itself with the absolute pinned runner; no surviving adapter supervisor",
+    "reserved_adapter_preexec_status": 78,
+    "runner_statuses": [
+      0,
+      1,
+      64,
+      69,
+      75,
+      124,
+      130
+    ],
+    "runner_statuses_scope": "Pinned run-codex set only. Per tuple the runner status set is complete and closed and must exclude 78; no run-claude set is pinned, and until the run-claude pin is recorded in the executor-entry spec D refuses to bind or hand off a run-claude tuple and a run-claude artifact refuses before exec",
+    "plan_object_in_runner": false,
+    "closure": "Close plan object/all copies before creating the stdin pipe; no feeder exists; every descriptor other than 0-2 is closed or close-on-exec; fd 0 is the read-only end of the pipe and no other inherited descriptor names the pipe or the plan object, verified by kernel object identity and access mode",
+    "lifecycle": "No feeder and no pre-exec wait: plan object and every duplicate closed, pipe2(O_CLOEXEC), F_GETPIPE_SZ capacity >= exact prompt length (no F_SETPIPE_SZ raise), F_SETFL O_NONBLOCK, one whole write with the read end still open (EINTR retried at most once and only with zero bytes written), write end closed before exec, dup2 to 0. A failure of the plan close, pipe2, F_GETPIPE_SZ or the capacity check, F_SETFL, the write (EAGAIN, short or error), close, dup2 or the identity and access-mode check is an adapter pre-exec refusal with no exec; 78 only with trustworthy original fate evidence of no runner start, otherwise UNKNOWN with original debt. Partial write, EINTR and failing F_GETPIPE_SZ, pipe2, F_SETFL, close and dup2 negatives need syscall fault injection; missing native evidence closes use. Qualification of this mechanism remains UNQUALIFIED",
+    "prompt_deliveries_max": 1,
+    "cases": [
+      {
+        "id": "known-preexec-refusal",
+        "actor": "adapter",
+        "phase": "pre-exec",
+        "observation": "Hypothetical installed original fate observer binds execution/generation/process incarnation/adapter digest, exclusive pre-exec phase, exact exit 78, no runner start; mechanism UNQUALIFIED; exec not attempted",
+        "observed_status": 78,
+        "runner_started": false,
+        "pipe_write_end": "never created when the refusal precedes pipe2; otherwise open at the refusing step or already closed, and released at adapter exit; exec not attempted",
+        "effects": "No runner start; worker preparation and original C/claim/debit remain",
+        "disposition": "Known adapter pre-exec refusal only under hypothetical trustworthy installed original fate observation; original spent claim/debit and preparation debt preserved"
+      },
+      {
+        "id": "known-failed-exec",
+        "actor": "adapter",
+        "phase": "pre-exec failed exec",
+        "observation": "Hypothetical installed original fate observer binds execution/generation/process incarnation/adapter digest, exclusive pre-exec phase, exact exit 78, no runner start; mechanism UNQUALIFIED; failed exec positively observed",
+        "observed_status": 78,
+        "runner_started": false,
+        "pipe_write_end": "closed before the exec attempt; exec failed",
+        "effects": "Failed exec, no runner start; original preparation/claim/debit remain",
+        "disposition": "Known adapter pre-exec refusal only under hypothetical trustworthy installed original fate observation; original spent claim/debit and preparation debt preserved"
+      },
+      {
+        "id": "successful-exec-runner-success",
+        "actor": "runner (same process after exec)",
+        "phase": "post-exec publication",
+        "observation": "Hypothetical trustworthy original fate observation attributes exec success and runner terminal 0 after matching completed turn, release/cleanup and successful rename",
+        "observed_status": 0,
+        "runner_started": true,
+        "pipe_write_end": "closed before exec; descriptor identity separately qualified",
+        "effects": "New O; see old/absent publication neighbors",
+        "disposition": "Runner terminal 0; D deadline/disposition and authenticated Result separate, no status-based read or debt discharge"
+      },
+      {
+        "id": "successful-exec-runner-refusal",
+        "actor": "runner (same process after exec)",
+        "phase": "post-exec protected qualification",
+        "observation": "Hypothetical trustworthy original fate observation attributes exec success and runner 69 lease_harness_unqualified",
+        "observed_status": 69,
+        "runner_started": true,
+        "pipe_write_end": "closed before exec; descriptor identity separately qualified",
+        "effects": "Qualification measurement may precede refusal; no lease/admitted app-server; see qualification neighbors",
+        "disposition": "Runner-owned 69 unchanged; not an adapter status or authenticated Result"
+      },
+      {
+        "id": "unknown-exec",
+        "actor": "unresolved adapter/runner",
+        "phase": "exec boundary unresolved",
+        "observation": "Exec/start outcome unobserved",
+        "observed_status": null,
+        "runner_started": "unknown",
+        "pipe_write_end": "unknown",
+        "effects": "Runner/prompt/lease/publication effects not excluded",
+        "disposition": "UNKNOWN completion; retain all original publication/Result/effect/cleanup/lease/token/stop debt; no retry, admission, absence or read authority"
+      },
+      {
+        "id": "unattributed-reserved-number",
+        "actor": "unattributed",
+        "phase": "unknown",
+        "observation": "Numeric 78 only, without installed original fate evidence",
+        "observed_status": 78,
+        "runner_started": "unknown",
+        "pipe_write_end": "unknown",
+        "effects": "No absence/no-effect inference",
+        "disposition": "UNKNOWN completion; retain all original publication/Result/effect/cleanup/lease/token/stop debt; no retry, admission, absence or read authority"
+      },
+      {
+        "id": "runner-status-collision",
+        "actor": "claimed runner",
+        "phase": "claimed post-exec",
+        "observation": "Status 78 conflicts with pinned runner set; mixed or unsupported attribution",
+        "observed_status": 78,
+        "runner_started": "unknown",
+        "pipe_write_end": "unknown",
+        "effects": "Do not reinterpret as known adapter refusal or upstream status extension",
+        "disposition": "UNKNOWN completion; retain all original publication/Result/effect/cleanup/lease/token/stop debt; no retry, admission, absence or read authority"
+      },
+      {
+        "id": "raw-signal-or-lost-completion",
+        "actor": "unresolved",
+        "phase": "unknown",
+        "observation": "Raw signal or lost/mixed completion observation, no exclusive actor/phase evidence",
+        "observed_status": null,
+        "runner_started": "unknown",
+        "pipe_write_end": "unknown",
+        "effects": "Original physical effects remain unresolved",
+        "disposition": "UNKNOWN completion; retain all original publication/Result/effect/cleanup/lease/token/stop debt; no retry, admission, absence or read authority"
+      }
+    ],
+    "limit": "Numeric 78 alone authenticates neither actor, phase nor absence; no Result/read authority, no new upstream status or implemented observer mechanism"
+  },
+  "valid_neighbors": {
+    "status": "INERT valid neighbor witnesses for forbidden-controls.json. A control may name any case id of this file; every case in this section is named by at least one control. Hypothetical controls only; no execution, qualification or admission",
+    "cases": [
+      {
+        "id": "matching-control",
+        "control": "Unchanged entry.specimen.json and mapping.witness.json (pinned run-codex tuple) with hypothetical matching authenticated durable originals and a complete current qualified tuple",
+        "expected": "Shape-positive entry and exact 19-element argv mapping; hypothetical admission only"
+      },
+      {
+        "id": "pipe-valid-lifecycle",
+        "control": "Plan object and every duplicate closed successfully before pipe2(O_CLOEXEC); F_GETPIPE_SZ succeeds with capacity covering the exact prompt and never raised; F_SETFL O_NONBLOCK succeeds; one whole write succeeds with the read end open; write-end close, dup2 to fd 0 and remaining closes succeed; identity and O_RDONLY checks pass; no feeder process or thread",
+        "expected": "Exec proceeds; the runner reads exactly the prompt bytes and then EOF"
+      },
+      {
+        "id": "pipe-capacity-equals-length",
+        "control": "F_GETPIPE_SZ capacity 8192 and a prompt of exactly 8192 decoded bytes: capacity equal to the length",
+        "expected": "Accepted: capacity >= length holds; the whole write and exec proceed. The same capacity with a prompt of 8193 bytes is refused"
+      },
+      {
+        "id": "pipe-write-end-closed-eof",
+        "control": "Write end closed before exec; only 0-2 lack FD_CLOEXEC; fd 0 is the O_RDONLY end of the pipe; no descriptor other than fd 0 names the pipe",
+        "expected": "Identity and access-mode check passes; the runner observes EOF after the exact prompt bytes"
+      },
+      {
+        "id": "prompt-24576-bytes",
+        "control": "Prompt of exactly 24576 decoded UTF-8 bytes whose encoded and canonical forms fit their bounds",
+        "expected": "Accepted by the decoded-size check; pipe creation proceeds"
+      },
+      {
+        "id": "claude-placeholder-only",
+        "control": "The worker UID and every process of the execution can obtain only the run-bound placeholder: no vendor-valid credential in argv, environment, any file or directory that UID can read (the home H as a whole), any descriptor, socket, keyring, helper or IPC it can reach, or the environment or memory of any process it can read or trace",
+        "expected": "Admission gate reach item satisfied. Hypothetical after the run-claude pin is recorded in the executor-entry spec; until that pin is recorded there every run-claude artifact refuses before exec"
+      },
+      {
+        "id": "claude-placeholder-same-run",
+        "control": "Placeholder of execution X, with its generation and lease, presented during X before stop, expiry and release",
+        "expected": "Gateway accepts for X only. Hypothetical after the run-claude pin is recorded in the executor-entry spec; until that pin is recorded there every run-claude artifact refuses before exec"
+      },
+      {
+        "id": "claude-protected-settings",
+        "control": "Secret-free gateway endpoint and every settings file come only from protected, non-worker-writable installation content; no worker-prepared setting, environment variable or helper selects or redirects them",
+        "expected": "Admission gate item satisfied. Hypothetical after the run-claude pin is recorded in the executor-entry spec; until that pin is recorded there every run-claude artifact refuses before exec"
+      },
+      {
+        "id": "runner-status-set-excludes-78",
+        "control": "run-codex tuple whose pinned runner status set is complete, closed and excludes 78: 0, 1, 64, 69, 75, 124, 130",
+        "expected": "Adapter status 78 stays disjoint for that tuple; an observed 78 is a known adapter refusal only with trustworthy original fate evidence of no runner start, otherwise UNKNOWN with original debt"
+      },
+      {
+        "id": "claude-credential-separate-principal",
+        "control": "The vendor-valid credential is held only by a gateway principal under a different UID than the worker; no process of the worker UID holds it and no helper, socket, keyring or IPC returns it to that UID",
+        "expected": "Admission gate custody item satisfied. Hypothetical after the run-claude pin is recorded in the executor-entry spec; until that pin is recorded there every run-claude artifact refuses before exec"
+      },
+      {
+        "id": "run-claude-status-set-excludes-78",
+        "control": "run-claude tuple whose runner status set is pinned in the spec, complete, closed and without 78",
+        "expected": "Per-tuple status rule satisfied for that tuple. Hypothetical after the run-claude pin is recorded in the executor-entry spec; until that pin is recorded there every run-claude artifact refuses before exec"
+      },
+      {
+        "id": "pinned-variant-tuple",
+        "control": "Tuple whose runner literal is run-codex, the only variant pinned in the spec",
+        "expected": "D may bind and hand off the tuple and the adapter accepts the literal; hypothetical admission only"
+      },
+      {
+        "id": "denied-literal-set-complete",
+        "control": "Denied-literal set bound to the artifact with all three REQUIRED members present and non-empty: Keymaker marker, denied path prefix, origin socket marker",
+        "expected": "D may bind the artifact; the adapter proceeds to the occurrence match"
+      },
+      {
+        "id": "denied-literal-no-self-collision",
+        "control": "No member of the denied-literal set is a bytewise substring of E, H, the derived paths J, L, W, O, the fixed argv literals, the six fixed environment names or their values",
+        "expected": "D may bind the artifact; no handoff is refused by the installation's own literals"
+      },
+      {
+        "id": "denied-literals-absent",
+        "control": "No member of the denied-literal set occurs as a bytewise substring in any argv element or in any environment name or value",
+        "expected": "The occurrence match passes; the mapping proceeds"
+      },
+      {
+        "id": "environment-unchanged-six",
+        "control": "The adapter receives exactly the manager's fixed HOME, USER, LOGNAME, PATH, LANG and TMPDIR and passes those names and values unchanged to the runner",
+        "expected": "Environment check passes; the broker constructs the vendor environment itself"
+      },
+      {
+        "id": "pipe-eintr-single-retry",
+        "control": "The first write returns EINTR with zero bytes written; the one permitted retry writes the whole prompt",
+        "expected": "Accepted; the write end is closed and exec proceeds. Reachable only by syscall fault injection"
+      },
+      {
+        "id": "plan-object-absent-in-runner",
+        "control": "Plan kernel object and every duplicate closed before the stdin pipe is created; no descriptor in the runner names that object, by kernel object identity",
+        "expected": "Identity observation passes; process.plan_object_in_runner is false"
+      },
+      {
+        "id": "broker-descriptor-reuses-number-3",
+        "control": "A later broker-owned non-plan object occupies descriptor number 3 in the runner while the plan object is absent by kernel object identity",
+        "expected": "No plan leak and no violation; the number alone is no evidence either way"
+      },
+      {
+        "id": "single-prompt-delivery",
+        "control": "The exact prompt is delivered once, followed by EOF, for one original execution",
+        "expected": "process.prompt_deliveries_max of 1 holds"
+      },
+      {
+        "id": "descriptors-0-3-only",
+        "control": "Only caller-owned descriptors 0-2 and FD3 reach executor code",
+        "expected": "Manager descriptor admission passes"
+      },
+      {
+        "id": "fd3-complete-immutable",
+        "control": "FD3 is the complete, immutable, read-only plan object whose bytes match the bound entry digest",
+        "expected": "Manager admits FD3 by its already-bound digest"
+      },
+      {
+        "id": "single-physical-start",
+        "control": "One physical start per original execution; after an unknown start effect the original execution is reconciled and nothing is started again",
+        "expected": "No second start; original clocks, claim and debt retained"
+      },
+      {
+        "id": "protected-config-readable",
+        "control": "The runner reads protected /etc/swarma-credential-broker/config.json through its current same-user R2 reader and the read succeeds",
+        "expected": "Protected configuration admitted; no public copy, --config or environment override"
+      },
+      {
+        "id": "native-adapter-executable",
+        "control": "The approved adapter is a native executable started through the manager's retained handle",
+        "expected": "Digest equality pins the code that runs; no interpreter is involved"
+      },
+      {
+        "id": "native-vendor-binary-pinned",
+        "control": "Broker policy pins a native Codex binary",
+        "expected": "Digest equality pins the code that runs; no npm/node wrapper is involved"
+      },
+      {
+        "id": "vendor-path-selected-and-equal",
+        "control": "Vendor /usr/bin:/bin narrowing selected by its owners, with the protected PATH equal to it under D's full protected profile/plan equality",
+        "expected": "Use permitted for that tuple. No such selection exists; the narrowing is a proposal"
+      },
+      {
+        "id": "transitive-exec-qualified",
+        "control": "Every transitive exec is listed in the owning minimum inventory and has complete R-EXEC invocation qualification",
+        "expected": "Use permitted for that inventory. No such inventory or qualification exists"
+      },
+      {
+        "id": "verified-drop-before-adapter",
+        "control": "Verified supplementary-group removal, then real/effective/saved GID and UID drop, complete before any adapter code",
+        "expected": "Manager qualification of the drop order passes"
+      },
+      {
+        "id": "receiver-c-before-target-code",
+        "control": "Receiver-owned durable C is recorded before any target code, including the adapter decoder, loader and constructor",
+        "expected": "Selected-A ordering holds"
+      },
+      {
+        "id": "capture-full-debt-retained",
+        "control": "Capture fills; the unknown original outcome and all stop/token/custody debt are retained and admission stays closed",
+        "expected": "No inferred no-effect and no new launch"
+      },
+      {
+        "id": "agent-started-once-from-pinned-digest",
+        "control": "App-server started once from the pinned digest; no model tool holds or can reopen the agent executable object",
+        "expected": "Positive control of the broker handle gate; the gate remains OPEN until the broker fix and a native trace exist"
+      },
+      {
+        "id": "forbidden-exec-observed-natively",
+        "control": "An actual forbidden exec attempt by absolute path is observed refused by the OS enforcement",
+        "expected": "OS exec enforcement evidence; separate from protected environment conformance"
+      },
+      {
+        "id": "d-equality-no-worker-read",
+        "control": "D performed protected equality once before handoff; the adapter holds an audit copy and performs no protected read (handoff.worker_protected_reads is false)",
+        "expected": "Protected joins rest on D alone"
+      },
+      {
+        "id": "qualified-clock-now",
+        "control": "now_ms is read only from the clock selected by the pinned qualified tuple's immutable installed clock profile, in the coordinate of deadline_ms",
+        "expected": "Clock use matches the bound coordinate; the clock mechanism itself remains UNQUALIFIED"
+      },
+      {
+        "id": "runner-literal-from-artifact",
+        "control": "Argv element 2 equals the immutable runner literal of the adapter artifact bound to the installation tuple",
+        "expected": "Nothing in the entry, the environment or the arguments selects the runner"
+      },
+      {
+        "id": "timing-reread-cap-downward",
+        "control": "At exec the adapter re-reads only now_ms from the qualified clock and recomputes T with unchanged deadline_ms and slack_ms",
+        "expected": "T never increases; original D/S unchanged"
+      },
+      {
+        "id": "timing-full-range-arithmetic",
+        "control": "deadline_ms 9007199254740991, now_ms 20000, slack_ms 10000 computed in checked integer arithmetic over the full member range",
+        "expected": "T=240 by the cap; no wrap"
+      },
+      {
+        "id": "stdout-capture-candidate",
+        "control": "Existing stdout is captured as an observation path only; no Result channel is selected",
+        "expected": "Capture candidate, not authenticated durable Result"
+      }
+    ]
+  }
+}
