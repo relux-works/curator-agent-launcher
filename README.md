@@ -1144,8 +1144,29 @@ fails it refuses `network_scope_unsupported` with no gateway call:
   subset below; it cannot select another route, settings source or permission
   mode.
 
-The cache check is grounded in the published Claude Code 2.1.316 and 2.1.318
-darwin-arm64 artifacts. An operator's build hash entry does not establish these
+The cache check is grounded in the published Claude Code 2.1.316, 2.1.318
+and 2.1.326 darwin-arm64 artifacts (for 2.1.326, the artifact check in
+[docs/qualification/claude-code-2.1.326-darwin-arm64.md](docs/qualification/claude-code-2.1.326-darwin-arm64.md);
+operators name it as the `evidence` of that build's strict-tuple entry).
+The grounded builds, by the SHA-256 of the published binary (the gateway
+grounds a hash, not a version label):
+
+| Build | Binary SHA-256 |
+| --- | --- |
+| Claude Code 2.1.316 darwin-arm64 | `64c327e92b2c5e0f78c0a980c5a518121e1f0d140ca771ca5dd4488d1a2dcb3f` |
+| Claude Code 2.1.318 darwin-arm64 | `677a2ea7bf576cedd20e191d973914ed8a41796f53a63b1923381ddc4d5b5e7d` |
+| Claude Code 2.1.326 darwin-arm64 | `e214ad76dcc0e846b03be28ed1c2734aacd4e27acb527cb7f8a9e2bed644e837` |
+
+All three grounded builds carry the same signed model-catalog fetch
+from `downloads.claude.ai` and the same `CLAUDE_CODE_MODEL_CATALOG=off`
+switch (the attribution is verified build by build in claim 6 of the
+2.1.326 record above); the gateway-owned pair set for every gateway
+launch and the required runtime witness below cover 2.1.326 exactly as
+they cover the earlier builds, and the catalog URL override
+(`CLAUDE_CODE_MODEL_CATALOG_URL`) is refused when supplied and removed
+when inherited, like the other closed-namespace selectors.
+
+An operator's build hash entry does not establish these
 semantics for another build; that build needs the same artifact check. Both
 absent caches remain valid. Present caches must be readable
 regular files, at most 1 MiB, opened without following a final symbolic link;
@@ -1161,7 +1182,7 @@ trailing documents. Ordinary settings-file link handling is unchanged.
 | `restrictions.enforce_web_search_mcp_isolation.allowed` | Boolean; the enclosing object contains only `allowed`; see the gateway eligibility condition below |
 | `defaults.remote_control_at_startup` | `false` only; no other defaults; an empty defaults object is valid |
 | `compliance_taints` | Empty array only |
-| `monitoring_notice` | `null` or string; the 2.1.316 native object schema catches a string to `null`, so display of that string is not promised |
+| `monitoring_notice` | `null` or string; the grounded builds' native object schema catches a string to `null`, so display of that string is not promised |
 
 Each restriction entry contains exactly one `allowed` member. All other
 fields, types and values refuse with `network_scope_unsupported`. One pass
@@ -1170,15 +1191,20 @@ an unreadable or malformed file contributes its root path. Cancellation or a
 budget exhaustion still stops the inspection immediately. Refusals
 name the caches and schema paths, never values; unknown member names appear
 as `*` to avoid disclosing arbitrary supplied text. This is a gateway-safe
-subset, not full native policy-schema support. The published artifact has no
-literal consumer for the connector key; its admitted booleans follow the
-generic non-enforcing restriction evaluator. Unknown restriction names never
-inherit that admission. In an eligible first-party session an explicit
+subset, not full native policy-schema support. The published 2.1.316 and
+2.1.318 artifacts have no literal consumer for the connector key; their
+admitted booleans follow the generic non-enforcing restriction evaluator.
+2.1.326 adds a policy-table entry and literal evaluator calls for that key,
+but under the gateway eligibility condition below the admitted value is
+inert in exactly the same way: with policy never read, the evaluator
+returns the same result whatever the cache holds, and connector downloads
+stop at an earlier eligibility refusal (see the 2.1.326 record). Unknown
+restriction names never inherit that admission. In an eligible first-party session an explicit
 connector `true` can suppress a hinted denial; isolation `false` can suppress
 hinted enforcement. Neither is universally equivalent to an absent entry.
 
 These booleans are admitted only by the gateway cache checker, whose existing
-input boundary makes native server policy ineligible in both grounded builds.
+input boundary makes native server policy ineligible in the grounded builds.
 The registration-owned endpoint is loopback, and the final composed-environment
 check pins it. Supplied endpoint, Unix-socket, first-party-assumption and
 client-data selectors refuse; inherited selectors are removed. The native
@@ -1218,15 +1244,18 @@ Contract A narrows the launch; it does not isolate it. Its written residual:
   an edit after the check is the same reroute as the first item;
 - MDM profiles still require absence of the named local plists. The cache
   subset is read again at the final pre-spawn boundary, but a policy rewrite
-  or refresh after that check is not continuously enforced. The 2.1.316
-  source gates its principal policy read/fetch/poll paths on first-party
-  base-URL eligibility; that static observation is not a runtime connection
-  witness or a guarantee about every later path. Actual gateway qualification
-  must check that the launched process makes no direct Anthropic connection:
-  the runtime witness (for example the open connections of the child for the
-  first minutes of a session show only the gateway's local listener) is a
-  required step for every grounded build, because static checks alone passed
-  a build that still opened a direct connection;
+  or refresh after that check is not continuously enforced. In each grounded
+  build the source gates its principal policy read/fetch/poll paths on
+  first-party base-URL eligibility (for 2.1.326, its connector file
+  downloads likewise stop at an eligibility refusal before any fetch, on the
+  static evidence of its record); those static observations are not a
+  runtime connection witness or a guarantee about every later path. Actual
+  gateway qualification must check that the launched process makes no
+  direct Anthropic connection, connector downloads included: the runtime
+  witness (for example the open connections of the child for the first
+  minutes of a session show only the gateway's local listener) is a
+  required step for every grounded build, because static checks alone
+  passed a build that still opened a direct connection;
 - the launch token is usable only at the gateway's same-host loopback
   listener.
 
