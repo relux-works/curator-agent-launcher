@@ -72,5 +72,4 @@ observation-v2-controls:
 # weakens one gate in a scratch copy of internal/m0adapter and its named test
 # must fail. The working tree is never mutated.
 m0-adapter-controls:
-	@mkdir -p .temp
 	scripts/m0-adapter-controls.sh

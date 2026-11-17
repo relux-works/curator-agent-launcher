@@ -48,23 +48,23 @@ func TestProcessFinalArgvDenied(t *testing.T) {
 	requireRefusal(t, runChild(t, childSpec{env: fixedEnv(testHome), behavior: "timeout-marker", now2: 270500}), ReasonArgvDenied)
 }
 
-// TestProcessStandardDescriptors proves stdout missing at package entry, changed stdout identity or final CLOEXEC stdout refuses before exec.
+// TestProcessStandardDescriptors proves stdout missing or close-on-exec at package entry, changed stdout identity or final CLOEXEC stdout refuses before exec.
 func TestProcessStandardDescriptors(t *testing.T) {
 	for _, c := range []struct {
 		behavior string
-		closed   bool
 		want     Reason
 	}{
-		{"stdout-closed", false, ReasonFDStandardMissing},
-		{"stdout-cloexec", false, ReasonFDSweep},
-		{"stdout-replaced", false, ReasonFDFinal},
+		{"stdout-closed", ReasonFDStandardMissing},
+		{"stdout-cloexec-entry", ReasonFDStandardMissing},
+		{"stdout-cloexec", ReasonFDSweep},
+		{"stdout-replaced", ReasonFDFinal},
 	} {
 		requireRunnerPositive(t)
-		requireRefusal(t, runChild(t, childSpec{closeStdout: c.closed, behavior: c.behavior}), c.want)
+		requireRefusal(t, runChild(t, childSpec{behavior: c.behavior}), c.want)
 	}
 }
 
-// TestProcessNativePipeProperties proves real pipe flags are nonblocking at write and capacity is unchanged through exec, beside a real blocking-descriptor negative.
+// TestProcessNativePipeProperties proves real pipe flags are nonblocking at write and capacity is unchanged through exec, beside a negative that proves flag state at write time, not a kernel blocking-write outcome.
 func TestProcessNativePipeProperties(t *testing.T) {
 	r := runChild(t, childSpec{behavior: "native-properties"})
 	if rep := runnerOutput(t, r); r.exit != 0 || rep.Capacity < len(rep.Stdin) || !rep.EOF {
@@ -73,7 +73,42 @@ func TestProcessNativePipeProperties(t *testing.T) {
 	requireRefusal(t, runChild(t, childSpec{behavior: "native-blocking"}), ReasonStdinWrite)
 }
 
-// TestInstalledMainMissingLiterals proves a real command build without linker literals exits 78 literal_missing, beside a fully bound artifact's C refusal.
+// TestNothingRunsBeforeC proves an unsatisfied C refuses c_unpublished without calling the environ reader, beside C-satisfied environ and literal refusals.
+func TestNothingRunsBeforeC(t *testing.T) {
+	for _, c := range []struct {
+		name      string
+		waitForC  func() error
+		brokenEnv bool
+		lit       Literals
+		want      Reason
+		wantCalls int
+	}{
+		{"broken-env-c-unsatisfied", waitForC, true, testLit(), ReasonCUnpublished, 0},
+		{"missing-literal-c-unsatisfied", waitForC, false, Literals{}, ReasonCUnpublished, 0},
+		{"broken-env-c-satisfied", func() error { return nil }, true, testLit(), ReasonEnvMalformed, 1},
+		{"missing-literal-c-satisfied", func() error { return nil }, false, Literals{}, ReasonLiteralMissing, 1},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			calls := 0
+			cfg := Config{
+				Literals: c.lit,
+				WaitForC: c.waitForC,
+				readEnviron: func() ([]string, error) {
+					calls++
+					if c.brokenEnv {
+						return nil, refuse(ReasonEnvMalformed)
+					}
+					return fixedEnv(testHome), nil
+				},
+			}
+			if got := Run(cfg); got != c.want || calls != c.wantCalls {
+				t.Fatalf("reason %s calls %d, want %s calls %d", got, calls, c.want, c.wantCalls)
+			}
+		})
+	}
+}
+
+// TestInstalledMainMissingLiterals proves a real command build without linker literals exits 78 c_unpublished, as a fully bound artifact does, because C precedes literal validation.
 func TestInstalledMainMissingLiterals(t *testing.T) {
 	skipUnderRace(t)
 	dir := t.TempDir()
@@ -91,7 +126,7 @@ func TestInstalledMainMissingLiterals(t *testing.T) {
 		name, flags string
 		want        Reason
 	}{
-		{"bound", flags, ReasonCUnpublished}, {"missing", "", ReasonLiteralMissing},
+		{"bound", flags, ReasonCUnpublished}, {"missing", "", ReasonCUnpublished},
 	} {
 		binary := filepath.Join(dir, c.name)
 		// The outer test command supplies the isolated build environment.

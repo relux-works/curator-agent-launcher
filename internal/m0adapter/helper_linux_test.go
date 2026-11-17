@@ -97,6 +97,9 @@ func childAdapter(args []string) {
 			return err
 		}
 		ops.write = func(fd int, p []byte) (int, error) {
+			// native-blocking proves flag state at write time: the wrapper
+			// really clears O_NONBLOCK, then synthesizes the refusal below
+			// from the observed flags; no kernel blocking write occurs.
 			if args[4] == "native-blocking" {
 				_ = syscall.SetNonblock(fd, false)
 			}
@@ -124,6 +127,8 @@ func childAdapter(args []string) {
 		execRunner = func(_ string, argv, env []string) error { return syscall.Exec(args[0], argv, env) }
 	case "stdout-closed":
 		_ = syscall.Close(1)
+	case "stdout-cloexec-entry":
+		syscall.CloseOnExec(1)
 	case "stdout-cloexec":
 		ops.dup = func(old, new, flags int) error {
 			syscall.CloseOnExec(1)

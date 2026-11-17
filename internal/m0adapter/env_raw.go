@@ -2,7 +2,6 @@ package m0adapter
 
 import (
 	"io"
-	"os"
 	"strings"
 )
 
@@ -12,11 +11,12 @@ const maxEnvironmentBytes = 16384
 const maxEnvironmentEntries = 64
 
 // readRawEnvironment is the sole production source: the kernel's original
-// environment block, never the runtime's normalized copy. Read it once before
-// any environment mutation; preserve every entry and its original order.
+// environment block, never the runtime's normalized copy. Read it once, after
+// durable C and before any environment mutation; preserve every entry and
+// its original order. openEnviron admits only a regular file on procfs.
 func readRawEnvironment() ([]string, error) {
 	return readEnvironmentWith(func() (io.ReadCloser, error) {
-		return os.Open("/proc/self/environ")
+		return openEnviron("/proc/self/environ")
 	})
 }
 

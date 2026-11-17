@@ -64,7 +64,7 @@ func TestEnvironment(t *testing.T) {
 		{"tmpdir-sibling-prefix", set("TMPDIR", testHome+"x/tmp"), ReasonEnvTmpdir},
 		{"origin-socket", set("PATH", "/usr/bin:/run/origin.sock"), ReasonEnvDenied},
 		{"keymaker-marker", set("USER", "u-"+testKeymakerMarker), ReasonEnvDenied},
-		{"l-owned-prefix", set("PATH", "/usr/bin:"+testDeniedPrefix+"/bin"), ReasonEnvDenied},
+		{"denied-prefix", set("PATH", "/usr/bin:"+testDeniedPrefix+"/bin"), ReasonEnvDenied},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -294,7 +294,7 @@ func TestLiterals(t *testing.T) {
 		"double-slash-H":    func(l *Literals) { l.Home = "/a//b" },
 		"nul-H":             func(l *Literals) { l.Home = "/a\x00b" },
 		"long-E":            func(l *Literals) { l.Executable = "/" + strings.Repeat("e", 1024) },
-		"relative-prefix":   func(l *Literals) { l.DeniedPathPrefix = "l-owned" },
+		"relative-prefix":   func(l *Literals) { l.DeniedPathPrefix = "denied-relative" },
 		"runner-uppercase":  func(l *Literals) { l.RunnerCommand = "Run-codex" },
 		"runner-space":      func(l *Literals) { l.RunnerCommand = "run codex" },
 		"runner-33":         func(l *Literals) { l.RunnerCommand = strings.Repeat("r", 33) },

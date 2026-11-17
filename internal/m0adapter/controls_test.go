@@ -321,7 +321,7 @@ var forbiddenCoverage = map[string]controlCoverage{
 	"d-path":                               {external: "D and profile owners must select the proposed vendor PATH narrowing."},
 	"transitive-exec":                      {external: "OS R-EXEC qualification owns the full transitive invocation inventory."},
 	"drop":                                 {external: "Manager must verify complete group and UID/GID drop before target code."},
-	"before-c":                             {external: "Receiver qualification must put C before decoder, loader and constructor; a Go seam cannot prove it."},
+	"before-c":                             {external: "Receiver qualification must put C before decoder, loader and constructor; WaitForC is the first adapter step, before the environ read and literal validation, and a Go seam cannot prove pre-main order."},
 	"pin-drift":                            {external: "D checks every plan pin, effect, epoch and authenticated original before handoff."},
 	"result-overflow":                      {external: "D owns finite capture and retained original debt on overflow."},
 	"agent-handle-reexec":                  {external: "Broker must fix executable-handle transfer and provide native re-exec traces."},
@@ -373,12 +373,12 @@ var forbiddenCoverage = map[string]controlCoverage{
 	"timing-arithmetic-wrap":               {test: "TestAdapterControls/timing-arithmetic-wrap"},
 }
 
-// TestForbiddenControlsClassified proves all 88 controls have distinct adapter tests or explicit owning-component reasons.
+// TestForbiddenControlsClassified proves all 88 controls have distinct adapter tests or explicit owning-component reasons, on every OS; only instance execution is gated to Linux.
 func TestForbiddenControlsClassified(t *testing.T) {
-	if runtime.GOOS != "linux" {
-		t.Skip("adapter conformance controls require Linux")
+	topTests := declaredTopLevelTests(t)
+	if runtime.GOOS == "linux" {
+		topTests = activeTopLevelTests(t)
 	}
-	topTests := activeTopLevelTests(t)
 	instances := adapterInstanceTests()
 	neighbors, err := boundaryCases(readTestdata(t, "boundary.witnesses.json"))
 	if err != nil {
@@ -410,6 +410,12 @@ func TestForbiddenControlsClassified(t *testing.T) {
 			if len(parts) > 1 && (len(parts) != 2 || parts[0] != "TestAdapterControls" || parts[1] != c.ID || adapterControlTests()[c.ID] == nil) {
 				t.Errorf("missing executable case %s", c.ID)
 			}
+			if named, ok := directControlTests()[c.ID]; ok && (named.test != cov.test || named.run == nil) {
+				t.Errorf("control %s cites %s but registers %s", c.ID, cov.test, named.test)
+			}
+			if runtime.GOOS != "linux" {
+				continue
+			}
 			cases := instances[c.ID]
 			if len(cases) != listedInstanceCount(c.Change) {
 				t.Errorf("control %s exercises %d instances, fixture lists %d", c.ID, len(cases), listedInstanceCount(c.Change))
@@ -424,6 +430,11 @@ func TestForbiddenControlsClassified(t *testing.T) {
 					t.Run(instance.name, instance.run)
 				}
 			})
+		}
+	}
+	for id, named := range directControlTests() {
+		if forbiddenCoverage[id].test != named.test {
+			t.Errorf("unclassified direct test %s", id)
 		}
 	}
 	for id := range adapterControlTests() {

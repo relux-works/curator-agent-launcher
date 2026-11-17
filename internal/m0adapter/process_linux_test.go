@@ -29,21 +29,20 @@ func skipUnderRace(t *testing.T) {
 }
 
 type childSpec struct {
-	plan        []byte     // FD3 contents; nil with noPlan
-	noPlan      bool       // deliver no FD3 at all
-	planFile    *os.File   // explicit FD3 instead of plan bytes
-	extra       []*os.File // descriptors 4..
-	stdout      *os.File   // explicit fd 1
-	closeStdout bool       // start with fd 1 closed
-	env         []string   // nil: fixedEnv(home)
-	exe         string     // E; empty: this test binary
-	now1        int64
-	now2        int64
-	mode        string // empty: adapter child
-	behavior    string // test-only literal/syscall mutation in the child
-	useHome     string
-	planPath    *string // receives the plan path
-	planStats   *syscall.Stat_t
+	plan      []byte     // FD3 contents; nil with noPlan
+	noPlan    bool       // deliver no FD3 at all
+	planFile  *os.File   // explicit FD3 instead of plan bytes
+	extra     []*os.File // descriptors 4..
+	stdout    *os.File   // explicit fd 1
+	env       []string   // nil: fixedEnv(home)
+	exe       string     // E; empty: this test binary
+	now1      int64
+	now2      int64
+	mode      string // empty: adapter child
+	behavior  string // test-only literal/syscall mutation in the child
+	useHome   string
+	planPath  *string // receives the plan path
+	planStats *syscall.Stat_t
 }
 
 type childResult struct {
@@ -144,9 +143,6 @@ func runChild(t *testing.T, spec childSpec) childResult {
 	fds := []uintptr{input.Fd(), stdout.Fd(), stderr.Fd()}
 	if spec.stdout != nil {
 		fds[1] = spec.stdout.Fd()
-	}
-	if spec.closeStdout {
-		fds[1] = ^uintptr(0)
 	}
 	for _, f := range files {
 		fds = append(fds, f.Fd())
@@ -430,8 +426,8 @@ func TestProcessExecFailure(t *testing.T) {
 	requireRefusal(t, runChild(t, childSpec{useHome: home, exe: home}), ReasonExecFailed)
 }
 
-// TestProcessProductionMainRefuses proves the real main rejects an unconfigured artifact before descriptor or plan work.
+// TestProcessProductionMainRefuses proves the real main rejects an unconfigured artifact at C, before environ, literal, descriptor or plan work.
 func TestProcessProductionMainRefuses(t *testing.T) {
 	requireRunnerPositive(t)
-	requireRefusal(t, runChild(t, childSpec{mode: childProductionArg}), ReasonLiteralMissing)
+	requireRefusal(t, runChild(t, childSpec{mode: childProductionArg}), ReasonCUnpublished)
 }

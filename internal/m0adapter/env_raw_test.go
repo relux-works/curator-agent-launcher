@@ -61,3 +61,28 @@ func TestRawEnvironmentRead(t *testing.T) {
 	_, err := readEnvironmentWith(func() (io.ReadCloser, error) { return nil, io.ErrClosedPipe })
 	requireReason(t, err, reasonEnvRead)
 }
+
+// TestRawEnvironmentBoundaries proves exactly 16384 bytes and exactly 64 entries pass, beside one byte and one entry above refusing env_block_limit.
+func TestRawEnvironmentBoundaries(t *testing.T) {
+	read := func(block string) ([]string, error) {
+		return readEnvironmentWith(func() (io.ReadCloser, error) { return io.NopCloser(strings.NewReader(block)), nil })
+	}
+	for _, c := range []struct {
+		name     string
+		positive string
+		entries  int
+		negative string
+	}{
+		{"bytes", strings.Repeat("x", 16383) + "\x00", 1, strings.Repeat("x", 16384) + "\x00"},
+		{"entries", strings.Repeat("A\x00", 64), 64, strings.Repeat("A\x00", 65)},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			entries, err := read(c.positive)
+			if err != nil || len(entries) != c.entries {
+				t.Fatalf("exact bound refused: %v entries %d", err, len(entries))
+			}
+			_, err = read(c.negative)
+			requireReason(t, err, reasonEnvLimit)
+		})
+	}
+}

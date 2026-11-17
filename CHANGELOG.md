@@ -39,12 +39,14 @@
   Standard descriptor identity and CLOEXEC checks start at package entry;
   Go's earlier runtime repair of missing standard descriptors remains a limit. The origin socket marker is a third required build-time
   denied literal; argv and environment names/values use substring matching,
-  repeated after the exec-time timeout rewrite. Missing build literals refuse
-  `literal_missing` before the durable-C seam; unknown runner literals cannot
-  enter the proposed Claude mapping.
+  repeated after the exec-time timeout rewrite. Durable C is the first adapter
+  step, before the environ read and literal validation, so an unconfigured
+  build refuses `c_unpublished` from the installed entry point and missing
+  build literals refuse `literal_missing` only once C is satisfied; unknown
+  runner literals cannot enter the proposed Claude mapping.
   Pipe writes permit at most one zero-byte EINTR retry; capacity equality is
   accepted. Unpinned and unknown runner literals refuse without a pipe write
-  or exec. `make m0-adapter-controls` requires twenty-two applied plants and
+  or exec. `make m0-adapter-controls` requires twenty-three applied plants and
   equal named baseline, behavioral-failure and restored-green evidence counts. No native qualification or
   activation is claimed.
 

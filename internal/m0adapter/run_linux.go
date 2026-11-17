@@ -8,8 +8,8 @@ import "syscall"
 // refuses before exec. On a successful exec it does not return: the process
 // is the runner and its status is the runner's.
 //
-//  1. bounded raw environment read and installation literal validation;
-//  2. durable C seam (before any plan decoding);
+//  1. durable C seam (before any adapter code);
+//  2. bounded raw environment read and installation literal validation;
 //  3. entry descriptor inventory (0-3 only, no plan duplicate);
 //  4. bounded FD3 read, then FD3 and every duplicate closed and verified;
 //  5. closed grammar, CCJ-1 and worker_plan consistency;
@@ -23,6 +23,9 @@ func Run(cfg Config) Reason {
 
 // runWithSyscalls keeps fault injection local to a test invocation.
 func runWithSyscalls(cfg Config, ops promptSyscalls, closeFD func(int) error) Reason {
+	if err := cfg.WaitForC(); err != nil {
+		return reasonOf(err)
+	}
 	readEnv := cfg.readEnviron
 	if readEnv == nil {
 		readEnv = readRawEnvironment
@@ -33,9 +36,6 @@ func runWithSyscalls(cfg Config, ops promptSyscalls, closeFD func(int) error) Re
 	}
 	lit := cfg.Literals
 	if err := lit.validate(); err != nil {
-		return reasonOf(err)
-	}
-	if err := cfg.WaitForC(); err != nil {
 		return reasonOf(err)
 	}
 	snap, err := entryInventory()

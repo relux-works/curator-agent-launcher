@@ -28,7 +28,7 @@ mutants=(
 	'M5|mapping.go|TestTimeoutVectors|t := rem / 1000|t := (rem + 999) / 1000|round T upward'
 	'M6|fd_linux.go|TestPromptPipeCapacity|if size < len(prompt) {|if false && size < len(prompt) {|skip the capacity refusal'
 	'M7|fd_linux.go|TestProcessSpecimenExecsRunner|err = ops.close(w)|err = ops.dup(w, 2, 0)|leak the writer to fd 2'
-	'M8|fd_linux.go|TestProcessSpecimenExecsRunner|err = ops.close(w)^^} else if id == *stdin {|err = ops.dup(w, 2, 0)^^} else if false && id == *stdin {|leak the writer past identity checking'
+	'M8|fd_linux.go|TestProcessSpecimenExecsRunner|err = ops.close(w)^^} else if id == *stdin {|err = ops.dup(w, 2, 0)^^} else if false && id == *stdin {|leak the writer to fd 2, caught by the standard-identity check'
 	'eintr-bound|fd_linux.go|TestPromptPipeEINTRBound|n == 0 && attempt == 0|n == 0|retry a second EINTR'
 	'environment-name|env.go|TestEnvironmentNameDenied|lit.deniedMarker(fixedEnvNames[i])^^for i, v := range values {|false^^for _, v := range values {|omit the environment name scan'
 	'origin-required|literals.go|TestOriginSocketMarkerRequired|l.DeniedPathPrefix, l.OriginSocketMarker}|l.DeniedPathPrefix}|omit the required origin member'
@@ -43,8 +43,9 @@ mutants=(
 	'standard-flags|fd_linux.go|TestProcessStandardDescriptors|(fd <= 2) != inh|fd > 2 && inh|omit standard close-on-exec check'
 	'native-nonblock|fd_linux.go|TestProcessNativePipeProperties|ops.setNonblock(w, true)|error(nil)|omit nonblocking setup on the real pipe'
 	'direct-capacity|fd_linux.go|TestNoCapacitySyscall|const fGetPipeSz = 1032|const forbiddenCapacityCommand = 1031; const fGetPipeSz = 1032|introduce a direct capacity-raise command'
+	'environ-before-c|run_linux.go|TestNothingRunsBeforeC|readEnv := cfg.readEnviron^^env, err := readEnv()^^if err := cfg.WaitForC(); err != nil {|readEnv = cfg.readEnviron^^env, err = env, nil^^readEnv := cfg.readEnviron; if readEnv == nil { readEnv = readRawEnvironment }; env, err := readEnv(); if err != nil { return reasonOf(err) }; if err := cfg.WaitForC(); err != nil {|move the environ read before C'
 )
-expected=22
+expected=23
 if [ "${#mutants[@]}" -ne "$expected" ]; then
 	echo "m0-adapter-controls: plant count mismatch expected=$expected actual=${#mutants[@]}" >&2
 	exit 1
@@ -125,14 +126,21 @@ for m in "${mutants[@]}"; do
 	fi
 	evaluated=$((evaluated + 1))
 	log="$dir/planted.log"
+	# Meta-test plants must fail for their own reason, not any broad failure.
+	expected_msg=''
+	case "$id" in
+	coverage-name) expected_msg='missing named test' ;;
+	missing-instance) expected_msg='exercises 1 instances, fixture lists 2' ;;
+	arguments-input) expected_msg='runner_argument_input' ;;
+	esac
 	if run_test "$dir" "$test" "$log"; then
 		echo "$id: SURVIVED - $desc" >&2
 		status=1
-	elif grep -Eq "^--- FAIL: ${test}( |\$)" "$log"; then
+	elif grep -Eq "^--- FAIL: ${test}( |\$)" "$log" && { [ -z "$expected_msg" ] || grep -Fq "$expected_msg" "$log"; }; then
 		kills=$((kills + 1))
 		echo "$id: KILLED by $test - $desc"
 	else
-		echo "$id: INVALID (no named behavioral failure) - $desc" >&2
+		echo "$id: INVALID (no named behavioral failure or expected message) - $desc" >&2
 		status=1
 	fi
 	cp "$dir/original.go" "$target"

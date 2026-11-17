@@ -44,12 +44,22 @@ func adapterControlTests() map[string]func(*testing.T) {
 	// The original cap is 240, not a fresh 300; less than one second refuses.
 	cases["clock"] = func(t *testing.T) {
 		x := specimenLaunch(t, testLit(), 20000)
-		if x.Timeout != 240 || x.Argv[18] != "240" {
+		if x.Timeout != 240 || x.Argv[18] != "240" || x.checkFinalArgv() != nil {
 			t.Fatal("original cap lost")
 		}
-		// A forged 300 is rejected by the same final-argv bound check used at exec.
-		x.Argv[18] = "300"
-		requireReason(t, x.checkFinalArgv(), ReasonTimeoutArithmetic)
+		t.Run("over-bound", func(t *testing.T) {
+			// Both fields agree at 300, so only the 240 bound can refuse.
+			x := specimenLaunch(t, testLit(), 20000)
+			x.Timeout = 300
+			x.Argv[18] = "300"
+			requireReason(t, x.checkFinalArgv(), ReasonTimeoutArithmetic)
+		})
+		t.Run("mismatch", func(t *testing.T) {
+			// Timeout stays at the admitted 240, so only the argv/T mismatch can refuse.
+			x := specimenLaunch(t, testLit(), 20000)
+			x.Argv[18] = "300"
+			requireReason(t, x.checkFinalArgv(), ReasonTimeoutArithmetic)
+		})
 	}
 	// The 1000/900 ms boundary floors, never rounds up.
 	cases["timing-reset-rounding"] = func(t *testing.T) {

@@ -176,8 +176,12 @@ func TestPromptPipeNoCapacityRaise(t *testing.T) {
 	}
 }
 
-// TestPromptPipeGetSizeFailure proves failed F_GETPIPE_SZ refuses with no default capacity and no write.
+// TestPromptPipeGetSizeFailure proves failed F_GETPIPE_SZ refuses with no default capacity and no write, in the seam harness and end to end in a process.
 func TestPromptPipeGetSizeFailure(t *testing.T) {
+	t.Run("process", func(t *testing.T) {
+		requireRunnerPositive(t)
+		requireRefusal(t, runChild(t, childSpec{behavior: "getsize-fails"}), ReasonStdinCapacity)
+	})
 	requirePipePositive(t, newPipeHarness(t), []byte("prompt"))
 	h := newPipeHarness(t)
 	h.ops.fcntl = func(int, int, int) (int, error) { return -1, syscall.EIO }

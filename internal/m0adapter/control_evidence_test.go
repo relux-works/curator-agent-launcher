@@ -17,6 +17,13 @@ type controlInstance struct {
 	run  func(*testing.T)
 }
 
+// namedControlTest ties one cited top-level test name to its function in a
+// single registration, so the coverage map and instance execution cannot drift.
+type namedControlTest struct {
+	test string
+	run  func(*testing.T)
+}
+
 func runControlInstances(t *testing.T, cases []controlInstance) {
 	t.Helper()
 	if len(cases) == 0 {
@@ -72,12 +79,44 @@ func activeTopLevelTests(t *testing.T) map[string]bool {
 	return out
 }
 
-// argumentInput reports selectors of os.Args (including aliased imports) and
-// argument-bearing Config fields. It examines production syntax, not comments.
+// declaredTopLevelTests resolves test names in every _test.go file, whatever
+// its build constraints, so static classification can run on every OS.
+func declaredTopLevelTests(t *testing.T) map[string]bool {
+	t.Helper()
+	entries, err := os.ReadDir(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := map[string]bool{}
+	for _, entry := range entries {
+		name := entry.Name()
+		if !strings.HasSuffix(name, "_test.go") {
+			continue
+		}
+		f, err := goparser.ParseFile(token.NewFileSet(), name, nil, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, d := range f.Decls {
+			if fn, ok := d.(*ast.FuncDecl); ok && fn.Recv == nil && strings.HasPrefix(fn.Name.Name, "Test") {
+				out[fn.Name.Name] = true
+			}
+		}
+	}
+	return out
+}
+
+// argumentInput reports selectors of os.Args (including aliased imports),
+// flag imports, /proc/self/cmdline string literals and argument-bearing
+// Config fields. It examines production syntax, not comments.
 func argumentInput(f *ast.File) bool {
 	osName := ""
+	bad := false
 	for _, imp := range f.Imports {
 		p, _ := strconv.Unquote(imp.Path.Value)
+		if p == "flag" {
+			bad = true
+		}
 		if p == "os" {
 			osName = "os"
 			if imp.Name != nil {
@@ -85,8 +124,13 @@ func argumentInput(f *ast.File) bool {
 			}
 		}
 	}
-	bad := osName == "."
+	bad = bad || osName == "."
 	ast.Inspect(f, func(n ast.Node) bool {
+		if lit, ok := n.(*ast.BasicLit); ok && lit.Kind == token.STRING {
+			if s, err := strconv.Unquote(lit.Value); err == nil && strings.Contains(s, "cmdline") {
+				bad = true
+			}
+		}
 		if s, ok := n.(*ast.SelectorExpr); ok && s.Sel.Name == "Args" {
 			if x, ok := s.X.(*ast.Ident); ok && x.Name == osName {
 				bad = true
@@ -193,6 +237,10 @@ func runnerArgumentsInstance(t *testing.T) {
 		{`package adapter; type Config struct { Exec func() }`, false},
 		{`package adapter; import process "os"; var selected = process.Args`, true},
 		{`package adapter; type Config struct { Arguments []string }`, true},
+		{`package adapter; import "flag"; var _ = flag.NFlag`, true},
+		{`package adapter; import f "flag"; var _ = f.NFlag`, true},
+		{`package adapter; var p = "/proc/self/cmdline"`, true},
+		{`package adapter; var p = "/proc/self/" + "cmdline"`, true},
 	} {
 		f, err := goparser.ParseFile(token.NewFileSet(), "control.go", c.source, 0)
 		if err != nil || argumentInput(f) != c.want {

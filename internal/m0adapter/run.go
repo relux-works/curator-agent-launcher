@@ -3,8 +3,9 @@ package m0adapter
 import "syscall"
 
 // Config is everything Run uses. Main passes the installed literals, the
-// refusing seams and syscall.Exec. The raw environment is read once at entry;
-// only in-package tests can substitute its source.
+// refusing seams and syscall.Exec. The raw environment is read once, after
+// durable C and before any environment mutation; only in-package tests can
+// substitute its source.
 type Config struct {
 	Literals Literals
 	WaitForC func() error

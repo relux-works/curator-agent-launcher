@@ -94,6 +94,26 @@ func pipeStepInstances() []controlInstance {
 	return out
 }
 
+// directControlTests is the one registration of cited name and function for
+// controls exercised by a single top-level test; instance execution and the
+// coverage-name tie both derive from it.
+func directControlTests() map[string]namedControlTest {
+	return map[string]namedControlTest{
+		"stdin-pipe-blocking-write":        {"TestPromptPipeNonblocking", TestPromptPipeNonblocking},
+		"stdin-pipe-partial-write":         {"TestPromptPipePartialWrite", TestPromptPipePartialWrite},
+		"stdin-pipe-capacity-raise":        {"TestPromptPipeNoCapacityRaise", TestPromptPipeNoCapacityRaise},
+		"stdin-pipe-write-end-inherited":   {"TestPromptPipeInheritedWriter", TestPromptPipeInheritedWriter},
+		"stdin-pipe-second-descriptor":     {"TestPromptPipeSecondDescriptor", TestPromptPipeSecondDescriptor},
+		"stdin-fd0-read-write":             {"TestPromptPipeReadOnly", TestPromptPipeReadOnly},
+		"stdin-pipe-capacity-below-length": {"TestPromptPipeCapacity", TestPromptPipeCapacity},
+		"stdin-pipe-getpipesz-failure":     {"TestPromptPipeGetSizeFailure", TestPromptPipeGetSizeFailure},
+		"prompt-decoded-size":              {"TestProcessPromptDecodedSize", TestProcessPromptDecodedSize},
+		"runner-variant-unpinned":          {"TestRunClaudeRefusesUntilBrokerContractPinned", TestRunClaudeRefusesUntilBrokerContractPinned},
+		"runner-literal-unknown":           {"TestUnknownRunnerLiteralRefuses", TestUnknownRunnerLiteralRefuses},
+		"stdin-pipe-eintr-retry-bound":     {"TestPromptPipeEINTRBound", TestPromptPipeEINTRBound},
+	}
+}
+
 func adapterInstanceTests() map[string][]controlInstance {
 	out := map[string][]controlInstance{}
 	for id, run := range adapterControlTests() {
@@ -104,21 +124,8 @@ func adapterInstanceTests() map[string][]controlInstance {
 			out[c.control] = grammarInstances(c.control)
 		}
 	}
-	for id, run := range map[string]func(*testing.T){
-		"stdin-pipe-blocking-write":        TestPromptPipeNonblocking,
-		"stdin-pipe-partial-write":         TestPromptPipePartialWrite,
-		"stdin-pipe-capacity-raise":        TestPromptPipeNoCapacityRaise,
-		"stdin-pipe-write-end-inherited":   TestPromptPipeInheritedWriter,
-		"stdin-pipe-second-descriptor":     TestPromptPipeSecondDescriptor,
-		"stdin-fd0-read-write":             TestPromptPipeReadOnly,
-		"stdin-pipe-capacity-below-length": TestPromptPipeCapacity,
-		"stdin-pipe-getpipesz-failure":     TestPromptPipeGetSizeFailure,
-		"prompt-decoded-size":              TestProcessPromptDecodedSize,
-		"runner-variant-unpinned":          TestRunClaudeRefusesUntilBrokerContractPinned,
-		"runner-literal-unknown":           TestUnknownRunnerLiteralRefuses,
-		"stdin-pipe-eintr-retry-bound":     TestPromptPipeEINTRBound,
-	} {
-		out[id] = []controlInstance{{id, run}}
+	for id, named := range directControlTests() {
+		out[id] = []controlInstance{{id, named.run}}
 	}
 	out["environment"] = environmentControlInstances()
 	out["runner-variant-selection"] = runnerSelectionInstances()
@@ -135,10 +142,10 @@ func TestPromptQualificationNegatives(t *testing.T) {
 	}
 }
 
-// TestNoCapacitySyscall proves production syntax contains no pipe-capacity-raise operation beside a real-pipe capacity observation.
+// TestNoCapacitySyscall proves production sources contain no literal pipe-capacity-raise command token; the behavioural half is the native capacity comparison in TestProcessNativePipeProperties.
 func TestNoCapacitySyscall(t *testing.T) {
-	// The behavioral capacity check is in TestProcessNativePipeProperties;
-	// this source check also detects direct capacity syscalls outside the seam.
+	// A computed capacity command would pass this literal scan; an actual
+	// raise is caught behaviourally by the native capacity comparison.
 	entries, err := os.ReadDir(".")
 	if err != nil {
 		t.Fatal(err)

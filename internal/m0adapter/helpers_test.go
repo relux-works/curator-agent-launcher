@@ -28,7 +28,7 @@ func TestMain(m *testing.M) {
 // Synthetic literals used by tests; never installation values.
 const (
 	testKeymakerMarker = "keymaker-endpoint.invalid"
-	testDeniedPrefix   = "/nonexistent-l-owned-prefix"
+	testDeniedPrefix   = "/nonexistent-denied-prefix"
 	testClockProfile   = "test-clock"
 	testOriginMarker   = "origin.sock"
 )
