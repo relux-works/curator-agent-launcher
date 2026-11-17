@@ -822,6 +822,22 @@ The v1 capability tokens are closed. An unknown token confers nothing.
 
   Only `observe --schema v2` prints the members; every other caller keeps
   the 1.2.0 session shape it already consumes.
+
+  Admission on the `up` inventory list and on the same-manager session
+  read is at manager-id level against the current incarnation: a list row
+  is not compared with a frozen per-session owner, and a liveness binding
+  rewritten by `recover --rebind-manager` names that current incarnation.
+  Members admitted on those reads are not owner evidence and never feed a
+  lease bind; only `observe --schema v2` with its `--expect-*` frozen
+  binding yields owner evidence.
+
+  **Landing condition.** The no-token paths above use the same
+  `status {session}` read as `observe`, so a manager that attaches
+  `process` to live records — as an `observe --schema v2` consumer needs —
+  makes Werkstatt `down`, `status`, `recycle` and `werkstatt list` refuse
+  `session_host_protocol_error` (6) for lanes on that manager. Until the
+  contract admits those reads, a manager that hosts Werkstatt lanes must
+  not advertise `process-observation/1`.
 - **`survives-upgrade`, `drains-on-upgrade`.** The manager's upgrade
   behaviour (§3.3).
 

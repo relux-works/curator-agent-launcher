@@ -33,7 +33,12 @@
   and unleased recovery) still refuse the members. No operation gains an RPC
   and no refusal code is added; only `observe --schema v2` prints the
   members. An impossible `--expect-registered-at` date is now a usage
-  refusal, under the registry's own timestamp rule.
+  refusal, under the registry's own timestamp rule. Landing condition: a
+  manager that hosts Werkstatt lanes must not yet advertise
+  `process-observation/1`, because the no-token Werkstatt reads share
+  `status {session}` with `observe` and attaching `process` to live
+  records makes `down`, `status`, `recycle` and `werkstatt list` refuse
+  `session_host_protocol_error` (6) until the contract admits those reads.
 
 ## 0.7.0 — 2026-11-11
 

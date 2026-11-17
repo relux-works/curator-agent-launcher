@@ -1352,7 +1352,7 @@ curator-run session-manager observe <manager-id> --session <SES-handle> --json -
 `--schema v2` emits `curator-run-session-observation-v2`: the v1 document plus
 `capabilities.process_observation`, taken from the same `describe`. When the
 manager advertises `process-observation/1` together with `status/1`, the
-record keeps its `process` and `termination` members as the manager sent them.
+record keeps its `process` and `termination` members token for token, without insignificant whitespace.
 Without that token either member is `session_host_protocol_error` (6) in both
 schema versions. The default remains v1 with unchanged output; over a capable
 manager v1 validates the complete record and then omits exactly those two
@@ -1367,7 +1367,7 @@ admits under those frozen capabilities while the registry still names the
 frozen owner; paths with neither source (for example Werkstatt `down` and
 `status` owner reads and `stop`) still refuse them, and only
 `observe --schema v2` prints them.
-It never reads or writes launcher liveness, journals or Werkstatt state, and
+Observation never reads or writes launcher liveness, journals or Werkstatt state, and
 never locks or changes the registry. See [the contract](FRONT-DOOR.md#read-only-session-observation)
 and [the output schema](schemas/session-manager/session-observation.schema.json).
 

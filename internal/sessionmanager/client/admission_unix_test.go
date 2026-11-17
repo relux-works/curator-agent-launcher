@@ -245,19 +245,27 @@ func TestLeasedLaunchAdmitsProcessObservation(t *testing.T) {
 		return s, err, tx, traces
 	}
 	t.Run("direct-launch-process", func(t *testing.T) {
-		s, err, _, traces := submit(t, capable, step{Operation: "launch", Body: processEnvelopeBody()})
+		s, err, tx, traces := submit(t, capable, step{Operation: "launch", Body: processEnvelopeBody()})
 		leaseReason(t, err, "process_incarnation_unavailable")
 		if s == nil || s.Session != "SES-example" || len(traces()) != 1 {
 			t.Fatalf("started session lost: %v traces=%d", s, len(traces()))
 		}
+		pending, err := tx.Pending()
+		if err != nil || pending == nil || pending.Phase != "bind_pending" {
+			t.Fatalf("journal did not reach bind_pending: %v %v", pending, err)
+		}
 	})
 	t.Run("reconciled-outcome-process", func(t *testing.T) {
-		s, err, _, traces := submit(t, capable,
+		s, err, tx, traces := submit(t, capable,
 			step{Operation: "launch", Body: `{}`},
 			step{Operation: "status", Body: startedOutcomeProcessBody()})
 		leaseReason(t, err, "process_incarnation_unavailable")
 		if s == nil || len(traces()) != 2 {
 			t.Fatalf("reconciled session lost: %v traces=%d", s, len(traces()))
+		}
+		pending, err := tx.Pending()
+		if err != nil || pending == nil || pending.Phase != "bind_pending" {
+			t.Fatalf("journal did not reach bind_pending: %v %v", pending, err)
 		}
 	})
 	t.Run("no-token-process-refused", func(t *testing.T) {

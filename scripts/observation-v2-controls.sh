@@ -28,7 +28,9 @@ OBSERVE=cmd/curator-run/observe.go
 PARSER=internal/cli/session_manager.go
 RECONCILE=internal/sessionmanager/client/reconcile_unix.go
 ADMISSION=internal/sessionmanager/client/admission_unix.go
+WERKSTATT=internal/werkstatt/service_unix.go
 CLIENT=./internal/sessionmanager/client
+WERKPKG=./internal/werkstatt
 
 # Fields separated by "@@": id, file, package, named test, from, to.
 # from/to are literal text; the first occurrence is replaced.
@@ -55,18 +57,33 @@ plants=(
   # Drop the admission the operation's owner carries, so the reconciliation
   # decode after a launch refuses the outcome's process member again.
   "P8@@$RECONCILE@@$CLIENT@@TestLeasedLaunchAdmitsProcessObservation/reconciled-outcome-process@@cl.WithAdmission(frozenAdmission(p, entry))@@cl.WithAdmission(Admission{})"
-  # Admit recovery from a non-frozen manager: a re-registered id is called.
+  # Call recovery on a re-registered manager (routing gate).
   "P9@@$RECONCILE@@$CLIENT@@TestHomeLeaseCrashAndDrift/registration-changed@@ || p.Lease != nil && entry.RegisteredAt != p.Manager.RegisteredAt@@"
   # Ignore status/1 in the token rule, witnessed on a non-observe path.
   "P10@@$TOKEN@@$CLIENT@@TestFrozenAdmission@@return slices.Contains(d.Capabilities, \"status/1\") && slices.Contains(d.Capabilities, ProcessObservationCapability)@@return slices.Contains(d.Capabilities, ProcessObservationCapability)"
   # Read the frozen capability without the owner comparison.
   "P11@@$ADMISSION@@$CLIENT@@TestFrozenAdmission@@if p.Lease == nil || entry.Executable != p.Manager.Executable || entry.RegisteredAt != p.Manager.RegisteredAt {@@if p.Lease == nil {"
+  # Remove the cross-manager gate: up admits another manager's owner read
+  # under the selected manager's describe.
+  "P12@@$WERKSTATT@@$WERKPKG@@TestServiceProcessObservationAdmission/up-owner-other-manager-process@@if l.Manager.ID == managerID {@@if true {"
+  # Remove the admission on the inventory remote in up: a capable
+  # manager's list rows refuse again.
+  'P13@@'"$WERKSTATT"'@@'"$WERKPKG"'@@TestServiceProcessObservationAdmission/up-list-process-termination-admitted@@	admission := client.Admission{ProcessObservation: client.ProcessObservation(*response.Describe)}
+	remote = admittedRemote(remote, admission)@@	admission := client.Admission{ProcessObservation: client.ProcessObservation(*response.Describe)}'
+  # Admit the down stop decode: a termination member on stop is accepted.
+  "P14@@$WERKSTATT@@$WERKPKG@@TestServiceProcessObservationAdmission/down-stop-termination@@call(ctx, s.remote(l.Manager.ID, e), \"stop\"@@call(ctx, admittedRemote(s.remote(l.Manager.ID, e), client.Admission{ProcessObservation: true}), \"stop\""
 )
 
 # A requested id that names no plant, or a run that evaluates none, must
 # never pass as if every plant had been killed.
 ids=""
 for p in "${plants[@]}"; do ids="$ids ${p%%@@*}"; done
+# Normalise CONTROLS_ONLY once: commas and whitespace separate items, empty
+# items drop out and duplicates collapse. The normalised list drives both
+# the known-id check above the run and the per-plant filter below, so a
+# requested id can never pass the check yet be skipped by the filter.
+only=""
+only_count=0
 if [ -n "${CONTROLS_ONLY:-}" ]; then
   requested=$(printf '%s' "$CONTROLS_ONLY" | tr ',' ' ')
   for want in $requested; do
@@ -78,7 +95,18 @@ if [ -n "${CONTROLS_ONLY:-}" ]; then
       echo "unknown plant id in CONTROLS_ONLY: $want (known:$ids)" >&2
       exit 1
     fi
+    case ",$only," in
+      *",$want,"*) ;;
+      *)
+        if [ -n "$only" ]; then only="$only,$want"; else only="$want"; fi
+        only_count=$((only_count + 1))
+        ;;
+    esac
   done
+  if [ -z "$only" ]; then
+    echo "no plants evaluated" >&2
+    exit 1
+  fi
 fi
 
 run_named() { # package, named test, log
@@ -92,7 +120,7 @@ summary="$out/summary.tsv"
 printf 'plant\tfile\tnamed_test\tcontrol_passed\tapplied\ttest_exit\tnamed_test_failed\tverdict\n' >"$summary"
 for p in "${plants[@]}"; do
   id="${p%%@@*}"; rest="${p#*@@}"
-  if [ -n "${CONTROLS_ONLY:-}" ] && ! printf ',%s,' "$CONTROLS_ONLY" | grep -q ",$id,"; then continue; fi
+  if [ -n "$only" ] && ! printf ',%s,' "$only" | grep -q ",$id,"; then continue; fi
   evaluated=$((evaluated + 1))
   file="${rest%%@@*}"; rest="${rest#*@@}"
   pkg="${rest%%@@*}"; rest="${rest#*@@}"
@@ -135,6 +163,10 @@ if src.count(f) == 1:
 done
 if [ "$evaluated" -eq 0 ]; then
   echo "no plants evaluated" >&2
+  status=1
+fi
+if [ -n "$only" ] && [ "$evaluated" -ne "$only_count" ]; then
+  echo "evaluated $evaluated plants, $only_count distinct ids requested" >&2
   status=1
 fi
 column -t -s $'\t' "$summary" 2>/dev/null || cat "$summary"
