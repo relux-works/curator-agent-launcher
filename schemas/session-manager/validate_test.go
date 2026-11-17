@@ -2,7 +2,6 @@ package managerschema
 
 import (
 	"encoding/json"
-	"regexp"
 	"strings"
 	"testing"
 )
@@ -93,7 +92,7 @@ func TestSchemaCatalog(t *testing.T) {
 			}
 		}
 		if pattern, ok := rule["pattern"].(string); ok {
-			if _, err := regexp.Compile(pattern); err != nil {
+			if _, err := compilePattern(pattern); err != nil {
 				t.Fatal("invalid schema regex", err)
 			}
 		}

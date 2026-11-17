@@ -9859,6 +9859,41 @@
     }
   },
   {
+    "name": "process-boot_id-trailing-newline",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "session": "SES-example",
+      "operation_id": "11111111-1111-4111-8111-111111111111",
+      "manager": "demo",
+      "runtime": "codex_cli",
+      "native_id": null,
+      "readable": true,
+      "state": "idle",
+      "labels": {},
+      "generation": 1,
+      "started_at": "2026-01-01T00:00:00Z",
+      "last_activity_at": null,
+      "doorbell": {
+        "state": "off",
+        "uncertain": false,
+        "generation": null,
+        "reason": null
+      },
+      "process": {
+        "pid": 4242,
+        "uid": 1001,
+        "boot_id": "6f1c0e2a-8b44-4d1e-9a51-2f0c3d7e9b10\n",
+        "start_time": {
+          "kind": "linux-stat-starttime",
+          "ticks": "123456789",
+          "hz": 100
+        }
+      }
+    }
+  },
+  {
     "name": "process-darwin-pbi-start",
     "valid": true,
     "document": {
@@ -9888,6 +9923,76 @@
         "start_time": {
           "kind": "darwin-pbi-start",
           "sec": "1763251200",
+          "usec": 250000
+        }
+      }
+    }
+  },
+  {
+    "name": "process-ticks-trailing-newline",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "session": "SES-example",
+      "operation_id": "11111111-1111-4111-8111-111111111111",
+      "manager": "demo",
+      "runtime": "codex_cli",
+      "native_id": null,
+      "readable": true,
+      "state": "idle",
+      "labels": {},
+      "generation": 1,
+      "started_at": "2026-01-01T00:00:00Z",
+      "last_activity_at": null,
+      "doorbell": {
+        "state": "off",
+        "uncertain": false,
+        "generation": null,
+        "reason": null
+      },
+      "process": {
+        "pid": 4242,
+        "uid": 1001,
+        "boot_id": "6f1c0e2a-8b44-4d1e-9a51-2f0c3d7e9b10",
+        "start_time": {
+          "kind": "linux-stat-starttime",
+          "ticks": "1\n",
+          "hz": 100
+        }
+      }
+    }
+  },
+  {
+    "name": "process-sec-trailing-newline",
+    "valid": false,
+    "document": {
+      "protocol": "curator-session-manager/1",
+      "ok": true,
+      "session": "SES-example",
+      "operation_id": "11111111-1111-4111-8111-111111111111",
+      "manager": "demo",
+      "runtime": "codex_cli",
+      "native_id": null,
+      "readable": true,
+      "state": "busy",
+      "labels": {},
+      "generation": 1,
+      "started_at": "2026-01-01T00:00:00Z",
+      "last_activity_at": null,
+      "doorbell": {
+        "state": "off",
+        "uncertain": false,
+        "generation": null,
+        "reason": null
+      },
+      "process": {
+        "pid": 4242,
+        "uid": 1001,
+        "boot_id": "6f1c0e2a-8b44-4d1e-9a51-2f0c3d7e9b10",
+        "start_time": {
+          "kind": "darwin-pbi-start",
+          "sec": "1\n",
           "usec": 250000
         }
       }

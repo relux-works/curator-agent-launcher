@@ -107,8 +107,8 @@ func observation(t *testing.T, version string, session any, processObservation b
 // unchanged v1 identity.
 func TestObservationV2Identities(t *testing.T) {
 	for file, want := range map[string][2]string{
-		"session.schema.json":                {"urn:relux:curator-run:session", "session 1.3.0"},
-		"session-record.schema.json":         {"urn:relux:curator-run:session-record", "session-record 1.3.0"},
+		"session.schema.json":                {"urn:relux:curator-run:session", "session 1.4.0"},
+		"session-record.schema.json":         {"urn:relux:curator-run:session-record", "session-record 1.4.0"},
 		"outcome.schema.json":                {"urn:relux:curator-run:outcome", "outcome 1.1.0"},
 		"session-observation.schema.json":    {"urn:relux:curator-run:session-observation", "curator-run-session-observation-v1"},
 		"session-observation-v2.schema.json": {"urn:relux:curator-run:session-observation-v2", "curator-run-session-observation-v2"},
@@ -398,7 +398,7 @@ func encodedForm(t *testing.T, value any) string {
 	return string(b)
 }
 
-// The enveloped session and envelope-free session-record 1.3.0 definitions are
+// The enveloped session and envelope-free session-record 1.4.0 definitions are
 // duplicated (the validator resolves only whole-document references): both
 // variants must stay identical apart from the protocol/ok envelope members,
 // including the process/termination shapes and the state placement rules.

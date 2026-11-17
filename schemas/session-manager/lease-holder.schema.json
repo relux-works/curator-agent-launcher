@@ -29,18 +29,18 @@
       "type": "string",
       "minLength": 1,
       "maxLength": 128,
-      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$(?![\\s\\S])"
     },
     "manager_registered_at": {
       "type": "string",
       "format": "date-time",
-      "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d(?:\\.\\d{1,9})?Z$"
+      "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d(?:\\.\\d{1,9})?Z$(?![\\s\\S])"
     },
     "request_id": {
       "type": "string",
       "minLength": 1,
       "maxLength": 128,
-      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$(?![\\s\\S])"
     },
     "werkstatt": {
       "anyOf": [
@@ -48,7 +48,7 @@
           "type": "string",
           "minLength": 1,
           "maxLength": 128,
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$(?![\\s\\S])"
         },
         {
           "type": "null"
@@ -61,7 +61,7 @@
           "type": "string",
           "minLength": 1,
           "maxLength": 128,
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$(?![\\s\\S])"
         },
         {
           "type": "null"
@@ -98,7 +98,7 @@
             "started_at": {
               "type": "string",
               "format": "date-time",
-              "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d(?:\\.\\d{1,9})?Z$"
+              "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d(?:\\.\\d{1,9})?Z$(?![\\s\\S])"
             }
           }
         },
@@ -117,7 +117,9 @@
             },
             "boot_id": {
               "type": "string",
-              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+              "minLength": 36,
+              "maxLength": 36,
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$(?![\\s\\S])"
             },
             "start_time": {
               "oneOf": [
@@ -129,7 +131,7 @@
                     },
                     "ticks": {
                       "type": "string",
-                      "pattern": "^(0|[1-9][0-9]{0,19})$"
+                      "pattern": "^(0|[1-9][0-9]{0,19})$(?![\\s\\S])"
                     },
                     "hz": {
                       "type": "integer",
@@ -152,7 +154,7 @@
                     },
                     "sec": {
                       "type": "string",
-                      "pattern": "^(0|[1-9][0-9]{0,19})$"
+                      "pattern": "^(0|[1-9][0-9]{0,19})$(?![\\s\\S])"
                     },
                     "usec": {
                       "type": "integer",
@@ -219,7 +221,7 @@
                   "started_at": {
                     "type": "string",
                     "format": "date-time",
-                    "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d(?:\\.\\d{1,9})?Z$"
+                    "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d(?:\\.\\d{1,9})?Z$(?![\\s\\S])"
                   }
                 }
               },
@@ -236,7 +238,7 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 128,
-            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$(?![\\s\\S])"
           },
           "generation": {
             "type": "integer",
@@ -258,7 +260,9 @@
               },
               "boot_id": {
                 "type": "string",
-                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                "minLength": 36,
+                "maxLength": 36,
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$(?![\\s\\S])"
               },
               "start_time": {
                 "oneOf": [
@@ -270,7 +274,7 @@
                       },
                       "ticks": {
                         "type": "string",
-                        "pattern": "^(0|[1-9][0-9]{0,19})$"
+                        "pattern": "^(0|[1-9][0-9]{0,19})$(?![\\s\\S])"
                       },
                       "hz": {
                         "type": "integer",
@@ -293,7 +297,7 @@
                       },
                       "sec": {
                         "type": "string",
-                        "pattern": "^(0|[1-9][0-9]{0,19})$"
+                        "pattern": "^(0|[1-9][0-9]{0,19})$(?![\\s\\S])"
                       },
                       "usec": {
                         "type": "integer",

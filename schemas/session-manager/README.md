@@ -204,7 +204,7 @@ These schemas implement the observation-v2 contract d5. The launcher consumer
 is specified there and implemented in a later unit.
 
 - The envelope-free `session-record` and the enveloped `session` (status,
-  launch, resume and stop replies) are both 1.3.0 and keep their URNs. They
+  launch, resume and stop replies) are both 1.4.0 and keep their URNs. They
   move in lockstep: their duplicated definitions must stay identical apart
   from `protocol`/`ok`, because the validator resolves only whole-document
   references. A readable record may carry two
@@ -225,7 +225,7 @@ is specified there and implemented in a later unit.
 - `session-observation-v2.schema.json`
   (`urn:relux:curator-run:session-observation-v2`) is v1 plus the closed
   `capabilities: {process_observation}`. Its `session` is `session-record`
-  1.3.0. When `process_observation` is false, the session can carry neither
+  1.4.0. When `process_observation` is false, the session can carry neither
   member. In v1 the `session` refuses `process` and `termination`: v1 output
   is the legacy projection, a valid 1.2.0 record.
 - The describe token `process-observation/1` is valid only together with
@@ -268,12 +268,16 @@ observation-v2 process tuple. `lease-holder` 1.1.0 keeps a prepared holder's
 `{pid, started_at}` (parseable, never binds); a bound holder carries an exact
 session, a positive safe-integer generation and exactly the four-field tuple
 `{pid, uid, boot_id, start_time}`, with the same two closed tagged
-`start_time` variants as session-record 1.3.0. `lease-result` 1.1.0 adds
+`start_time` variants as session-record 1.4.0. `lease-result` 1.1.0 adds
 `environment_lease_holder_mismatch`/`process_incarnation_mismatch` on bind
 only. The operation journal's launcher-authored prepared holder still
 requires `process` null. References are resolved locally
-and fragment definitions are expanded; regex end assertions use Go's strict end
-anchor. These schemas validate consumer input, and grant no bind/release/break
+and fragment definitions are expanded. Every pattern in the lease holder and
+result schemas, and the process patterns they share with session/session-record
+1.4.0, ends `$(?![\s\S])` so engines where `$` matches before a final newline
+(Python, PCRE) still require end of text; `boot_id` also pins exactly 36
+characters. The Go validator translates that terminal suffix to RE2 `\z`.
+These schemas validate consumer input, and grant no bind/release/break
 authority. Lease holder and result vectors pair each new valid shape with its
 invalid neighbours. Operation and settlement vectors pair valid retained correlation with
 missing correlation, invented process, unknown phase and release-assertion

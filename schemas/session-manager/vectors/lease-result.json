@@ -52,6 +52,215 @@
     }
   },
   {
+    "name": "invalid-bind-bound-active-holder-request-id-trailing-newline",
+    "valid": false,
+    "document": {
+      "schema_version": 1,
+      "operation": "bind",
+      "ok": true,
+      "exit": 0,
+      "code": null,
+      "reason": "bound",
+      "result": {
+        "changed": true,
+        "lease": {
+          "kind": "home-lease/1",
+          "lease_id": "lease-1",
+          "manager_root_id": "root-1",
+          "home_id": "home-1",
+          "environment": "muse",
+          "profile": "sample",
+          "lock_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+          "revision": 2,
+          "phase": "active",
+          "acquired_at": "2026-01-01T00:00:00Z",
+          "holder": {
+            "kind": "bound",
+            "launcher": "curator-run",
+            "manager_id": "demo",
+            "manager_registered_at": "2026-01-01T00:00:00Z",
+            "request_id": "request-1\n",
+            "werkstatt": "sample",
+            "session": "session-1",
+            "generation": 1,
+            "process": {
+              "pid": 4242,
+              "uid": 1001,
+              "boot_id": "6f1c0e2a-8b44-4d1e-9a51-2f0c3d7e9b10",
+              "start_time": {
+                "kind": "linux-stat-starttime",
+                "ticks": "123456789",
+                "hz": 100
+              }
+            }
+          },
+          "observation": {
+            "state": "not_observed",
+            "observed_at": null
+          }
+        }
+      },
+      "details": null
+    }
+  },
+  {
+    "name": "valid-bind-bound-active-holder-darwin",
+    "valid": true,
+    "document": {
+      "schema_version": 1,
+      "operation": "bind",
+      "ok": true,
+      "exit": 0,
+      "code": null,
+      "reason": "bound",
+      "result": {
+        "changed": true,
+        "lease": {
+          "kind": "home-lease/1",
+          "lease_id": "lease-1",
+          "manager_root_id": "root-1",
+          "home_id": "home-1",
+          "environment": "muse",
+          "profile": "sample",
+          "lock_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+          "revision": 2,
+          "phase": "active",
+          "acquired_at": "2026-01-01T00:00:00Z",
+          "holder": {
+            "kind": "bound",
+            "launcher": "curator-run",
+            "manager_id": "demo",
+            "manager_registered_at": "2026-01-01T00:00:00Z",
+            "request_id": "request-1",
+            "werkstatt": "sample",
+            "session": "session-1",
+            "generation": 1,
+            "process": {
+              "pid": 4242,
+              "uid": 1001,
+              "boot_id": "6f1c0e2a-8b44-4d1e-9a51-2f0c3d7e9b10",
+              "start_time": {
+                "kind": "darwin-pbi-start",
+                "sec": "1731715200",
+                "usec": 123456
+              }
+            }
+          },
+          "observation": {
+            "state": "not_observed",
+            "observed_at": null
+          }
+        }
+      },
+      "details": null
+    }
+  },
+  {
+    "name": "invalid-bind-bound-active-holder-boot-id-trailing-newline",
+    "valid": false,
+    "document": {
+      "schema_version": 1,
+      "operation": "bind",
+      "ok": true,
+      "exit": 0,
+      "code": null,
+      "reason": "bound",
+      "result": {
+        "changed": true,
+        "lease": {
+          "kind": "home-lease/1",
+          "lease_id": "lease-1",
+          "manager_root_id": "root-1",
+          "home_id": "home-1",
+          "environment": "muse",
+          "profile": "sample",
+          "lock_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+          "revision": 2,
+          "phase": "active",
+          "acquired_at": "2026-01-01T00:00:00Z",
+          "holder": {
+            "kind": "bound",
+            "launcher": "curator-run",
+            "manager_id": "demo",
+            "manager_registered_at": "2026-01-01T00:00:00Z",
+            "request_id": "request-1",
+            "werkstatt": "sample",
+            "session": "session-1",
+            "generation": 1,
+            "process": {
+              "pid": 4242,
+              "uid": 1001,
+              "boot_id": "6f1c0e2a-8b44-4d1e-9a51-2f0c3d7e9b10\n",
+              "start_time": {
+                "kind": "linux-stat-starttime",
+                "ticks": "123456789",
+                "hz": 100
+              }
+            }
+          },
+          "observation": {
+            "state": "not_observed",
+            "observed_at": null
+          }
+        }
+      },
+      "details": null
+    }
+  },
+  {
+    "name": "valid-list-listed-bound-active-holder-linux",
+    "valid": true,
+    "document": {
+      "schema_version": 1,
+      "operation": "list",
+      "ok": true,
+      "exit": 0,
+      "code": null,
+      "reason": "listed",
+      "result": {
+        "leases": [
+          {
+            "kind": "home-lease/1",
+            "lease_id": "lease-1",
+            "manager_root_id": "root-1",
+            "home_id": "home-1",
+            "environment": "muse",
+            "profile": "sample",
+            "lock_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+            "revision": 2,
+            "phase": "active",
+            "acquired_at": "2026-01-01T00:00:00Z",
+            "holder": {
+              "kind": "bound",
+              "launcher": "curator-run",
+              "manager_id": "demo",
+              "manager_registered_at": "2026-01-01T00:00:00Z",
+              "request_id": "request-1",
+              "werkstatt": "sample",
+              "session": "session-1",
+              "generation": 1,
+              "process": {
+                "pid": 4242,
+                "uid": 1001,
+                "boot_id": "6f1c0e2a-8b44-4d1e-9a51-2f0c3d7e9b10",
+                "start_time": {
+                  "kind": "linux-stat-starttime",
+                  "ticks": "123456789",
+                  "hz": 100
+                }
+              }
+            },
+            "observation": {
+              "state": "not_observed",
+              "observed_at": null
+            }
+          }
+        ]
+      },
+      "details": null
+    }
+  },
+  {
     "name": "invalid-bind-bound-active-legacy-holder",
     "valid": false,
     "document": {
@@ -231,6 +440,58 @@
     }
   },
   {
+    "name": "invalid-bind-bound-active-holder-ticks-trailing-newline",
+    "valid": false,
+    "document": {
+      "schema_version": 1,
+      "operation": "bind",
+      "ok": true,
+      "exit": 0,
+      "code": null,
+      "reason": "bound",
+      "result": {
+        "changed": true,
+        "lease": {
+          "kind": "home-lease/1",
+          "lease_id": "lease-1",
+          "manager_root_id": "root-1",
+          "home_id": "home-1",
+          "environment": "muse",
+          "profile": "sample",
+          "lock_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+          "revision": 2,
+          "phase": "active",
+          "acquired_at": "2026-01-01T00:00:00Z",
+          "holder": {
+            "kind": "bound",
+            "launcher": "curator-run",
+            "manager_id": "demo",
+            "manager_registered_at": "2026-01-01T00:00:00Z",
+            "request_id": "request-1",
+            "werkstatt": "sample",
+            "session": "session-1",
+            "generation": 1,
+            "process": {
+              "pid": 4242,
+              "uid": 1001,
+              "boot_id": "6f1c0e2a-8b44-4d1e-9a51-2f0c3d7e9b10",
+              "start_time": {
+                "kind": "linux-stat-starttime",
+                "ticks": "123456789\n",
+                "hz": 100
+              }
+            }
+          },
+          "observation": {
+            "state": "not_observed",
+            "observed_at": null
+          }
+        }
+      },
+      "details": null
+    }
+  },
+  {
     "name": "valid-acquire-holder-mismatch-request-conflict",
     "valid": true,
     "document": {
@@ -243,6 +504,25 @@
       "result": null,
       "details": {
         "lease_id": "lease-1",
+        "revision": 1,
+        "holders": [],
+        "count": 0
+      }
+    }
+  },
+  {
+    "name": "invalid-bind-holder-mismatch-details-lease-id-trailing-newline",
+    "valid": false,
+    "document": {
+      "schema_version": 1,
+      "operation": "bind",
+      "ok": false,
+      "exit": 1,
+      "code": "environment_lease_holder_mismatch",
+      "reason": "process_incarnation_mismatch",
+      "result": null,
+      "details": {
+        "lease_id": "lease-1\n",
         "revision": 1,
         "holders": [],
         "count": 0
@@ -288,6 +568,59 @@
                 "start_time": {
                   "kind": "darwin-pbi-start",
                   "sec": "1731715200",
+                  "usec": 123456
+                }
+              }
+            },
+            "observation": {
+              "state": "not_observed",
+              "observed_at": null
+            }
+          }
+        ]
+      },
+      "details": null
+    }
+  },
+  {
+    "name": "invalid-list-listed-bound-active-holder-darwin-sec-trailing-newline",
+    "valid": false,
+    "document": {
+      "schema_version": 1,
+      "operation": "list",
+      "ok": true,
+      "exit": 0,
+      "code": null,
+      "reason": "listed",
+      "result": {
+        "leases": [
+          {
+            "kind": "home-lease/1",
+            "lease_id": "lease-1",
+            "manager_root_id": "root-1",
+            "home_id": "home-1",
+            "environment": "muse",
+            "profile": "sample",
+            "lock_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+            "revision": 2,
+            "phase": "active",
+            "acquired_at": "2026-01-01T00:00:00Z",
+            "holder": {
+              "kind": "bound",
+              "launcher": "curator-run",
+              "manager_id": "demo",
+              "manager_registered_at": "2026-01-01T00:00:00Z",
+              "request_id": "request-1",
+              "werkstatt": "sample",
+              "session": "session-1",
+              "generation": 1,
+              "process": {
+                "pid": 4242,
+                "uid": 1001,
+                "boot_id": "6f1c0e2a-8b44-4d1e-9a51-2f0c3d7e9b10",
+                "start_time": {
+                  "kind": "darwin-pbi-start",
+                  "sec": "1731715200\n",
                   "usec": 123456
                 }
               }

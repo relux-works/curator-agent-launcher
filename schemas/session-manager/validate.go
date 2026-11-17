@@ -315,7 +315,7 @@ func check(s map[string]any, value any, field string, depth int) error {
 			return bad()
 		}
 		if pattern, ok := s["pattern"].(string); ok {
-			r, err := regexp.Compile(pattern)
+			r, err := compilePattern(pattern)
 			if err != nil || !r.MatchString(v) {
 				return bad()
 			}
@@ -338,6 +338,19 @@ func check(s map[string]any, value any, field string, depth int) error {
 		}
 	}
 	return nil
+}
+
+// The published lease and process patterns end with `$(?![\s\S])` so regex
+// engines where `$` also matches before a final newline (Python, PCRE) still
+// require the end of the text. RE2 has no lookahead, so that exact terminal
+// suffix is translated to `\z`, which is the same end-of-text assertion here.
+// Any other lookahead stays a compile error and fails closed in check.
+func compilePattern(pattern string) (*regexp.Regexp, error) {
+	const endAnchor = `$(?![\s\S])`
+	if strings.HasSuffix(pattern, endAnchor) {
+		pattern = strings.TrimSuffix(pattern, endAnchor) + `\z`
+	}
+	return regexp.Compile(pattern)
 }
 
 func within(s map[string]any, minKey, maxKey string, n float64) bool {

@@ -756,5 +756,1017 @@
         "started_at": "2026-01-01T00:00:00Z"
       }
     }
+  },
+  {
+    "name": "invalid-bound-pid-2147483648",
+    "valid": false,
+    "document": {
+      "kind": "bound",
+      "launcher": "curator-run",
+      "manager_id": "demo",
+      "manager_registered_at": "2026-01-01T00:00:00Z",
+      "request_id": "request-1",
+      "werkstatt": "sample",
+      "session": "session-1",
+      "generation": 1,
+      "process": {
+        "pid": 2147483648,
+        "uid": 1001,
+        "boot_id": "6f1c0e2a-8b44-4d1e-9a51-2f0c3d7e9b10",
+        "start_time": {
+          "kind": "linux-stat-starttime",
+          "ticks": "123456789",
+          "hz": 100
+        }
+      }
+    }
+  },
+  {
+    "name": "invalid-bound-uid-negative",
+    "valid": false,
+    "document": {
+      "kind": "bound",
+      "launcher": "curator-run",
+      "manager_id": "demo",
+      "manager_registered_at": "2026-01-01T00:00:00Z",
+      "request_id": "request-1",
+      "werkstatt": "sample",
+      "session": "session-1",
+      "generation": 1,
+      "process": {
+        "pid": 4242,
+        "uid": -1,
+        "boot_id": "6f1c0e2a-8b44-4d1e-9a51-2f0c3d7e9b10",
+        "start_time": {
+          "kind": "linux-stat-starttime",
+          "ticks": "123456789",
+          "hz": 100
+        }
+      }
+    }
+  },
+  {
+    "name": "valid-bound-linux-generation-max",
+    "valid": true,
+    "document": {
+      "kind": "bound",
+      "launcher": "curator-run",
+      "manager_id": "demo",
+      "manager_registered_at": "2026-01-01T00:00:00Z",
+      "request_id": "request-1",
+      "werkstatt": "sample",
+      "session": "session-1",
+      "generation": 9007199254740991,
+      "process": {
+        "pid": 4242,
+        "uid": 1001,
+        "boot_id": "6f1c0e2a-8b44-4d1e-9a51-2f0c3d7e9b10",
+        "start_time": {
+          "kind": "linux-stat-starttime",
+          "ticks": "123456789",
+          "hz": 100
+        }
+      }
+    }
+  },
+  {
+    "name": "invalid-bound-start-time-unknown-kind",
+    "valid": false,
+    "document": {
+      "kind": "bound",
+      "launcher": "curator-run",
+      "manager_id": "demo",
+      "manager_registered_at": "2026-01-01T00:00:00Z",
+      "request_id": "request-1",
+      "werkstatt": "sample",
+      "session": "session-1",
+      "generation": 1,
+      "process": {
+        "pid": 4242,
+        "uid": 1001,
+        "boot_id": "6f1c0e2a-8b44-4d1e-9a51-2f0c3d7e9b10",
+        "start_time": {
+          "kind": "wall-clock",
+          "ticks": "123456789",
+          "hz": 100
+        }
+      }
+    }
+  },
+  {
+    "name": "invalid-bound-start-time-missing-kind",
+    "valid": false,
+    "document": {
+      "kind": "bound",
+      "launcher": "curator-run",
+      "manager_id": "demo",
+      "manager_registered_at": "2026-01-01T00:00:00Z",
+      "request_id": "request-1",
+      "werkstatt": "sample",
+      "session": "session-1",
+      "generation": 1,
+      "process": {
+        "pid": 4242,
+        "uid": 1001,
+        "boot_id": "6f1c0e2a-8b44-4d1e-9a51-2f0c3d7e9b10",
+        "start_time": {
+          "ticks": "123456789",
+          "hz": 100
+        }
+      }
+    }
+  },
+  {
+    "name": "valid-bound-darwin-generation-2",
+    "valid": true,
+    "document": {
+      "kind": "bound",
+      "launcher": "curator-run",
+      "manager_id": "demo",
+      "manager_registered_at": "2026-01-01T00:00:00Z",
+      "request_id": "request-1",
+      "werkstatt": "sample",
+      "session": "session-1",
+      "generation": 2,
+      "process": {
+        "pid": 4242,
+        "uid": 1001,
+        "boot_id": "6f1c0e2a-8b44-4d1e-9a51-2f0c3d7e9b10",
+        "start_time": {
+          "kind": "darwin-pbi-start",
+          "sec": "1731715200",
+          "usec": 123456
+        }
+      }
+    }
+  },
+  {
+    "name": "invalid-bound-start-time-tag-member-mismatch",
+    "valid": false,
+    "document": {
+      "kind": "bound",
+      "launcher": "curator-run",
+      "manager_id": "demo",
+      "manager_registered_at": "2026-01-01T00:00:00Z",
+      "request_id": "request-1",
+      "werkstatt": "sample",
+      "session": "session-1",
+      "generation": 1,
+      "process": {
+        "pid": 4242,
+        "uid": 1001,
+        "boot_id": "6f1c0e2a-8b44-4d1e-9a51-2f0c3d7e9b10",
+        "start_time": {
+          "kind": "darwin-pbi-start",
+          "ticks": "123456789",
+          "hz": 100
+        }
+      }
+    }
+  },
+  {
+    "name": "invalid-bound-start-time-tag-member-mismatch-linux-tag",
+    "valid": false,
+    "document": {
+      "kind": "bound",
+      "launcher": "curator-run",
+      "manager_id": "demo",
+      "manager_registered_at": "2026-01-01T00:00:00Z",
+      "request_id": "request-1",
+      "werkstatt": "sample",
+      "session": "session-1",
+      "generation": 1,
+      "process": {
+        "pid": 4242,
+        "uid": 1001,
+        "boot_id": "6f1c0e2a-8b44-4d1e-9a51-2f0c3d7e9b10",
+        "start_time": {
+          "kind": "linux-stat-starttime",
+          "sec": "1731715200",
+          "usec": 123456
+        }
+      }
+    }
+  },
+  {
+    "name": "valid-bound-linux-boot-id-all-zero",
+    "valid": true,
+    "document": {
+      "kind": "bound",
+      "launcher": "curator-run",
+      "manager_id": "demo",
+      "manager_registered_at": "2026-01-01T00:00:00Z",
+      "request_id": "request-1",
+      "werkstatt": "sample",
+      "session": "session-1",
+      "generation": 1,
+      "process": {
+        "pid": 4242,
+        "uid": 1001,
+        "boot_id": "00000000-0000-0000-0000-000000000000",
+        "start_time": {
+          "kind": "linux-stat-starttime",
+          "ticks": "123456789",
+          "hz": 100
+        }
+      }
+    }
+  },
+  {
+    "name": "invalid-bound-darwin-variant-missing-usec",
+    "valid": false,
+    "document": {
+      "kind": "bound",
+      "launcher": "curator-run",
+      "manager_id": "demo",
+      "manager_registered_at": "2026-01-01T00:00:00Z",
+      "request_id": "request-1",
+      "werkstatt": "sample",
+      "session": "session-1",
+      "generation": 1,
+      "process": {
+        "pid": 4242,
+        "uid": 1001,
+        "boot_id": "6f1c0e2a-8b44-4d1e-9a51-2f0c3d7e9b10",
+        "start_time": {
+          "kind": "darwin-pbi-start",
+          "sec": "1731715200"
+        }
+      }
+    }
+  },
+  {
+    "name": "invalid-bound-darwin-variant-missing-sec",
+    "valid": false,
+    "document": {
+      "kind": "bound",
+      "launcher": "curator-run",
+      "manager_id": "demo",
+      "manager_registered_at": "2026-01-01T00:00:00Z",
+      "request_id": "request-1",
+      "werkstatt": "sample",
+      "session": "session-1",
+      "generation": 1,
+      "process": {
+        "pid": 4242,
+        "uid": 1001,
+        "boot_id": "6f1c0e2a-8b44-4d1e-9a51-2f0c3d7e9b10",
+        "start_time": {
+          "kind": "darwin-pbi-start",
+          "usec": 123456
+        }
+      }
+    }
+  },
+  {
+    "name": "valid-bound-darwin-sec-ten",
+    "valid": true,
+    "document": {
+      "kind": "bound",
+      "launcher": "curator-run",
+      "manager_id": "demo",
+      "manager_registered_at": "2026-01-01T00:00:00Z",
+      "request_id": "request-1",
+      "werkstatt": "sample",
+      "session": "session-1",
+      "generation": 1,
+      "process": {
+        "pid": 4242,
+        "uid": 1001,
+        "boot_id": "6f1c0e2a-8b44-4d1e-9a51-2f0c3d7e9b10",
+        "start_time": {
+          "kind": "darwin-pbi-start",
+          "sec": "10",
+          "usec": 123456
+        }
+      }
+    }
+  },
+  {
+    "name": "invalid-bound-darwin-variant-extra-member",
+    "valid": false,
+    "document": {
+      "kind": "bound",
+      "launcher": "curator-run",
+      "manager_id": "demo",
+      "manager_registered_at": "2026-01-01T00:00:00Z",
+      "request_id": "request-1",
+      "werkstatt": "sample",
+      "session": "session-1",
+      "generation": 1,
+      "process": {
+        "pid": 4242,
+        "uid": 1001,
+        "boot_id": "6f1c0e2a-8b44-4d1e-9a51-2f0c3d7e9b10",
+        "start_time": {
+          "kind": "darwin-pbi-start",
+          "sec": "1731715200",
+          "usec": 123456,
+          "extra": 1
+        }
+      }
+    }
+  },
+  {
+    "name": "invalid-bound-linux-variant-missing-ticks",
+    "valid": false,
+    "document": {
+      "kind": "bound",
+      "launcher": "curator-run",
+      "manager_id": "demo",
+      "manager_registered_at": "2026-01-01T00:00:00Z",
+      "request_id": "request-1",
+      "werkstatt": "sample",
+      "session": "session-1",
+      "generation": 1,
+      "process": {
+        "pid": 4242,
+        "uid": 1001,
+        "boot_id": "6f1c0e2a-8b44-4d1e-9a51-2f0c3d7e9b10",
+        "start_time": {
+          "kind": "linux-stat-starttime",
+          "hz": 100
+        }
+      }
+    }
+  },
+  {
+    "name": "valid-bound-linux-ticks-ten",
+    "valid": true,
+    "document": {
+      "kind": "bound",
+      "launcher": "curator-run",
+      "manager_id": "demo",
+      "manager_registered_at": "2026-01-01T00:00:00Z",
+      "request_id": "request-1",
+      "werkstatt": "sample",
+      "session": "session-1",
+      "generation": 1,
+      "process": {
+        "pid": 4242,
+        "uid": 1001,
+        "boot_id": "6f1c0e2a-8b44-4d1e-9a51-2f0c3d7e9b10",
+        "start_time": {
+          "kind": "linux-stat-starttime",
+          "ticks": "10",
+          "hz": 100
+        }
+      }
+    }
+  },
+  {
+    "name": "invalid-bound-tuple-missing-pid",
+    "valid": false,
+    "document": {
+      "kind": "bound",
+      "launcher": "curator-run",
+      "manager_id": "demo",
+      "manager_registered_at": "2026-01-01T00:00:00Z",
+      "request_id": "request-1",
+      "werkstatt": "sample",
+      "session": "session-1",
+      "generation": 1,
+      "process": {
+        "uid": 1001,
+        "boot_id": "6f1c0e2a-8b44-4d1e-9a51-2f0c3d7e9b10",
+        "start_time": {
+          "kind": "linux-stat-starttime",
+          "ticks": "123456789",
+          "hz": 100
+        }
+      }
+    }
+  },
+  {
+    "name": "invalid-bound-tuple-missing-boot-id",
+    "valid": false,
+    "document": {
+      "kind": "bound",
+      "launcher": "curator-run",
+      "manager_id": "demo",
+      "manager_registered_at": "2026-01-01T00:00:00Z",
+      "request_id": "request-1",
+      "werkstatt": "sample",
+      "session": "session-1",
+      "generation": 1,
+      "process": {
+        "pid": 4242,
+        "uid": 1001,
+        "start_time": {
+          "kind": "linux-stat-starttime",
+          "ticks": "123456789",
+          "hz": 100
+        }
+      }
+    }
+  },
+  {
+    "name": "valid-bound-linux-session-punctuation",
+    "valid": true,
+    "document": {
+      "kind": "bound",
+      "launcher": "curator-run",
+      "manager_id": "demo",
+      "manager_registered_at": "2026-01-01T00:00:00Z",
+      "request_id": "request-1",
+      "werkstatt": "sample",
+      "session": "session_1.2:3-4",
+      "generation": 1,
+      "process": {
+        "pid": 4242,
+        "uid": 1001,
+        "boot_id": "6f1c0e2a-8b44-4d1e-9a51-2f0c3d7e9b10",
+        "start_time": {
+          "kind": "linux-stat-starttime",
+          "ticks": "123456789",
+          "hz": 100
+        }
+      }
+    }
+  },
+  {
+    "name": "invalid-bound-tuple-missing-start-time",
+    "valid": false,
+    "document": {
+      "kind": "bound",
+      "launcher": "curator-run",
+      "manager_id": "demo",
+      "manager_registered_at": "2026-01-01T00:00:00Z",
+      "request_id": "request-1",
+      "werkstatt": "sample",
+      "session": "session-1",
+      "generation": 1,
+      "process": {
+        "pid": 4242,
+        "uid": 1001,
+        "boot_id": "6f1c0e2a-8b44-4d1e-9a51-2f0c3d7e9b10"
+      }
+    }
+  },
+  {
+    "name": "invalid-bound-darwin-usec-negative",
+    "valid": false,
+    "document": {
+      "kind": "bound",
+      "launcher": "curator-run",
+      "manager_id": "demo",
+      "manager_registered_at": "2026-01-01T00:00:00Z",
+      "request_id": "request-1",
+      "werkstatt": "sample",
+      "session": "session-1",
+      "generation": 1,
+      "process": {
+        "pid": 4242,
+        "uid": 1001,
+        "boot_id": "6f1c0e2a-8b44-4d1e-9a51-2f0c3d7e9b10",
+        "start_time": {
+          "kind": "darwin-pbi-start",
+          "sec": "1731715200",
+          "usec": -1
+        }
+      }
+    }
+  },
+  {
+    "name": "valid-bound-darwin-werkstatt-punctuation",
+    "valid": true,
+    "document": {
+      "kind": "bound",
+      "launcher": "curator-run",
+      "manager_id": "demo",
+      "manager_registered_at": "2026-01-01T00:00:00Z",
+      "request_id": "request-1",
+      "werkstatt": "sample_1.2-3",
+      "session": "session-1",
+      "generation": 1,
+      "process": {
+        "pid": 4242,
+        "uid": 1001,
+        "boot_id": "6f1c0e2a-8b44-4d1e-9a51-2f0c3d7e9b10",
+        "start_time": {
+          "kind": "darwin-pbi-start",
+          "sec": "1731715200",
+          "usec": 123456
+        }
+      }
+    }
+  },
+  {
+    "name": "invalid-bound-darwin-sec-sign",
+    "valid": false,
+    "document": {
+      "kind": "bound",
+      "launcher": "curator-run",
+      "manager_id": "demo",
+      "manager_registered_at": "2026-01-01T00:00:00Z",
+      "request_id": "request-1",
+      "werkstatt": "sample",
+      "session": "session-1",
+      "generation": 1,
+      "process": {
+        "pid": 4242,
+        "uid": 1001,
+        "boot_id": "6f1c0e2a-8b44-4d1e-9a51-2f0c3d7e9b10",
+        "start_time": {
+          "kind": "darwin-pbi-start",
+          "sec": "-1731715200",
+          "usec": 123456
+        }
+      }
+    }
+  },
+  {
+    "name": "invalid-bound-darwin-sec-21-digits",
+    "valid": false,
+    "document": {
+      "kind": "bound",
+      "launcher": "curator-run",
+      "manager_id": "demo",
+      "manager_registered_at": "2026-01-01T00:00:00Z",
+      "request_id": "request-1",
+      "werkstatt": "sample",
+      "session": "session-1",
+      "generation": 1,
+      "process": {
+        "pid": 4242,
+        "uid": 1001,
+        "boot_id": "6f1c0e2a-8b44-4d1e-9a51-2f0c3d7e9b10",
+        "start_time": {
+          "kind": "darwin-pbi-start",
+          "sec": "100000000000000000000",
+          "usec": 123456
+        }
+      }
+    }
+  },
+  {
+    "name": "valid-prepared-manager-registered-at-fractional",
+    "valid": true,
+    "document": {
+      "kind": "prepared",
+      "launcher": "curator-run",
+      "manager_id": "demo",
+      "manager_registered_at": "2026-01-01T00:00:00.123456789Z",
+      "request_id": "request-1",
+      "werkstatt": "sample",
+      "session": null,
+      "generation": null,
+      "process": null
+    }
+  },
+  {
+    "name": "invalid-bound-darwin-sec-whitespace",
+    "valid": false,
+    "document": {
+      "kind": "bound",
+      "launcher": "curator-run",
+      "manager_id": "demo",
+      "manager_registered_at": "2026-01-01T00:00:00Z",
+      "request_id": "request-1",
+      "werkstatt": "sample",
+      "session": "session-1",
+      "generation": 1,
+      "process": {
+        "pid": 4242,
+        "uid": 1001,
+        "boot_id": "6f1c0e2a-8b44-4d1e-9a51-2f0c3d7e9b10",
+        "start_time": {
+          "kind": "darwin-pbi-start",
+          "sec": " 1731715200",
+          "usec": 123456
+        }
+      }
+    }
+  },
+  {
+    "name": "invalid-bound-darwin-sec-non-ascii-digit",
+    "valid": false,
+    "document": {
+      "kind": "bound",
+      "launcher": "curator-run",
+      "manager_id": "demo",
+      "manager_registered_at": "2026-01-01T00:00:00Z",
+      "request_id": "request-1",
+      "werkstatt": "sample",
+      "session": "session-1",
+      "generation": 1,
+      "process": {
+        "pid": 4242,
+        "uid": 1001,
+        "boot_id": "6f1c0e2a-8b44-4d1e-9a51-2f0c3d7e9b10",
+        "start_time": {
+          "kind": "darwin-pbi-start",
+          "sec": "١٢٣٤٥",
+          "usec": 123456
+        }
+      }
+    }
+  },
+  {
+    "name": "valid-prepared-legacy-pid-one",
+    "valid": true,
+    "document": {
+      "kind": "prepared",
+      "launcher": "curator-run",
+      "manager_id": "demo",
+      "manager_registered_at": "2026-01-01T00:00:00Z",
+      "request_id": "request-1",
+      "werkstatt": "sample",
+      "session": null,
+      "generation": null,
+      "process": {
+        "pid": 1,
+        "started_at": "2026-01-01T00:00:00Z"
+      }
+    }
+  },
+  {
+    "name": "invalid-prepared-non-null-session",
+    "valid": false,
+    "document": {
+      "kind": "prepared",
+      "launcher": "curator-run",
+      "manager_id": "demo",
+      "manager_registered_at": "2026-01-01T00:00:00Z",
+      "request_id": "request-1",
+      "werkstatt": "sample",
+      "session": "session-1",
+      "generation": null,
+      "process": null
+    }
+  },
+  {
+    "name": "invalid-prepared-non-null-generation",
+    "valid": false,
+    "document": {
+      "kind": "prepared",
+      "launcher": "curator-run",
+      "manager_id": "demo",
+      "manager_registered_at": "2026-01-01T00:00:00Z",
+      "request_id": "request-1",
+      "werkstatt": "sample",
+      "session": null,
+      "generation": 1,
+      "process": null
+    }
+  },
+  {
+    "name": "valid-bound-linux-hz-250",
+    "valid": true,
+    "document": {
+      "kind": "bound",
+      "launcher": "curator-run",
+      "manager_id": "demo",
+      "manager_registered_at": "2026-01-01T00:00:00Z",
+      "request_id": "request-1",
+      "werkstatt": "sample",
+      "session": "session-1",
+      "generation": 1,
+      "process": {
+        "pid": 4242,
+        "uid": 1001,
+        "boot_id": "6f1c0e2a-8b44-4d1e-9a51-2f0c3d7e9b10",
+        "start_time": {
+          "kind": "linux-stat-starttime",
+          "ticks": "123456789",
+          "hz": 250
+        }
+      }
+    }
+  },
+  {
+    "name": "invalid-bound-null-session",
+    "valid": false,
+    "document": {
+      "kind": "bound",
+      "launcher": "curator-run",
+      "manager_id": "demo",
+      "manager_registered_at": "2026-01-01T00:00:00Z",
+      "request_id": "request-1",
+      "werkstatt": "sample",
+      "session": null,
+      "generation": 1,
+      "process": {
+        "pid": 4242,
+        "uid": 1001,
+        "boot_id": "6f1c0e2a-8b44-4d1e-9a51-2f0c3d7e9b10",
+        "start_time": {
+          "kind": "linux-stat-starttime",
+          "ticks": "123456789",
+          "hz": 100
+        }
+      }
+    }
+  },
+  {
+    "name": "invalid-bound-null-generation",
+    "valid": false,
+    "document": {
+      "kind": "bound",
+      "launcher": "curator-run",
+      "manager_id": "demo",
+      "manager_registered_at": "2026-01-01T00:00:00Z",
+      "request_id": "request-1",
+      "werkstatt": "sample",
+      "session": "session-1",
+      "generation": null,
+      "process": {
+        "pid": 4242,
+        "uid": 1001,
+        "boot_id": "6f1c0e2a-8b44-4d1e-9a51-2f0c3d7e9b10",
+        "start_time": {
+          "kind": "linux-stat-starttime",
+          "ticks": "123456789",
+          "hz": 100
+        }
+      }
+    }
+  },
+  {
+    "name": "valid-bound-darwin-usec-one",
+    "valid": true,
+    "document": {
+      "kind": "bound",
+      "launcher": "curator-run",
+      "manager_id": "demo",
+      "manager_registered_at": "2026-01-01T00:00:00Z",
+      "request_id": "request-1",
+      "werkstatt": "sample",
+      "session": "session-1",
+      "generation": 1,
+      "process": {
+        "pid": 4242,
+        "uid": 1001,
+        "boot_id": "6f1c0e2a-8b44-4d1e-9a51-2f0c3d7e9b10",
+        "start_time": {
+          "kind": "darwin-pbi-start",
+          "sec": "1731715200",
+          "usec": 1
+        }
+      }
+    }
+  },
+  {
+    "name": "invalid-bound-generation-zero",
+    "valid": false,
+    "document": {
+      "kind": "bound",
+      "launcher": "curator-run",
+      "manager_id": "demo",
+      "manager_registered_at": "2026-01-01T00:00:00Z",
+      "request_id": "request-1",
+      "werkstatt": "sample",
+      "session": "session-1",
+      "generation": 0,
+      "process": {
+        "pid": 4242,
+        "uid": 1001,
+        "boot_id": "6f1c0e2a-8b44-4d1e-9a51-2f0c3d7e9b10",
+        "start_time": {
+          "kind": "linux-stat-starttime",
+          "ticks": "123456789",
+          "hz": 100
+        }
+      }
+    }
+  },
+  {
+    "name": "invalid-prepared-legacy-process-extra-member",
+    "valid": false,
+    "document": {
+      "kind": "prepared",
+      "launcher": "curator-run",
+      "manager_id": "demo",
+      "manager_registered_at": "2026-01-01T00:00:00Z",
+      "request_id": "request-1",
+      "werkstatt": "sample",
+      "session": null,
+      "generation": null,
+      "process": {
+        "pid": 4242,
+        "started_at": "2026-01-01T00:00:00Z",
+        "extra": 1
+      }
+    }
+  },
+  {
+    "name": "valid-bound-linux-uid-65534",
+    "valid": true,
+    "document": {
+      "kind": "bound",
+      "launcher": "curator-run",
+      "manager_id": "demo",
+      "manager_registered_at": "2026-01-01T00:00:00Z",
+      "request_id": "request-1",
+      "werkstatt": "sample",
+      "session": "session-1",
+      "generation": 1,
+      "process": {
+        "pid": 4242,
+        "uid": 65534,
+        "boot_id": "6f1c0e2a-8b44-4d1e-9a51-2f0c3d7e9b10",
+        "start_time": {
+          "kind": "linux-stat-starttime",
+          "ticks": "123456789",
+          "hz": 100
+        }
+      }
+    }
+  },
+  {
+    "name": "invalid-prepared-legacy-process-missing-started-at",
+    "valid": false,
+    "document": {
+      "kind": "prepared",
+      "launcher": "curator-run",
+      "manager_id": "demo",
+      "manager_registered_at": "2026-01-01T00:00:00Z",
+      "request_id": "request-1",
+      "werkstatt": "sample",
+      "session": null,
+      "generation": null,
+      "process": {
+        "pid": 4242
+      }
+    }
+  },
+  {
+    "name": "invalid-prepared-legacy-process-missing-pid",
+    "valid": false,
+    "document": {
+      "kind": "prepared",
+      "launcher": "curator-run",
+      "manager_id": "demo",
+      "manager_registered_at": "2026-01-01T00:00:00Z",
+      "request_id": "request-1",
+      "werkstatt": "sample",
+      "session": null,
+      "generation": null,
+      "process": {
+        "started_at": "2026-01-01T00:00:00Z"
+      }
+    }
+  },
+  {
+    "name": "valid-bound-linux-pid-65535",
+    "valid": true,
+    "document": {
+      "kind": "bound",
+      "launcher": "curator-run",
+      "manager_id": "demo",
+      "manager_registered_at": "2026-01-01T00:00:00Z",
+      "request_id": "request-1",
+      "werkstatt": "sample",
+      "session": "session-1",
+      "generation": 1,
+      "process": {
+        "pid": 65535,
+        "uid": 1001,
+        "boot_id": "6f1c0e2a-8b44-4d1e-9a51-2f0c3d7e9b10",
+        "start_time": {
+          "kind": "linux-stat-starttime",
+          "ticks": "123456789",
+          "hz": 100
+        }
+      }
+    }
+  },
+  {
+    "name": "invalid-bound-request-id-trailing-newline",
+    "valid": false,
+    "document": {
+      "kind": "bound",
+      "launcher": "curator-run",
+      "manager_id": "demo",
+      "manager_registered_at": "2026-01-01T00:00:00Z",
+      "request_id": "request-1\n",
+      "werkstatt": "sample",
+      "session": "session-1",
+      "generation": 1,
+      "process": {
+        "pid": 4242,
+        "uid": 1001,
+        "boot_id": "6f1c0e2a-8b44-4d1e-9a51-2f0c3d7e9b10",
+        "start_time": {
+          "kind": "linux-stat-starttime",
+          "ticks": "123456789",
+          "hz": 100
+        }
+      }
+    }
+  },
+  {
+    "name": "invalid-bound-boot-id-trailing-newline",
+    "valid": false,
+    "document": {
+      "kind": "bound",
+      "launcher": "curator-run",
+      "manager_id": "demo",
+      "manager_registered_at": "2026-01-01T00:00:00Z",
+      "request_id": "request-1",
+      "werkstatt": "sample",
+      "session": "session-1",
+      "generation": 1,
+      "process": {
+        "pid": 4242,
+        "uid": 1001,
+        "boot_id": "6f1c0e2a-8b44-4d1e-9a51-2f0c3d7e9b10\n",
+        "start_time": {
+          "kind": "linux-stat-starttime",
+          "ticks": "123456789",
+          "hz": 100
+        }
+      }
+    }
+  },
+  {
+    "name": "valid-prepared-legacy-started-at-fractional",
+    "valid": true,
+    "document": {
+      "kind": "prepared",
+      "launcher": "curator-run",
+      "manager_id": "demo",
+      "manager_registered_at": "2026-01-01T00:00:00Z",
+      "request_id": "request-1",
+      "werkstatt": "sample",
+      "session": null,
+      "generation": null,
+      "process": {
+        "pid": 4242,
+        "started_at": "2026-01-01T00:00:00.5Z"
+      }
+    }
+  },
+  {
+    "name": "invalid-bound-linux-ticks-trailing-newline",
+    "valid": false,
+    "document": {
+      "kind": "bound",
+      "launcher": "curator-run",
+      "manager_id": "demo",
+      "manager_registered_at": "2026-01-01T00:00:00Z",
+      "request_id": "request-1",
+      "werkstatt": "sample",
+      "session": "session-1",
+      "generation": 1,
+      "process": {
+        "pid": 4242,
+        "uid": 1001,
+        "boot_id": "6f1c0e2a-8b44-4d1e-9a51-2f0c3d7e9b10",
+        "start_time": {
+          "kind": "linux-stat-starttime",
+          "ticks": "123456789\n",
+          "hz": 100
+        }
+      }
+    }
+  },
+  {
+    "name": "invalid-bound-darwin-sec-trailing-newline",
+    "valid": false,
+    "document": {
+      "kind": "bound",
+      "launcher": "curator-run",
+      "manager_id": "demo",
+      "manager_registered_at": "2026-01-01T00:00:00Z",
+      "request_id": "request-1",
+      "werkstatt": "sample",
+      "session": "session-1",
+      "generation": 1,
+      "process": {
+        "pid": 4242,
+        "uid": 1001,
+        "boot_id": "6f1c0e2a-8b44-4d1e-9a51-2f0c3d7e9b10",
+        "start_time": {
+          "kind": "darwin-pbi-start",
+          "sec": "1731715200\n",
+          "usec": 123456
+        }
+      }
+    }
+  },
+  {
+    "name": "valid-bound-darwin-boot-id-all-f",
+    "valid": true,
+    "document": {
+      "kind": "bound",
+      "launcher": "curator-run",
+      "manager_id": "demo",
+      "manager_registered_at": "2026-01-01T00:00:00Z",
+      "request_id": "request-1",
+      "werkstatt": "sample",
+      "session": "session-1",
+      "generation": 1,
+      "process": {
+        "pid": 4242,
+        "uid": 1001,
+        "boot_id": "ffffffff-ffff-ffff-ffff-ffffffffffff",
+        "start_time": {
+          "kind": "darwin-pbi-start",
+          "sec": "1731715200",
+          "usec": 123456
+        }
+      }
+    }
   }
 ]
