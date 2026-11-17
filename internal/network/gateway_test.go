@@ -178,8 +178,9 @@ func TestPrepareGatewayBindsQualifiedClaude(t *testing.T) {
 	for _, kv := range got.Patch.Set {
 		set[kv.Name] = kv.Value
 	}
-	if len(set) != 3 || set["ANTHROPIC_BASE_URL"] != "http://127.0.0.1:47811/anthropic" ||
-		set["ANTHROPIC_CUSTOM_HEADERS"] != "X-Netproxy-Token: "+gwToken || set["CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"] != "1" {
+	if len(set) != 4 || set["ANTHROPIC_BASE_URL"] != "http://127.0.0.1:47811/anthropic" ||
+		set["ANTHROPIC_CUSTOM_HEADERS"] != "X-Netproxy-Token: "+gwToken || set["CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"] != "1" ||
+		set["CLAUDE_CODE_MODEL_CATALOG"] != "off" {
 		t.Fatalf("set = %v", set)
 	}
 	unset := strings.Join(got.Patch.Unset, " ")
@@ -358,6 +359,14 @@ func TestPrepareGatewaySettingsEnvConflict(t *testing.T) {
 			root := t.TempDir()
 			os.MkdirAll(filepath.Join(root, ".claude"), 0o700)
 			writeTestFile(t, filepath.Join(root, ".claude", "settings.local.json"), `{"env":{"CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC":"0"}}`)
+			req.ProjectRoot = root
+		}, true},
+		// A settings env entry for the catalog switch refuses like the other
+		// owned names, so no settings file can turn the catalog fetch back on.
+		{"project settings.local.json catalog", func(t *testing.T, req *network.Request) {
+			root := t.TempDir()
+			os.MkdirAll(filepath.Join(root, ".claude"), 0o700)
+			writeTestFile(t, filepath.Join(root, ".claude", "settings.local.json"), `{"env":{"CLAUDE_CODE_MODEL_CATALOG":"on"}}`)
 			req.ProjectRoot = root
 		}, true},
 		{"undecodable project settings", func(t *testing.T, req *network.Request) {

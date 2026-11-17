@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+## 0.7.1 — 2026-11-17
+
+### Fixed
+
+- Under a filtering gateway, Claude Code no longer fetches its published model
+  catalog from `downloads.claude.ai`: the gateway sets
+  `CLAUDE_CODE_MODEL_CATALOG=off` in the child's launch-private environment
+  and owns the name like its other pairs, so an overlay or a settings `env`
+  entry naming it refuses. An admitted Claude Code 2.1.318 launch had opened
+  that direct connection, which `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1`
+  does not stop.
+- The gateway qualification recipe now requires a runtime witness that the
+  launched process makes no direct Anthropic connection.
+
 ## 0.7.0 — 2026-11-11
 
 ### Changed

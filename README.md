@@ -684,11 +684,11 @@ made from this host's tests.
 Install the tagged release with the Go toolchain specified by `go.mod`:
 
 ```bash
-go install github.com/relux-works/curator-agent-launcher/cmd/curator-run@v0.7.0
+go install github.com/relux-works/curator-agent-launcher/cmd/curator-run@v0.7.1
 curator-run --version
 ```
 
-The v0.7.0 release reports `0.7.0` (specification `0.5.1-draft`).
+The v0.7.1 release reports `0.7.1` (specification `0.5.1-draft`).
 Compatible with curator v0.15.0-rc.3 or later, once published.
 
 Alternatively, hosts without Go can download GitHub release artifacts.
@@ -981,8 +981,14 @@ directory, an audit session id, runtime `claude-code`) over
 `netproxy-control/1`. Any failure refuses `network_proxy_unreachable` with no
 unfiltered fallback. The child then gets `ANTHROPIC_BASE_URL` set to the
 gateway's base, `ANTHROPIC_CUSTOM_HEADERS` carrying the launch token in the
-gateway's header, and `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1`, in its
-launch-private environment only. Claude Code reads over a thousand names in
+gateway's header, `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1` and
+`CLAUDE_CODE_MODEL_CATALOG=off`, in its launch-private environment only. The
+last pair exists because Claude Code fetches its published model catalog from
+`downloads.claude.ai` when the base URL is not first-party, and the
+nonessential-traffic switch does not stop that fetch: an admitted 2.1.318
+gateway launch was observed opening TLS to that host without it. All four
+names are owned by the gateway: an overlay or settings `env` entry naming one
+refuses. Claude Code reads over a thousand names in
 its own namespaces (`CLAUDE_*`, `ANTHROPIC_*`, `CCR_*`), and they select
 providers, endpoints, transports, settings sources, remote and background
 sessions and runtime modes. Under a gateway those namespaces are held to an
@@ -1209,7 +1215,11 @@ Contract A narrows the launch; it does not isolate it. Its written residual:
   source gates its principal policy read/fetch/poll paths on first-party
   base-URL eligibility; that static observation is not a runtime connection
   witness or a guarantee about every later path. Actual gateway qualification
-  must check that the launched process makes no direct Anthropic connection;
+  must check that the launched process makes no direct Anthropic connection:
+  the runtime witness (for example the open connections of the child for the
+  first minutes of a session show only the gateway's local listener) is a
+  required step for every grounded build, because static checks alone passed
+  a build that still opened a direct connection;
 - the launch token is usable only at the gateway's same-host loopback
   listener.
 
@@ -1492,7 +1502,7 @@ make test       # go test ./... -count=1 (includes the CLI goldens)
 make race       # go test ./... -count=1 -race -timeout=12m (per package)
 make verify     # build, formatting, vet, test and release admission controls
 make check      # all of the above
-make release-binary VERSION=0.7.0 [GOOS=… GOARCH=…]  # reproducible binary + .sha256 in dist/
+make release-binary VERSION=0.7.1 [GOOS=… GOARCH=…]  # reproducible binary + .sha256 in dist/
 make release-repro                                 # two checkouts, identical bytes required
 ```
 
