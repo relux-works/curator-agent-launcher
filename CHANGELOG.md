@@ -46,6 +46,7 @@
   that admits these reads is agreed (liveness `capabilities` frozen at
   `up`) and is a later unit; until it is implemented the landing
   condition holds.
+- Publish the 264244b3 home-lease grammar in the nested session-manager module: lease-holder 1.1.0 admits the four-field process tuple on bound holders (legacy `{pid, started_at}` stays parseable on prepared holders only), and lease-result 1.1.0 adds bind-only `process_incarnation_mismatch`. Schemas and vectors only; the launcher pin follows separately.
 
 ## 0.7.0 — 2026-11-11
 

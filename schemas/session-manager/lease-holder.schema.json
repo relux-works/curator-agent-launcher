@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:relux:curator-run:lease-holder-v1",
-  "title": "Home leases v1: holder",
+  "title": "Home leases v1: holder 1.1.0",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -103,6 +103,82 @@
           }
         },
         {
+          "type": "object",
+          "properties": {
+            "pid": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2147483647
+            },
+            "uid": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            },
+            "boot_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            },
+            "start_time": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "const": "linux-stat-starttime"
+                    },
+                    "ticks": {
+                      "type": "string",
+                      "pattern": "^(0|[1-9][0-9]{0,19})$"
+                    },
+                    "hz": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 100000
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "ticks",
+                    "hz"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "const": "darwin-pbi-start"
+                    },
+                    "sec": {
+                      "type": "string",
+                      "pattern": "^(0|[1-9][0-9]{0,19})$"
+                    },
+                    "usec": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 999999
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "sec",
+                    "usec"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            }
+          },
+          "required": [
+            "pid",
+            "uid",
+            "boot_id",
+            "start_time"
+          ],
+          "additionalProperties": false
+        },
+        {
           "type": "null"
         }
       ]
@@ -126,7 +202,31 @@
             "type": "null"
           },
           "process": {
-            "type": "null"
+            "anyOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "pid",
+                  "started_at"
+                ],
+                "properties": {
+                  "pid": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 9007199254740991
+                  },
+                  "started_at": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d(?:\\.\\d{1,9})?Z$"
+                  }
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         }
       },
@@ -145,23 +245,79 @@
           },
           "process": {
             "type": "object",
-            "additionalProperties": false,
-            "required": [
-              "pid",
-              "started_at"
-            ],
             "properties": {
               "pid": {
                 "type": "integer",
                 "minimum": 1,
-                "maximum": 9007199254740991
+                "maximum": 2147483647
               },
-              "started_at": {
+              "uid": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4294967294
+              },
+              "boot_id": {
                 "type": "string",
-                "format": "date-time",
-                "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d(?:\\.\\d{1,9})?Z$"
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+              },
+              "start_time": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "const": "linux-stat-starttime"
+                      },
+                      "ticks": {
+                        "type": "string",
+                        "pattern": "^(0|[1-9][0-9]{0,19})$"
+                      },
+                      "hz": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 100000
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "ticks",
+                      "hz"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "const": "darwin-pbi-start"
+                      },
+                      "sec": {
+                        "type": "string",
+                        "pattern": "^(0|[1-9][0-9]{0,19})$"
+                      },
+                      "usec": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 999999
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "sec",
+                      "usec"
+                    ],
+                    "additionalProperties": false
+                  }
+                ]
               }
-            }
+            },
+            "required": [
+              "pid",
+              "uid",
+              "boot_id",
+              "start_time"
+            ],
+            "additionalProperties": false
           }
         }
       }

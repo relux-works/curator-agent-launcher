@@ -262,9 +262,19 @@ manager outcomes settle with their own outcome. Settlement is durable before
 pending removal. No phase or settlement authorizes release or invents OS proof.
 
 The `lease-{holder,record,result}` schemas snapshot the accepted Curator
-home-leases-v1 grammar at curator-spec `e8f0f6e`. References are resolved locally
+home-leases-v1 grammar at curator-spec `264244b3`, which incorporates the
+observation-v2 process tuple. `lease-holder` 1.1.0 keeps a prepared holder's
+`session`/`generation` null, with `process` null or the legacy closed
+`{pid, started_at}` (parseable, never binds); a bound holder carries an exact
+session, a positive safe-integer generation and exactly the four-field tuple
+`{pid, uid, boot_id, start_time}`, with the same two closed tagged
+`start_time` variants as session-record 1.3.0. `lease-result` 1.1.0 adds
+`environment_lease_holder_mismatch`/`process_incarnation_mismatch` on bind
+only. The operation journal's launcher-authored prepared holder still
+requires `process` null. References are resolved locally
 and fragment definitions are expanded; regex end assertions use Go's strict end
 anchor. These schemas validate consumer input, and grant no bind/release/break
-authority. Operation and settlement vectors pair valid retained correlation with
+authority. Lease holder and result vectors pair each new valid shape with its
+invalid neighbours. Operation and settlement vectors pair valid retained correlation with
 missing correlation, invented process, unknown phase and release-assertion
 negatives (HL21/HL23; qualification L1/L3).

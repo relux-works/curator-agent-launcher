@@ -1,0 +1,305 @@
+[
+  {
+    "name": "valid-bind-bound-active-holder-linux",
+    "valid": true,
+    "document": {
+      "schema_version": 1,
+      "operation": "bind",
+      "ok": true,
+      "exit": 0,
+      "code": null,
+      "reason": "bound",
+      "result": {
+        "changed": true,
+        "lease": {
+          "kind": "home-lease/1",
+          "lease_id": "lease-1",
+          "manager_root_id": "root-1",
+          "home_id": "home-1",
+          "environment": "muse",
+          "profile": "sample",
+          "lock_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+          "revision": 2,
+          "phase": "active",
+          "acquired_at": "2026-01-01T00:00:00Z",
+          "holder": {
+            "kind": "bound",
+            "launcher": "curator-run",
+            "manager_id": "demo",
+            "manager_registered_at": "2026-01-01T00:00:00Z",
+            "request_id": "request-1",
+            "werkstatt": "sample",
+            "session": "session-1",
+            "generation": 1,
+            "process": {
+              "pid": 4242,
+              "uid": 1001,
+              "boot_id": "6f1c0e2a-8b44-4d1e-9a51-2f0c3d7e9b10",
+              "start_time": {
+                "kind": "linux-stat-starttime",
+                "ticks": "123456789",
+                "hz": 100
+              }
+            }
+          },
+          "observation": {
+            "state": "not_observed",
+            "observed_at": null
+          }
+        }
+      },
+      "details": null
+    }
+  },
+  {
+    "name": "invalid-bind-bound-active-legacy-holder",
+    "valid": false,
+    "document": {
+      "schema_version": 1,
+      "operation": "bind",
+      "ok": true,
+      "exit": 0,
+      "code": null,
+      "reason": "bound",
+      "result": {
+        "changed": true,
+        "lease": {
+          "kind": "home-lease/1",
+          "lease_id": "lease-1",
+          "manager_root_id": "root-1",
+          "home_id": "home-1",
+          "environment": "muse",
+          "profile": "sample",
+          "lock_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+          "revision": 2,
+          "phase": "active",
+          "acquired_at": "2026-01-01T00:00:00Z",
+          "holder": {
+            "kind": "bound",
+            "launcher": "curator-run",
+            "manager_id": "demo",
+            "manager_registered_at": "2026-01-01T00:00:00Z",
+            "request_id": "request-1",
+            "werkstatt": "sample",
+            "session": "session-1",
+            "generation": 1,
+            "process": {
+              "pid": 4242,
+              "started_at": "2026-01-01T00:00:00Z"
+            }
+          },
+          "observation": {
+            "state": "not_observed",
+            "observed_at": null
+          }
+        }
+      },
+      "details": null
+    }
+  },
+  {
+    "name": "valid-bind-holder-mismatch-process-incarnation-mismatch",
+    "valid": true,
+    "document": {
+      "schema_version": 1,
+      "operation": "bind",
+      "ok": false,
+      "exit": 1,
+      "code": "environment_lease_holder_mismatch",
+      "reason": "process_incarnation_mismatch",
+      "result": null,
+      "details": {
+        "lease_id": "lease-1",
+        "revision": 1,
+        "holders": [],
+        "count": 0
+      }
+    }
+  },
+  {
+    "name": "invalid-acquire-process-incarnation-mismatch-is-bind-only",
+    "valid": false,
+    "document": {
+      "schema_version": 1,
+      "operation": "acquire",
+      "ok": false,
+      "exit": 1,
+      "code": "environment_lease_holder_mismatch",
+      "reason": "process_incarnation_mismatch",
+      "result": null,
+      "details": {
+        "lease_id": "lease-1",
+        "revision": 1,
+        "holders": [],
+        "count": 0
+      }
+    }
+  },
+  {
+    "name": "invalid-release-process-incarnation-mismatch-is-bind-only",
+    "valid": false,
+    "document": {
+      "schema_version": 1,
+      "operation": "release",
+      "ok": false,
+      "exit": 1,
+      "code": "environment_lease_holder_mismatch",
+      "reason": "process_incarnation_mismatch",
+      "result": null,
+      "details": {
+        "lease_id": "lease-1",
+        "revision": 1,
+        "holders": [],
+        "count": 0
+      }
+    }
+  },
+  {
+    "name": "valid-bind-authority-refused-authority-unavailable",
+    "valid": true,
+    "document": {
+      "schema_version": 1,
+      "operation": "bind",
+      "ok": false,
+      "exit": 1,
+      "code": "environment_lease_authority_refused",
+      "reason": "authority_unavailable",
+      "result": null,
+      "details": {
+        "lease_id": "lease-1",
+        "revision": 1,
+        "holders": [],
+        "count": 0
+      }
+    }
+  },
+  {
+    "name": "invalid-list-process-incarnation-mismatch-is-bind-only",
+    "valid": false,
+    "document": {
+      "schema_version": 1,
+      "operation": "list",
+      "ok": false,
+      "exit": 1,
+      "code": "environment_lease_holder_mismatch",
+      "reason": "process_incarnation_mismatch",
+      "result": null,
+      "details": {
+        "lease_id": "lease-1",
+        "revision": 1,
+        "holders": [],
+        "count": 0
+      }
+    }
+  },
+  {
+    "name": "invalid-break-process-incarnation-mismatch-is-bind-only",
+    "valid": false,
+    "document": {
+      "schema_version": 1,
+      "operation": "break",
+      "ok": false,
+      "exit": 1,
+      "code": "environment_lease_holder_mismatch",
+      "reason": "process_incarnation_mismatch",
+      "result": null,
+      "details": {
+        "lease_id": "lease-1",
+        "revision": 1,
+        "holders": [],
+        "count": 0
+      }
+    }
+  },
+  {
+    "name": "valid-bind-usage-invalid-holder",
+    "valid": true,
+    "document": {
+      "schema_version": 1,
+      "operation": "bind",
+      "ok": false,
+      "exit": 2,
+      "code": "usage",
+      "reason": "invalid_holder",
+      "result": null,
+      "details": {
+        "lease_id": "lease-1",
+        "revision": 1,
+        "holders": [],
+        "count": 0
+      }
+    }
+  },
+  {
+    "name": "valid-acquire-holder-mismatch-request-conflict",
+    "valid": true,
+    "document": {
+      "schema_version": 1,
+      "operation": "acquire",
+      "ok": false,
+      "exit": 1,
+      "code": "environment_lease_holder_mismatch",
+      "reason": "request_conflict",
+      "result": null,
+      "details": {
+        "lease_id": "lease-1",
+        "revision": 1,
+        "holders": [],
+        "count": 0
+      }
+    }
+  },
+  {
+    "name": "valid-list-listed-bound-active-holder-darwin",
+    "valid": true,
+    "document": {
+      "schema_version": 1,
+      "operation": "list",
+      "ok": true,
+      "exit": 0,
+      "code": null,
+      "reason": "listed",
+      "result": {
+        "leases": [
+          {
+            "kind": "home-lease/1",
+            "lease_id": "lease-1",
+            "manager_root_id": "root-1",
+            "home_id": "home-1",
+            "environment": "muse",
+            "profile": "sample",
+            "lock_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+            "revision": 2,
+            "phase": "active",
+            "acquired_at": "2026-01-01T00:00:00Z",
+            "holder": {
+              "kind": "bound",
+              "launcher": "curator-run",
+              "manager_id": "demo",
+              "manager_registered_at": "2026-01-01T00:00:00Z",
+              "request_id": "request-1",
+              "werkstatt": "sample",
+              "session": "session-1",
+              "generation": 1,
+              "process": {
+                "pid": 4242,
+                "uid": 1001,
+                "boot_id": "6f1c0e2a-8b44-4d1e-9a51-2f0c3d7e9b10",
+                "start_time": {
+                  "kind": "darwin-pbi-start",
+                  "sec": "1731715200",
+                  "usec": 123456
+                }
+              }
+            },
+            "observation": {
+              "state": "not_observed",
+              "observed_at": null
+            }
+          }
+        ]
+      },
+      "details": null
+    }
+  }
+]

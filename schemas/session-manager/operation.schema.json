@@ -152,6 +152,9 @@
               "properties": {
                 "kind": {
                   "const": "prepared"
+                },
+                "process": {
+                  "type": "null"
                 }
               }
             }
