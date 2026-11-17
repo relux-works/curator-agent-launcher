@@ -39,6 +39,14 @@ func SetStatPath(stat func(string) (os.FileInfo, error)) (restore func()) {
 	return func() { statPath = previous }
 }
 
+// SetExactLegacyListed replaces how the legacy global file's directory
+// listing is checked for the exact legacy name.
+func SetExactLegacyListed(list func(string, string, func() error) (bool, error)) (restore func()) {
+	previous := exactLegacyListed
+	exactLegacyListed = list
+	return func() { exactLegacyListed = previous }
+}
+
 // SetListDropIns replaces how a managed drop-in directory is listed.
 func SetListDropIns(list func(string, int, func() error) ([]os.DirEntry, error)) (restore func()) {
 	previous := listDropIns

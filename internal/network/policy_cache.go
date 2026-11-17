@@ -130,7 +130,8 @@ func policyCachePath(doc []byte, remote bool) string {
 				}
 				// Either bool is inert under the existing gateway input boundary:
 				// the pinned loopback base and refused socket/first-party/client-data
-				// overrides make native policy ineligible in 2.1.316 and 2.1.318.
+				// overrides make native policy ineligible in the grounded builds
+				// (2.1.316, 2.1.318 and, per its qualification record, 2.1.326).
 				// Outside that boundary false can suppress hinted enforcement.
 			}
 		case "defaults":

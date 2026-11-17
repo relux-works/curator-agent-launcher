@@ -122,14 +122,54 @@ func managedSettingsDir() string {
 // errAbsent marks a source with no directory entry at all.
 var errAbsent = errors.New("absent")
 
-// selectedGlobalFile mirrors the 2.1.314 runtime's choice of its global
-// configuration file (y_ and XSr in the bundle) for a launch that is not
-// diskless: the legacy <config dir>/.config.json when it is a regular file
-// that is non-empty, or writable while <dir>/.claude.json does not exist;
-// otherwise <dir>/.claude.json. Its suffix comes only from
-// CLAUDE_CODE_CUSTOM_OAUTH_URL, which the gateway refuses and removes. Both
-// lookups follow links, as the runtime's do. Only the selected file is a
-// source; the other is not read.
+// exactLegacyListed reports whether dir's listing contains base under that
+// exact name. The 2.1.326 global-file chooser stats the legacy path and
+// then checks the directory listing for the exact legacy name: on a
+// case-insensitive filesystem a case-variant entry stats as the legacy file
+// but is not listed under the exact name, and that build then reads the new
+// file instead. Tests replace it to stage that listing result on
+// case-sensitive hosts.
+var exactLegacyListed = func(dir, base string, step func() error) (bool, error) {
+	f, err := os.OpenFile(dir, os.O_RDONLY|syscall.O_NONBLOCK|syscall.O_DIRECTORY, 0)
+	if err != nil {
+		return false, err
+	}
+	defer f.Close()
+	for {
+		if err := step(); err != nil {
+			return false, err
+		}
+		entries, err := f.ReadDir(128)
+		for _, entry := range entries {
+			if entry.Name() == base {
+				return true, nil
+			}
+		}
+		if errors.Is(err, io.EOF) {
+			return false, nil
+		}
+		if err != nil {
+			return false, err
+		}
+	}
+}
+
+// selectedGlobalFile mirrors the grounded runtimes' choice of the global
+// configuration file for a launch that is not diskless: the legacy
+// <config dir>/.config.json when it is a regular file that is non-empty, or
+// writable while <dir>/.claude.json does not exist; otherwise
+// <dir>/.claude.json. The 2.1.326 chooser returns the same file in every
+// exact-name state (see the case table in
+// docs/qualification/claude-code-2.1.326-darwin-arm64.md) except one: with
+// both files present, regular and non-empty, distinct, and the legacy entry
+// absent from its directory listing under the exact name (a case-variant
+// name on a case-insensitive filesystem), 2.1.326 reads the new file while
+// 2.1.316/2.1.318 read the legacy file. Which file applies is then
+// build-dependent, so that state refuses rather than guessing. The
+// selection is otherwise global, not build-keyed. The global file's suffix
+// comes only from CLAUDE_CODE_CUSTOM_OAUTH_URL, which the gateway refuses
+// and removes. Both lookups follow links, as the runtime's do. Only the
+// selected file is a source; the other is not read.
 func selectedGlobalFile(clock guardClock, name, configDir, globalDir string) (string, error) {
 	selected := filepath.Join(globalDir, ".claude.json")
 	if configDir == "" {
@@ -144,6 +184,24 @@ func selectedGlobalFile(clock guardClock, name, configDir, globalDir string) (st
 		return selected, nil
 	}
 	if info.Size() > 0 {
+		if err := clock.step(name); err != nil {
+			return "", err
+		}
+		if newer, err := statPath(selected); err == nil && newer.Mode().IsRegular() && newer.Size() > 0 && !os.SameFile(info, newer) {
+			exact, err := exactLegacyListed(filepath.Dir(legacy), filepath.Base(legacy), func() error {
+				if err := clock.step(name); err != nil {
+					return clockStop{err}
+				}
+				return nil
+			})
+			var stop clockStop
+			if errors.As(err, &stop) {
+				return "", stop.error
+			}
+			if err != nil || !exact {
+				return "", refusal.New(refusal.CodeConfigurationConflict, name, "Claude Code settings (global) cannot be checked: the legacy global file is not listed under its exact name, so the file the runtime reads cannot be determined")
+			}
+		}
 		return legacy, nil
 	}
 	if info.Mode().Perm()&0o222 != 0 {

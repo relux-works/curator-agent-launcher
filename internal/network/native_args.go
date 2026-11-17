@@ -87,7 +87,14 @@ var gatewayNativeShortOptions = map[string]argShape{
 // --worktree, -w, and -c, --continue, -r, --resume, --from-pr). Because
 // those searches see option values and arguments after "--" too, a native
 // argument equal to any of these refuses wherever it stands; a prompt that is
-// exactly such a word refuses as well.
+// exactly such a word refuses as well. The 2.1.326 bundle adds the raw
+// whole-argv token --ignore-persisted-trust, the hidden commands
+// worktree-hook and workspace-trust, and the eager-scanned settings-source
+// token --managed-settings-in-initialize (reserved on the --bg precedent:
+// its value-slot coverage is proven in the 2.1.326 qualification record, and
+// the reservation keeps a future allowlist addition from reopening it).
+// The list is global, not build-keyed: on builds that do not know a word it
+// is inert, and refusing it in every position is fail-closed.
 var claudeReservedArgs = map[string]bool{}
 
 // claudeReservedBeforeTerminator are the raw tokens the runtime looks for
@@ -108,9 +115,11 @@ func init() {
 		validate tag list eval test details marketplace add remove prune enable disable configure xaa setup
 		show clear mcp serve get add-json add-from-claude-desktop reset-project-choices
 		i autoremove remote sync bridge daemon self-hosted-runner forward-home-settings
+		worktree-hook workspace-trust
 		--handle-uri --session-tunnel --runner-declares --eval-mock-server --claude-in-chrome-mcp
 		--chrome-native-host --computer-use-mcp --daemon-worker --bg-pty-host --bg-spare --preload
 		--update --upgrade --bg --background --tmux --worktree -w
+		--ignore-persisted-trust --managed-settings-in-initialize
 		--agent-teams --hard-fail -c --continue -r --resume --from-pr --gh-standin --version -v -V`) {
 		claudeReservedArgs[n] = true
 	}

@@ -38,6 +38,10 @@ jobs:
       - name: Build, format, vet, test and release admission controls
         run: make verify
 
+      - name: Gateway Claude 2.1.326 plant controls
+        if: matrix.os == 'ubuntu-latest'
+        run: make gateway-claude326-controls
+
   race:
     name: Race (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
