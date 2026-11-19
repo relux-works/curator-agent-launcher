@@ -525,7 +525,7 @@ func TestPrepareGatewaySettingsScopeRound2(t *testing.T) {
 
 // Inherited provider-route selectors and endpoints are removed from the
 // child, so a parent environment cannot route the runtime around the
-// gateway; the gateway's own three names are set.
+// gateway; the gateway's own four names are set.
 func TestPrepareGatewayUnsetsRouteNames(t *testing.T) {
 	g := newGateway(t)
 	req := gatewayRequest(gatewayHome(t, g, true))

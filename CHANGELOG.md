@@ -17,8 +17,9 @@
 
 ### Fixed
 
-- Refuse supplied trust and model-catalog URL selectors, and strip inherited
-  selectors, without weakening the gateway's four owned environment pairs.
+- Pin with tests and plant controls the existing refusal of supplied
+  `CLAUDE_CODE_IGNORE_PERSISTED_TRUST` and `CLAUDE_CODE_MODEL_CATALOG_URL`
+  and the removal of inherited values (behavior unchanged from 0.7.1).
 - Correct the catalog-fetch attribution and classify every download-host
   path in the qualification record. Static evidence does not replace the
   required fresh-home runtime witness, including the marketplace git fallback.
