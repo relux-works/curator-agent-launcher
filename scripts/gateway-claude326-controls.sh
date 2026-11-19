@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Plant controls for the Claude Code 2.1.326 gateway admission changes.
 #
-# Each plant weakens exactly one gate. The harness first runs every named
+# Each plant weakens one gate or corrupts one catalog-grounding statement.
+# The harness first runs every named
 # test on an unmodified scratch copy and requires it to pass (the valid
 # control), then applies one plant at a time and requires the named test to
 # fail. A plant that does not change its file, or that its named test
@@ -53,6 +54,15 @@ plants=(
   # case-variant legacy name then passes as exact, and the listing
   # refusal can never fire through the real function.
   "G8@@$GUARD@@$NETPKG@@TestExactLegacyListedReal/not_listed_under_exact_name@@if entry.Name() == base {@@if entry.Name() != \"\" {"
+  # Miswire the real lister to the new filename: a case variant is admitted.
+  "G9@@$GUARD@@$NETPKG@@TestPrepareGatewayGlobalFileRealCaseVariant/case-variant_listing_refuses@@filepath.Base(legacy)@@\".claude.json\""
+  # Swallow a non-clock listing error: the clean legacy file is admitted.
+  "G10@@$GUARD@@$NETPKG@@TestPrepareGatewayGlobalFileCaseVariant/listing_error_refuses@@if err != nil || !exact {@@if err == nil && !exact {"
+  # Restore B1r in each published explanation: claim 6a must stay accurate.
+  "G11@@README.md@@$NETPKG@@TestGatewayCatalogGroundingText/README@@for first-party API-key and@@for a non-first-party base and"
+  "G12@@internal/network/gateway.go@@$NETPKG@@TestGatewayCatalogGroundingText/gateway_comment@@for first-party API-key and cloud-provider sessions@@for a non-first-party base"
+  # Select the empty new file instead of the route-bearing legacy file.
+  "G13@@$GUARD@@$NETPKG@@TestPrepareGatewayGlobalFile326Cases/route_in_the_selected_legacy_file_beside_an_empty_new_file@@if info.Size() > 0 {@@if false && info.Size() > 0 {"
 )
 
 # A requested id that names no plant, or a run that evaluates none, must

@@ -989,17 +989,19 @@ gateway's header, `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1` and
 last pair is set because an admitted Claude Code 2.1.318 gateway launch, run
 without it, was observed opening TLS to `downloads.claude.ai`; the published
 2.1.318 darwin-arm64 binary (the `677a2ea7…` hash in the grounded table below)
-fetches a signed model catalog from that host for a non-first-party base, and
-its own release note names `CLAUDE_CODE_MODEL_CATALOG=off` as the switch that
-turns the fetch off. A later static reading of that binary (claim 6 of the
+fetches a signed model catalog from that host for first-party API-key and
+cloud-provider sessions. Its release note names
+`CLAUDE_CODE_MODEL_CATALOG=off` as the switch that turns the fetch off.
+For the gateway's first-party-with-custom-base shape, however, the published
+path is off by its feature flag and release constant (claim 6a of the
 2.1.326 record below, which classifies every `downloads.claude.ai` occurrence
-in 2.1.318 and 2.1.326) shows the catalog gate tests `off` first and the
-nonessential-traffic switch second, so the observed launch — which already ran
-with nonessential traffic disabled — had the catalog fetch off, and the
-observed connection was something else; the pair is kept as the unconditional
-first test, not credited with stopping that connection. What stops the
-observed connection is not yet witnessed at runtime: a launch with the pair
-must show it before the build is relied on (the runtime witness below). All four names are
+in 2.1.318 and 2.1.326). The catalog gate also tests `off` before the
+nonessential-traffic switch, so the observed connection — from a launch that
+already ran with nonessential traffic disabled — was not the catalog fetch
+on that static reading (claim 6b). The pair is kept as the unconditional first
+test, not credited with stopping that connection. Nothing in the launcher is
+shown to stop the observed connection; a launch must show no direct connection
+before the build is relied on (the runtime witness below). All four names are
 owned by the gateway; as before, an overlay or settings `env` entry naming any
 `CLAUDE_*` name outside the allowlist refuses. Claude Code reads over a thousand names in
 its own namespaces (`CLAUDE_*`, `ANTHROPIC_*`, `CCR_*`), and they select
@@ -1253,12 +1255,20 @@ Contract A narrows the launch; it does not isolate it. Its written residual:
   runtime connection witness or a guarantee about every later path. Actual
   gateway qualification must check that the launched process makes no
   direct Anthropic connection, connector downloads and the
-  official-marketplace auto-install fetch (claim 6 of the 2.1.326
-  record) included: the runtime
-  witness (for example the open connections of the child for the first
-  minutes of a session show only the gateway's local listener) is a
-  required step for every grounded build, because static checks alone
-  passed a build that still opened a direct connection;
+  official-marketplace auto-install included (claim 6 of the 2.1.326 record).
+  On CDN failure that auto-install can fall back to a direct git clone from
+  `github.com` of `anthropics/claude-plugins-official`; the gateway removes
+  its `CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL` switch when
+  inherited and refuses it when supplied, so an operator cannot close this
+  path through the environment. The owner-selected fifth owned pair is a
+  separate later change, not part of this grounding. The runtime witness
+  must start from a managed home whose global file carries no
+  `officialMarketplaceAutoInstall*` state and where the official marketplace
+  is not already installed, so the one-shot and failure backoff cannot make
+  the check vacuous. Record the request paths and binary hash, and observe
+  direct connections including the git fallback, not just the CDN host.
+  This witness is required for every grounded build, because static checks
+  alone passed a build that still opened a direct connection;
 - the launch token is usable only at the gateway's same-host loopback
   listener.
 
@@ -1848,6 +1858,7 @@ five signing secrets.
 | production pipeline mutants | narrow native late checks at `run(...)` in a scratch copy | `python3 .scripts/pipeline-mutants.py [evidence-dir]` | per-mutant logs and `summary.tsv`; 6 named narrowing probes |
 | CLI goldens | frozen accepted/rejected §3 shapes | `go test ./internal/cli -run TestGolden -update` to regenerate, then review the diff | `internal/cli/testdata/cases.golden` |
 | `scripts/observation-v2-controls.sh` | plant controls for the observation-v2 consumer: each plant weakens one gate in a scratch copy and its named test must fail | `make observation-v2-controls` (`CONTROLS_ONLY=P1,P2` selects a subset) | per-plant logs and `summary.tsv` under `.temp/observation-v2-controls/`; the working tree is never mutated |
+| `scripts/gateway-claude326-controls.sh` | gateway admission and catalog-grounding regression plants, each paired with its unmodified control in a scratch copy | `make gateway-claude326-controls` (`CONTROLS_ONLY=G9,G10` selects a subset) | per-plant logs and `summary.tsv` under `.temp/gateway-claude326-controls/`; the working tree is never mutated |
 | `.scripts/hosted-mutants.sh` / `.scripts/host-launch-mutants.py` | Bounded host resolution, matrix and request controls; each plant requires its passing control and named behavioral assertion. Missing anchors fail closed. | `.scripts/hosted-mutants.sh [evidence-dir]` (`MUTANTS_ONLY=M-H1,M-H2` selects a subset) | isolated source copy, per-control logs and `summary.tsv` under `.temp/hosted-mutants/` by default; working source is untouched |
 | `internal/mutantguard` | committed check that runs required withdrawn-host, no-fallback, native-bypass and missing-registration mutants M-H1, M-H2, M-H3 and M-H22 through the harness in a scratch copy of the tree and requires each to be applied and killed | `go test ./internal/mutantguard` | scratch copy under the test temp dir; the working tree is never mutated |
 | `.scripts/cli-mutants.sh` | narrowing-mutant harness for the §3 gates: each mutant weakens one gate to admit one rejected shape and the named test must fail | `.scripts/cli-mutants.sh [evidence-dir]` (optional `MUTANT_PKGS`, `MUTANT_RUN` for bounded batches) | per-mutant logs and `summary.tsv` under the evidence dir (default `.temp/cli-mutants/`); the source tree is restored on exit |

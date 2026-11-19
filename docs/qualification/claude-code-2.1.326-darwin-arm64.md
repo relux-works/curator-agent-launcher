@@ -20,9 +20,13 @@ with this record as its evidence, and the README's runtime
 no-direct-connection witness has been run for this build; a hash entry
 alone does not establish these semantics, and the hash must not be
 recorded without the launcher change. This evidence supports an `exec`
-(print) strict-tuple entry. It does not by itself qualify an
-`interactive` entry: the interactive session mounts UI setup effects this
-check mostly does not exercise, one of which (the official-marketplace
+(print) strict-tuple entry only after a witness from a managed home whose
+global file carries no `officialMarketplaceAutoInstall*` state and whose
+official marketplace is not already installed, with request paths and the
+binary hash recorded (claim 6b). Whether the auto-install setup effect
+mounts in print launches remains a runtime question. It does not by itself
+qualify an `interactive` entry: the interactive session mounts UI setup
+effects this check mostly does not exercise, one of which (the official-marketplace
 auto-install fetch, claim 6) is named there, so an `interactive` entry
 needs its own recipe evaluation and witness even when it names this
 record. Three findings of the first draft change verdict on tracing: the
@@ -980,7 +984,12 @@ change.
   host. Whether the setup effect also mounts in print launches could
   not be settled statically. This is the one path to the host that
   remains reachable under the gateway's conditions; it is unchanged
-  in 2.1.326 and is not closed by this grounding.
+  in 2.1.326 and is not closed by this grounding. If the CDN fetch fails,
+  the auto-install can fall back to a direct git clone of
+  `{source:"github",repo:"anthropics/claude-plugins-official"}` from
+  `github.com`, behind `tengu_plugin_official_mkt_git_fallback`, whose
+  default is `true`. That second direct host must also be observed; a
+  witness that blocks only the CDN does not close the fallback.
 
 ### 6b. The observed connection — CANNOT TELL
 
@@ -993,16 +1002,22 @@ stopping it. Of the remaining paths, the marketplace auto-install is
 the only one a gateway launch of that shape could have taken, but
 which path actually fired — or whether the connection was something
 this static pass cannot see — is exactly what the runtime witness
-exists to decide, ideally recording the request path (marketplace
-`latest`/zip versus `model-catalog/v1/catalog.json`) and the binary
-hash it ran. The README therefore keeps the witness as a required
+exists to decide. The witness must start from a managed home whose global
+file carries no `officialMarketplaceAutoInstall*` state and whose official
+marketplace is not already installed: the attempted/installed markers and
+the one-hour-to-seven-day failure backoff must not suppress the one-shot
+path. Record the request paths (marketplace `latest`/zip versus
+`model-catalog/v1/catalog.json`, and any git fallback) and the binary hash
+it ran. The README therefore keeps the witness as a required
 step for every grounded build, 2.1.326 included, now naming the
 marketplace auto-install beside connector downloads; the catalog pair
 is defence the witness must still confirm, not a substitute for it.
-Closing the auto-install path from the launcher (for example owning
-its kill-switch variable as a fifth pair) is a separate decision this
-record does not take: nothing in this grounding depends on it, and
-the witness remains required either way.
+The owner selected option A, owning
+`CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL=1` as a fifth pair,
+for a separate later PR. This grounding does not add it: the current
+gateway still removes or refuses the switch, and no launcher closure of
+the auto-install or its git fallback is claimed. The witness remains
+required either way.
 
 ## What this grounding required
 
@@ -1018,10 +1033,10 @@ on the grounded builds.
 | 2 | Reserve `worktree-hook`, `workspace-trust` | Global | `claudeReservedArgs` in `native_args.go` | `TestPrepareGateway326DispatchWords` | G2, G2b |
 | 3 | Reserve `--managed-settings-in-initialize` (coverage proven in claim 4; `--bg` precedent) | Global | `claudeReservedArgs` in `native_args.go` | `TestPrepareGateway326DispatchWords` | G3 |
 | 4 | `CLAUDE_CODE_IGNORE_PERSISTED_TRUST`: supplied refuses, inherited removed (existing closed-namespace rule; no code change) | Global (existing) | `gatewayRefusedName` in `settings_guard.go` | `TestPrepareGatewayIgnorePersistedTrustEnv` (new pin) | G4 (admits the name) |
-| 5 | Refuse the build-divergent global-file state (both non-empty, distinct, exact legacy name unlisted) | Global (triggers only where choice would be build-dependent) | `selectedGlobalFile`, `exactLegacyListed` in `settings_guard.go` | `TestPrepareGatewayGlobalFileCaseVariant`, `TestPrepareGatewayGlobalFile326Cases`, `TestExactLegacyListedReal` (the production lister, not a stub) | G5, G6, G8 |
+| 5 | Refuse the build-divergent global-file state (both non-empty, distinct, exact legacy name unlisted) and fail closed on listing errors | Global (triggers only where choice would be build-dependent or cannot be checked) | `selectedGlobalFile`, `exactLegacyListed` in `settings_guard.go` | `TestPrepareGatewayGlobalFileCaseVariant`, `TestPrepareGatewayGlobalFile326Cases`, `TestExactLegacyListedReal`, `TestPrepareGatewayGlobalFileRealCaseVariant` (production lister wired through `Prepare`, with only stat aliased) | G5, G6, G8, G9, G10, G13 |
 | 6 | Connector: no cache narrowing; README bounds the no-literal-consumer sentence and names connector downloads beside the runtime witness (claim 2d) | Text only | — | Existing policy-cache vectors keep passing | — |
 | 7 | `upcoming_minimum_version` and every new restriction key: keep refusing (existing closed subset) | Global (existing) | `policyCachePath` in `policy_cache.go` (unchanged behaviour) | Existing policy-cache vectors | — |
-| 8 | Model catalog (claim 6a): the gateway sets and requires `CLAUDE_CODE_MODEL_CATALOG=off`; already landed independently of this change, relied on here, not duplicated; its `gateway.go` comment is corrected there (the fetch is also gated by the nonessential-traffic switch) | Global (existing) | `gatewayClaudeNames`, the registration patch and `gatewayCompositionCheck` in `gateway.go` | `TestPrepareGatewayBindsQualifiedClaude`, `TestGatewayComposedEnvironmentBoundary`, the settings-conflict catalog case | — |
+| 8 | Model catalog (claim 6a): the gateway sets and requires `CLAUDE_CODE_MODEL_CATALOG=off`; already landed independently of this change, relied on here, not duplicated; README and `gateway.go` now match the published custom-base off path | Global (existing); text correction only | `gatewayClaudeNames`, the registration patch and `gatewayCompositionCheck` in `gateway.go` | `TestPrepareGatewayBindsQualifiedClaude`, `TestGatewayComposedEnvironmentBoundary`, the settings-conflict catalog case; `TestGatewayCatalogGroundingText` pins prose only | G11, G12 (text regression) |
 | 9 | `CLAUDE_CODE_MODEL_CATALOG_URL`: supplied refuses, inherited removed (existing closed-namespace rule; no code change) | Global (existing) | `gatewayRefusedName` in `settings_guard.go` | `TestPrepareGatewayModelCatalogURLEnv` (new pin) | G7 (admits the name) |
 
 Refusals reuse the existing codes: native-tail refusals are the
@@ -1029,8 +1044,9 @@ configuration-conflict code the tail already returns, the legacy-listing
 refusal is the same code at the settings boundary, and contract-A cache
 refusals stay `network_scope_unsupported`. No new refusal code is added.
 Plants live in `scripts/gateway-claude326-controls.sh` (`make
-gateway-claude326-controls`): each plant weakens one gate in a scratch
-copy, its named test must fail there after passing unmodified, and the
+gateway-claude326-controls`): each plant weakens one gate or corrupts one
+catalog-grounding statement in a scratch copy, its named test must fail
+there after passing unmodified, and the
 working tree is never mutated.
 
 What a gate owner must not conclude from this record:

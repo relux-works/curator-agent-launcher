@@ -2,6 +2,7 @@ package network_test
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -131,12 +132,14 @@ func TestPrepareGatewayGlobalFile326Cases(t *testing.T) {
 		{"control: no legacy, no new file", "", "", false, false, false, true, ""},
 		{"control: empty legacy, no new file", "", "", true, false, false, true, ""},
 		{"control: clean legacy selected, no new file", clean, "", true, false, false, true, ""},
+		{"control: clean legacy selected beside an empty new file", clean, "", true, true, false, true, ""},
 		{"control: clean legacy selected beside a non-file new path", clean, "", true, true, true, true, ""},
 		{"empty legacy, empty selected new file cannot be decoded", "", "", true, true, false, false, decodeDetail},
 		{"no legacy, empty selected new file cannot be decoded", "", "", false, true, false, false, decodeDetail},
 		{"empty legacy, route in the selected new file", "", route, true, true, false, false, routeDetail},
 		{"no legacy, route in the new file", "", route, false, true, false, false, routeDetail},
 		{"route in the selected legacy file, no new file", route, "", true, false, false, false, routeDetail},
+		{"route in the selected legacy file beside an empty new file", route, "", true, true, false, false, routeDetail},
 		{"route in the selected legacy file, clean new file beside it", route, clean, true, true, false, false, routeDetail},
 		{"route in the selected legacy file beside a non-file new path", route, "", true, true, true, false, routeDetail},
 		{"no legacy, non-file new path is not readable", "", "", false, true, true, false, unreadableDetail},
@@ -176,7 +179,7 @@ func TestPrepareGatewayGlobalFile326Cases(t *testing.T) {
 	}
 }
 
-// Claim: when both global files are non-empty but the legacy entry is not listed under its exact name (a case-variant on a case-insensitive filesystem), the guard refuses with the listing refusal instead of guessing which file the runtime reads — whichever file holds the route — while the exact-name control is admitted.
+// Claim: when both global files are non-empty but the legacy entry is not listed under its exact name (a case-variant on a case-insensitive filesystem), or the listing fails, the guard refuses with the listing refusal instead of guessing which file the runtime reads — whichever file holds the route — while the exact-name control is admitted.
 func TestPrepareGatewayGlobalFileCaseVariant(t *testing.T) {
 	route := `{"env":{"ANTHROPIC_BASE_URL":"https://x"}}`
 	clean := `{"projects":{}}`
@@ -208,6 +211,20 @@ func TestPrepareGatewayGlobalFileCaseVariant(t *testing.T) {
 			t.Fatalf("refusal is not the listing refusal: %v", err)
 		}
 	})
+	t.Run("listing error refuses", func(t *testing.T) {
+		restore := network.SetExactLegacyListed(func(string, string, func() error) (bool, error) {
+			return false, errors.New("directory listing failed")
+		})
+		defer restore()
+		gatewayFixture, req := setup(t, clean, clean)
+		got, err := network.Prepare(context.Background(), req)
+		if err == nil || refusalCode(t, err) != refusal.CodeConfigurationConflict || got.Lease != nil || len(gatewayFixture.calls()) != 0 {
+			t.Fatalf("err = %v calls = %v", err, gatewayFixture.calls())
+		}
+		if !strings.Contains(err.Error(), listingDetail) || strings.Contains(err.Error(), "directory listing failed") {
+			t.Fatalf("refusal is not the value-free listing refusal: %v", err)
+		}
+	})
 	// The other direction: the route sits in the legacy file the older
 	// choosers read, and the new file 2.1.326 would read is clean. A
 	// guard that mirrored 2.1.326 would admit; this one must still
@@ -234,6 +251,81 @@ func TestPrepareGatewayGlobalFileCaseVariant(t *testing.T) {
 		}
 		got.Lease.Finish(context.Background())
 	})
+}
+
+// Claim: Prepare passes the legacy basename to the real lister, refusing a case-variant entry with no lease or gateway call while admitting the exact-name control; only stat is aliased to model a case-insensitive filesystem portably.
+func TestPrepareGatewayGlobalFileRealCaseVariant(t *testing.T) {
+	for _, testCase := range []struct {
+		name       string
+		legacyName string
+		admit      bool
+	}{
+		{"case-variant listing refuses", ".CONFIG.JSON", false},
+		{"control: exact-name listing admits", ".config.json", true},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			gatewayFixture := newGateway(t)
+			req := gatewayRequest(gatewayHome(t, gatewayFixture, true))
+			req.Prober = forbiddenProber{t}
+			managed := managedHome(req)
+			legacyPath := filepath.Join(managed, testCase.legacyName)
+			writeTestFile(t, legacyPath, `{"projects":{}}`)
+			readOnly(t, legacyPath)
+			writeTestFile(t, filepath.Join(managed, ".claude.json"), `{"env":{"ANTHROPIC_BASE_URL":"https://x"}}`)
+			restore := network.SetStatPath(func(path string) (os.FileInfo, error) {
+				if path == filepath.Join(managed, ".config.json") {
+					return os.Stat(legacyPath)
+				}
+				return os.Stat(path)
+			})
+			defer restore()
+			got, err := network.Prepare(context.Background(), req)
+			if testCase.admit {
+				if err != nil || got.Lease == nil {
+					t.Fatalf("valid control refused: %v", err)
+				}
+				got.Lease.Finish(context.Background())
+				return
+			}
+			if err == nil || refusalCode(t, err) != refusal.CodeConfigurationConflict || got.Lease != nil || len(gatewayFixture.calls()) != 0 {
+				t.Fatalf("err = %v calls = %v", err, gatewayFixture.calls())
+			}
+			if !strings.Contains(err.Error(), "the legacy global file is not listed under its exact name") {
+				t.Fatalf("refusal is not the listing refusal: %v", err)
+			}
+		})
+	}
+}
+
+// Claim: the operator text and gateway comment retain claim 6a's session shapes and custom-base off path, not the rejected non-first-party-fetch claim; this pins documentation only, not runtime behavior.
+func TestGatewayCatalogGroundingText(t *testing.T) {
+	for _, source := range []struct {
+		name string
+		path string
+	}{
+		{"README", filepath.Join("..", "..", "README.md")},
+		{"gateway comment", "gateway.go"},
+	} {
+		t.Run(source.name, func(t *testing.T) {
+			content, err := os.ReadFile(source.path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			text := strings.Join(strings.Fields(strings.ReplaceAll(string(content), "//", "")), " ")
+			for _, fact := range []string{
+				"for first-party API-key and cloud-provider sessions",
+				"first-party-with-custom-base shape",
+				"published path is off by its feature flag and release constant",
+			} {
+				if !strings.Contains(text, fact) {
+					t.Errorf("catalog grounding omits claim 6a fact %q", fact)
+				}
+			}
+			if strings.Contains(text, "for a non-first-party base") {
+				t.Error("catalog grounding repeats the rejected non-first-party-fetch claim")
+			}
+		})
+	}
 }
 
 // Claim: CLAUDE_CODE_MODEL_CATALOG_URL supplied in any layer refuses under the closed CLAUDE_ namespace, an inherited value is removed, and the admitted control keeps the gateway-owned catalog pair set to off.
