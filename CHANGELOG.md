@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 0.7.2 — 2026-11-19
+
+### Changed
+
 - Admitting Claude Code 2.1.326 under a filtering gateway adds user-visible
   refusals: the native-tail words `--ignore-persisted-trust`,
   `--managed-settings-in-initialize`, `worktree-hook` and `workspace-trust`
@@ -10,6 +14,14 @@
   are both non-empty and distinct while the legacy file is not listed under
   its exact name (a case-variant name on a case-insensitive filesystem)
   refuses instead of guessing which file the runtime reads.
+
+### Fixed
+
+- Refuse supplied trust and model-catalog URL selectors, and strip inherited
+  selectors, without weakening the gateway's four owned environment pairs.
+- Correct the catalog-fetch attribution and classify every download-host
+  path in the qualification record. Static evidence does not replace the
+  required fresh-home runtime witness, including the marketplace git fallback.
 
 ## 0.7.1 — 2026-11-17
 
