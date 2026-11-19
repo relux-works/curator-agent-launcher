@@ -62,8 +62,8 @@ release-gate-test:
 	scripts/release-gate-test.sh
 
 # Plant controls for the Claude Code 2.1.326 gateway admission changes: each
-# plant weakens one gate in a scratch copy of the tree and its named test
-# must fail. The working tree is never mutated.
+# plant weakens one gate or catalog-grounding statement in a scratch copy
+# of the tree and its named test must fail. The working tree is never mutated.
 gateway-claude326-controls:
 	@mkdir -p .temp
 	scripts/gateway-claude326-controls.sh .temp/gateway-claude326-controls

@@ -108,7 +108,7 @@ func inheritedRouteNames(envs ...[]string) []string {
 
 // managedSettingsDir is where Claude Code reads machine-managed settings on
 // this platform (managed-settings.json and the managed-settings.d drop-ins),
-// as named in the 2.1.312 and 2.1.314 bundles.
+// as named in the grounded bundles.
 func managedSettingsDir() string {
 	switch runtime.GOOS {
 	case "darwin":
