@@ -1,5 +1,9 @@
 # curator run as the front door — specification amendment
 
+The [profile-bound terminal launch amendment](docs/profile-bound-terminal-launch.md)
+extends the host selector and registry and defines the conversion subprocess boundary.
+
+
 **Amends:** [SPEC](SPEC.md) `0.5.1-draft` → `0.6.0-draft` (target).
 **Implementation:** partial, and always gated by the sections themselves. The
 launcher on main implements the host selection, the session-manager registry

@@ -38,6 +38,13 @@ jobs:
       - name: Build, format, vet, test and release admission controls
         run: make verify
 
+      - name: Terminal host and conversion CLI contracts
+        if: matrix.os == 'macos-latest'
+        run: |
+          go build -o "$RUNNER_TEMP/curator-run" ./cmd/curator-run
+          go build -o "$RUNNER_TEMP/doorbell-fixture" ./tests/terminal-host/fixture
+          DOORBELL_UNDER_TEST="$RUNNER_TEMP/doorbell-fixture" LAUNCHER_UNDER_TEST="$RUNNER_TEMP/curator-run" swift test --package-path tests/terminal-host
+
       # One platform is enough: the plants and their named tests are portable.
       - name: Observation v2 plant controls
         if: matrix.os == 'ubuntu-latest'

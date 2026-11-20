@@ -30,6 +30,8 @@ const Usage = `usage: curator-run <env-id> [--hosted | --native | --untracked]
                    [--network <profile>] [--network-policy <policy>]
                    [--network-known-bad <path>] [--gateway-recovery]
                    [--] <native args...>
+       curator-run <target> from <source> --resume <source-uuid> (--a2a <identity> | --history-only)
+                   [--profile <source-profile>] [--host <id> | --native]
        curator-run session-manager list [--json]
        curator-run session-manager show <id> [--json]
        curator-run session-manager observe <manager-id> --session <SES-handle> --json
@@ -53,6 +55,7 @@ Launcher flags are recognized only before "--". Everything after "--" is
 forwarded to the tool verbatim, in order, uninspected.
 
 options:
+  --host <id>                       use this registered host for this launch
   --hosted                          use the selected registered session manager
   --native                         run natively
   --untracked                      deprecated alias of --native (two releases)
@@ -178,6 +181,10 @@ func ExplicitNative(hostFlag string) bool {
 // typed, except EnvID which carries the normalized canonical id (SPEC §3);
 // nothing is resolved, defaulted, or validated beyond §3.
 type Invocation struct {
+	// From and SourceID select profile-bound history conversion.
+	From, SourceID string
+	HistoryOnly    bool
+
 	// Migrate selects the reserved configuration migration operand.
 	Migrate, DryRun bool
 	SessionManager  *sessionmanager.Command
@@ -191,6 +198,7 @@ type Invocation struct {
 	// HostFlag is the literal host request: --hosted, --native, or
 	// --untracked; empty when no host flag was given.
 	HostFlag string
+	HostID   string
 	A2A      string
 	// MemberID selects expected notification data, never station admission.
 	MemberID          string
@@ -270,6 +278,7 @@ var a2aIdentityPattern = regexp.MustCompile(`^[a-z0-9._=-]{1,64}$`)
 var binaryDigestPattern = regexp.MustCompile(`^[0-9a-f]{64}$`)
 
 var valueFlags = map[string]bool{
+	"--host":              true,
 	"--member":            true,
 	"--profile":           true,
 	"--system-prompt":     true,
@@ -377,6 +386,14 @@ func Parse(args []string) (Invocation, error) {
 				envSet = true
 				continue
 			}
+			if tok == "from" && inv.From == "" && i+1 < len(args) {
+				i++
+				inv.From = NormalizeEnvID(args[i])
+				if !convertible(inv.From) || !convertible(inv.EnvID) {
+					return inv, usageErr("from requires supported source and target environments")
+				}
+				continue
+			}
 			if !inv.ResumeRequested && tok == "resume" {
 				inv.ResumeRequested = true
 				continue
@@ -389,6 +406,13 @@ func Parse(args []string) (Invocation, error) {
 		}
 
 		flag, value, hasEq := strings.Cut(tok, "=")
+		if flag == "--history-only" {
+			if hasEq || inv.HistoryOnly {
+				return inv, usageErr("--history-only takes no value and cannot repeat")
+			}
+			inv.HistoryOnly = true
+			continue
+		}
 		if flag == "--gateway-recovery" {
 			if hasEq || seen[flag] {
 				return inv, usageErr("--gateway-recovery takes no value and cannot be repeated")
@@ -466,11 +490,29 @@ func Parse(args []string) (Invocation, error) {
 	if !envSet {
 		return inv, usageErr("missing <env-id>")
 	}
+	if inv.HostID != "" {
+		if inv.HostFlag != "" {
+			return inv, usageErr("--host cannot be combined with another host selector")
+		}
+		inv.HostFlag = HostFlagHosted
+	}
 	if inv.GatewayRecoveryEnabled && inv.HostFlag == HostFlagHosted {
 		return inv, usageErr("--gateway-recovery requires native execution")
 	}
 	if inv.A2A != "" && ExplicitNative(inv.HostFlag) {
 		return inv, usageErr("--a2a requires hosted execution")
+	}
+	if inv.HistoryOnly && (inv.From == "" || inv.A2A != "") {
+		return inv, usageErr("--history-only requires conversion without --a2a")
+	}
+	if inv.From != "" {
+		if inv.A2A == "" && !inv.HistoryOnly {
+			return inv, usageErr("select --a2a <lane identity> or --history-only before converting")
+		}
+		if !inv.ResumeIDSet || !canonicalUUID.MatchString(inv.ResumeID) || inv.ResumeRequested || i < len(args) {
+			return inv, usageErr("from requires --resume <source-uuid> and no native tail")
+		}
+		inv.SourceID, inv.ResumeID, inv.ResumeIDSet = inv.ResumeID, "", false
 	}
 	inv.Native = append([]string{}, args[i:]...)
 	return inv, nil
@@ -479,6 +521,11 @@ func Parse(args []string) (Invocation, error) {
 // set stores one validated flag value.
 func (inv *Invocation) set(flag, value string) error {
 	switch flag {
+	case "--host":
+		if !sessionmanager.ValidID(value) {
+			return usageErr("invalid host registration id")
+		}
+		inv.HostID = value
 	case "--member":
 		if !werkstattcommand.ValidID(value) {
 			return usageErr("invalid --member record id")
@@ -532,4 +579,10 @@ func (inv *Invocation) set(flag, value string) error {
 		return usageErr("unknown flag %q before --", flag)
 	}
 	return nil
+}
+
+var canonicalUUID = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
+
+func convertible(id string) bool {
+	return id == "muse" || id == "codex_cli" || id == "claude_code"
 }

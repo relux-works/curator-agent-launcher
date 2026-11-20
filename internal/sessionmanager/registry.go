@@ -19,6 +19,7 @@ const (
 	Filename          = "session-managers.json"
 	Schema            = "curator-run-session-managers-v1"
 	Protocol          = "curator-session-manager/1"
+	TmuxProtocol      = "tmux-cli/1"
 	CodeBusy          = "session_manager_registry_busy"
 	CodeInvalid       = "session_manager_registry_invalid"
 	CodeUnwritable    = "session_manager_registry_unwritable"
@@ -134,7 +135,7 @@ func parseEntry(v fragment.Value, manifest bool) (Entry, error) {
 	if entry.Executable, err = stringMember(v, "executable"); err != nil || !filepath.IsAbs(entry.Executable) || strings.ContainsRune(entry.Executable, 0) {
 		return Entry{}, fmt.Errorf("executable must be absolute")
 	}
-	if entry.Protocol, err = stringMember(v, "protocol"); err != nil || entry.Protocol != Protocol {
+	if entry.Protocol, err = stringMember(v, "protocol"); err != nil || (entry.Protocol != Protocol && entry.Protocol != TmuxProtocol) {
 		return Entry{}, fmt.Errorf("unsupported protocol")
 	}
 	if entry.RegisteredBy, err = stringMember(v, "registered_by"); err != nil || !registeredByPattern.MatchString(entry.RegisteredBy) {
@@ -143,6 +144,9 @@ func parseEntry(v fragment.Value, manifest bool) (Entry, error) {
 	prefix, _ := v.Get("argv_prefix")
 	if prefix.Kind != fragment.KindArray || len(prefix.Arr) > 4 {
 		return Entry{}, fmt.Errorf("invalid argv_prefix")
+	}
+	if entry.Protocol == TmuxProtocol && len(prefix.Arr) != 0 {
+		return Entry{}, fmt.Errorf("tmux requires an empty argv_prefix")
 	}
 	entry.ArgvPrefix = []string{}
 	for _, item := range prefix.Arr {

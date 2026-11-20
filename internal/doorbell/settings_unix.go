@@ -18,6 +18,7 @@ const settingsBound = 1 << 20
 const directoryFlags = unix.O_RDONLY | unix.O_DIRECTORY | unix.O_NOFOLLOW | unix.O_CLOEXEC
 
 type settingsTarget struct {
+	filename  string
 	directory int
 	identity  unix.Stat_t
 	original  os.FileInfo
@@ -62,7 +63,7 @@ func pinSettings(workspace string) (*settingsTarget, error) {
 	if err != nil {
 		return nil, err
 	}
-	target := &settingsTarget{directory: fd}
+	target := &settingsTarget{directory: fd, filename: settingsName}
 	target.identity, err = checkDirectory(fd)
 	if err == nil {
 		target.data, target.original, err = readSettings(fd)
@@ -78,14 +79,17 @@ func (t *settingsTarget) close() { _ = unix.Close(t.directory) }
 // All reads are descriptor-relative, no-follow, nonblocking and bounded. Missing
 // entries are distinguished from empty files so commit can detect creation races.
 func readSettings(directory int) ([]byte, os.FileInfo, error) {
-	fd, err := unix.Openat(directory, settingsName, unix.O_RDONLY|unix.O_NONBLOCK|unix.O_NOFOLLOW|unix.O_CLOEXEC, 0)
+	return readNamedSettings(directory, settingsName)
+}
+func readNamedSettings(directory int, filename string) ([]byte, os.FileInfo, error) {
+	fd, err := unix.Openat(directory, filename, unix.O_RDONLY|unix.O_NONBLOCK|unix.O_NOFOLLOW|unix.O_CLOEXEC, 0)
 	if err == unix.ENOENT {
 		return nil, nil, nil
 	}
 	if err != nil {
 		return nil, nil, err
 	}
-	file := os.NewFile(uintptr(fd), settingsName)
+	file := os.NewFile(uintptr(fd), filename)
 	defer file.Close()
 	info, err := file.Stat()
 	if err != nil {
@@ -147,7 +151,7 @@ func (t *settingsTarget) commit(data []byte) error {
 	// This detects an entry replacement visible now; the specification accepts
 	// an edit between this check and rename under its single-writer assumption.
 	var current unix.Stat_t
-	err = unix.Fstatat(t.directory, settingsName, &current, unix.AT_SYMLINK_NOFOLLOW)
+	err = unix.Fstatat(t.directory, t.filename, &current, unix.AT_SYMLINK_NOFOLLOW)
 	if t.original == nil {
 		if err != unix.ENOENT {
 			return fmt.Errorf("settings appeared")
@@ -158,7 +162,7 @@ func (t *settingsTarget) commit(data []byte) error {
 			return fmt.Errorf("settings replaced")
 		}
 	}
-	return unix.Renameat(t.directory, name, t.directory, settingsName)
+	return unix.Renameat(t.directory, name, t.directory, t.filename)
 }
 func (t *settingsTarget) confirm(workspace string) bool {
 	cwd, err := unix.Open(workspace, directoryFlags, 0)

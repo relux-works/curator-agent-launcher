@@ -142,18 +142,40 @@ func resolveHost(ctx context.Context, inv cli.Invocation, frag *fragment.Fragmen
 			result.terminal = nil
 		}
 	}()
-	if explicit {
-		if err = checks(); err != nil {
-			return result, err
-		}
-	}
 	registry, _, err := sessionmanager.Load(deps.configResolver)
 	if err != nil {
+		if explicit && inv.HostID == "" {
+			if admission := checks(); admission != nil {
+				return result, admission
+			}
+		}
 		return result, err
+	}
+	if inv.HostID != "" {
+		if _, ok := registry.Managers[inv.HostID]; !ok {
+			return result, hostError("session_host_missing", map[string]string{"reason": "requested host is not registered"})
+		}
+		registry.Selected = inv.HostID
 	}
 	state, err := sessionmanager.Resolve(registry, sessionmanager.ExecutableAvailable)
 	if err != nil {
 		return result, err
+	}
+	if state.Kind == "selected" && state.Entry.Protocol == sessionmanager.TmuxProtocol {
+		if notificationHost || (inv.A2A != "" && inv.EnvID != fragment.EnvCodexCLI && inv.EnvID != fragment.EnvClaudeCode) || inv.BoardGoal || inv.MemberID != "" || inv.ResumeRequested {
+			return result, errors.New("selected tmux host cannot provide manager-owned notification, goal, identity or handle lookup")
+		}
+		if !inv.Detach && !execution.StdinIsTerminal(os.Stdin) {
+			return result, errors.New("tmux attach requires a terminal; use --detach")
+		}
+		result.route.Kind = "tmux"
+		result.client = client.Client{ID: state.ID, Entry: state.Entry}
+		return result, nil
+	}
+	if explicit {
+		if err = checks(); err != nil {
+			return result, err
+		}
 	}
 	if state.Kind != "selected" {
 		if explicit || notificationHost {

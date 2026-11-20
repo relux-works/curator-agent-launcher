@@ -9,6 +9,8 @@ usage: curator-run <env-id> [--hosted | --native | --untracked]
                    [--network <profile>] [--network-policy <policy>]
                    [--network-known-bad <path>] [--gateway-recovery]
                    [--] <native args...>
+       curator-run <target> from <source> --resume <source-uuid> (--a2a <identity> | --history-only)
+                   [--profile <source-profile>] [--host <id> | --native]
        curator-run session-manager list [--json]
        curator-run session-manager show <id> [--json]
        curator-run session-manager observe <manager-id> --session <SES-handle> --json
@@ -32,6 +34,7 @@ Launcher flags are recognized only before "--". Everything after "--" is
 forwarded to the tool verbatim, in order, uninspected.
 
 options:
+  --host <id>                       use this registered host for this launch
   --hosted                          use the selected registered session manager
   --native                         run natively
   --untracked                      deprecated alias of --native (two releases)

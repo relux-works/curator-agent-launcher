@@ -1,5 +1,9 @@
 # curator-agent-launcher
 
+For named host selection, persistent tmux sessions and profile-bound cross-runtime
+resume, see [Profile-bound conversion and terminal hosting](docs/profile-bound-terminal-launch.md).
+
+
 `curator-run` composes Curator's managed environment, agents-management's
 admitted interactive plan, and native or hosted execution. The contract is
 [SPEC 0.5.1-draft](SPEC.md).

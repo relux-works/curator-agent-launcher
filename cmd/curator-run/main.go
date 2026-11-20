@@ -71,6 +71,9 @@ func main() {
 		availability:    processAvailability,
 		registry:        registry,
 	}
+	if len(os.Args) == 3 && os.Args[1] == "__tmux-child" {
+		os.Exit(runTmuxChild(os.Args[2], deps))
+	}
 	os.Exit(run(context.Background(), os.Args[1:], os.Stdout, os.Stderr, deps))
 }
 
@@ -102,6 +105,11 @@ func processConfigLocations() (configfile.Locations, error) {
 
 // Process boundaries are injectable; production uses the tagged builder and real execution.
 type launchDeps struct {
+	terminalFragment string
+	terminalStarted  func()
+
+	conversion *conversionSource
+
 	// gatewayDefault records, before host selection, that the operator's
 	// default network is a filtering gateway (G-C): every route that could
 	// start or resume a runtime must honour it.
@@ -334,6 +342,14 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, deps laun
 	// again at this boundary so the resolve argv always carries the canonical
 	// id even if the parser is ever bypassed. Aliases never persist beyond this point.
 	inv.EnvID = cli.NormalizeEnvID(inv.EnvID)
+	var source *conversionSource
+	if inv.From != "" {
+		source, err = locateConversion(ctx, inv, stderr)
+		if err != nil {
+			return emitFailure(stderr, diagnostics.CodePlanRefused, err)
+		}
+		inv.Profile, inv.ProfileSet = source.Profile, true
+	}
 
 	// SPEC §4.1: obtain the fragment. The subprocess inherits the
 	// launcher's working directory and environment; Curator's stderr goes
@@ -360,6 +376,15 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, deps laun
 		return diagnostics.ExitForCode(fragment.CodeInvocationFailed)
 	}
 
+	if deps.terminalFragment != "" && frag.Digest != deps.terminalFragment {
+		return emitFailure(stderr, diagnostics.CodePlanRefused, errors.New("profile changed before tmux child launch"))
+	}
+	if source != nil {
+		if frag.Profile.Name != source.Profile || frag.Profile.LockSHA256 != source.Lock || frag.Environment != inv.EnvID {
+			return emitFailure(stderr, diagnostics.CodePlanRefused, errors.New("conversion profile changed during resolution"))
+		}
+		deps.conversion = source
+	}
 	target, err := mapping.Resolve(frag.Environment)
 	if err != nil {
 		_ = diagnostics.Emit(stderr, mapping.CodeUnsupported, err.Error())
@@ -516,21 +541,25 @@ func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, ta
 	if selected.terminal != nil {
 		defer selected.terminal.Close()
 	}
+	if selected.recovered && deps.conversion != nil {
+		return emitFailure(stderr, diagnostics.CodePlanRefused, errors.New("host recovery did not perform requested conversion"))
+	}
 	if selected.recovered {
 		return 0
 	}
 	deps.hostedSelection = &selected
-	isHosted := selected.route.Kind != "native"
+	isTerminalHost := selected.route.Kind == "tmux"
+	isHosted := selected.route.Kind != "native" && !isTerminalHost
 	if inv.GatewayRecoveryEnabled && isHosted {
 		return emitNetworkFailure(stderr, refusal.New(refusal.CodeScopeUnsupported, "gateway", "recovery requires native execution"))
 	}
-	if !isHosted && inv.A2A != "" {
+	if !isHosted && !isTerminalHost && inv.A2A != "" {
 		return emitFailure(stderr, diagnostics.CodeUsage, errors.New("--a2a requires hosted execution"))
 	}
-	if !isHosted && (inv.BoardGoal || inv.Detach) {
+	if !isHosted && !isTerminalHost && (inv.BoardGoal || inv.Detach) {
 		return emitFailure(stderr, diagnostics.CodeUsage, errors.New("--board-goal and --detach require hosted execution"))
 	}
-	if !isHosted && (inv.ResumeRequested || inv.ResumeIDSet) {
+	if !isHosted && !isTerminalHost && (inv.ResumeRequested || inv.ResumeIDSet) {
 		return emitFailure(stderr, diagnostics.CodeUsage, errors.New("resume selectors require hosted execution; use --hosted or a hosted default"))
 	}
 	wd, err := deps.workdir()
@@ -551,6 +580,24 @@ func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, ta
 	decision, toolRelease, system, err := resolvePermission(ctx, inv, frag, target, files, parentEnv, stderr, deps, isHosted)
 	if err != nil {
 		return emitPermissionFailure(stderr, err)
+	}
+	if deps.conversion != nil {
+		if isHosted || inv.NetworkSet || deps.gatewayDefault || deps.selectedConfig.Proxy != nil || deps.claudeAuthActive {
+			return emitFailure(stderr, diagnostics.CodePlanRefused, errors.New("conversion requires a native route; hosted ownership and filtered publication require receiver support"))
+		}
+		// Admit the shape of a provider UUID resume before publishing. The
+		// definitive plan is built again with the provider-issued target UUID.
+		inv.Native = providerResume(inv.EnvID, inv.SourceID)
+	}
+	if isTerminalHost && inv.A2A != "" && (inv.NetworkSet || deps.gatewayDefault || deps.selectedConfig.Proxy != nil) {
+		return emitFailure(stderr, diagnostics.CodePlanRefused, errors.New("notified tmux launch requires support for a filtered hook probe"))
+	}
+	if isTerminalHost && inv.ResumeIDSet {
+		if len(inv.Native) > 0 {
+			return emitFailure(stderr, diagnostics.CodeUsage, errors.New("tmux resume has more than one selector"))
+		}
+		inv.Native = providerResume(inv.EnvID, inv.ResumeID)
+		inv.ResumeIDSet = false
 	}
 	tail := inv.Native
 	intent := agentic.ResumeIntent{Kind: agentic.ResumeNew}
@@ -636,6 +683,20 @@ func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, ta
 		// Preserve provider/module evidence bytes, including embedded newlines.
 		fmt.Fprintln(stderr, err.Error())
 		return diagnostics.ExitForCode(code)
+	}
+	if deps.conversion != nil {
+		sid, err := publishConversion(ctx, inv, frag, wd, deps.conversion, stderr)
+		if err != nil {
+			return emitFailure(stderr, diagnostics.CodePlanRefused, err)
+		}
+		inv.Native = providerResume(inv.EnvID, sid)
+		deps.conversion = nil
+		if !isTerminalHost {
+			return launch(ctx, inv, frag, target, resolved, files, stdout, stderr, deps)
+		}
+	}
+	if isTerminalHost {
+		return startTmux(ctx, selected, inv, frag, wd, admitted.Plan.Binary, stderr)
 	}
 	// Phase 1 carries terminal stdin only: an attached plan stdin
 	// refuses here. It is knowable only from the built plan, so this
@@ -900,6 +961,7 @@ func runNative(ctx context.Context, value composition.Value, decision execution.
 	}
 	lease := net.TakeLease()
 	if lease == nil {
+		opts.Started = deps.terminalStarted
 		return prepared.Run(opts)
 	}
 	// Duties 4 to 6: activate and renew while the child runs, and end the
@@ -934,6 +996,9 @@ func runNative(ctx context.Context, value composition.Value, decision execution.
 	childStarted := false
 	opts.Started = func() {
 		childStarted = true
+		if deps.terminalStarted != nil {
+			deps.terminalStarted()
+		}
 		lease.Started(context.Background())
 		gatewayphase.Reach("started")
 	}
