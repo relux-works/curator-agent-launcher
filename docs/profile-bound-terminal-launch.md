@@ -72,7 +72,7 @@ otherwise new hooks belong to the managed home. Conflicting bindings refuse.
 The provider's SessionStart hook in the new pane owns the exclusive a2a claim.
 
 A newly installed Codex hook may require interactive approval in `/hooks`.
-The launcher reads effective trust through Codex app-server `hooks/list` in the target home and workspace. Detached startup prints the attach command and returns a policy diagnostic when required hooks are disabled, missing, conflicting or awaiting approval. The running pane remains available for inspection. Only the user grants approval in the target profile. Provider process
+The launcher reads effective trust through Codex app-server `hooks/list` in the target home and workspace. Detached startup prints the attach command and returns a policy diagnostic when required hooks are disabled, missing, conflicting or awaiting approval. The launcher also reads the selected lane's official `a2a bind status --json` and requires a current binding with ready notification and runtime state before reporting detached success. The running pane remains available for inspection. Only the user grants approval in the target profile. Provider process
 startup, hook trust, association to the specific thread and an idle wake are
 separate observations. Qualify the live handoff by checking the provider's
 effective hooks and exact binding, then observing a counts-only notice and a

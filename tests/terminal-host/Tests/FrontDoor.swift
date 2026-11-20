@@ -99,6 +99,7 @@ private struct Fixture {
     }
     let a2a = try script("a2a", """
         #!/bin/sh
+        if [ "$3" = "bind" ]; then cat "$FIXTURE_REPLY"; exit; fi
         while [ "$#" -gt 1 ]; do
             if [ "$1" = "--settings" ]; then cp "$FIXTURE_SETTINGS" "$2"; exit $?; fi
             shift
@@ -151,4 +152,10 @@ private struct Fixture {
     #expect(try probe(rows + [rows[2]], cwd: work.path) != 0)
     #expect(try probe(rows, cwd: home.path) != 0)
     #expect(try Data(contentsOf: target) == saved)
+    // A ready terminal observation requires the current lease and both readiness fields.
+    for (refresh, ok) in [("current", true), ("stale", false)] {
+        let state: [String:Any] = ["refresh":refresh, "notification":["state":"ready"], "readiness":["state":"ready"]]
+        try JSONSerialization.data(withJSONObject: state).write(to: reply)
+        #expect((try invoke("binding") == 0) == ok)
+    }
 }

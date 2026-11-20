@@ -152,8 +152,8 @@ func startTmux(ctx context.Context, host hostSelection, inv cli.Invocation, frag
 	}
 	fmt.Fprintf(stderr, "curator-run: attach with tmux -L %s attach -t agent\n", label)
 	if inv.A2A != "" {
+		installer := doorbell.Installer{Environment: os.Environ(), InvocationDirectory: wd}
 		if inv.EnvID == fragment.EnvCodexCLI {
-			installer := doorbell.Installer{Environment: os.Environ(), InvocationDirectory: wd}
 			if err := installer.CodexTrust(ctx, providerBinary, wd, frag.Home(), inv.A2A); err != nil {
 				fmt.Fprintf(stderr, "curator-run: provider_started=true hooks=unverified wake=unverified: %v; inspect /hooks in the existing pane\n", err)
 				if inv.Detach {
@@ -163,7 +163,14 @@ func startTmux(ctx context.Context, host hostSelection, inv cli.Invocation, frag
 				fmt.Fprintln(stderr, "curator-run: codex_hooks=trusted_enabled")
 			}
 		}
-		fmt.Fprintf(stderr, "curator-run: a2a identity=%s provider_started=true wake=unverified; qualify the target binding and idle wake\n", inv.A2A)
+		if err := installer.WaitForTerminal(ctx, wd, inv.A2A); err != nil {
+			fmt.Fprintf(stderr, "curator-run: provider_started=true terminal_binding=unverified wake=unverified: %v\n", err)
+			if inv.Detach {
+				return diagnostics.ExitPolicy
+			}
+		} else {
+			fmt.Fprintf(stderr, "curator-run: a2a identity=%s terminal_binding=current lane_readiness=ready idle_wake=unverified\n", inv.A2A)
+		}
 	}
 	if inv.Detach {
 		return 0

@@ -17,6 +17,8 @@ func main() {
 	installer := doorbell.Installer{Environment: os.Environ(), InvocationDirectory: dir}
 	var err error
 	switch op {
+	case "binding":
+		err = installer.WaitForTerminal(context.Background(), dir, identity)
 	case "trust":
 		err = installer.CodexTrust(context.Background(), provider, dir, home, identity)
 	case "install":
