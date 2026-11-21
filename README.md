@@ -898,9 +898,15 @@ route: admission and the binding renderer give the same verdict for every
 release label, and the binding, route, executable, environment and provenance
 checks are unchanged. The permission mapping stays release-bound, so `default`
 and `yolo` refuse on a release without a verified permission grammar, while
-`native` does not depend on it. A refusal from the module's gateway checks
-ends in `reason=<check class>`, for example
-`reason=gateway_native_arguments_not_admitted`.
+`native` does not depend on it. A refusal from the module's admission policy
+ends in `reason=<check class>`: the launch mode, another selected route, the
+native arguments, the environment checks (a proxy selector, a provider or
+token override, a malformed or duplicate entry, a credential name) and a
+non-canonical binding, for example
+`reason=gateway_native_arguments_not_admitted`. The module's other gateway
+refusals keep the unnamed `Codex gateway binding refused`, among them a failed
+executable identity, digest or path check, a home that does not resolve and
+most plan-identity checks.
 
 The Codex home is trusted. The launcher does not read the home's `config.toml`
 or `curator-mcp.config.toml` before exec, so an MCP server declared there that
