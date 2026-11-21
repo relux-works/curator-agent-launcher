@@ -98,6 +98,15 @@ func policyWithRestrictions(entries ...[2]string) string {
 	return `{"restrictions":{` + strings.Join(members, ",") + `},"defaults":{"remote_control_at_startup":false},"compliance_taints":[],"monitoring_notice":null}`
 }
 
+// jsonEscapedAt returns name with the byte at index i written as a JSON
+// unicode escape (a backslash, the letter u and four hex digits), so that the
+// text differs from name and decodes to it.
+func jsonEscapedAt(name string, i int) string {
+	const hex = "0123456789abcdef"
+	c := name[i]
+	return name[:i] + string(rune(0x5c)) + "u00" + string(hex[c>>4]) + string(hex[c&0xf]) + name[i+1:]
+}
+
 // Claim: the restriction-name allowlist is exact and closed. The four
 // admitted names pass with either boolean, alone and together in the shape
 // the server emits; a native name without an artifact check, a near miss of
@@ -189,21 +198,47 @@ func TestPolicyCacheRestrictionNames(t *testing.T) {
 				check(t, policyWithRestrictions(append(entries, [2]string{name, tc.value})...), want)
 			})
 		}
-		// The strict parser refuses a repeated member, plain or escaped,
-		// before the allowlist is consulted.
-		escaped := `a` + name[1:]
+		// The strict parser refuses a repeated member before the allowlist
+		// is consulted.
 		for _, tc := range []struct{ kind, doc string }{
 			{"member", `{"restrictions":{"` + name + `":{"allowed":false,"allowed":true}}}`},
 			{"entry", `{"restrictions":{"` + name + `":{"allowed":false},"` + name + `":{"allowed":true}}}`},
-			{"escaped entry", `{"restrictions":{"` + name + `":{"allowed":false},"` + escaped + `":{"allowed":true}}}`},
 		} {
 			t.Run("duplicate/"+name+"/"+tc.kind, func(t *testing.T) { check(t, tc.doc, "$") })
 		}
-		// One escaped spelling alone is the same name after decoding.
-		t.Run("escaped spelling/"+name, func(t *testing.T) {
-			check(t, `{"restrictions":{"`+escaped+`":{"allowed":true}}}`, "")
+		// A key is compared after JSON escape decoding. The same name
+		// spelled with one escaped byte is a repeat beside the plain key, in
+		// either order, and alone it is the admitted name. The guard keeps
+		// these rows honest: the fixture must differ from the plain name.
+		for _, at := range []struct {
+			label string
+			index int
+		}{{"first byte", 0}, {"last byte", len(name) - 1}} {
+			escaped := jsonEscapedAt(name, at.index)
+			if escaped == name || strings.Contains(escaped, name) || len(escaped) != len(name)+5 {
+				t.Fatalf("fixture %q is not an escaped spelling of %q", escaped, name)
+			}
+			t.Run("duplicate/"+name+"/escaped entry/"+at.label, func(t *testing.T) {
+				check(t, `{"restrictions":{"`+name+`":{"allowed":false},"`+escaped+`":{"allowed":true}}}`, "$")
+				check(t, `{"restrictions":{"`+escaped+`":{"allowed":false},"`+name+`":{"allowed":true}}}`, "$")
+			})
+			t.Run("escaped spelling/"+name+"/"+at.label, func(t *testing.T) {
+				check(t, `{"restrictions":{"`+escaped+`":{"allowed":true}}}`, "")
+				check(t, `{"restrictions":{"`+escaped+`":{"allowed":"true"}}}`, "restrictions."+name+".allowed")
+			})
+		}
+		// Decoding is exact: an escape that decodes to a near miss of the
+		// name stays an unlisted name.
+		last := len(name) - 1
+		nearMiss := jsonEscapedAt(name[:last]+strings.ToUpper(name[last:]), last)
+		t.Run("escaped near miss/"+name, func(t *testing.T) {
+			check(t, `{"restrictions":{"`+nearMiss+`":{"allowed":true}}}`, "restrictions.*")
 		})
 	}
+	// An escaped spelling does not admit a name that has no artifact check.
+	t.Run("escaped unlisted name", func(t *testing.T) {
+		check(t, `{"restrictions":{"`+jsonEscapedAt("allow_linked_computer", 0)+`":{"allowed":true}}}`, "restrictions.*")
+	})
 
 	// Values that could weaken a session stay refused beside the admitted
 	// names, and independent violations are still all reported.
