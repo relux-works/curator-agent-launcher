@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.7.3 — 2026-11-21
+
 ### Changed
 
 - Pin skill-agents-management v0.5.78 (was v0.5.76). Codex gateway admission
