@@ -62,15 +62,18 @@ func codexRecoveryFixture(t *testing.T) (*pipelineFixture, *launchRecoveryGatewa
 	return f, g, stage
 }
 
-// The Codex gateway route under control/2 recovery: only the admitted 0.164.0
-// plan with an unmodified environment launches, every listed refusal starts no
-// child and leaves no stage, and each refusal before admission makes no control
-// call. Children get exactly the plan's canonical CODEX_HOME and no override
+// The Codex gateway route under control/2 recovery: a native-permission plan
+// with an unmodified environment launches whatever its release label (0.164.0,
+// the unlisted 0.166.0, 0.167.0 and an unknown one), every listed refusal
+// starts no child and leaves no stage, and each refusal before admission makes
+// no control call. The permission grammar stays release-bound: default and
+// yolo on the unlisted 0.166.0 still refuse. Proxy, provider, remote and
+// native-provider refusals name their check class in the diagnostic. Children get exactly the plan's canonical CODEX_HOME and no override
 // warning; a symlinked fragment home refuses before any control call. An
 // inherited proxy selector in any letter case refuses before health.
 // Executables are inert fixtures, not native Codex.
 func TestCodexRecoveryG2Matrix(t *testing.T) {
-	cases := []string{"valid164", "symlink-home", "proxy-HTTP_PROXY", "proxy-https_proxy", "proxy-ALL_PROXY", "proxy-All_Proxy", "native166", "default166", "yolo166", "unknown-release", "provider-env", "remote-env", "native-provider", "missing-host", "stage-mutation", "missing-journal", "unsafe-journal", "prepare-fault", "not-ready", "legacy-health", "malformed-health", "lost-reply", "malformed-register", "interrupt-after-register", "child-error", "child-signal", "cleanup-registry", "cleanup-malformed", "cleanup-local", "restart-not-ready", "same-authority-restart", "forward-sigint", "forward-sigterm"}
+	cases := []string{"valid164", "symlink-home", "proxy-HTTP_PROXY", "proxy-https_proxy", "proxy-ALL_PROXY", "proxy-All_Proxy", "native166", "native167", "default166", "yolo166", "unknown-release", "provider-env", "remote-env", "native-provider", "missing-host", "stage-mutation", "missing-journal", "unsafe-journal", "prepare-fault", "not-ready", "legacy-health", "malformed-health", "lost-reply", "malformed-register", "interrupt-after-register", "child-error", "child-signal", "cleanup-registry", "cleanup-malformed", "cleanup-local", "restart-not-ready", "same-authority-restart", "forward-sigint", "forward-sigterm"}
 	for _, kind := range cases {
 		t.Run(kind, func(t *testing.T) {
 			f, g, stages := codexRecoveryFixture(t)
@@ -90,6 +93,8 @@ func TestCodexRecoveryG2Matrix(t *testing.T) {
 						f.args[i] = mode
 					}
 				}
+			case "native167":
+				withTestRelease(f, "codex-cli 0.167.0")
 			case "unknown-release":
 				withTestRelease(f, "codex-cli 9.999.0")
 			case "provider-env", "remote-env":
@@ -220,13 +225,22 @@ func TestCodexRecoveryG2Matrix(t *testing.T) {
 				<-signalDone
 			}
 			calls := g.calls()
-			success := kind == "valid164" || kind == "restart-not-ready" || kind == "same-authority-restart"
+			success := kind == "valid164" || kind == "native166" || kind == "native167" || kind == "unknown-release" || kind == "restart-not-ready" || kind == "same-authority-restart"
 			child := success || strings.HasPrefix(kind, "forward-") || kind == "child-error" || kind == "child-signal" || strings.HasPrefix(kind, "cleanup-")
 			if success && code != 0 {
 				t.Fatalf("positive refused: %d %s", code, diag)
 			}
 			if !success && code == 0 {
 				t.Fatalf("failure became success: %s", diag)
+			}
+			// A refusal from the module's gateway checks names its check class in
+			// the diagnostic the operator reads; the other refusals keep their text.
+			reason := map[string]string{"provider-env": "gateway_provider_route_override", "remote-env": "gateway_provider_route_override", "native-provider": "gateway_native_arguments_not_admitted"}[kind]
+			if strings.HasPrefix(kind, "proxy-") {
+				reason = "gateway_direct_proxy_selector_present"
+			}
+			if reason != "" && !strings.Contains(string(diag), "curator-run: plan_refused: agentic: Codex gateway binding refused reason="+reason+"\n") {
+				t.Fatalf("refusal does not name %s: %s", reason, diag)
 			}
 			if kind == "child-error" && code != 37 {
 				t.Fatalf("child exit lost: %d", code)
@@ -260,7 +274,7 @@ func TestCodexRecoveryG2Matrix(t *testing.T) {
 				if kind != "prepare-fault" && (strings.Contains(string(diag), "attempt=") || strings.Contains(calls, "/v2/recover")) {
 					t.Fatal("pre-admission effects")
 				}
-				if kind == "native166" || kind == "default166" || kind == "yolo166" || kind == "unknown-release" || kind == "provider-env" || kind == "remote-env" || kind == "native-provider" || kind == "missing-host" || kind == "symlink-home" || strings.HasPrefix(kind, "proxy-") {
+				if kind == "default166" || kind == "yolo166" || kind == "provider-env" || kind == "remote-env" || kind == "native-provider" || kind == "missing-host" || kind == "symlink-home" || strings.HasPrefix(kind, "proxy-") {
 					if calls != "" {
 						t.Fatalf("refusal reached control: %s", calls)
 					}

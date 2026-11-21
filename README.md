@@ -529,7 +529,7 @@ The executable supports `claude_code` (alias `claude`), `codex_cli`
 Muse requires `launch-env-fragment-v4`: exactly four XDG parents under one
 managed home plus `TBH_CREDENTIAL_BACKEND=file`, preserving inherited `HOME`.
 Older Muse fragments refuse `fragment_version_unsupported` before launch.
-The pinned agents-management v0.5.76 plugin owns the native plan; managed
+The pinned agents-management v0.5.78 plugin owns the native plan; managed
 Muse refuses module versions older than v0.5.66. The optional frozen-copy
 tuple otherwise leaves binary resolution on the handed PATH. `muse-wonder`
 resolves to `muse-wonder-1.0-contributor` with module-owned effort rules.
@@ -619,7 +619,7 @@ The launch pipeline follows these steps:
    `session_liveness_unknown`. No hosted refusal executes natively.
 
 The permission interface is implemented against upstream
-`skill-agents-management v0.5.76`. It owns
+`skill-agents-management v0.5.78`. It owns
 `LaunchRequest.PermissionMode`, the release-bound mapping, versioned native
 argument classification, stored-policy inspection, and the capability table.
 Claude Code and Codex CLI 0.153.2 use `permission-grammar-v2`, Codex CLI 0.164.0 uses `permission-grammar-v3`; Pi uses
@@ -877,9 +877,10 @@ Qualification never widens the independent child-scope ceiling, which admits
 Claude print only, except under a filtering gateway: there the ceiling also
 admits Claude Code's interactive session, and only a build listed for the
 `interactive` entrypoint qualifies it (recipe `claude-interactive-v1`; an
-`exec` entry does not). Codex CLI 0.164.0 also admits normal interactive
+`exec` entry does not). Codex CLI also admits normal interactive
 fresh launches and exact `resume <thread-id>` under a filtering gateway,
-with recipe `codex-interactive-v1`. An explicitly confirmed non-sensitive
+with recipe `codex-interactive-v1`; this admission does not depend on the
+Codex release. An explicitly confirmed non-sensitive
 profile can launch optimistically with the required unqualified warning and
 provenance. Strict or sensitive-egress policy requires an exact qualified build;
 exec and hosted network launches remain unsupported.
@@ -892,8 +893,14 @@ home that is not already the canonical path, for example one reached through a
 symlink, refuses before any gateway call. A proxy selector (`HTTP_PROXY`, `HTTPS_PROXY` or
 `ALL_PROXY`, in any letter case) refuses the route before health, whether it is
 inherited, set by the fragment or named as an MCP lookup. Unlike the Claude
-route, nothing is unset silently. Only Codex CLI `0.164.0` is admitted; both
-exact `0.166.0` gateway predicates stay refused.
+route, nothing is unset silently. The Codex release is informational for this
+route: admission and the binding renderer give the same verdict for every
+release label, and the binding, route, executable, environment and provenance
+checks are unchanged. The permission mapping stays release-bound, so `default`
+and `yolo` refuse on a release without a verified permission grammar, while
+`native` does not depend on it. A refusal from the module's gateway checks
+ends in `reason=<check class>`, for example
+`reason=gateway_native_arguments_not_admitted`.
 
 The Codex home is trusted. The launcher does not read the home's `config.toml`
 or `curator-mcp.config.toml` before exec, so an MCP server declared there that

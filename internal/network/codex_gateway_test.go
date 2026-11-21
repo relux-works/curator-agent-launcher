@@ -477,38 +477,57 @@ func TestCodexGatewayRealEvaluateDocking(t *testing.T) {
 	}
 }
 
-// Exercise both unchanged SAM predicates directly: admission and the binding
-// renderer. A permission row alone cannot admit a release at either gate.
-func TestCodexGatewayBothReleasePredicates(t *testing.T) {
+// Exercise both SAM predicates directly: admission and the binding renderer.
+// Claim: the release label is informational at both gates. The release this
+// route was first built for, an unlisted one, the one reported refused, and an
+// unknown one all get the same verdicts. Each still meets the unchanged
+// checks: a non-interactive mode and an extra native argument refuse
+// admission, and a binding for another provider or a non-loopback base
+// refuses rendering, each with its typed reason. A release label alone
+// neither admits nor refuses. This does not qualify any release's runtime.
+func TestCodexGatewayReleaseIndependentPredicates(t *testing.T) {
 	system := codexpolicy.New()
-	for _, release := range []string{"0.164.0", "0.166.0", "9.999.0"} {
+	reason := func(t *testing.T, err error, want agentic.CodexGatewayRefusalCode) {
+		t.Helper()
+		var refusal *agentic.CodexGatewayRefusalError
+		if !errors.Is(err, agentic.ErrCodexGatewayRefused) || !errors.As(err, &refusal) || refusal.ReasonCode() != want {
+			t.Fatalf("refusal = %v, want reason %s", err, want)
+		}
+		if err.Error() != agentic.ErrCodexGatewayRefused.Error()+" reason="+string(want) {
+			t.Fatalf("refusal text does not name its check class: %q", err)
+		}
+	}
+	for _, release := range []string{"0.164.0", "0.166.0", "0.167.0", "9.999.0"} {
 		t.Run(release, func(t *testing.T) {
 			request := agentic.LaunchRequest{ToolRelease: release, PermissionMode: agentic.PermissionModeNative}
 			policy := system.CodexGatewayBasis(request, agentic.LaunchModeInteractive)
-			err := policy.Admit(agentic.CodexGatewayInputs{}, nil)
-			if release == "0.164.0" {
-				if err != nil {
-					t.Fatal(err)
-				}
-			} else if !errors.Is(err, agentic.ErrCodexGatewayRefused) {
-				t.Fatal("admission release predicate widened")
+			if err := policy.Admit(agentic.CodexGatewayInputs{}, nil); err != nil {
+				t.Fatalf("admission depends on the release label: %v", err)
 			}
-			// Hold the admitted request at 164 and vary only the binding release so
-			// the second predicate cannot be masked by first-stage release refusal.
-			request.ToolRelease = "0.164.0"
+			reason(t, system.CodexGatewayBasis(request, agentic.LaunchModeExec).Admit(agentic.CodexGatewayInputs{}, nil), agentic.CodexGatewayInteractiveModeRequired)
+			extra := request
+			extra.NativeArgs = []string{"-c", "model_provider=other"}
+			reason(t, system.CodexGatewayBasis(extra, agentic.LaunchModeInteractive).Admit(agentic.CodexGatewayInputs{NativeArgs: extra.NativeArgs}, nil), agentic.CodexGatewayNativeArgumentsNotAdmitted)
 			original, err := codexpolicy.Args(request, agentic.LaunchModeInteractive)
 			if err != nil {
 				t.Fatal(err)
 			}
-			policy = system.CodexGatewayBasis(request, agentic.LaunchModeInteractive)
 			b := agentic.RuntimeGatewayBindingV1{ProviderID: "curator-gateway", BaseURL: "http://127.0.0.1:47811/chatgpt/backend-api/codex", HeaderName: "X-Netproxy-Token", TokenEnv: codexTokenEnv, WireAPI: "responses", RequiresOpenAIAuth: true, ToolRelease: release, ExecutablePath: "/synthetic/codex", ExecutableSHA256: strings.Repeat("a", 64)}
-			_, err = policy.Render(b, original)
-			if release == "0.164.0" {
-				if err != nil {
-					t.Fatal(err)
+			if _, err = policy.Render(b, original); err != nil {
+				t.Fatalf("binding depends on the release label: %v", err)
+			}
+			for name, change := range map[string]func(*agentic.RuntimeGatewayBindingV1){
+				"other-provider": func(b *agentic.RuntimeGatewayBindingV1) { b.ProviderID = "other" },
+				"non-loopback-base": func(b *agentic.RuntimeGatewayBindingV1) {
+					b.BaseURL = "http://192.0.2.1:47811/chatgpt/backend-api/codex"
+				},
+			} {
+				changed := b
+				change(&changed)
+				if _, err = policy.Render(changed, original); err == nil {
+					t.Fatalf("%s binding rendered", name)
 				}
-			} else if !errors.Is(err, agentic.ErrCodexGatewayRefused) {
-				t.Fatal("binding release predicate widened")
+				reason(t, err, agentic.CodexGatewayBindingNotCanonical)
 			}
 		})
 	}
