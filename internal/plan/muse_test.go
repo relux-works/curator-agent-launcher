@@ -12,9 +12,44 @@ import (
 )
 
 // Older and opaque module versions refuse with their observed version before
-// any build or availability read; a tagged v4 consumer reaches both boundaries.
+// any build or availability read; a tagged v4 consumer reaches both
+// boundaries. So does a commit after such a release, in Go's pseudo-version
+// form and judged by the release it follows, which is what a module pinned
+// between two tags reports. Every other spelling with a hyphen or a plus
+// refuses: a pre-release, build metadata, the two other pseudo-version forms,
+// a commit after a release older than v0.5.66, and a malformed time or hash.
 func TestMuseModuleVersionGate(t *testing.T) {
-	for _, version := range []string{"v0.5.62", "v0.5.65", "v0.5.66", "v0.5.68", "unknown"} {
+	admittedVersions := map[string]bool{
+		"v0.5.66": true, "v0.5.68": true, "v0.6.0": true, "v1.0.0": true,
+		"v0.5.79-0.20261122055244-b43a71d2e645": true, // the commit after v0.5.78
+		"v0.5.67-0.20260101000000-0123456789ab": true, // the commit after v0.5.66
+		"v0.6.1-0.20260101000000-0123456789ab":  true,
+		"v1.0.1-0.20260101000000-0123456789ab":  true,
+	}
+	for _, version := range []string{
+		"v0.5.62", "v0.5.65", "v0.5.66", "v0.5.68", "v0.6.0", "v1.0.0", "unknown", "",
+		"v0.5.79-0.20261122055244-b43a71d2e645", "v0.5.67-0.20260101000000-0123456789ab",
+		"v0.6.1-0.20260101000000-0123456789ab", "v1.0.1-0.20260101000000-0123456789ab",
+		"v0.5.66-0.20260101000000-0123456789ab",                     // follows v0.5.65
+		"v0.5.1-0.20260101000000-0123456789ab",                      // follows v0.5.0
+		"v0.5.0-0.20260101000000-0123456789ab",                      // patch 0 follows no release
+		"v0.5.79-rc1", "v0.5.79-rc.1", "v0.5.79+build", "v0.5.79-0", // pre-release, metadata
+		"v0.5.79-0.20261122055244-b43a71d2e645+incompatible", // metadata after a pseudo-version
+		"v0.5.79-pre.0.20261122055244-b43a71d2e645",          // commit after a pre-release tag
+		"v0.5.79-rc.1.0.20261122055244-b43a71d2e645",         // commit after a release candidate
+		"v0.0.0-20261122055244-b43a71d2e645",                 // commit with no release before it
+		"v0.5.79-1.20261122055244-b43a71d2e645",
+		"v0.5.79-0.2026112205524-b43a71d2e645",   // 13 digits
+		"v0.5.79-0.202611220552440-b43a71d2e645", // 15 digits
+		"v0.5.79-0.20261322055244-b43a71d2e645",  // month 13
+		"v0.5.79-0.20261122055244-B43A71D2E645",  // upper-case hash
+		"v0.5.79-0.20261122055244-b43a71d2e64",   // 11 hex
+		"v0.5.79-0.20261122055244-b43a71d2e6455", // 13 hex
+		"v0.5.79-0.20261122055244-b43a71d2e64g",
+		"0.5.79-0.20261122055244-b43a71d2e645", // no leading v, as only a plain release may omit it
+		" v0.5.79-0.20261122055244-b43a71d2e645", "v0.5.79-0.20261122055244-b43a71d2e645 ",
+		"v00.5.79-0.20261122055244-b43a71d2e645", "v0.5.079-0.20261122055244-b43a71d2e645",
+	} {
 		t.Run(version, func(t *testing.T) {
 			builds, reads := 0, 0
 			deps := Deps{ModuleVersion: func() string { return version }, BuildLaunch: func(context.Context, *vendorplugin.Registry, vendorplugin.SpawnRequest, agentic.LaunchMode) (agentic.PlanWithEnvironment, error) {
@@ -25,7 +60,7 @@ func TestMuseModuleVersionGate(t *testing.T) {
 				return vendorplugin.Availability{State: vendorplugin.AvailabilityHealthy}, nil
 			}}
 			_, err := Build(context.Background(), deps, Request{Home: "/managed", WorkDir: "/work", Context: &agentic.CuratorContext{Environment: "muse"}})
-			admitted := version == "v0.5.66" || version == "v0.5.68"
+			admitted := admittedVersions[version]
 			if admitted {
 				if err != nil || builds != 1 || reads != 1 {
 					t.Fatalf("valid consumer: %v %d %d", err, builds, reads)
