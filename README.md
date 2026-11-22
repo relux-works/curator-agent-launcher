@@ -1174,6 +1174,10 @@ The cache check is grounded in the published Claude Code 2.1.316, 2.1.318
 and 2.1.326 darwin-arm64 artifacts (for 2.1.326, the artifact check in
 [docs/qualification/claude-code-2.1.326-darwin-arm64.md](docs/qualification/claude-code-2.1.326-darwin-arm64.md);
 operators name it as the `evidence` of that build's strict-tuple entry).
+The two restriction names admitted after that record,
+`allow_connector_file_uploads` and `allow_computer_use`, are checked for the
+same three builds in
+[docs/qualification/policy-cache-restriction-names.md](docs/qualification/policy-cache-restriction-names.md).
 The grounded builds, by the SHA-256 of the published binary (the gateway
 grounds a hash, not a version label):
 
@@ -1194,8 +1198,10 @@ trailing documents. Ordinary settings-file link handling is unchanged.
 | Cache/path | Admitted value |
 | --- | --- |
 | `remote-settings.json` | Exactly an empty JSON object |
-| `policy-limits.json.restrictions` | Required object containing only the next two optional entries |
+| `policy-limits.json.restrictions` | Required object containing only the next four optional entries |
 | `restrictions.allow_connector_file_downloads.allowed` | Boolean; the enclosing object contains only `allowed`; see the gateway eligibility condition below |
+| `restrictions.allow_connector_file_uploads.allowed` | Boolean; the enclosing object contains only `allowed`; see the gateway eligibility condition below |
+| `restrictions.allow_computer_use.allowed` | Boolean; the enclosing object contains only `allowed`; no grounded build contains the name |
 | `restrictions.enforce_web_search_mcp_isolation.allowed` | Boolean; the enclosing object contains only `allowed`; see the gateway eligibility condition below |
 | `defaults.remote_control_at_startup` | `false` only; no other defaults; an empty defaults object is valid |
 | `compliance_taints` | Empty array only |
@@ -1218,8 +1224,15 @@ returns the same result whatever the cache holds, and connector downloads
 stop at an earlier eligibility refusal (see the 2.1.326 record; that
 record also notes a new 2.1.326 feedback-access fetch of the same policy
 endpoint through the gateway's base, which can only deny product feedback
-and reads no cache). Unknown
-restriction names never inherit that admission. In an eligible first-party session an explicit
+and reads no cache). `allow_connector_file_uploads` has a policy-table entry
+from 2.1.318 and evaluator calls from 2.1.326; under the same condition its
+admitted value is inert in the same way, and whether a file can be sent to a
+claude.ai connector from a gateway session does not depend on the cache (see
+the restriction-names record; that transfer would be a direct connection and
+belongs to the written residual below). `allow_computer_use` is sent by the
+policy endpoint and occurs in none of the grounded builds. Unknown
+restriction names never inherit that admission: a name is admitted by exact
+spelling after its own artifact check, never by prefix or entry shape. In an eligible first-party session an explicit
 connector `true` can suppress a hinted denial; isolation `false` can suppress
 hinted enforcement. Neither is universally equivalent to an absent entry.
 
@@ -1271,8 +1284,10 @@ Contract A narrows the launch; it does not isolate it. Its written residual:
   static evidence of its record); those static observations are not a
   runtime connection witness or a guarantee about every later path. Actual
   gateway qualification must check that the launched process makes no
-  direct Anthropic connection, connector downloads and the
-  official-marketplace auto-install included (claim 6 of the 2.1.326 record).
+  direct Anthropic connection, connector downloads, files sent to claude.ai
+  connectors (not traced for reachability; see the restriction-names record)
+  and the official-marketplace auto-install included (claim 6 of the 2.1.326
+  record).
   On CDN failure that auto-install can fall back to a direct git clone from
   `github.com` of `anthropics/claude-plugins-official`; the gateway removes
   its `CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL` switch when

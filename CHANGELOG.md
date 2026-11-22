@@ -29,6 +29,16 @@
   Strict and sensitive-egress launches still require an exact qualified
   build. The module's new Kimi Code CLI plugin is not mapped to any launcher
   environment.
+- The filtering-gateway cache check admits two more restriction names in a
+  cached `policy-limits.json`: `allow_connector_file_uploads` and
+  `allow_computer_use`, each as `{"allowed": <boolean>}` (forward-port of
+  0.7.3). The policy endpoint now returns them, and a managed home whose
+  cache had been refreshed refused every gateway launch with
+  `server policy caches are not admitted: policy-limits.json at restrictions.*`.
+  Both names are admitted by exact spelling on an artifact check of the
+  grounded builds (`docs/qualification/policy-cache-restriction-names.md`);
+  every other restriction name, entry shape, default, taint, root member and
+  companion rule refuses as before.
 
 ### Added
 

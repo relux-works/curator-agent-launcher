@@ -15,6 +15,22 @@ import (
 
 const maxPolicySidecarBytes int64 = 64 << 10
 
+// admittedPolicyRestrictions is the closed set of restriction names a cached
+// policy-limits.json may carry under a filtering gateway. A name is listed
+// only after an artifact check shows that either boolean is inert under the
+// gateway input boundary in every grounded build; the checks are the 2.1.326
+// record and policy-cache-restriction-names.md under docs/qualification.
+// Names match exactly: no prefix, case or entry-shape rule admits another.
+var admittedPolicyRestrictions = map[string]bool{
+	"allow_connector_file_downloads":   true,
+	"enforce_web_search_mcp_isolation": true,
+	// Policy-table entry from 2.1.318; read through the policy evaluator
+	// from 2.1.326, which never reads the cache in an ineligible session.
+	"allow_connector_file_uploads": true,
+	// Sent by the server; no grounded build contains the name.
+	"allow_computer_use": true,
+}
+
 // Cache files have a stricter contract than ordinary settings: never follow
 // a final link, including one installed between inspection and open.
 var openPolicyCache = func(path string) (*os.File, error) {
@@ -115,7 +131,7 @@ func policyCachePath(doc []byte, remote bool) string {
 			}
 			for _, r := range m.Value.Obj {
 				path := "restrictions." + r.Key
-				if r.Key != "allow_connector_file_downloads" && r.Key != "enforce_web_search_mcp_isolation" {
+				if !admittedPolicyRestrictions[r.Key] {
 					add("restrictions.*")
 					continue
 				}

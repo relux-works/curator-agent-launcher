@@ -18,6 +18,23 @@ const safeCachedPolicy = `{"restrictions":{"allow_connector_file_downloads":{"al
 // Safe populated caches reach the fixture gateway; unsafe caches refuse the
 // intended code before health/registration and never echo values/key payloads.
 func TestPrepareGatewayIsolationBooleanBoundary(t *testing.T) {
+	checkRestrictionBooleanBoundary(t, "enforce_web_search_mcp_isolation")
+}
+
+// Claim: the two restriction names admitted after the first two stand on the
+// same input boundary. With either boolean cached for the name, a base-URL,
+// socket, first-party or client-data selector supplied in any layer refuses
+// before the gateway is contacted, an inherited one is removed, and the
+// control launch keeps the registration-owned base. This shows the launcher
+// side of the premise only; that an ineligible runtime never reads the cache
+// is the artifact check's claim.
+func TestPrepareGatewayAddedRestrictionBooleanBoundary(t *testing.T) {
+	for _, restriction := range []string{"allow_connector_file_uploads", "allow_computer_use"} {
+		t.Run(restriction, func(t *testing.T) { checkRestrictionBooleanBoundary(t, restriction) })
+	}
+}
+
+func checkRestrictionBooleanBoundary(t *testing.T, restriction string) {
 	// Both bools are gateway-safe only because every input that could make
 	// native policy eligible is refused or removed before the fixed patch.
 	for _, allowed := range []bool{false, true} {
@@ -26,7 +43,7 @@ func TestPrepareGatewayIsolationBooleanBoundary(t *testing.T) {
 				t.Run(layer+"/"+name+"/"+map[bool]string{false: "false", true: "true"}[allowed], func(t *testing.T) {
 					g := newGateway(t)
 					req := gatewayRequest(gatewayHome(t, g, true))
-					policy, _ := json.Marshal(map[string]any{"restrictions": map[string]any{"enforce_web_search_mcp_isolation": map[string]bool{"allowed": allowed}}})
+					policy, _ := json.Marshal(map[string]any{"restrictions": map[string]any{restriction: map[string]bool{"allowed": allowed}}})
 					writeTestFile(t, filepath.Join(managedHome(req), "policy-limits.json"), string(policy))
 					value := map[string]string{
 						"ANTHROPIC_BASE_URL":                       "https://api.anthropic.com",
@@ -171,6 +188,86 @@ func TestPrepareGatewayPolicyCacheAdmission(t *testing.T) {
 				got.Lease.Finish(context.Background())
 			} else if err == nil || refusalCode(t, err) != refusal.CodeScopeUnsupported || got.Lease != nil || len(g.calls()) != 0 || !strings.Contains(err.Error(), tc.path) || strings.Contains(err.Error(), "PRIVATE_") {
 				t.Fatalf("unsafe: %v, calls=%v", err, g.calls())
+			}
+		})
+	}
+}
+
+// serverCachedPolicy is the populated shape with all four admitted names.
+const serverCachedPolicy = `{"restrictions":{"allow_connector_file_downloads":{"allowed":true},"allow_connector_file_uploads":{"allowed":true},"allow_computer_use":{"allowed":true},"enforce_web_search_mcp_isolation":{"allowed":true}},"defaults":{"remote_control_at_startup":false},"compliance_taints":[],"monitoring_notice":null}`
+
+// Claim: through the real Prepare route and its final recheck, a cache with
+// the four admitted restriction names (either boolean) reaches the fixture
+// gateway, also when the cache is refreshed from the earlier two-name shape
+// after Prepare; the same cache with one unlisted name or with a weakening
+// default refuses with network_scope_unsupported, before any gateway call at
+// Prepare and again at the recheck, names the schema path only and leaves the
+// cache bytes as written. The fixture gateway stands in for the service and
+// no native runtime runs.
+func TestPrepareGatewayPolicyRestrictionNamesAdmission(t *testing.T) {
+	allFalse := strings.ReplaceAll(serverCachedPolicy, `{"allowed":true}`, `{"allowed":false}`)
+	unlisted := strings.Replace(serverCachedPolicy, `"restrictions":{`, `"restrictions":{"PRIVATE_KEY":{"allowed":true},`, 1)
+	native := strings.Replace(serverCachedPolicy, `"restrictions":{`, `"restrictions":{"allow_linked_computer":{"allowed":false},`, 1)
+	weakened := strings.Replace(serverCachedPolicy, `"remote_control_at_startup":false`, `"remote_control_at_startup":true`, 1)
+	const names, startup = "policy-limits.json at restrictions.*", "policy-limits.json at defaults.remote_control_at_startup"
+	refused := func(t *testing.T, err error, path string) {
+		t.Helper()
+		if err == nil || refusalCode(t, err) != refusal.CodeScopeUnsupported || !strings.Contains(err.Error(), path) {
+			t.Fatalf("refusal = %v, want %s at %q", err, refusal.CodeScopeUnsupported, path)
+		}
+		if strings.Contains(err.Error(), "PRIVATE_") || strings.Contains(err.Error(), "allow_linked_computer") {
+			t.Fatalf("refusal discloses a supplied name: %v", err)
+		}
+	}
+	for _, tc := range []struct{ name, first, refreshed, path string }{
+		{"all true", serverCachedPolicy, serverCachedPolicy, ""},
+		{"all false", allFalse, allFalse, ""},
+		{"refreshed from two names", safeCachedPolicy, serverCachedPolicy, ""},
+		{"unlisted name", unlisted, "", names},
+		{"unexamined native name", native, "", names},
+		{"weakening default", weakened, "", startup},
+		{"refreshed to an unlisted name", serverCachedPolicy, unlisted, names},
+		{"refreshed to an unexamined native name", safeCachedPolicy, native, names},
+		{"refreshed to a weakening default", serverCachedPolicy, weakened, startup},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			g := newGateway(t)
+			req := gatewayRequest(gatewayHome(t, g, true))
+			req.Prober = forbiddenProber{t}
+			path := filepath.Join(managedHome(req), "policy-limits.json")
+			writeTestFile(t, path, tc.first)
+			got, err := network.Prepare(context.Background(), req)
+			if tc.refreshed == "" {
+				refused(t, err, tc.path)
+				if got.Lease != nil || len(g.calls()) != 0 {
+					t.Fatalf("refused cache reached the gateway: calls=%v", g.calls())
+				}
+				if data, err := os.ReadFile(path); err != nil || string(data) != tc.first {
+					t.Fatalf("cache modified: %v", err)
+				}
+				return
+			}
+			if err != nil || got.Lease == nil {
+				t.Fatalf("admitted cache refused: %v", err)
+			}
+			defer got.Lease.Finish(context.Background())
+			if err := got.Recheck(context.Background()); err != nil {
+				t.Fatalf("unchanged control: %v", err)
+			}
+			writeTestFile(t, path+".new", tc.refreshed)
+			if err := os.Rename(path+".new", path); err != nil {
+				t.Fatal(err)
+			}
+			err = got.Recheck(context.Background())
+			if tc.path == "" {
+				if err != nil {
+					t.Fatalf("admitted refresh refused: %v", err)
+				}
+			} else {
+				refused(t, err, tc.path)
+			}
+			if data, err := os.ReadFile(path); err != nil || string(data) != tc.refreshed {
+				t.Fatalf("cache modified: %v", err)
 			}
 		})
 	}
