@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
+	"regexp"
 	"slices"
 	"sort"
 	"strings"
@@ -159,51 +160,64 @@ func (p Prepared) BindProcess(binary string, argv, env []string, literals map[st
 	return nil
 }
 
-// codexAppsOff reports final Codex arguments that turn the client's built-in
-// Apps connection off and select no other feature: among every `--enable`,
-// `--disable` and `-c`/`--config` override of the `features` table there is
-// exactly one, the pair `-c features.apps=false`. With the feature on, the
-// client adds a ChatGPT-hosted MCP server of its own, and app tool calls and
-// the files uploaded for them reach the vendor beside the filtering gateway.
-// The pinned module renders the pair; this check is the launcher's own, so a
-// module that stopped rendering it cannot start a gateway child.
-func codexAppsOff(argv []string) bool {
-	off := 0
-	for i := 0; i < len(argv); i++ {
-		arg := argv[i]
-		switch {
-		case arg == "--enable" || arg == "--disable" || strings.HasPrefix(arg, "--enable=") || strings.HasPrefix(arg, "--disable="):
-			return false
-		case arg == "-c" || arg == "--config":
-			i++
-			if i == len(argv) {
-				return false
-			}
-			if codexFeatureOverride(argv[i]) {
-				if arg != "-c" || argv[i] != "features.apps=false" {
-					return false
-				}
-				off++
-			}
-		case strings.HasPrefix(arg, "--config="):
-			if codexFeatureOverride(strings.TrimPrefix(arg, "--config=")) {
-				return false
-			}
-		case strings.HasPrefix(arg, "-c") && !strings.HasPrefix(arg, "--"):
-			if codexFeatureOverride(strings.TrimPrefix(arg, "-c")) {
-				return false
-			}
-		}
-	}
-	return off == 1
-}
+// codexThread is the identity a native `resume` carries.
+var codexThread = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
 
-// codexFeatureOverride reports a config override whose top-level key is the
-// features table, quoted or not.
-func codexFeatureOverride(value string) bool {
-	key, _, _ := strings.Cut(value, "=")
-	top, _, _ := strings.Cut(strings.TrimLeft(key, " \t"), ".")
-	return strings.Trim(top, " \t\"'") == "features"
+// codexAppsOff reports final Codex arguments that are, token by token and in
+// order, what the pinned module renders for a gateway launch this launcher
+// requests, with the client's built-in Apps connection switched off:
+//
+//	-c model_providers.curator-gateway={...}    owned
+//	-c model_provider="curator-gateway"         owned
+//	-c features.apps=false                      owned
+//	[-c model_instructions_file="..."]          Curator system prompt
+//	[-p curator-mcp]                            Curator MCP channel
+//	[-m <model>] [-c model_reasoning_effort="..."]
+//	[--dangerously-bypass-approvals-and-sandbox]
+//	[--no-alt-screen] [resume <thread id>]      the closed native suffix
+//
+// With the feature on, the client adds a ChatGPT-hosted MCP server of its own,
+// and app tool calls and the files uploaded for them reach the vendor beside
+// the filtering gateway. The pinned module renders the switch; this check is
+// the launcher's own, so a module that stopped rendering it cannot start a
+// gateway child.
+//
+// Nothing else is admitted. The client reads a feature from many spellings
+// (`-c=key=value`, `--config`, a key it trims, `--enable`, legacy keys), so
+// the launcher does not list spellings to refuse: an argument that is not one
+// of these forms in its place refuses, whatever it would select. A pair's
+// value is free after its opening character; a model does not start with `-`.
+func codexAppsOff(argv []string) bool {
+	rest := argv
+	take := func(tokens ...string) bool {
+		if len(rest) < len(tokens) || !slices.Equal(rest[:len(tokens)], tokens) {
+			return false
+		}
+		rest = rest[len(tokens):]
+		return true
+	}
+	pair := func(opening string) bool {
+		if len(rest) < 2 || rest[0] != "-c" || !strings.HasPrefix(rest[1], opening) {
+			return false
+		}
+		rest = rest[2:]
+		return true
+	}
+	if !pair("model_providers.curator-gateway={") || !take("-c", `model_provider="curator-gateway"`) || !take("-c", "features.apps=false") {
+		return false
+	}
+	pair(`model_instructions_file="`)
+	take("-p", "curator-mcp")
+	if len(rest) >= 2 && rest[0] == "-m" && rest[1] != "" && !strings.HasPrefix(rest[1], "-") {
+		rest = rest[2:]
+	}
+	pair(`model_reasoning_effort="`)
+	take("--dangerously-bypass-approvals-and-sandbox")
+	take("--no-alt-screen")
+	if len(rest) == 2 && rest[0] == "resume" && codexThread.MatchString(rest[1]) {
+		rest = nil
+	}
+	return len(rest) == 0
 }
 
 func (p Prepared) ChildEnvironment(env []string) ([]string, error) {

@@ -45,6 +45,13 @@ type codexControl struct {
 
 func codexFixture(t *testing.T, extraEnv ...string) (Request, *resolve.Result, *codexControl) {
 	t.Helper()
+	return codexFixtureFor(t, nil, extraEnv...)
+}
+
+// codexFixtureFor builds the fixture for a launch request the caller edits
+// before the module plans it.
+func codexFixtureFor(t *testing.T, edit func(*vendorplugin.SpawnRequest), extraEnv ...string) (Request, *resolve.Result, *codexControl) {
+	t.Helper()
 	dir, err := os.MkdirTemp("", "cgw-")
 	if err != nil {
 		t.Fatal(err)
@@ -91,11 +98,15 @@ func codexFixture(t *testing.T, extraEnv ...string) (Request, *resolve.Result, *
 	if err != nil {
 		t.Fatal(err)
 	}
-	built, err := gatewayadmission.Build(context.Background(), vendorplugin.Default, store, vendorplugin.SpawnRequest{Runtime: "codex", Model: "sol", Effort: "high", ToolRelease: "0.164.0", Home: t.TempDir(), WorkDir: t.TempDir(), Env: append([]string{"PATH=" + filepath.Dir(bin), "HOME=" + t.TempDir()}, extraEnv...)})
+	spawn := vendorplugin.SpawnRequest{Runtime: "codex", Model: "sol", Effort: "high", ToolRelease: "0.164.0", Home: t.TempDir(), WorkDir: t.TempDir(), Env: append([]string{"PATH=" + filepath.Dir(bin), "HOME=" + t.TempDir()}, extraEnv...)}
+	if edit != nil {
+		edit(&spawn)
+	}
+	built, err := gatewayadmission.Build(context.Background(), vendorplugin.Default, store, spawn)
 	if err != nil {
 		t.Fatal(err)
 	}
-	req := Request{Harness: "codex-cli", Entrypoint: EntrypointInteractive, CodexPlan: &built, StagedExecutable: stage, ToolRelease: "0.164.0", ProjectRoot: built.Plan.WorkDir, SessionID: "unit-launch", Artifact: data, GatewayTimeout: time.Second}
+	req := Request{Harness: "codex-cli", Entrypoint: EntrypointInteractive, CodexPlan: &built, StagedExecutable: stage, ToolRelease: "0.164.0", ProjectRoot: built.Plan.WorkDir, SessionID: "unit-launch", Artifact: data, GatewayTimeout: time.Second, NativeArgs: spawn.NativeArgs}
 	result := &resolve.Result{Profile: netprofile.Profile{Name: "gateway", Control: socket}}
 	return req, result, control
 }

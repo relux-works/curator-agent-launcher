@@ -917,8 +917,15 @@ the gateway binding selects; app tool calls and the files uploaded for them
 would reach the vendor without passing the gateway. The pinned module renders
 `-c features.apps=false` as its third owned pair, after the provider table and
 the provider selection, and the launcher requires it on its own account: a
-process is bound, and so executed, only when its final arguments hold that
-pair as their single feature selector. The refusal ends in
+process is bound, and so executed, only when its final arguments are, in
+order, the forms the module renders for the launcher's requests and nothing
+else. Those are the three owned pairs, then optionally the system-prompt file
+pair (`-c model_instructions_file=...`), `-p curator-mcp`, `-m <model>`, the
+effort pair (`-c model_reasoning_effort=...`), the bypass flag,
+`--no-alt-screen` and `resume <thread id>`. The check does not list spellings
+to refuse: the client reads a feature from `-c=key=value`, `--config`, a key
+with surrounding space, `--enable` and legacy keys alike, and each of them is
+simply not one of these forms. The refusal ends in
 `reason=gateway_binding_not_canonical`. A native feature
 selection (`-c features.apps=true`, `--enable apps`) refuses with
 `reason=gateway_native_arguments_not_admitted`: the switch is refused, never

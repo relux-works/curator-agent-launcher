@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/relux-works/curator-network-profiles/pkg/binding"
 	"github.com/relux-works/skill-agents-management/pkg/agentic"
+	"github.com/relux-works/skill-agents-management/pkg/vendorplugin"
 )
 
 func requireAppsRefusal(t *testing.T, name string, err error) {
@@ -18,16 +20,109 @@ func requireAppsRefusal(t *testing.T, name string, err error) {
 	}
 }
 
+const codexTestThread = "0190f0c0-0000-7000-8000-000000000000"
+
+// codexOwnedArgs are the three pairs a gateway launch owns, as the pinned
+// module renders them.
+var codexOwnedArgs = []string{
+	"-c", `model_providers.curator-gateway={name="Curator filtering gateway",base_url="http://127.0.0.1:47811/chatgpt/backend-api/codex",wire_api="responses",requires_openai_auth=true,supports_websockets=false,env_http_headers={"X-Gateway-Token"="CURATOR_CODEX_GATEWAY_TOKEN"}}`,
+	"-c", `model_provider="curator-gateway"`,
+	"-c", "features.apps=false",
+}
+
+// codexOptionalArgs are the forms that may follow, in the module's order.
+var codexOptionalArgs = [][]string{
+	{"-c", `model_instructions_file="/managed/prompt.md"`},
+	{"-p", "curator-mcp"},
+	{"-m", "gpt-6-astra"},
+	{"-c", `model_reasoning_effort="medium"`},
+	{"--dangerously-bypass-approvals-and-sandbox"},
+	{"--no-alt-screen"},
+	{"resume", codexTestThread},
+}
+
+// codexArgs builds admitted arguments: the owned pairs and the optional
+// forms whose bit is set, in order.
+func codexArgs(mask int) []string {
+	argv := slices.Clone(codexOwnedArgs)
+	for i, form := range codexOptionalArgs {
+		if mask&(1<<i) != 0 {
+			argv = append(argv, form...)
+		}
+	}
+	return argv
+}
+
+// codexNeverAdmitted are argument groups that are no rendered form at any
+// position. The first block is what the client reads as a feature selection
+// (openai/codex rust-v0.167.0 with clap 4.5.58): Clap strips `=` after a short
+// option and accepts an attached value, the client trims the key of every
+// Unicode space, `use_legacy_landlock` and the legacy toggles are feature keys
+// outside the `features` table, `connectors` is the legacy name of Apps. The
+// second block is forms the module can render for request fields this
+// launcher never sets, and other spellings of the forms it does render.
+var codexNeverAdmitted = map[string][]string{
+	"short-equals-on":       {"-c=features.apps=true"},
+	"short-equals-off":      {"-c=features.apps=false"},
+	"short-attached-on":     {"-cfeatures.apps=true"},
+	"short-attached-off":    {"-cfeatures.apps=false"},
+	"pair-on":               {"-c", "features.apps=true"},
+	"key-newline":           {"-c", "\nfeatures.apps=true"},
+	"key-space":             {"-c", " features.apps=true"},
+	"key-tab":               {"-c", "\tfeatures.apps=true"},
+	"key-carriage-return":   {"-c", "\rfeatures.apps=true"},
+	"key-no-break-space":    {"-c", "\u00a0features.apps=true"},
+	"key-line-separator":    {"-c", "\u2028features.apps=true"},
+	"key-trailing-space":    {"-c", "features.apps =true"},
+	"key-newline-off":       {"-c", "\nfeatures.apps=false"},
+	"landlock-alias":        {"-c", "use_legacy_landlock=true"},
+	"landlock-alias-equals": {"-c=use_legacy_landlock=true"},
+	"legacy-toggle":         {"-c", "experimental_use_unified_exec_tool=true"},
+	"legacy-apps-name":      {"-c", "features.connectors=true"},
+	"whole-table":           {"-c", "features={apps=true}"},
+	"quoted-table":          {"-c", `"features".apps=true`},
+	"quoted-name":           {"-c", `features."apps"=true`},
+	"other-feature":         {"-c", `features.sleep_tool.mode="on"`},
+	"config-option":         {"--config", "features.apps=true"},
+	"config-joined":         {"--config=features.apps=true"},
+	"enable-flag":           {"--enable", "apps"},
+	"enable-joined":         {"--enable=apps"},
+	"disable-flag":          {"--disable", "apps"},
+	"disable-joined":        {"--disable=apps"},
+
+	"developer-instructions": {"-c", `developer_instructions="text"`},
+	"mcp-server":             {"-c", `mcp_servers.tool.command="tool"`},
+	"writable-roots":         {"-c", `sandbox_workspace_write.writable_roots=["/work"]`},
+	"other-profile":          {"-p", "other"},
+	"profile-long":           {"--profile", "curator-mcp"},
+	"profile-attached":       {"-pcurator-mcp"},
+	"model-long":             {"--model", "gpt-6-astra"},
+	"model-attached":         {"-mgpt-6-astra"},
+	"model-flag-value":       {"-m", "--enable=apps"},
+	"unquoted-effort":        {"-c", "model_reasoning_effort=medium"},
+	"unquoted-prompt-file":   {"-c", "model_instructions_file=/managed/prompt.md"},
+	"other-provider":         {"-c", `model_provider="other"`},
+	"other-provider-table":   {"-c", `model_providers.other={base_url="http://127.0.0.1:1"}`},
+	"separator":              {"--"},
+	"yolo-alias":             {"--yolo"},
+	"resume-picker":          {"resume", "--last"},
+	"resume-name":            {"resume", "thread"},
+	"other-command":          {"exec"},
+	"empty":                  {""},
+}
+
 // Claim: a Codex gateway plan that the launcher prepared carries the Apps
 // switch as its third owned pair, and the launcher itself refuses to bind a
-// process whose final arguments lack it, carry it switched on, override it
-// later or select a feature another way. The refusal is the launcher's own:
-// it carries a reason, where the module's argv comparison refuses without
-// one, so a launcher that only forwarded to the module would fail here. A
-// refused attempt binds nothing; the true arguments still bind afterwards.
-// Without a gateway the launcher asks for nothing. The fixture is a real
-// module policy basis and a synthetic control service; no runtime is started,
-// so this does not show that a Codex release honours the switch.
+// process whose final arguments are anything but the rendered forms: the
+// switch missing, switched on, overridden, or a feature selected in any other
+// spelling at any position. The refusal is the launcher's own: it carries a
+// reason, where the module's argv comparison refuses without one, so a
+// launcher that only forwarded to the module would fail here. A refused
+// attempt binds nothing; the true arguments still bind afterwards, which is
+// each refused row's admitted neighbour. Without a gateway the launcher asks
+// for nothing. The fixture is a real module policy basis and a synthetic
+// control service; no runtime is started, so this does not show that a Codex
+// release honours the switch.
 func TestCodexGatewayRequiresTheAppsSwitch(t *testing.T) {
 	req, result, _ := codexFixture(t)
 	p, err := prepareCodexGateway(context.Background(), req, result, binding.AdapterIdentity{}, nil)
@@ -48,71 +143,170 @@ func TestCodexGatewayRequiresTheAppsSwitch(t *testing.T) {
 	if child := append(slices.Clone(env), codexTokenEnv+"="+codexSyntheticToken); p.VerifyProcess(req.StagedExecutable, argv, child) == nil {
 		t.Fatal("an unbound process passed the final verification")
 	}
-	for name, mutate := range map[string]func([]string) []string{
-		"pair-removed":     func(a []string) []string { return append(a[:4], a[6:]...) },
-		"switched-on":      func(a []string) []string { a[5] = "features.apps=true"; return a },
-		"overridden-later": func(a []string) []string { return append(a, "-c", "features.apps=true") },
-		"second-off":       func(a []string) []string { return append(a, "-c", "features.apps=false") },
-		"enable-flag":      func(a []string) []string { return append(a, "--enable", "apps") },
-		"enable-joined":    func(a []string) []string { return append(a, "--enable=apps") },
-		"disable-flag":     func(a []string) []string { return append(a, "--disable", "apps") },
-		"config-option":    func(a []string) []string { return append(a, "--config", "features.apps=true") },
-		"config-joined":    func(a []string) []string { return append(a, "--config=features.apps=true") },
-		"legacy-name":      func(a []string) []string { return append(a, "-c", "features.connectors=true") },
-		"whole-table":      func(a []string) []string { return append(a, "-c", "features={apps=true}") },
-		"quoted-key":       func(a []string) []string { return append(a, "-c", `"features".apps=true`) },
-		"other-option":     func(a []string) []string { a[4] = "--config"; return a },
-	} {
-		requireAppsRefusal(t, name, p.BindProcess(req.StagedExecutable, mutate(slices.Clone(argv)), env, nil, nil))
+	refused := func(name string, changed []string) {
+		t.Helper()
+		requireAppsRefusal(t, name, p.BindProcess(req.StagedExecutable, changed, env, nil, nil))
 		if p.codex.bound {
 			t.Fatalf("%s: a refused attempt bound the process", name)
+		}
+	}
+	for name, mutate := range map[string]func([]string) []string{
+		"pair-removed": func(a []string) []string { return append(a[:4], a[6:]...) },
+		"switched-on":  func(a []string) []string { a[5] = "features.apps=true"; return a },
+		"second-off":   func(a []string) []string { return append(a, "-c", "features.apps=false") },
+		"other-option": func(a []string) []string { a[4] = "--config"; return a },
+		"short-equals": func(a []string) []string { a[4] = "-c=features.apps=false"; return append(a[:5], a[6:]...) },
+		"nothing":      func([]string) []string { return nil },
+	} {
+		refused(name, mutate(slices.Clone(argv)))
+	}
+	for name, group := range codexNeverAdmitted {
+		for at := 0; at <= len(argv); at++ {
+			refused(name, slices.Insert(slices.Clone(argv), at, group...))
 		}
 	}
 	if err := p.BindProcess(req.StagedExecutable, argv, env, nil, nil); err != nil {
 		t.Fatalf("the prepared arguments no longer bind after refused attempts: %v", err)
 	}
-	for _, other := range [][]string{nil, {"-m", "model"}, {"-c", "features.apps=true"}, {"--enable", "apps"}} {
+	for _, other := range [][]string{nil, {"-m", "model"}, {"-c", "features.apps=true"}, {"--enable", "apps"}, {"-c=features.apps=true"}} {
 		if err := (Prepared{}).BindProcess("/usr/bin/codex", other, nil, nil, nil); err != nil {
 			t.Fatalf("a launch without a gateway was asked for the Apps switch: %v", err)
 		}
 	}
 }
 
-// Claim: codexAppsOff admits arguments with exactly one feature selector,
-// the pair `-c features.apps=false`, beside any other argument, and refuses
-// every other way of selecting a feature and every argument list without the
-// pair. Keys that only contain the word, values that mention it, a feature
-// key under another table and a profile flag are not selectors.
-func TestCodexAppsOff(t *testing.T) {
-	pair := []string{"-c", "features.apps=false"}
-	with := func(before, after []string) []string {
-		return append(append(slices.Clone(before), pair...), after...)
-	}
-	for _, argv := range [][]string{
-		pair,
-		with([]string{"-c", `model_provider="curator-gateway"`}, []string{"-m", "model", "-c", `model_reasoning_effort="high"`}),
-		with(nil, []string{"-p", "managed", "--no-alt-screen", "resume", "0190f0c0-0000-7000-8000-000000000000"}),
-		with(nil, []string{"-c", `mcp_servers.features.command="x"`, "-c", "mcp_servers.apps.enabled=true"}),
-		with(nil, []string{"-c", `developer_instructions="set features.apps=true"`, "-m", "features"}),
-		with(nil, []string{"-c", "featuresx.apps=true", "-c", "feature.apps=true", "-c", "profiles.x.features.apps=true"}),
+// Claim: the launcher's check admits what the pinned module renders. Each row
+// is a launch request the launcher can build; the module plans it and the
+// launcher binds its final arguments. The rows cover the model and effort
+// pairs, the bypass flag and the closed native suffix. The vendor layer
+// resolves the model name and requires an effort for this model, so a list
+// without them is not built here, nor is a plan with a Curator system-prompt
+// file or MCP channel: the pure table below and the command package's
+// pipeline tests hold those forms.
+func TestCodexGatewayBindsWhatTheModuleRenders(t *testing.T) {
+	selected := []string{"-m", "gpt-6.1-sol", "-c", `model_reasoning_effort="high"`}
+	with := func(tail ...string) []string { return append(slices.Clone(selected), tail...) }
+	for name, tc := range map[string]struct {
+		edit func(*vendorplugin.SpawnRequest)
+		tail []string
+	}{
+		"model-and-effort": {nil, selected},
+		"bypass": {func(r *vendorplugin.SpawnRequest) { r.PermissionMode = agentic.PermissionModeYolo },
+			with("--dangerously-bypass-approvals-and-sandbox")},
+		"no-alt-screen": {func(r *vendorplugin.SpawnRequest) { r.NativeArgs = []string{"--no-alt-screen"} }, with("--no-alt-screen")},
+		"resume":        {func(r *vendorplugin.SpawnRequest) { r.NativeArgs = []string{"resume", codexTestThread} }, with("resume", codexTestThread)},
+		"screen-and-resume": {func(r *vendorplugin.SpawnRequest) {
+			r.NativeArgs = []string{"--no-alt-screen", "resume", codexTestThread}
+		},
+			with("--no-alt-screen", "resume", codexTestThread)},
+		"bypass-and-suffix": {func(r *vendorplugin.SpawnRequest) {
+			r.PermissionMode, r.NativeArgs = agentic.PermissionModeYolo, []string{"--no-alt-screen", "resume", codexTestThread}
+		}, with("--dangerously-bypass-approvals-and-sandbox", "--no-alt-screen", "resume", codexTestThread)},
 	} {
-		if !codexAppsOff(argv) {
-			t.Errorf("refused: %q", argv)
+		t.Run(name, func(t *testing.T) {
+			req, result, _ := codexFixtureFor(t, tc.edit)
+			p, err := prepareCodexGateway(context.Background(), req, result, binding.AdapterIdentity{}, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer p.Lease.Finish(context.Background())
+			final, _ := p.CodexPlan()
+			argv := final.Plan.Argv
+			if len(argv) < 6 || !slices.Equal(argv[6:], tc.tail) {
+				t.Fatalf("the module rendered %q after its owned pairs, the row expects %q", argv[min(len(argv), 6):], tc.tail)
+			}
+			if !strings.HasPrefix(argv[1], "model_providers.curator-gateway={") || !slices.Equal(argv[2:6], codexOwnedArgs[2:6]) {
+				t.Fatalf("owned pairs: %q", argv[:6])
+			}
+			if err := p.BindProcess(req.StagedExecutable, argv, slices.Clone(final.Plan.Env), nil, nil); err != nil {
+				t.Fatalf("the launcher refused what the module rendered: %v", err)
+			}
+		})
+	}
+}
+
+// Claim: codexAppsOff admits exactly the argument lists made of the three
+// owned pairs followed by any subset of the seven optional forms in the
+// module's order (128 lists), with free values after each pair's opening
+// character. It refuses every list in which a group that is no rendered form
+// stands at any position of an admitted list, and every list that repeats,
+// reorders, alters or drops a form. Each refused list differs by one change
+// from an admitted list of the 128. The table is written from the module's
+// renderer, not rendered by it; the test above ties the two together.
+func TestCodexAppsOff(t *testing.T) {
+	for mask := 0; mask < 1<<len(codexOptionalArgs); mask++ {
+		if argv := codexArgs(mask); !codexAppsOff(argv) {
+			t.Errorf("refused a rendered list: %q", argv[6:])
 		}
 	}
+	all, bare := codexArgs(1<<len(codexOptionalArgs)-1), codexArgs(0)
 	for _, argv := range [][]string{
-		nil, {"-m", "model"}, {"-c", "features.apps=true"}, {"-c", "features.apps = false"}, {"-c", "features.apps=FALSE"},
-		{"--config", "features.apps=false"}, {"--config=features.apps=false"}, {"-cfeatures.apps=false"},
-		{"-c", "features={apps=false}"}, {"-c", `"features".apps=false`}, {"-c", "features.connectors=false"},
-		with(nil, pair), with(nil, []string{"-c", "features.apps=true"}), with([]string{"-c", "features.apps=true"}, nil),
-		with(nil, []string{"-c", `features.sleep_tool.mode="on"`}), with(nil, []string{"--enable", "apps"}),
-		with(nil, []string{"--enable=web_search"}), with(nil, []string{"--disable", "apps"}), with(nil, []string{"--disable=apps"}),
-		with(nil, []string{"--config", "features.apps=true"}), with(nil, []string{"--config=features.connectors=true"}),
-		with(nil, []string{"-cfeatures.apps=true"}), with(nil, []string{"-c", " features . apps = true"}),
-		with(nil, []string{"-c", `'features'.apps=true`}), with(nil, []string{"-c"}), {"-c"},
+		append(slices.Clone(bare), "-c", `model_instructions_file="/managed/features.apps=true"`, "-m", "features.apps=true"),
+		append(slices.Clone(bare), "-c", "model_reasoning_effort=\"a\nfeatures.apps=true\""),
+		append(slices.Clone(bare), "-m", "model=with=equals"),
+		append([]string{"-c", `model_providers.curator-gateway={name="-c features.apps=true"}`}, bare[2:]...),
+	} {
+		if !codexAppsOff(argv) {
+			t.Errorf("refused a rendered form over its value: %q", argv[6:])
+		}
+	}
+	for name, group := range codexNeverAdmitted {
+		for _, base := range [][]string{bare, all, codexArgs(0b0001111)} {
+			for at := 0; at <= len(base); at++ {
+				if argv := slices.Insert(slices.Clone(base), at, group...); codexAppsOff(argv) {
+					t.Errorf("%s at %d admitted: %q", name, at, argv)
+				}
+			}
+		}
+	}
+	edit := func(base []string, change func([]string) []string) []string { return change(slices.Clone(base)) }
+	for name, argv := range map[string][]string{
+		"nothing":               nil,
+		"no-owned-pairs":        {"-m", "gpt-6-astra"},
+		"only-the-switch":       {"-c", "features.apps=false"},
+		"switch-removed":        edit(all, func(a []string) []string { return append(a[:4], a[6:]...) }),
+		"switch-on":             edit(all, func(a []string) []string { a[5] = "features.apps=true"; return a }),
+		"switch-spaced":         edit(all, func(a []string) []string { a[5] = "features.apps = false"; return a }),
+		"switch-upper":          edit(all, func(a []string) []string { a[5] = "features.apps=FALSE"; return a }),
+		"switch-trailing":       edit(all, func(a []string) []string { a[5] = "features.apps=false "; return a }),
+		"switch-long-option":    edit(all, func(a []string) []string { a[4] = "--config"; return a }),
+		"switch-twice":          edit(bare, func(a []string) []string { return append(a, "-c", "features.apps=false") }),
+		"switch-first":          edit(bare, func(a []string) []string { return append(a[4:6:6], a[:4]...) }),
+		"provider-table-gone":   edit(all, func(a []string) []string { return a[2:] }),
+		"provider-choice-gone":  edit(all, func(a []string) []string { return append(a[:2], a[4:]...) }),
+		"provider-table-string": edit(all, func(a []string) []string { a[1] = `model_providers.curator-gateway="x"`; return a }),
+		"provider-other-id":     edit(all, func(a []string) []string { a[1] = "model_providers.curator-gateway2={}"; return a }),
+		"provider-choice-other": edit(all, func(a []string) []string { a[3] = `model_provider="curator-gateway" `; return a }),
+		"prompt-file-twice": edit(bare, func(a []string) []string {
+			return append(a, "-c", `model_instructions_file="/a"`, "-c", `model_instructions_file="/b"`)
+		}),
+		"profile-twice": edit(bare, func(a []string) []string { return append(a, "-p", "curator-mcp", "-p", "curator-mcp") }),
+		"model-twice":   edit(bare, func(a []string) []string { return append(a, "-m", "one", "-m", "two") }),
+		"effort-twice": edit(bare, func(a []string) []string {
+			return append(a, "-c", `model_reasoning_effort="a"`, "-c", `model_reasoning_effort="b"`)
+		}),
+		"bypass-twice":          edit(bare, func(a []string) []string { return append(a, codexOptionalArgs[4][0], codexOptionalArgs[4][0]) }),
+		"no-alt-screen-twice":   edit(bare, func(a []string) []string { return append(a, "--no-alt-screen", "--no-alt-screen") }),
+		"profile-before-prompt": edit(bare, func(a []string) []string { return append(a, "-p", "curator-mcp", "-c", `model_instructions_file="/a"`) }),
+		"model-before-profile":  edit(bare, func(a []string) []string { return append(a, "-m", "one", "-p", "curator-mcp") }),
+		"effort-before-model":   edit(bare, func(a []string) []string { return append(a, "-c", `model_reasoning_effort="a"`, "-m", "one") }),
+		"bypass-before-effort": edit(bare, func(a []string) []string {
+			return append(a, codexOptionalArgs[4][0], "-c", `model_reasoning_effort="a"`)
+		}),
+		"suffix-before-bypass": edit(bare, func(a []string) []string { return append(a, "--no-alt-screen", codexOptionalArgs[4][0]) }),
+		"resume-before-screen": edit(bare, func(a []string) []string { return append(a, "resume", codexTestThread, "--no-alt-screen") }),
+		"option-before-owned":  edit(bare, func(a []string) []string { return append([]string{"-m", "one"}, a...) }),
+		"model-missing":        edit(bare, func(a []string) []string { return append(a, "-m") }),
+		"model-empty":          edit(bare, func(a []string) []string { return append(a, "-m", "") }),
+		"model-is-an-option":   edit(bare, func(a []string) []string { return append(a, "-m", "-c") }),
+		"pair-missing-value":   edit(bare, func(a []string) []string { return append(a, "-c") }),
+		"resume-missing-id":    edit(bare, func(a []string) []string { return append(a, "resume") }),
+		"resume-short-id":      edit(bare, func(a []string) []string { return append(a, "resume", codexTestThread[:35]) }),
+		"resume-then-more":     edit(bare, func(a []string) []string { return append(a, "resume", codexTestThread, "-c=features.apps=true") }),
+		"resume-twice":         edit(bare, func(a []string) []string { return append(a, "resume", codexTestThread, "resume", codexTestThread) }),
 	} {
 		if codexAppsOff(argv) {
-			t.Errorf("admitted: %q", argv)
+			t.Errorf("%s admitted: %q", name, argv)
 		}
 	}
 }

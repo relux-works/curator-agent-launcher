@@ -26,8 +26,10 @@
   server (`codex_apps`) by itself, and app tool calls and the files uploaded
   for them went to the vendor beside the gateway. The pinned module renders
   `-c features.apps=false` as a third owned pair, and the launcher requires it
-  on its own account: a process whose final arguments lack it, switch it on or
-  select a feature another way is not bound and so not executed, with
+  on its own account: a process is bound, and so executed, only when its
+  final arguments are, in order, the forms the module renders for the
+  launcher's requests, the switch among them. Any other argument refuses,
+  however it spells a feature selection, with
   `reason=gateway_binding_not_canonical`. A native feature selection refuses
   with `reason=gateway_native_arguments_not_admitted`. Other direct client
   routes (sign-in, account and usage calls, telemetry, MCP servers declared in
