@@ -529,7 +529,8 @@ The executable supports `claude_code` (alias `claude`), `codex_cli`
 Muse requires `launch-env-fragment-v4`: exactly four XDG parents under one
 managed home plus `TBH_CREDENTIAL_BACKEND=file`, preserving inherited `HOME`.
 Older Muse fragments refuse `fragment_version_unsupported` before launch.
-The pinned agents-management v0.5.78 plugin owns the native plan; managed
+The pinned agents-management plugin (the untagged pseudo-version
+`v0.5.79-0.20261122055244-b43a71d2e645`, one commit after v0.5.78) owns the native plan; managed
 Muse refuses module versions older than v0.5.66. The optional frozen-copy
 tuple otherwise leaves binary resolution on the handed PATH. `muse-wonder`
 resolves to `muse-wonder-1.0-contributor` with module-owned effort rules.
@@ -619,7 +620,8 @@ The launch pipeline follows these steps:
    `session_liveness_unknown`. No hosted refusal executes natively.
 
 The permission interface is implemented against upstream
-`skill-agents-management v0.5.78`. It owns
+`skill-agents-management v0.5.79-0.20261122055244-b43a71d2e645`, an untagged
+pseudo-version of commit b43a71d2e645, one commit after v0.5.78. It owns
 `LaunchRequest.PermissionMode`, the release-bound mapping, versioned native
 argument classification, stored-policy inspection, and the capability table.
 Claude Code and Codex CLI 0.153.2 use `permission-grammar-v2`, Codex CLI 0.164.0 uses `permission-grammar-v3`; Pi uses
@@ -907,6 +909,25 @@ non-canonical binding, for example
 refusals keep the unnamed `Codex gateway binding refused`, among them a failed
 executable identity, digest or path check, a home that does not resolve and
 most plan-identity checks.
+
+A Codex gateway launch turns the client's built-in Apps connection off. With
+its `apps` feature on, which is the client's default, Codex adds a
+ChatGPT-hosted MCP server (`codex_apps`) by itself, beside the provider route
+the gateway binding selects; app tool calls and the files uploaded for them
+would reach the vendor without passing the gateway. The pinned module renders
+`-c features.apps=false` as its third owned pair, after the provider table and
+the provider selection, and the launcher requires it on its own account: a
+process is bound, and so executed, only when its final arguments hold that
+pair as their single feature selector. The refusal ends in
+`reason=gateway_binding_not_canonical`. A native feature
+selection (`-c features.apps=true`, `--enable apps`) refuses with
+`reason=gateway_native_arguments_not_admitted`: the switch is refused, never
+overridden. This closes the Apps connection only. Sign-in, account and usage
+calls and telemetry still go to the vendor directly, a managed requirement
+that pins the feature is outside the launch, and the statement below about MCP
+servers declared in the home is unchanged. That a Codex release honours the
+setting is read from the client's source (`rust-v0.167.0`), not witnessed by
+these tests.
 
 The Codex home is trusted. The launcher does not read the home's `config.toml`
 or `curator-mcp.config.toml` before exec, so an MCP server declared there that

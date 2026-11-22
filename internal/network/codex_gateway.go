@@ -146,12 +146,64 @@ func (p Prepared) BindProcess(binary string, argv, env []string, literals map[st
 			return agentic.ErrCodexGatewayRefused
 		}
 	}
+	// The launcher's own requirement, beside the module's. Nothing is
+	// executed unbound: VerifyProcess refuses a process that was not bound.
+	if !codexAppsOff(argv) {
+		return agentic.RefuseCodexGateway(agentic.CodexGatewayBindingNotCanonical)
+	}
 	probe := append(slices.Clone(env), codexTokenEnv+"="+g.token)
 	if err := g.final.Plan.VerifyCodexGatewayProcess(binary, argv, probe); err != nil {
 		return err
 	}
 	g.binary, g.argv, g.env, g.bound = binary, slices.Clone(argv), slices.Clone(env), true
 	return nil
+}
+
+// codexAppsOff reports final Codex arguments that turn the client's built-in
+// Apps connection off and select no other feature: among every `--enable`,
+// `--disable` and `-c`/`--config` override of the `features` table there is
+// exactly one, the pair `-c features.apps=false`. With the feature on, the
+// client adds a ChatGPT-hosted MCP server of its own, and app tool calls and
+// the files uploaded for them reach the vendor beside the filtering gateway.
+// The pinned module renders the pair; this check is the launcher's own, so a
+// module that stopped rendering it cannot start a gateway child.
+func codexAppsOff(argv []string) bool {
+	off := 0
+	for i := 0; i < len(argv); i++ {
+		arg := argv[i]
+		switch {
+		case arg == "--enable" || arg == "--disable" || strings.HasPrefix(arg, "--enable=") || strings.HasPrefix(arg, "--disable="):
+			return false
+		case arg == "-c" || arg == "--config":
+			i++
+			if i == len(argv) {
+				return false
+			}
+			if codexFeatureOverride(argv[i]) {
+				if arg != "-c" || argv[i] != "features.apps=false" {
+					return false
+				}
+				off++
+			}
+		case strings.HasPrefix(arg, "--config="):
+			if codexFeatureOverride(strings.TrimPrefix(arg, "--config=")) {
+				return false
+			}
+		case strings.HasPrefix(arg, "-c") && !strings.HasPrefix(arg, "--"):
+			if codexFeatureOverride(strings.TrimPrefix(arg, "-c")) {
+				return false
+			}
+		}
+	}
+	return off == 1
+}
+
+// codexFeatureOverride reports a config override whose top-level key is the
+// features table, quoted or not.
+func codexFeatureOverride(value string) bool {
+	key, _, _ := strings.Cut(value, "=")
+	top, _, _ := strings.Cut(strings.TrimLeft(key, " \t"), ".")
+	return strings.Trim(top, " \t\"'") == "features"
 }
 
 func (p Prepared) ChildEnvironment(env []string) ([]string, error) {

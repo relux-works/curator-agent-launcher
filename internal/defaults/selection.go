@@ -31,7 +31,7 @@ func AdmissionSource() string {
 	}
 	// Test executables may omit dependency build information. This fallback is
 	// pinned to go.mod by TestSelectionCandidates.
-	return "agents-management v0.5.78 lineup"
+	return "agents-management v0.5.79-0.20261122055244-b43a71d2e645 lineup"
 }
 func SelectionCandidates(env string, reg *vendorplugin.Registry) ([]SelectionCandidate, error) {
 	target, err := mapping.Resolve(env)

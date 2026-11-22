@@ -6,7 +6,9 @@
 
 ### Changed
 
-- Pin skill-agents-management v0.5.78 (was v0.5.76). Codex gateway admission
+- Pin skill-agents-management `v0.5.79-0.20261122055244-b43a71d2e645`, an
+  untagged pseudo-version of commit b43a71d2e645, one commit after v0.5.78
+  (was v0.5.76); no release tag carries that commit yet. Codex gateway admission
   no longer depends on the Codex CLI release. v0.5.76 admitted the route only
   for 0.164.0 and refused every other release, for example 0.167.0, with an
   unnamed `Codex gateway binding refused`. An interactive `native` launch is
@@ -19,6 +21,17 @@
   plan-identity refusals stay unnamed. Strict and sensitive-egress launches
   still require an exact qualified build. The module's new Kimi Code CLI
   plugin is not mapped to any launcher environment.
+- A Codex gateway launch turns the client's built-in Apps connection off.
+  With its `apps` feature on, the default, Codex adds a ChatGPT-hosted MCP
+  server (`codex_apps`) by itself, and app tool calls and the files uploaded
+  for them went to the vendor beside the gateway. The pinned module renders
+  `-c features.apps=false` as a third owned pair, and the launcher requires it
+  on its own account: a process whose final arguments lack it, switch it on or
+  select a feature another way is not bound and so not executed, with
+  `reason=gateway_binding_not_canonical`. A native feature selection refuses
+  with `reason=gateway_native_arguments_not_admitted`. Other direct client
+  routes (sign-in, account and usage calls, telemetry, MCP servers declared in
+  the home) are unchanged.
 - The filtering-gateway cache check admits two more restriction names in a
   cached `policy-limits.json`: `allow_connector_file_uploads` and
   `allow_computer_use`, each as `{"allowed": <boolean>}`. The policy endpoint
