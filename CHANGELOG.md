@@ -15,6 +15,20 @@
   are both non-empty and distinct while the legacy file is not listed under
   its exact name (a case-variant name on a case-insensitive filesystem)
   refuses instead of guessing which file the runtime reads.
+- Pin skill-agents-management v0.5.78 (was v0.5.76). Codex gateway admission
+  no longer depends on the Codex CLI release (forward-port of 0.7.3). v0.5.76
+  admitted the route only for 0.164.0 and refused every other release, for
+  example 0.167.0, with an unnamed `Codex gateway binding refused`. An
+  interactive `native` launch is now admitted for any release label; the
+  binding, route, executable, environment and provenance checks are
+  unchanged, and the permission mapping stays release-bound (`default` and
+  `yolo` still refuse on a release without a verified grammar). Refusals from
+  the module's admission policy (launch mode, route, native arguments,
+  environment, binding shape) now end in `reason=<check class>`; executable
+  identity, digest, path, home and most plan-identity refusals stay unnamed.
+  Strict and sensitive-egress launches still require an exact qualified
+  build. The module's new Kimi Code CLI plugin is not mapped to any launcher
+  environment.
 
 ### Added
 
