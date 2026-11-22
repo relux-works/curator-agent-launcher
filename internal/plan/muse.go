@@ -5,7 +5,6 @@ import (
 	"regexp"
 	"runtime/debug"
 	"strconv"
-	"strings"
 	"time"
 )
 
@@ -30,6 +29,10 @@ func linkedModuleVersion() string {
 // vX.Y.(Z-1). It is the form a module pinned between two tags reports.
 var commitAfterRelease = regexp.MustCompile(`^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.([1-9][0-9]*)-0\.([0-9]{14})-[0-9a-f]{12}$`)
 
+// plainRelease is a release tag in canonical form: three numbers of digits
+// only, without a sign or a leading zero. The leading v may be absent.
+var plainRelease = regexp.MustCompile(`^v?(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$`)
+
 func museRelease(major, minor, patch int) bool {
 	return major > 0 || major == 0 && (minor > 5 || minor == 5 && patch >= 66)
 }
@@ -37,14 +40,14 @@ func museRelease(major, minor, patch int) bool {
 // checkMuseModuleVersion admits a plain release of at least v0.5.66, and a
 // commit after such a release in Go's pseudo-version form, judged by the
 // release it follows. Every other spelling refuses: a pre-release, build
-// metadata, the other pseudo-version forms and anything unreadable.
+// metadata, the other pseudo-version forms, a number with a sign or a leading
+// zero, and anything unreadable.
 func checkMuseModuleVersion(version string) error {
-	parts := strings.Split(strings.TrimPrefix(version, "v"), ".")
 	admitted := false
-	if len(parts) == 3 && !strings.ContainsAny(parts[2], "-+") {
-		major, e1 := strconv.Atoi(parts[0])
-		minor, e2 := strconv.Atoi(parts[1])
-		patch, e3 := strconv.Atoi(parts[2])
+	if m := plainRelease.FindStringSubmatch(version); m != nil {
+		major, e1 := strconv.Atoi(m[1])
+		minor, e2 := strconv.Atoi(m[2])
+		patch, e3 := strconv.Atoi(m[3])
 		admitted = e1 == nil && e2 == nil && e3 == nil && museRelease(major, minor, patch)
 	} else if m := commitAfterRelease.FindStringSubmatch(version); m != nil {
 		major, e1 := strconv.Atoi(m[1])
