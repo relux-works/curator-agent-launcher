@@ -35,7 +35,7 @@ func TestConstructionDependencyReleasePin(t *testing.T) {
 	if err := json.Unmarshal(out, &module); err != nil {
 		t.Fatal(err)
 	}
-	if module.Version != "v0.5.79-0.20261122055244-b43a71d2e645" || module.Replace != nil {
+	if module.Version != "v0.5.79-0.20261122171700-6068f5c07c87" || module.Replace != nil {
 		t.Fatalf("release module must be the pinned pseudo-version without replacement: version=%s replaced=%v", module.Version, module.Replace != nil)
 	}
 }

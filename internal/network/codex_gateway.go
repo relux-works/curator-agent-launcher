@@ -149,7 +149,7 @@ func (p Prepared) BindProcess(binary string, argv, env []string, literals map[st
 	}
 	// The launcher's own requirement, beside the module's. Nothing is
 	// executed unbound: VerifyProcess refuses a process that was not bound.
-	if !codexAppsOff(argv) {
+	if !codexSwitchesOff(argv) {
 		return agentic.RefuseCodexGateway(agentic.CodexGatewayBindingNotCanonical)
 	}
 	probe := append(slices.Clone(env), codexTokenEnv+"="+g.token)
@@ -163,31 +163,40 @@ func (p Prepared) BindProcess(binary string, argv, env []string, literals map[st
 // codexThread is the identity a native `resume` carries.
 var codexThread = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
 
-// codexAppsOff reports final Codex arguments that are, token by token and in
-// order, what the pinned module renders for a gateway launch this launcher
-// requests, with the client's built-in Apps connection switched off:
+// codexSwitchesOff reports final Codex arguments that are, token by token and
+// in order, what the pinned module renders for a gateway launch this launcher
+// requests, the four owned settings among them:
 //
 //	-c model_providers.curator-gateway={...}    owned
 //	-c model_provider="curator-gateway"         owned
-//	-c features.apps=false                      owned
+//	-c features.apps=false                      owned: the Apps connection
+//	-c features.plugins=false                   owned: the plugin catalog
+//	-c analytics.enabled=false                  owned: metrics and analytics
+//	-c check_for_update_on_startup=false        owned: the release look-up
 //	[-c model_instructions_file="..."]          Curator system prompt
 //	[-p curator-mcp]                            Curator MCP channel
 //	[-m <model>] [-c model_reasoning_effort="..."]
 //	[--dangerously-bypass-approvals-and-sandbox]
 //	[--no-alt-screen] [resume <thread id>]      the closed native suffix
 //
-// With the feature on, the client adds a ChatGPT-hosted MCP server of its own,
-// and app tool calls and the files uploaded for them reach the vendor beside
-// the filtering gateway. The pinned module renders the switch; this check is
-// the launcher's own, so a module that stopped rendering it cannot start a
+// Each owned setting is rendered for something the client's source shows it
+// sending to the vendor by itself, beside the filtering gateway: the
+// ChatGPT-hosted MCP server of the Apps feature, the refresh of the remote
+// plugin catalog at every start, the built-in metrics exporter and the
+// look-up of a newer release. This check requires the settings in the final
+// arguments; it does not establish that a client release applies them or
+// suppresses the associated traffic, and the update-check behavior has not
+// been witnessed. The pinned module renders the four settings; this check is
+// the launcher's own, so a module that stopped rendering one cannot start a
 // gateway child.
 //
-// Nothing else is admitted. The client reads a feature from many spellings
-// (`-c=key=value`, `--config`, a key it trims, `--enable`, legacy keys), so
-// the launcher does not list spellings to refuse: an argument that is not one
-// of these forms in its place refuses, whatever it would select. A pair's
-// value is free after its opening character; a model does not start with `-`.
-func codexAppsOff(argv []string) bool {
+// Nothing else is admitted. By its source the client reads a setting from
+// many spellings (`-c=key=value`, `--config`, a key it trims, `--enable`,
+// legacy keys), so the launcher does not list spellings to refuse: an
+// argument that is not one of these forms in its place refuses, whatever it
+// would select. A pair's value is free after its opening character; a model
+// does not start with `-`.
+func codexSwitchesOff(argv []string) bool {
 	rest := argv
 	take := func(tokens ...string) bool {
 		if len(rest) < len(tokens) || !slices.Equal(rest[:len(tokens)], tokens) {
@@ -203,8 +212,13 @@ func codexAppsOff(argv []string) bool {
 		rest = rest[2:]
 		return true
 	}
-	if !pair("model_providers.curator-gateway={") || !take("-c", `model_provider="curator-gateway"`) || !take("-c", "features.apps=false") {
+	if !pair("model_providers.curator-gateway={") || !take("-c", `model_provider="curator-gateway"`) {
 		return false
+	}
+	for _, off := range []string{"features.apps=false", "features.plugins=false", "analytics.enabled=false", "check_for_update_on_startup=false"} {
+		if !take("-c", off) {
+			return false
+		}
 	}
 	pair(`model_instructions_file="`)
 	take("-p", "curator-mcp")

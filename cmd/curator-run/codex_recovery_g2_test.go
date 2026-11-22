@@ -68,14 +68,19 @@ func codexRecoveryFixture(t *testing.T) (*pipelineFixture, *launchRecoveryGatewa
 // starts no child and leaves no stage, and each refusal before admission makes
 // no control call. The permission grammar stays release-bound: default and
 // yolo on the unlisted 0.166.0 still refuse. Proxy, provider, remote and
-// native-provider refusals name their check class in the diagnostic, and so does a native feature selection: a caller cannot switch the
-// client's Apps connection back on. Every child's arguments carry `-c features.apps=false` exactly once and no other feature selector.
+// native-provider refusals name their check class in the diagnostic, and so
+// does a native selection of an owned setting (`features.apps`,
+// `features.plugins`, `analytics.enabled`, an `otel` exporter,
+// `check_for_update_on_startup`). Every child's arguments carry the four
+// owned settings (`features.apps`, `features.plugins`, `analytics.enabled`,
+// `check_for_update_on_startup`, each `=false`) exactly once and no other
+// selector of those settings.
 // Children get exactly the plan's canonical CODEX_HOME and no override
 // warning; a symlinked fragment home refuses before any control call. An
 // inherited proxy selector in any letter case refuses before health.
 // Executables are inert fixtures, not native Codex.
 func TestCodexRecoveryG2Matrix(t *testing.T) {
-	cases := []string{"valid164", "symlink-home", "proxy-HTTP_PROXY", "proxy-https_proxy", "proxy-ALL_PROXY", "proxy-All_Proxy", "native166", "native167", "default166", "yolo166", "unknown-release", "provider-env", "remote-env", "native-provider", "native-apps", "native-enable-apps", "missing-host", "stage-mutation", "missing-journal", "unsafe-journal", "prepare-fault", "not-ready", "legacy-health", "malformed-health", "lost-reply", "malformed-register", "interrupt-after-register", "child-error", "child-signal", "cleanup-registry", "cleanup-malformed", "cleanup-local", "restart-not-ready", "same-authority-restart", "forward-sigint", "forward-sigterm"}
+	cases := []string{"valid164", "symlink-home", "proxy-HTTP_PROXY", "proxy-https_proxy", "proxy-ALL_PROXY", "proxy-All_Proxy", "native166", "native167", "default166", "yolo166", "unknown-release", "provider-env", "remote-env", "native-provider", "native-apps", "native-enable-apps", "native-plugins", "native-analytics", "native-otel", "native-update-check", "missing-host", "stage-mutation", "missing-journal", "unsafe-journal", "prepare-fault", "not-ready", "legacy-health", "malformed-health", "lost-reply", "malformed-register", "interrupt-after-register", "child-error", "child-signal", "cleanup-registry", "cleanup-malformed", "cleanup-local", "restart-not-ready", "same-authority-restart", "forward-sigint", "forward-sigterm"}
 	for _, kind := range cases {
 		t.Run(kind, func(t *testing.T) {
 			f, g, stages := codexRecoveryFixture(t)
@@ -112,6 +117,14 @@ func TestCodexRecoveryG2Matrix(t *testing.T) {
 				f.args = append(f.args, "--", "-c", "features.apps=true")
 			case "native-enable-apps":
 				f.args = append(f.args, "--", "--enable", "apps")
+			case "native-plugins":
+				f.args = append(f.args, "--", "-c", "features.plugins=true")
+			case "native-analytics":
+				f.args = append(f.args, "--", "-c", "analytics.enabled=true")
+			case "native-otel":
+				f.args = append(f.args, "--", "-c", `otel.metrics_exporter="statsig"`)
+			case "native-update-check":
+				f.args = append(f.args, "--", "-c", "check_for_update_on_startup=true")
 			case "symlink-home":
 				link := filepath.Join(f.dir, "home-link")
 				if os.Symlink(f.home, link) != nil {
@@ -242,7 +255,9 @@ func TestCodexRecoveryG2Matrix(t *testing.T) {
 			// A refusal from the module's gateway checks names its check class in
 			// the diagnostic the operator reads; the other refusals keep their text.
 			reason := map[string]string{"provider-env": "gateway_provider_route_override", "remote-env": "gateway_provider_route_override", "native-provider": "gateway_native_arguments_not_admitted",
-				"native-apps": "gateway_native_arguments_not_admitted", "native-enable-apps": "gateway_native_arguments_not_admitted"}[kind]
+				"native-apps": "gateway_native_arguments_not_admitted", "native-enable-apps": "gateway_native_arguments_not_admitted",
+				"native-plugins": "gateway_native_arguments_not_admitted", "native-analytics": "gateway_native_arguments_not_admitted",
+				"native-otel": "gateway_native_arguments_not_admitted", "native-update-check": "gateway_native_arguments_not_admitted"}[kind]
 			if strings.HasPrefix(kind, "proxy-") {
 				reason = "gateway_direct_proxy_selector_present"
 			}
@@ -281,7 +296,7 @@ func TestCodexRecoveryG2Matrix(t *testing.T) {
 				if kind != "prepare-fault" && (strings.Contains(string(diag), "attempt=") || strings.Contains(calls, "/v2/recover")) {
 					t.Fatal("pre-admission effects")
 				}
-				if kind == "default166" || kind == "yolo166" || kind == "provider-env" || kind == "remote-env" || kind == "native-provider" || kind == "native-apps" || kind == "native-enable-apps" || kind == "missing-host" || kind == "symlink-home" || strings.HasPrefix(kind, "proxy-") {
+				if kind == "default166" || kind == "yolo166" || kind == "provider-env" || kind == "remote-env" || kind == "native-provider" || kind == "native-apps" || kind == "native-enable-apps" || kind == "native-plugins" || kind == "native-analytics" || kind == "native-otel" || kind == "native-update-check" || kind == "missing-host" || kind == "symlink-home" || strings.HasPrefix(kind, "proxy-") {
 					if calls != "" {
 						t.Fatalf("refusal reached control: %s", calls)
 					}
@@ -323,17 +338,23 @@ func TestCodexRecoveryG2Matrix(t *testing.T) {
 					if !strings.Contains(strings.Join(captured.Env, " "), "CURATOR_CODEX_GATEWAY_TOKEN="+e2eToken) || strings.Contains(strings.Join(captured.Argv, " "), e2eToken) {
 						t.Fatal("token boundary changed")
 					}
-					apps, features := 0, 0
+					switches := map[string]int{"features.apps=false": 0, "features.plugins=false": 0, "analytics.enabled=false": 0, "check_for_update_on_startup=false": 0}
+					selectors := 0
 					for i, arg := range captured.Argv {
-						if strings.Contains(arg, "features") || arg == "--enable" || arg == "--disable" {
-							features++
+						if strings.Contains(arg, "features") || strings.Contains(arg, "analytics") || strings.Contains(arg, "otel") || strings.Contains(arg, "check_for_update") || arg == "--enable" || arg == "--disable" {
+							selectors++
 						}
-						if arg == "features.apps=false" && i > 0 && captured.Argv[i-1] == "-c" {
-							apps++
+						if _, owned := switches[arg]; owned && i > 0 && captured.Argv[i-1] == "-c" {
+							switches[arg]++
 						}
 					}
-					if apps != 1 || features != 1 {
-						t.Fatalf("child arguments carry the Apps switch %d times among %d feature arguments, want exactly one of one: %q", apps, features, captured.Argv)
+					for off, n := range switches {
+						if n != 1 {
+							t.Fatalf("child arguments carry -c %s %d times, want once: %q", off, n, captured.Argv)
+						}
+					}
+					if selectors != len(switches) {
+						t.Fatalf("child arguments name an owned setting %d times, want only the %d switches: %q", selectors, len(switches), captured.Argv)
 					}
 					if !strings.Contains(string(diag), "sam_attempt=") || !strings.Contains(string(diag), "launch="+strings.Repeat("d", 64)) || !strings.Contains(string(diag), "registration_session="+g.envelope.Session) {
 						t.Fatal("missing distinct correlation")

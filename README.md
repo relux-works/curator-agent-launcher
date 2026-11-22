@@ -530,7 +530,7 @@ Muse requires `launch-env-fragment-v4`: exactly four XDG parents under one
 managed home plus `TBH_CREDENTIAL_BACKEND=file`, preserving inherited `HOME`.
 Older Muse fragments refuse `fragment_version_unsupported` before launch.
 The pinned agents-management plugin (the untagged pseudo-version
-`v0.5.79-0.20261122055244-b43a71d2e645`, one commit after v0.5.78) owns the native plan; managed
+`v0.5.79-0.20261122171700-6068f5c07c87`, three commits after v0.5.78) owns the native plan; managed
 Muse refuses module versions older than v0.5.66. The optional frozen-copy
 tuple otherwise leaves binary resolution on the handed PATH. `muse-wonder`
 resolves to `muse-wonder-1.0-contributor` with module-owned effort rules.
@@ -620,8 +620,8 @@ The launch pipeline follows these steps:
    `session_liveness_unknown`. No hosted refusal executes natively.
 
 The permission interface is implemented against upstream
-`skill-agents-management v0.5.79-0.20261122055244-b43a71d2e645`, an untagged
-pseudo-version of commit b43a71d2e645, one commit after v0.5.78. It owns
+`skill-agents-management v0.5.79-0.20261122171700-6068f5c07c87`, an untagged
+pseudo-version of commit 6068f5c07c87, three commits after v0.5.78. It owns
 `LaunchRequest.PermissionMode`, the release-bound mapping, versioned native
 argument classification, stored-policy inspection, and the capability table.
 Claude Code and Codex CLI 0.153.2 use `permission-grammar-v2`, Codex CLI 0.164.0 uses `permission-grammar-v3`; Pi uses
@@ -910,31 +910,65 @@ refusals keep the unnamed `Codex gateway binding refused`, among them a failed
 executable identity, digest or path check, a home that does not resolve and
 most plan-identity checks.
 
-A Codex gateway launch turns the client's built-in Apps connection off. With
-its `apps` feature on, which is the client's default, Codex adds a
-ChatGPT-hosted MCP server (`codex_apps`) by itself, beside the provider route
-the gateway binding selects; app tool calls and the files uploaded for them
-would reach the vendor without passing the gateway. The pinned module renders
-`-c features.apps=false` as its third owned pair, after the provider table and
-the provider selection, and the launcher requires it on its own account: a
-process is bound, and so executed, only when its final arguments are, in
-order, the forms the module renders for the launcher's requests and nothing
-else. Those are the three owned pairs, then optionally the system-prompt file
-pair (`-c model_instructions_file=...`), `-p curator-mcp`, `-m <model>`, the
-effort pair (`-c model_reasoning_effort=...`), the bypass flag,
-`--no-alt-screen` and `resume <thread id>`. The check does not list spellings
-to refuse: the client reads a feature from `-c=key=value`, `--config`, a key
-with surrounding space, `--enable` and legacy keys alike, and each of them is
-simply not one of these forms. The refusal ends in
-`reason=gateway_binding_not_canonical`. A native feature
-selection (`-c features.apps=true`, `--enable apps`) refuses with
-`reason=gateway_native_arguments_not_admitted`: the switch is refused, never
-overridden. This closes the Apps connection only. Sign-in, account and usage
-calls and telemetry still go to the vendor directly, a managed requirement
-that pins the feature is outside the launch, and the statement below about MCP
-servers declared in the home is unchanged. That a Codex release honours the
-setting is read from the client's source (`rust-v0.167.0`), not witnessed by
-these tests.
+A Codex gateway launch carries four settings beside the provider route the
+gateway binding selects. The pinned module renders `features.apps=false`,
+`features.plugins=false`, `analytics.enabled=false` and
+`check_for_update_on_startup=false` after the provider table and the provider
+selection, and the launcher requires those settings in the final arguments.
+The tests do not launch Codex and do not establish that a client release
+applies the settings or suppresses the associated traffic. The update-check
+behavior has not been witnessed. The `gh` status-line child remains outside
+these switches.
+
+Each setting is rendered for something the client's source (openai/codex
+`rust-v0.167.0`) shows it sending to the vendor by itself:
+
+- `-c features.apps=false`: the built-in Apps connection, a ChatGPT-hosted MCP
+  server (`codex_apps`) that the client adds with the feature on, its default.
+- `-c features.plugins=false`: the refresh of the remote plugin catalog at
+  every start. The setting is rendered for the remote-catalog suppression
+  goal; the tests verify only that argv value, not the behavior of installed
+  Codex releases or of future local plugin setups. The key names the plugin
+  feature as a whole; the gateway session that was measured listed no tool or
+  MCP server provided by a plugin.
+- `-c analytics.enabled=false`: the built-in metrics exporter and the
+  analytics events.
+- `-c check_for_update_on_startup=false`: the look-up of a newer client
+  release at start.
+
+Observed before this change, on one gateway launch that left the three new
+settings at the client's defaults: 83 MB on one direct connection in the first
+97 seconds, which a reading of the source attributes to the catalog refresh,
+and a connection that posted once a minute, which the same reading attributes
+to the metrics exporter. Those are observations of a default-configuration
+launch; they do not prove the effect of the four settings.
+
+The pinned module renders the four settings as its third to sixth owned pairs,
+after the provider table and the provider selection, and the launcher requires
+them on its own account: a process is bound, and so executed, only when its
+final arguments are, in order, the forms the module renders for the launcher's
+requests and nothing else. Those are the six owned pairs, then optionally the
+system-prompt file pair (`-c model_instructions_file=...`), `-p curator-mcp`,
+`-m <model>`, the effort pair (`-c model_reasoning_effort=...`), the bypass
+flag, `--no-alt-screen` and `resume <thread id>`. The check does not list
+spellings to refuse: by its source the client reads a setting from
+`-c=key=value`, `--config`, a key with surrounding space, `--enable` and legacy
+keys alike, and each of them is simply not one of these forms. A setting that
+is missing, switched on, repeated or out of its place refuses the same way.
+The refusal ends in `reason=gateway_binding_not_canonical`. A native selection
+of an owned setting (`-c features.apps=true`, `--enable apps`,
+`-c analytics.enabled=true`, an `otel` exporter,
+`-c check_for_update_on_startup=true`) refuses with
+`reason=gateway_native_arguments_not_admitted`: an owned setting is refused,
+never overridden.
+
+The four settings concern these four routes only. Sign-in and the account's
+own calls, such as the usage read the client repeats about once a minute and
+the announcement tip, go to the vendor directly. A program the client starts
+itself, such as `gh` for the status line, makes its own connections. A managed
+requirement that pins a setting is outside the launch, an exporter declared
+under `otel` in the home is another one than `analytics.enabled` names, and
+the statement below about MCP servers declared in the home is unchanged.
 
 The Codex home is trusted. The launcher does not read the home's `config.toml`
 or `curator-mcp.config.toml` before exec, so an MCP server declared there that
