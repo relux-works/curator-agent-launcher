@@ -920,21 +920,12 @@ applies the settings or suppresses the associated traffic. The update-check
 behavior has not been witnessed. The `gh` status-line child remains outside
 these switches.
 
-Each setting is rendered for something the client's source (openai/codex
-`rust-v0.167.0`) shows it sending to the vendor by itself:
-
-- `-c features.apps=false`: the built-in Apps connection, a ChatGPT-hosted MCP
-  server (`codex_apps`) that the client adds with the feature on, its default.
-- `-c features.plugins=false`: the refresh of the remote plugin catalog at
-  every start. The setting is rendered for the remote-catalog suppression
-  goal; the tests verify only that argv value, not the behavior of installed
-  Codex releases or of future local plugin setups. The key names the plugin
-  feature as a whole; the gateway session that was measured listed no tool or
-  MCP server provided by a plugin.
-- `-c analytics.enabled=false`: the built-in metrics exporter and the
-  analytics events.
-- `-c check_for_update_on_startup=false`: the look-up of a newer client
-  release at start.
+`features.plugins=false` is rendered for the remote-catalog suppression goal.
+The tests verify only that argv value, not the behavior of installed Codex
+releases or of future local plugin setups. The gateway session that was
+measured before this change listed no tool or MCP server provided by a
+plugin; a Codex home with local plugins is a separate question that this
+check does not answer.
 
 Observed before this change, on one gateway launch that left the three new
 settings at the client's defaults: 83 MB on one direct connection in the first
@@ -962,13 +953,10 @@ of an owned setting (`-c features.apps=true`, `--enable apps`,
 `reason=gateway_native_arguments_not_admitted`: an owned setting is refused,
 never overridden.
 
-The four settings concern these four routes only. Sign-in and the account's
-own calls, such as the usage read the client repeats about once a minute and
-the announcement tip, go to the vendor directly. A program the client starts
-itself, such as `gh` for the status line, makes its own connections. A managed
-requirement that pins a setting is outside the launch, an exporter declared
-under `otel` in the home is another one than `analytics.enabled` names, and
-the statement below about MCP servers declared in the home is unchanged.
+The requirement is on the final arguments and on nothing else. It does not
+cover a setting that comes from the Codex home or from managed configuration,
+and neither the check nor its tests establish which connections a client, or
+a program the client starts, opens with these settings or without them.
 
 The Codex home is trusted. The launcher does not read the home's `config.toml`
 or `curator-mcp.config.toml` before exec, so an MCP server declared there that

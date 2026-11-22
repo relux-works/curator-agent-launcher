@@ -41,9 +41,7 @@
   three new settings at the client's defaults, measured before this change,
   received 83 MB on one direct connection and posted on another once a
   minute; that is an observation of a default-configuration launch, not of
-  these settings. Other direct client routes (sign-in, account and usage
-  calls, an `otel` exporter or MCP servers declared in the home, programs the
-  client starts itself) are unchanged.
+  these settings.
 - The filtering-gateway cache check admits two more restriction names in a
   cached `policy-limits.json`: `allow_connector_file_uploads` and
   `allow_computer_use`, each as `{"allowed": <boolean>}`. The policy endpoint

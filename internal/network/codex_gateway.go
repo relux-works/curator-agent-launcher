@@ -169,24 +169,22 @@ var codexThread = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]
 //
 //	-c model_providers.curator-gateway={...}    owned
 //	-c model_provider="curator-gateway"         owned
-//	-c features.apps=false                      owned: the Apps connection
-//	-c features.plugins=false                   owned: the plugin catalog
-//	-c analytics.enabled=false                  owned: metrics and analytics
-//	-c check_for_update_on_startup=false        owned: the release look-up
+//	-c features.apps=false                      owned
+//	-c features.plugins=false                   owned
+//	-c analytics.enabled=false                  owned
+//	-c check_for_update_on_startup=false        owned
 //	[-c model_instructions_file="..."]          Curator system prompt
 //	[-p curator-mcp]                            Curator MCP channel
 //	[-m <model>] [-c model_reasoning_effort="..."]
 //	[--dangerously-bypass-approvals-and-sandbox]
 //	[--no-alt-screen] [resume <thread id>]      the closed native suffix
 //
-// Each owned setting is rendered for something the client's source shows it
-// sending to the vendor by itself, beside the filtering gateway: the
-// ChatGPT-hosted MCP server of the Apps feature, the refresh of the remote
-// plugin catalog at every start, the built-in metrics exporter and the
-// look-up of a newer release. This check requires the settings in the final
-// arguments; it does not establish that a client release applies them or
-// suppresses the associated traffic, and the update-check behavior has not
-// been witnessed. The pinned module renders the four settings; this check is
+// This check requires the four settings in the final arguments, as these
+// exact tokens in this order after the provider selection. It establishes no
+// client-release behavior and no traffic effect: not that a client release
+// applies the settings, and not that any connection changes. The update-check
+// behavior has not been witnessed, and the `gh` status-line child is outside
+// these switches. The pinned module renders the four settings; this check is
 // the launcher's own, so a module that stopped rendering one cannot start a
 // gateway child.
 //
