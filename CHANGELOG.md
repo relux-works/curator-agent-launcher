@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### Changed
+
+- Pin `skill-agents-management` to the untagged pseudo-version
+  `v0.5.79-0.20261123175620-8c85a40be200`. Add the system-only,
+  false-by-default `gateway_standalone_web_search` option for Codex filtering
+  gateways; when enabled it binds the provider capability and standalone-search
+  feature together. Direct launches remain unchanged. Keep the option off
+  until the proxy search route is deployed.
+
 ## 0.7.3 — 2026-11-21
 
 ### Changed

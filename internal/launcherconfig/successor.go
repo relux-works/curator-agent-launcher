@@ -91,7 +91,7 @@ func parseClaudeAuth(v fragment.Value) (*ClaudeAuth, error) {
 	return &ClaudeAuth{Type: "oauth", Store: selected}, nil
 }
 
-// Marshal emits host policy only; launcher selections belong to Core.
+// Marshal emits machine policy only; launcher selections belong to Core.
 func Marshal(c Config) ([]byte, error) {
 	var mode *string
 	if c.HostMode.Source == "machine" {
@@ -108,10 +108,11 @@ func Marshal(c Config) ([]byte, error) {
 		return nil, fmt.Errorf("delegated trial requires explicit selection")
 	}
 	data, err := json.Marshal(struct {
-		Schema         string  `json:"schema"`
-		HostMode       *string `json:"host_mode,omitempty"`
-		DelegatedTrial *bool   `json:"delegated_trial,omitempty"`
-	}{Schema, mode, trial})
+		Schema                     string  `json:"schema"`
+		HostMode                   *string `json:"host_mode,omitempty"`
+		DelegatedTrial             *bool   `json:"delegated_trial,omitempty"`
+		GatewayStandaloneWebSearch bool    `json:"gateway_standalone_web_search,omitempty"`
+	}{Schema, mode, trial, c.GatewayStandaloneWebSearch})
 	if err != nil {
 		return nil, fmt.Errorf("invalid launcher configuration encoding")
 	}

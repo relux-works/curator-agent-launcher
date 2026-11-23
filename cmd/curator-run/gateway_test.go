@@ -21,6 +21,7 @@ import (
 
 	"github.com/relux-works/curator-network-profiles/pkg/adapterprobe"
 	"github.com/relux-works/curator-network-profiles/pkg/netprofile"
+	"github.com/relux-works/skill-agents-management/pkg/providerlimits"
 )
 
 const e2eToken = "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210"
@@ -126,6 +127,88 @@ func writeGatewayCatalog(t *testing.T, f *pipelineFixture, socket string) {
 	// Admission contract A: the managed home holds a read-only settings.json.
 	if err := os.WriteFile(filepath.Join(f.home, "settings.json"), []byte("{}"), 0o400); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func writeCodexGatewayCatalog(t *testing.T, f *pipelineFixture, socket string) {
+	t.Helper()
+	writeGatewayCatalog(t, f, socket)
+	path := filepath.Join(f.dir, ".curator", "network-qualified.toml")
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	old := []byte("harness = \"claude-code\"\n")
+	if !bytes.Contains(raw, old) {
+		t.Fatal("fixture lacks the Claude qualification row")
+	}
+	raw = bytes.Replace(raw, old, []byte("harness = \"codex-cli\"\n"), 1)
+	old = []byte("entrypoint = \"exec\"\n")
+	if !bytes.Contains(raw, old) {
+		t.Fatal("fixture lacks an entrypoint")
+	}
+	raw = bytes.Replace(raw, old, []byte("entrypoint = \"interactive\"\n"), 1)
+	writeFixture(t, path, raw, 0600)
+}
+
+// The system option reaches the canonical binding only for a managed Codex
+// gateway launch. The zero-value gateway keeps both settings absent, and a
+// machine opt-in without a gateway leaves direct arguments untouched.
+func TestGatewayStandaloneSearchConfigPropagation(t *testing.T) {
+	for _, tc := range []struct {
+		name, config string
+		gateway      bool
+		wantSearch   bool
+	}{
+		{name: "gateway-default-off", gateway: true},
+		{name: "gateway-opt-in", config: `,"gateway_standalone_web_search":true`, gateway: true, wantSearch: true},
+		{name: "direct-ignores-opt-in", config: `,"gateway_standalone_web_search":true`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := entryFixture(t, "codex_cli")
+			withTestRelease(f, "codex-cli 0.164.0")
+			codexHost, err := os.ReadFile(pipelineHelper)
+			if err != nil {
+				t.Fatal(err)
+			}
+			writeFixture(t, filepath.Join(f.dir, "codex-code-mode-host"), codexHost, 0700)
+			f.args = []string{"codex_cli", "--permissions", "native", "--model", "gpt-6-astra", "--effort", "high"}
+			var g *e2eGateway
+			if tc.gateway {
+				g = newE2EGateway(t)
+				writeCodexGatewayCatalog(t, f, g.socket)
+				f.args = withNetworkFlag(f.args, "egress-a")
+				store, err := providerlimits.NewStore(providerlimits.Options{Layout: providerlimits.LayoutAt(t.TempDir())})
+				if err != nil {
+					t.Fatal(err)
+				}
+				f.deps.gatewayStore = func() (*providerlimits.Store, error) { return store, nil }
+			}
+			if tc.config != "" {
+				f.writeDefaults(t, filepath.Join(f.dir, "machine", "launcher.json"), `{"schema":"curator-run-launcher-v1","host_mode":"native"`+tc.config+`}`)
+			}
+			code, out, stderr := f.run()
+			if code != 0 {
+				t.Fatalf("exit=%d stderr=%s", code, stderr)
+			}
+			if tc.gateway && g.calls() != "/v1/health /v1/register /v1/activate /v1/unregister" {
+				t.Fatalf("gateway calls = %q", g.calls())
+			}
+			var child childCapture
+			if err := json.Unmarshal(out, &child); err != nil {
+				t.Fatal(err)
+			}
+			capability := strings.Contains(strings.Join(child.Argv, " "), "supports_standalone_web_search=true")
+			feature := false
+			for i := 0; i+1 < len(child.Argv); i++ {
+				if child.Argv[i] == "-c" && child.Argv[i+1] == "features.standalone_web_search=true" {
+					feature = true
+				}
+			}
+			if capability != tc.wantSearch || feature != tc.wantSearch {
+				t.Fatalf("search capability=%t feature=%t argv=%q", capability, feature, child.Argv)
+			}
+		})
 	}
 }
 

@@ -233,6 +233,10 @@ type Request struct {
 	// GatewayRecovery explicitly selects durable control/2 issuance/completion.
 	// Its absence preserves the control/1 path; it never changes profile authority.
 	GatewayRecovery bool
+	// GatewayStandaloneWebSearch opts the finalized Codex filtering-gateway
+	// binding into the separate standalone search route. It has no effect on
+	// direct or non-Codex launches.
+	GatewayStandaloneWebSearch bool
 	// GuardBudget bounds each settings and contract check (tests); zero
 	// means guardBudget.
 	GuardBudget time.Duration

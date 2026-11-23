@@ -61,6 +61,12 @@ func codexArgs(mask int) []string {
 	return argv
 }
 
+func codexOwnedArgsWithStandaloneSearch() []string {
+	args := slices.Clone(codexOwnedArgs)
+	args[1] = strings.Replace(args[1], "supports_websockets=false,", "supports_websockets=false,supports_standalone_web_search=true,", 1)
+	return append(args, "-c", "features.standalone_web_search=true")
+}
+
 // codexNeverAdmitted are argument groups that are no rendered form at any
 // position. The first block is what the client reads as a feature selection
 // (openai/codex rust-v0.167.0 with clap 4.5.58): Clap strips `=` after a short
@@ -247,24 +253,26 @@ func TestCodexGatewayBindsWhatTheModuleRenders(t *testing.T) {
 	selected := []string{"-m", "gpt-6.1-sol", "-c", `model_reasoning_effort="high"`}
 	with := func(tail ...string) []string { return append(slices.Clone(selected), tail...) }
 	for name, tc := range map[string]struct {
-		edit func(*vendorplugin.SpawnRequest)
-		tail []string
+		edit             func(*vendorplugin.SpawnRequest)
+		tail             []string
+		standaloneSearch bool
 	}{
-		"model-and-effort": {nil, selected},
-		"bypass": {func(r *vendorplugin.SpawnRequest) { r.PermissionMode = agentic.PermissionModeYolo },
-			with("--dangerously-bypass-approvals-and-sandbox")},
-		"no-alt-screen": {func(r *vendorplugin.SpawnRequest) { r.NativeArgs = []string{"--no-alt-screen"} }, with("--no-alt-screen")},
-		"resume":        {func(r *vendorplugin.SpawnRequest) { r.NativeArgs = []string{"resume", codexTestThread} }, with("resume", codexTestThread)},
-		"screen-and-resume": {func(r *vendorplugin.SpawnRequest) {
+		"model-and-effort": {tail: selected},
+		"bypass": {edit: func(r *vendorplugin.SpawnRequest) { r.PermissionMode = agentic.PermissionModeYolo },
+			tail: with("--dangerously-bypass-approvals-and-sandbox")},
+		"no-alt-screen": {edit: func(r *vendorplugin.SpawnRequest) { r.NativeArgs = []string{"--no-alt-screen"} }, tail: with("--no-alt-screen")},
+		"resume":        {edit: func(r *vendorplugin.SpawnRequest) { r.NativeArgs = []string{"resume", codexTestThread} }, tail: with("resume", codexTestThread)},
+		"screen-and-resume": {edit: func(r *vendorplugin.SpawnRequest) {
 			r.NativeArgs = []string{"--no-alt-screen", "resume", codexTestThread}
-		},
-			with("--no-alt-screen", "resume", codexTestThread)},
-		"bypass-and-suffix": {func(r *vendorplugin.SpawnRequest) {
+		}, tail: with("--no-alt-screen", "resume", codexTestThread)},
+		"bypass-and-suffix": {edit: func(r *vendorplugin.SpawnRequest) {
 			r.PermissionMode, r.NativeArgs = agentic.PermissionModeYolo, []string{"--no-alt-screen", "resume", codexTestThread}
-		}, with("--dangerously-bypass-approvals-and-sandbox", "--no-alt-screen", "resume", codexTestThread)},
+		}, tail: with("--dangerously-bypass-approvals-and-sandbox", "--no-alt-screen", "resume", codexTestThread)},
+		"standalone-search": {tail: selected, standaloneSearch: true},
 	} {
 		t.Run(name, func(t *testing.T) {
 			req, result, _ := codexFixtureFor(t, tc.edit)
+			req.GatewayStandaloneWebSearch = tc.standaloneSearch
 			p, err := prepareCodexGateway(context.Background(), req, result, binding.AdapterIdentity{}, nil)
 			if err != nil {
 				t.Fatal(err)
@@ -272,11 +280,15 @@ func TestCodexGatewayBindsWhatTheModuleRenders(t *testing.T) {
 			defer p.Lease.Finish(context.Background())
 			final, _ := p.CodexPlan()
 			argv := final.Plan.Argv
-			owned := len(codexOwnedArgs)
+			ownedArgs := codexOwnedArgs
+			if tc.standaloneSearch {
+				ownedArgs = codexOwnedArgsWithStandaloneSearch()
+			}
+			owned := len(ownedArgs)
 			if len(argv) < owned || !slices.Equal(argv[owned:], tc.tail) {
 				t.Fatalf("the module rendered %q after its owned pairs, the row expects %q", argv[min(len(argv), owned):], tc.tail)
 			}
-			if !strings.HasPrefix(argv[1], "model_providers.curator-gateway={") || !slices.Equal(argv[2:owned], codexOwnedArgs[2:]) {
+			if !strings.HasPrefix(argv[1], "model_providers.curator-gateway={") || !slices.Equal(argv[2:owned], ownedArgs[2:]) {
 				t.Fatalf("owned pairs: %q", argv[:owned])
 			}
 			if err := p.BindProcess(req.StagedExecutable, argv, slices.Clone(final.Plan.Env), nil, nil); err != nil {
@@ -306,7 +318,7 @@ func TestCodexGatewayBindsWhatTheModuleRenders(t *testing.T) {
 func TestCodexSwitchesOff(t *testing.T) {
 	owned := len(codexOwnedArgs)
 	for mask := 0; mask < 1<<len(codexOptionalArgs); mask++ {
-		if argv := codexArgs(mask); !codexSwitchesOff(argv) {
+		if argv := codexArgs(mask); !codexSwitchesOff(argv, false) {
 			t.Errorf("refused a rendered list: %q", argv[owned:])
 		}
 	}
@@ -319,14 +331,14 @@ func TestCodexSwitchesOff(t *testing.T) {
 		append(slices.Clone(bare), "-m", "model=with=equals"),
 		append([]string{"-c", `model_providers.curator-gateway={name="-c features.apps=true"}`}, bare[2:]...),
 	} {
-		if !codexSwitchesOff(argv) {
+		if !codexSwitchesOff(argv, false) {
 			t.Errorf("refused a rendered form over its value: %q", argv[owned:])
 		}
 	}
 	for name, group := range codexNeverAdmitted {
 		for _, base := range [][]string{bare, all, codexArgs(0b0001111)} {
 			for at := 0; at <= len(base); at++ {
-				if argv := slices.Insert(slices.Clone(base), at, group...); codexSwitchesOff(argv) {
+				if argv := slices.Insert(slices.Clone(base), at, group...); codexSwitchesOff(argv, false) {
 					t.Errorf("%s at %d admitted: %q", name, at, argv)
 				}
 			}
@@ -335,7 +347,7 @@ func TestCodexSwitchesOff(t *testing.T) {
 	edit := func(base []string, change func([]string) []string) []string { return change(slices.Clone(base)) }
 	rows := map[string][]string{}
 	for base, list := range map[string][]string{"bare": bare, "all": all} {
-		if !codexSwitchesOff(list) {
+		if !codexSwitchesOff(list, false) {
 			t.Fatalf("refused the %s list, the admitted list every switch row is changed from: %q", base, list)
 		}
 	}
@@ -373,7 +385,7 @@ func TestCodexSwitchesOff(t *testing.T) {
 		t.Fatalf("the switch rows are %d, want every change of every switch on both lists but the one that changes nothing", len(rows))
 	}
 	for name, argv := range rows {
-		if codexSwitchesOff(argv) {
+		if codexSwitchesOff(argv, false) {
 			t.Errorf("%s admitted: %q", name, argv)
 		}
 	}
@@ -415,8 +427,47 @@ func TestCodexSwitchesOff(t *testing.T) {
 		"resume-then-more":     edit(bare, func(a []string) []string { return append(a, "resume", codexTestThread, "-c=features.apps=true") }),
 		"resume-twice":         edit(bare, func(a []string) []string { return append(a, "resume", codexTestThread, "resume", codexTestThread) }),
 	} {
-		if codexSwitchesOff(argv) {
+		if codexSwitchesOff(argv, false) {
 			t.Errorf("%s admitted: %q", name, argv)
 		}
+	}
+}
+
+// The explicit search binding requires both canonical settings. The default
+// binding refuses either setting, and an enabled binding fails closed when
+// either value is missing, altered, duplicated or out of order.
+func TestCodexSwitchesOffStandaloneWebSearch(t *testing.T) {
+	base := slices.Clone(codexOwnedArgs)
+	enabled := codexOwnedArgsWithStandaloneSearch()
+	if !codexSwitchesOff(enabled, true) {
+		t.Fatal("the enabled canonical provider capability and feature pair were refused")
+	}
+	if codexSwitchesOff(enabled, false) {
+		t.Fatal("search settings passed a default-off gateway binding")
+	}
+	if codexSwitchesOff(base, true) {
+		t.Fatal("missing search settings passed an enabled gateway binding")
+	}
+	mutations := map[string][]string{
+		"missing-feature":               enabled[:len(enabled)-2],
+		"feature-off":                   slices.Replace(slices.Clone(enabled), len(enabled)-1, len(enabled), "features.standalone_web_search=false"),
+		"feature-duplicate":             append(slices.Clone(enabled), "-c", "features.standalone_web_search=true"),
+		"feature-wrong-form":            slices.Replace(slices.Clone(enabled), len(enabled)-2, len(enabled), "-c=features.standalone_web_search=true"),
+		"feature-before-last-owned":     slices.Insert(slices.Clone(enabled[:len(enabled)-2]), len(enabled)-4, "-c", "features.standalone_web_search=true"),
+		"missing-provider-capability":   slices.Replace(slices.Clone(enabled), 1, 2, strings.Replace(enabled[1], ",supports_standalone_web_search=true", "", 1)),
+		"provider-capability-off":       slices.Replace(slices.Clone(enabled), 1, 2, strings.Replace(enabled[1], "supports_standalone_web_search=true", "supports_standalone_web_search=false", 1)),
+		"provider-capability-duplicate": slices.Replace(slices.Clone(enabled), 1, 2, strings.Replace(enabled[1], ",supports_standalone_web_search=true,", ",supports_standalone_web_search=true,supports_standalone_web_search=true,", 1)),
+		"provider-capability-suffix":    slices.Replace(slices.Clone(enabled), 1, 2, strings.Replace(enabled[1], "supports_standalone_web_search=true,", "supports_standalone_web_search=truex,", 1)),
+		"feature-without-provider":      slices.Replace(slices.Clone(enabled), 1, 2, strings.Replace(enabled[1], ",supports_standalone_web_search=true", "", 1)),
+	}
+	for name, argv := range mutations {
+		if codexSwitchesOff(argv, true) {
+			t.Errorf("%s passed the enabled binding: %q", name, argv)
+		}
+	}
+	withProviderOnly := slices.Clone(base)
+	withProviderOnly[1] = strings.Replace(withProviderOnly[1], "supports_websockets=false,", "supports_websockets=false,supports_standalone_web_search=true,", 1)
+	if codexSwitchesOff(withProviderOnly, false) {
+		t.Fatal("a provider-only opt-in passed the default-off binding")
 	}
 }

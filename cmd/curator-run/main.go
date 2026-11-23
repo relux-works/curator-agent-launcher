@@ -740,8 +740,9 @@ func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, ta
 	}
 	preparedNet, err := network.Prepare(prepareCtx, network.Request{
 		Explicit: inv.Network, ExplicitSet: inv.NetworkSet, LauncherProfile: launcherProfile, DefaultGateway: gatewayDefault,
-		GatewayRecovery: inv.GatewayRecoveryEnabled,
-		CodexPlan:       &admitted, StagedExecutable: stagedExecutable(snapshot), ToolRelease: toolRelease,
+		GatewayRecovery:            inv.GatewayRecoveryEnabled,
+		GatewayStandaloneWebSearch: gatewayAttempt && deps.launcherConfig.GatewayStandaloneWebSearch,
+		CodexPlan:                  &admitted, StagedExecutable: stagedExecutable(snapshot), ToolRelease: toolRelease,
 		Hosted: !sessionAllowed(isHosted), Harness: adapterHarness,
 		Entrypoint: entrypoint,
 		ParentEnv:  parentEnv, Prober: deps.prober,

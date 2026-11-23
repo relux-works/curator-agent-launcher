@@ -11,7 +11,7 @@ import (
 // Host policy retains its v1 encoding. Round trips preserve explicit policy;
 // neither layer is an alternative authority for Core launcher selections.
 func TestHostPolicyRoundTripAndSelectionAuthority(t *testing.T) {
-	original, err := Parse([]byte(`{"schema":"curator-run-launcher-v1","host_mode":"native","delegated_trial":false}`))
+	original, err := Parse([]byte(`{"schema":"curator-run-launcher-v1","host_mode":"native","delegated_trial":false,"gateway_standalone_web_search":true}`))
 	if err != nil {
 		t.Fatal(err)
 	}

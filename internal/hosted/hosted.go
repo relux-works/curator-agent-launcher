@@ -38,10 +38,9 @@ const (
 // Producer identity of the pinned agents-management module. ModuleVersion is
 // pinned to the go.mod require by TestProducerMatchesBuild. The pin is an
 // untagged Go pseudo-version: no release tag carries this commit yet, so
-// ModuleCommit is the commit the pseudo-version itself names, three commits after
-// the v0.5.78 tag, resolved at pin time (Go exposes no dependency commit at
-// runtime).
+// ModuleCommit is the commit the pseudo-version itself names, resolved at pin
+// time (Go exposes no dependency commit at runtime).
 const (
-	ProducerModuleVersion = "0.5.79-0.20261122171700-6068f5c07c87"
-	ProducerModuleCommit  = "6068f5c07c87f858e4a7bd2e3a72fffad667bef2"
+	ProducerModuleVersion = "0.5.79-0.20261123175620-8c85a40be200"
+	ProducerModuleCommit  = "8c85a40be200fff63af4297708f0ecf349fa4e6c"
 )

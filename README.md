@@ -530,7 +530,7 @@ Muse requires `launch-env-fragment-v4`: exactly four XDG parents under one
 managed home plus `TBH_CREDENTIAL_BACKEND=file`, preserving inherited `HOME`.
 Older Muse fragments refuse `fragment_version_unsupported` before launch.
 The pinned agents-management plugin (the untagged pseudo-version
-`v0.5.79-0.20261122171700-6068f5c07c87`, three commits after v0.5.78) owns the native plan; managed
+`v0.5.79-0.20261123175620-8c85a40be200`, commit 8c85a40be200) owns the native plan; managed
 Muse refuses module versions older than v0.5.66. The optional frozen-copy
 tuple otherwise leaves binary resolution on the handed PATH. `muse-wonder`
 resolves to `muse-wonder-1.0-contributor` with module-owned effort rules.
@@ -620,8 +620,8 @@ The launch pipeline follows these steps:
    `session_liveness_unknown`. No hosted refusal executes natively.
 
 The permission interface is implemented against upstream
-`skill-agents-management v0.5.79-0.20261122171700-6068f5c07c87`, an untagged
-pseudo-version of commit 6068f5c07c87, three commits after v0.5.78. It owns
+`skill-agents-management v0.5.79-0.20261123175620-8c85a40be200`, an untagged
+pseudo-version of commit 8c85a40be200. It owns
 `LaunchRequest.PermissionMode`, the release-bound mapping, versioned native
 argument classification, stored-policy inspection, and the capability table.
 Claude Code and Codex CLI 0.153.2 use `permission-grammar-v2`, Codex CLI 0.164.0 uses `permission-grammar-v3`; Pi uses
@@ -910,13 +910,18 @@ refusals keep the unnamed `Codex gateway binding refused`, among them a failed
 executable identity, digest or path check, a home that does not resolve and
 most plan-identity checks.
 
-A Codex gateway launch carries four settings beside the provider route the
-gateway binding selects. The pinned module renders `features.apps=false`,
+A Codex gateway launch carries four fixed settings beside the provider route
+the gateway binding selects. The pinned module renders `features.apps=false`,
 `features.plugins=false`, `analytics.enabled=false` and
 `check_for_update_on_startup=false` after the provider table and the provider
 selection, and the launcher requires those settings in the final arguments.
-The tests do not launch Codex and do not establish that a client release
-applies the settings or suppresses the associated traffic. The update-check
+The system-only `gateway_standalone_web_search` option defaults to false. When
+explicitly enabled, the gateway binding also renders the provider capability
+and `features.standalone_web_search=true`; direct launches do not use it. Keep
+the option false until the proxy route is deployed. Before then its search
+request is refused, which aborts the current tool turn on Codex 0.164. The
+tests do not launch Codex and do not establish that a client release applies
+these settings or suppresses the associated traffic. The update-check
 behavior has not been witnessed. The `gh` status-line child remains outside
 these switches.
 
@@ -934,14 +939,17 @@ and a connection that posted once a minute, which the same reading attributes
 to the metrics exporter. Those are observations of a default-configuration
 launch; they do not prove the effect of the four settings.
 
-The pinned module renders the four settings as its third to sixth owned pairs,
-after the provider table and the provider selection, and the launcher requires
-them on its own account: a process is bound, and so executed, only when its
-final arguments are, in order, the forms the module renders for the launcher's
-requests and nothing else. Those are the six owned pairs, then optionally the
-system-prompt file pair (`-c model_instructions_file=...`), `-p curator-mcp`,
-`-m <model>`, the effort pair (`-c model_reasoning_effort=...`), the bypass
-flag, `--no-alt-screen` and `resume <thread id>`. The check does not list
+The pinned module renders the four fixed settings as its third to sixth owned
+pairs, after the provider table and the provider selection. With the explicit
+search opt-in it adds the provider capability and one feature pair after
+those four. The launcher requires the selected form on its own account: a
+process is bound, and so executed, only when its final arguments are, in
+order, the forms the module renders for the launcher's requests and nothing
+else. Those are six owned pairs by default, or seven with search enabled, then
+optionally the system-prompt file pair (`-c model_instructions_file=...`),
+`-p curator-mcp`, `-m <model>`, the effort pair
+(`-c model_reasoning_effort=...`), the bypass flag, `--no-alt-screen` and
+`resume <thread id>`. The check does not list
 spellings to refuse: by its source the client reads a setting from
 `-c=key=value`, `--config`, a key with surrounding space, `--enable` and legacy
 keys alike, and each of them is simply not one of these forms. A setting that
@@ -949,7 +957,8 @@ is missing, switched on, repeated or out of its place refuses the same way.
 The refusal ends in `reason=gateway_binding_not_canonical`. A native selection
 of an owned setting (`-c features.apps=true`, `--enable apps`,
 `-c analytics.enabled=true`, an `otel` exporter,
-`-c check_for_update_on_startup=true`) refuses with
+`-c check_for_update_on_startup=true`, or an unrequested standalone-search
+setting) refuses with
 `reason=gateway_native_arguments_not_admitted`: an owned setting is refused,
 never overridden.
 

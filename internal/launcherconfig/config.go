@@ -26,12 +26,14 @@ func (e *Error) Unwrap() error { return e.Err }
 // system host_mode; absent file or member means auto/default.
 type Mode struct{ Value, Source string }
 
-// Config is validated machine policy. Host resolution consumes the mode and
-// delegated trial opt-in before selecting a session-manager route.
+// Config is validated machine policy. Host resolution consumes its host and
+// delegated-trial settings; Codex gateway preparation consumes the separate
+// standalone web-search opt-in.
 type Config struct {
-	HostMode          Mode
-	DelegatedTrial    bool
-	DelegatedTrialSet bool
+	HostMode                   Mode
+	DelegatedTrial             bool
+	DelegatedTrialSet          bool
+	GatewayStandaloneWebSearch bool
 }
 
 func Parse(data []byte) (Config, error) { return parse(data, "") }
@@ -47,7 +49,7 @@ func parse(data []byte, userSystemPath string) (Config, error) {
 		return Config{}, fmt.Errorf("root must be an object")
 	}
 	if userSystemPath != "" {
-		for _, name := range []string{"host_mode", "delegated_trial", "proxy", "claude_auth", "notification"} {
+		for _, name := range []string{"host_mode", "delegated_trial", "gateway_standalone_web_search", "proxy", "claude_auth", "notification"} {
 			if _, ok := root.Get(name); ok {
 				return Config{}, fmt.Errorf("%s is machine-only; configure %s", name, userSystemPath)
 			}
@@ -76,6 +78,11 @@ func parse(data []byte, userSystemPath string) (Config, error) {
 				return Config{}, fmt.Errorf("delegated_trial must be a boolean")
 			}
 			result.DelegatedTrial, result.DelegatedTrialSet = member.Value.Bool, true
+		case "gateway_standalone_web_search":
+			if member.Value.Kind != fragment.KindBool {
+				return Config{}, fmt.Errorf("gateway_standalone_web_search must be a boolean")
+			}
+			result.GatewayStandaloneWebSearch = member.Value.Bool
 		case "proxy", "claude_auth", "notification":
 			return Config{}, fmt.Errorf("launcher selections require the Core-selected machine configuration")
 		default:

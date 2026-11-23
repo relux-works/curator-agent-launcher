@@ -36,7 +36,13 @@ qualification or permission to access a store.
 Both user and system `launcher.json` retain the existing
 `curator-run-launcher-v1` host-policy contract. Both reject `proxy` and
 `claude_auth`; `host_mode` and `delegated_trial` keep their existing authority
-and behavior. Migration does not promote that file to another source.
+and behavior. `gateway_standalone_web_search` is a strict system-only boolean
+and defaults to `false`. When true, it opts a Codex filtering-gateway binding
+into the client's separate standalone search route; direct launches do not use
+the setting. Keep it false until the proxy route is deployed: the current
+route refuses that request, and Codex 0.164 treats the failure as fatal to the
+current tool turn. This option supplies no proxy limits or endpoint settings.
+Migration does not promote `launcher.json` to another source.
 
 `proxy.profile` references an existing network-catalog profile; it does not
 introduce another endpoint registry. A selected proxy must retain the network

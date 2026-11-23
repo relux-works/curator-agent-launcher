@@ -24,12 +24,13 @@ const codexTokenEnv = "CURATOR_CODEX_GATEWAY_TOKEN"
 // A registration token stays private to this process and the final child env.
 // Neither a patch, provider table, receipt nor provenance contains its value.
 type codexGateway struct {
-	final     agentic.PlanWithEnvironment
-	receipt   *agentic.GatewayAdmissionReceiptV1
-	token     string
-	binary    string
-	argv, env []string
-	bound     bool
+	final               agentic.PlanWithEnvironment
+	receipt             *agentic.GatewayAdmissionReceiptV1
+	token               string
+	binary              string
+	argv, env           []string
+	bound               bool
+	standaloneWebSearch bool
 }
 
 func gatewayPairs(values map[string]string) []string {
@@ -85,7 +86,8 @@ func prepareCodexGateway(ctx context.Context, req Request, result *resolve.Resul
 	final, receipt, err := admission.Finalize(agentic.RuntimeGatewayBindingV1{
 		AttemptID: admission.AttemptID(), ProviderID: "curator-gateway", BaseURL: reg.ChatGPTBase,
 		HeaderName: reg.TokenHeader, TokenEnv: codexTokenEnv, WireAPI: "responses", RequiresOpenAIAuth: true,
-		SupportsWebSockets: false, ToolRelease: req.ToolRelease, ExecutablePath: req.StagedExecutable,
+		SupportsWebSockets: false, SupportsStandaloneWebSearch: req.GatewayStandaloneWebSearch,
+		ToolRelease: req.ToolRelease, ExecutablePath: req.StagedExecutable,
 		ExecutableSHA256: fmt.Sprintf("%x", sha256.Sum256(req.Artifact)),
 	})
 	if err != nil {
@@ -94,7 +96,7 @@ func prepareCodexGateway(ctx context.Context, req Request, result *resolve.Resul
 	bound := binding.Binding{ProfileRef: result.Selection.ProfileRef, ProfileDigest: result.Digest,
 		AdapterIdentity: identity, Assurance: result.Assurance, ResolvedEndpoint: reg.ChatGPTBase}
 	record := bound.Record(string(result.Selection.Origin), &binding.ProbeRecord{TCP: "skipped", Connect: "skipped", TLS: "skipped", CheckedAt: time.Now().UTC()})
-	gateway := &codexGateway{final: final, receipt: receipt, token: reg.Token}
+	gateway := &codexGateway{final: final, receipt: receipt, token: reg.Token, standaloneWebSearch: req.GatewayStandaloneWebSearch}
 	return Prepared{Record: &record, Provenance: provenance, Lease: lease, codex: gateway, Recheck: func(ctx context.Context) error {
 		gatewayphase.Reach("recheck")
 		if ctx.Err() != nil {
@@ -149,7 +151,7 @@ func (p Prepared) BindProcess(binary string, argv, env []string, literals map[st
 	}
 	// The launcher's own requirement, beside the module's. Nothing is
 	// executed unbound: VerifyProcess refuses a process that was not bound.
-	if !codexSwitchesOff(argv) {
+	if !codexSwitchesOff(argv, g.standaloneWebSearch) {
 		return agentic.RefuseCodexGateway(agentic.CodexGatewayBindingNotCanonical)
 	}
 	probe := append(slices.Clone(env), codexTokenEnv+"="+g.token)
@@ -165,7 +167,8 @@ var codexThread = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]
 
 // codexSwitchesOff reports final Codex arguments that are, token by token and
 // in order, what the pinned module renders for a gateway launch this launcher
-// requests, the four owned settings among them:
+// requests, the four owned settings among them, and the optional standalone
+// search capability selected by machine policy:
 //
 //	-c model_providers.curator-gateway={...}    owned
 //	-c model_provider="curator-gateway"         owned
@@ -173,6 +176,7 @@ var codexThread = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]
 //	-c features.plugins=false                   owned
 //	-c analytics.enabled=false                  owned
 //	-c check_for_update_on_startup=false        owned
+//	[-c features.standalone_web_search=true]    owned only for an explicit opt-in
 //	[-c model_instructions_file="..."]          Curator system prompt
 //	[-p curator-mcp]                            Curator MCP channel
 //	[-m <model>] [-c model_reasoning_effort="..."]
@@ -194,7 +198,7 @@ var codexThread = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]
 // argument that is not one of these forms in its place refuses, whatever it
 // would select. A pair's value is free after its opening character; a model
 // does not start with `-`.
-func codexSwitchesOff(argv []string) bool {
+func codexSwitchesOff(argv []string, standaloneWebSearch bool) bool {
 	rest := argv
 	take := func(tokens ...string) bool {
 		if len(rest) < len(tokens) || !slices.Equal(rest[:len(tokens)], tokens) {
@@ -210,13 +214,29 @@ func codexSwitchesOff(argv []string) bool {
 		rest = rest[2:]
 		return true
 	}
-	if !pair("model_providers.curator-gateway={") || !take("-c", `model_provider="curator-gateway"`) {
+	const providerTable = "model_providers.curator-gateway={"
+	if len(rest) < 2 || rest[0] != "-c" || !strings.HasPrefix(rest[1], providerTable) {
+		return false
+	}
+	if standaloneWebSearch {
+		if strings.Count(rest[1], "supports_standalone_web_search") != 1 ||
+			!strings.Contains(rest[1], ",supports_standalone_web_search=true,") {
+			return false
+		}
+	} else if strings.Contains(rest[1], "supports_standalone_web_search") {
+		return false
+	}
+	rest = rest[2:]
+	if !take("-c", `model_provider="curator-gateway"`) {
 		return false
 	}
 	for _, off := range []string{"features.apps=false", "features.plugins=false", "analytics.enabled=false", "check_for_update_on_startup=false"} {
 		if !take("-c", off) {
 			return false
 		}
+	}
+	if standaloneWebSearch && !take("-c", "features.standalone_web_search=true") {
+		return false
 	}
 	pair(`model_instructions_file="`)
 	take("-p", "curator-mcp")

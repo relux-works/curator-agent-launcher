@@ -135,6 +135,43 @@ func TestDelegatedTrial(t *testing.T) {
 	}
 }
 
+// Standalone web search is an explicit machine-only gateway capability. It
+// defaults off, accepts only JSON booleans, and never comes from user policy.
+func TestGatewayStandaloneWebSearch(t *testing.T) {
+	for _, tc := range []struct {
+		name, member string
+		want         bool
+	}{
+		{name: "absent"},
+		{name: "false", member: `,"gateway_standalone_web_search":false`},
+		{name: "true", member: `,"gateway_standalone_web_search":true`, want: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			r := fixture(t)
+			put(t, r.Locations.System, `{"schema":"curator-run-launcher-v1"`+tc.member+`}`)
+			got, err := Load(r)
+			if err != nil || got.GatewayStandaloneWebSearch != tc.want {
+				t.Fatalf("got %+v, want search=%t: %v", got, tc.want, err)
+			}
+		})
+	}
+	for _, value := range []string{`null`, `1`, `"true"`, `[]`, `{}`} {
+		r := fixture(t)
+		put(t, r.Locations.System, `{"schema":"curator-run-launcher-v1","gateway_standalone_web_search":`+value+`}`)
+		if got, err := Load(r); err == nil || got != (Config{}) {
+			t.Fatalf("non-boolean system value %s accepted: %+v", value, got)
+		}
+	}
+	for _, value := range []string{`false`, `true`} {
+		r := fixture(t)
+		put(t, r.Locations.System, `{"schema":"curator-run-launcher-v1","gateway_standalone_web_search":true}`)
+		put(t, r.Locations.User, `{"schema":"curator-run-launcher-v1","gateway_standalone_web_search":`+value+`}`)
+		if got, err := Load(r); err == nil || got != (Config{}) {
+			t.Fatalf("user-layer value %s accepted: %+v", value, got)
+		}
+	}
+}
+
 // Machine-scope value validation rejects unknown/wrong-type policy without
 // relying on the user authority gate; nearby valid values remain admitted.
 func TestMachinePolicyInvalidValues(t *testing.T) {
