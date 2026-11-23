@@ -52,9 +52,13 @@ func g2PreIssueRefusalKind(kind string) bool {
 
 // g2PreIssueRefusalFailure is shared by the matrix and the deliberate plant:
 // refusal rows must not issue, call control, or expose attempt/recovery effects.
-func g2PreIssueRefusalFailure(kind string, issued bool, calls, diag string) string {
+// A non-nil reached map records each matrix row that reaches this assertion.
+func g2PreIssueRefusalFailure(kind string, issued bool, calls, diag string, reached map[string]int) string {
 	if !g2PreIssueRefusalKind(kind) {
 		return ""
+	}
+	if reached != nil {
+		reached[kind]++
 	}
 	if issued {
 		return "pre-issue refusal recorded an attempt"
@@ -64,6 +68,30 @@ func g2PreIssueRefusalFailure(kind string, issued bool, calls, diag string) stri
 	}
 	if strings.Contains(diag, "attempt=") {
 		return "pre-issue refusal exposed attempt effects"
+	}
+	return ""
+}
+
+func g2PreIssueRefusalCoverageFailure(expected []string, reached map[string]int) string {
+	expectedRows := make(map[string]struct{}, len(expected))
+	for _, kind := range expected {
+		if _, ok := expectedRows[kind]; ok {
+			return "duplicate expected refusal row " + kind
+		}
+		expectedRows[kind] = struct{}{}
+	}
+	for kind, count := range reached {
+		if _, ok := expectedRows[kind]; !ok {
+			return "unexpected refusal assertion row " + kind
+		}
+		if count != 1 {
+			return "refusal assertion ran an unexpected number of times for " + kind
+		}
+	}
+	for _, kind := range expected {
+		if reached[kind] != 1 {
+			return "missing refusal assertion row " + kind
+		}
 	}
 	return ""
 }
@@ -300,6 +328,7 @@ func TestCodexRecoveryG2Matrix(t *testing.T) {
 		"same-authority-restart", "forward-sigint", "forward-sigterm",
 	}
 	cases = append(cases, g2PreIssueRefusalKinds...)
+	reachedPreIssueRefusals := make(map[string]int, len(g2PreIssueRefusalKinds))
 	for _, kind := range cases {
 		t.Run(kind, func(t *testing.T) {
 			f, g, stages := codexRecoveryFixture(t)
@@ -549,7 +578,7 @@ func TestCodexRecoveryG2Matrix(t *testing.T) {
 				t.Fatal("duplicate issuance or completion")
 			}
 			issued := g.envelope.AttemptID != ""
-			if failure := g2PreIssueRefusalFailure(kind, issued, calls, string(diag)); failure != "" {
+			if failure := g2PreIssueRefusalFailure(kind, issued, calls, string(diag), reachedPreIssueRefusals); failure != "" {
 				t.Fatal(failure)
 			}
 			if !issued {
@@ -716,12 +745,60 @@ func TestCodexRecoveryG2Matrix(t *testing.T) {
 			t.Logf("scenario=%s exit=%d workload_spawn=%t controls=%s stage_removed=true", kind, code, child, calls)
 		})
 	}
+	if failure := g2PreIssueRefusalCoverageFailure(g2PreIssueRefusalKinds, reachedPreIssueRefusals); failure != "" {
+		t.Fatalf("pre-issue refusal coverage failed: %s", failure)
+	}
 }
 
 // These plants inspect the matrix call site and independently seed one
 // pre-issue effect into every refusal row. They test the assertion boundary,
 // not launch order.
 func TestCodexRecoveryG2PreIssueRefusalRegisterPlant(t *testing.T) {
+	t.Run("coverage-full-set", func(t *testing.T) {
+		reached := make(map[string]int, len(g2PreIssueRefusalKinds))
+		for _, kind := range g2PreIssueRefusalKinds {
+			reached[kind] = 1
+		}
+		if failure := g2PreIssueRefusalCoverageFailure(g2PreIssueRefusalKinds, reached); failure != "" {
+			t.Fatalf("full refusal set rejected: %s", failure)
+		}
+	})
+	t.Run("coverage-one-missing", func(t *testing.T) {
+		missingKind := g2PreIssueRefusalKinds[0]
+		reached := make(map[string]int, len(g2PreIssueRefusalKinds)-1)
+		for _, kind := range g2PreIssueRefusalKinds[1:] {
+			reached[kind] = 1
+		}
+		if failure := g2PreIssueRefusalCoverageFailure(g2PreIssueRefusalKinds, reached); failure == "" || !strings.Contains(failure, missingKind) {
+			t.Fatalf("single missing row %q was not rejected by its name: %q", missingKind, failure)
+		}
+	})
+	t.Run("coverage-only-default166", func(t *testing.T) {
+		reached := map[string]int{"default166": 1}
+		if failure := g2PreIssueRefusalCoverageFailure(g2PreIssueRefusalKinds, reached); failure == "" {
+			t.Fatal("default166-only refusal set was accepted")
+		}
+	})
+	t.Run("coverage-unexpected-row", func(t *testing.T) {
+		reached := make(map[string]int, len(g2PreIssueRefusalKinds)+1)
+		for _, kind := range g2PreIssueRefusalKinds {
+			reached[kind] = 1
+		}
+		reached["not-a-refusal-row"] = 1
+		if failure := g2PreIssueRefusalCoverageFailure(g2PreIssueRefusalKinds, reached); failure == "" {
+			t.Fatal("refusal set with an unexpected row was accepted")
+		}
+	})
+	t.Run("coverage-duplicate-row", func(t *testing.T) {
+		reached := make(map[string]int, len(g2PreIssueRefusalKinds))
+		for _, kind := range g2PreIssueRefusalKinds {
+			reached[kind] = 1
+		}
+		reached["default166"]++
+		if failure := g2PreIssueRefusalCoverageFailure(g2PreIssueRefusalKinds, reached); failure == "" {
+			t.Fatal("refusal set with a repeated assertion was accepted")
+		}
+	})
 	t.Run("matrix-call-site", func(t *testing.T) {
 		g2AssertPreIssueMatrixCallSite(t)
 	})
@@ -736,7 +813,7 @@ func TestCodexRecoveryG2PreIssueRefusalRegisterPlant(t *testing.T) {
 	for _, kind := range g2PreIssueRefusalKinds {
 		for _, plant := range plants {
 			t.Run(kind+"/"+plant.name, func(t *testing.T) {
-				if failure := g2PreIssueRefusalFailure(kind, plant.issued, plant.calls, plant.diag); failure == "" {
+				if failure := g2PreIssueRefusalFailure(kind, plant.issued, plant.calls, plant.diag, nil); failure == "" {
 					t.Fatal("planted pre-issue effect passed the refusal assertion")
 				}
 			})
