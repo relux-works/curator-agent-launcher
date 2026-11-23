@@ -6,6 +6,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"io"
 	"os"
 	"path/filepath"
@@ -63,6 +66,164 @@ func g2PreIssueRefusalFailure(kind string, issued bool, calls, diag string) stri
 		return "pre-issue refusal exposed attempt effects"
 	}
 	return ""
+}
+
+func g2ContainsIdent(node ast.Node, name string) bool {
+	found := false
+	ast.Inspect(node, func(node ast.Node) bool {
+		ident, ok := node.(*ast.Ident)
+		if ok && ident.Name == name {
+			found = true
+			return false
+		}
+		return true
+	})
+	return found
+}
+
+func g2ContainsNode(container, child ast.Node) bool {
+	return container != nil && child.Pos() >= container.Pos() && child.End() <= container.End()
+}
+
+func g2ReportsFailure(node ast.Node) bool {
+	reported := false
+	ast.Inspect(node, func(node ast.Node) bool {
+		call, ok := node.(*ast.CallExpr)
+		if !ok {
+			return true
+		}
+		selector, ok := call.Fun.(*ast.SelectorExpr)
+		if !ok || selector.Sel.Name != "Fatal" && selector.Sel.Name != "Fatalf" && selector.Sel.Name != "Error" && selector.Sel.Name != "Errorf" {
+			return true
+		}
+		if receiver, ok := selector.X.(*ast.Ident); !ok || receiver.Name != "t" {
+			return true
+		}
+		for _, arg := range call.Args {
+			if ident, ok := arg.(*ast.Ident); ok && ident.Name == "failure" {
+				reported = true
+				return false
+			}
+		}
+		return true
+	})
+	return reported
+}
+
+func g2ChecksNonEmptyFailure(expr ast.Expr) bool {
+	condition, ok := expr.(*ast.BinaryExpr)
+	if !ok || condition.Op != token.NEQ {
+		return false
+	}
+	isFailure := func(expr ast.Expr) bool {
+		ident, ok := expr.(*ast.Ident)
+		return ok && ident.Name == "failure"
+	}
+	isEmpty := func(expr ast.Expr) bool {
+		literal, ok := expr.(*ast.BasicLit)
+		return ok && literal.Kind == token.STRING && literal.Value == `""`
+	}
+	return isFailure(condition.X) && isEmpty(condition.Y) || isFailure(condition.Y) && isEmpty(condition.X)
+}
+
+// The plant also inspects the matrix source because a helper-only plant cannot
+// detect the helper call being moved under the matrix's !issued branch.
+func g2AssertPreIssueMatrixCallSite(t *testing.T) {
+	t.Helper()
+	file, err := parser.ParseFile(token.NewFileSet(), "codex_recovery_g2_test.go", nil, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var matrix *ast.FuncDecl
+	for _, decl := range file.Decls {
+		if fn, ok := decl.(*ast.FuncDecl); ok && fn.Name.Name == "TestCodexRecoveryG2Matrix" {
+			matrix = fn
+			break
+		}
+	}
+	if matrix == nil {
+		t.Fatal("matrix function missing")
+	}
+	var check *ast.CallExpr
+	checks := 0
+	ast.Inspect(matrix.Body, func(node ast.Node) bool {
+		call, ok := node.(*ast.CallExpr)
+		if ok {
+			if ident, ok := call.Fun.(*ast.Ident); ok && ident.Name == "g2PreIssueRefusalFailure" {
+				check = call
+				checks++
+			}
+		}
+		return true
+	})
+	if checks != 1 {
+		t.Fatalf("matrix has %d pre-issue refusal checks, want exactly one", checks)
+	}
+	checked := false
+	gated := false
+	ast.Inspect(matrix.Body, func(node ast.Node) bool {
+		stmt, ok := node.(*ast.IfStmt)
+		if !ok {
+			return true
+		}
+		inCheck := g2ContainsNode(stmt.Init, check) || g2ContainsNode(stmt.Cond, check)
+		if inCheck && g2ChecksNonEmptyFailure(stmt.Cond) && g2ReportsFailure(stmt.Body) && !g2ContainsIdent(stmt.Cond, "issued") {
+			checked = true
+		}
+		if g2ContainsNode(stmt.Body, check) || g2ContainsNode(stmt.Else, check) {
+			if !inCheck || g2ContainsIdent(stmt.Cond, "issued") {
+				gated = true
+			}
+		}
+		return true
+	})
+	if !checked {
+		t.Fatal("matrix does not fail on the pre-issue refusal assertion")
+	}
+	if gated {
+		t.Fatal("matrix pre-issue refusal assertion is conditional")
+	}
+	if len(g2PreIssueRefusalKinds) != 20 {
+		t.Fatalf("plant refusal rows = %d, want 20", len(g2PreIssueRefusalKinds))
+	}
+	seenRows := make(map[string]bool, len(g2PreIssueRefusalKinds))
+	for _, kind := range g2PreIssueRefusalKinds {
+		if seenRows[kind] {
+			t.Fatalf("duplicate plant refusal row %q", kind)
+		}
+		seenRows[kind] = true
+	}
+	var sharedRowsAt, matrixLoopAt token.Pos
+	ast.Inspect(matrix.Body, func(node ast.Node) bool {
+		switch node := node.(type) {
+		case *ast.AssignStmt:
+			if len(node.Lhs) != 1 {
+				break
+			}
+			lhs, ok := node.Lhs[0].(*ast.Ident)
+			if !ok || lhs.Name != "cases" {
+				break
+			}
+			for _, rhs := range node.Rhs {
+				call, ok := rhs.(*ast.CallExpr)
+				if !ok {
+					continue
+				}
+				fn, ok := call.Fun.(*ast.Ident)
+				if ok && fn.Name == "append" && g2ContainsIdent(call, "g2PreIssueRefusalKinds") {
+					sharedRowsAt = node.Pos()
+				}
+			}
+		case *ast.RangeStmt:
+			if ident, ok := node.X.(*ast.Ident); ok && ident.Name == "cases" {
+				matrixLoopAt = node.Pos()
+			}
+		}
+		return true
+	})
+	if sharedRowsAt == token.NoPos || matrixLoopAt == token.NoPos || sharedRowsAt >= matrixLoopAt {
+		t.Fatal("matrix does not loop over the same refusal rows as the plants")
+	}
 }
 
 // All executables are the repository's inert capture helper. Version labels and
@@ -131,7 +292,14 @@ func codexRecoveryFixture(t *testing.T) (*pipelineFixture, *launchRecoveryGatewa
 // inherited proxy selector in any letter case refuses before health.
 // Executables are inert fixtures, not native Codex.
 func TestCodexRecoveryG2Matrix(t *testing.T) {
-	cases := []string{"valid164", "symlink-home", "proxy-HTTP_PROXY", "proxy-https_proxy", "proxy-ALL_PROXY", "proxy-All_Proxy", "native166", "native167", "default166", "yolo166", "unknown-release", "yolo164", "yolo167", "yolo167-resume", "yolo-unknown-release", "native-bypass", "yolo-bypass", "provider-env", "remote-env", "native-provider", "native-apps", "native-enable-apps", "native-plugins", "native-analytics", "native-otel", "native-update-check", "missing-host", "stage-mutation", "missing-journal", "unsafe-journal", "prepare-fault", "not-ready", "legacy-health", "malformed-health", "lost-reply", "malformed-register", "interrupt-after-register", "child-error", "child-signal", "cleanup-registry", "cleanup-malformed", "cleanup-local", "restart-not-ready", "same-authority-restart", "forward-sigint", "forward-sigterm"}
+	cases := []string{
+		"valid164", "native166", "native167", "unknown-release", "yolo164", "yolo167", "yolo167-resume",
+		"stage-mutation", "missing-journal", "unsafe-journal", "prepare-fault", "not-ready", "legacy-health",
+		"malformed-health", "lost-reply", "malformed-register", "interrupt-after-register", "child-error",
+		"child-signal", "cleanup-registry", "cleanup-malformed", "cleanup-local", "restart-not-ready",
+		"same-authority-restart", "forward-sigint", "forward-sigterm",
+	}
+	cases = append(cases, g2PreIssueRefusalKinds...)
 	for _, kind := range cases {
 		t.Run(kind, func(t *testing.T) {
 			f, g, stages := codexRecoveryFixture(t)
@@ -550,15 +718,18 @@ func TestCodexRecoveryG2Matrix(t *testing.T) {
 	}
 }
 
-// This plant simulates a premature registration before a pre-issue refusal.
-// It proves every listed refusal row detects the attempt, control call, and
-// diagnostic independently; it tests the assertion boundary, not launch order.
+// These plants inspect the matrix call site and independently seed one
+// pre-issue effect into every refusal row. They test the assertion boundary,
+// not launch order.
 func TestCodexRecoveryG2PreIssueRefusalRegisterPlant(t *testing.T) {
+	t.Run("matrix-call-site", func(t *testing.T) {
+		g2AssertPreIssueMatrixCallSite(t)
+	})
 	plants := []struct {
 		name, calls, diag string
 		issued            bool
 	}{
-		{name: "register-before-refusal", issued: true, calls: "/v2/health /v2/register", diag: "attempt=planted"},
+		{name: "issued-attempt", issued: true},
 		{name: "control-call", calls: "/v2/register"},
 		{name: "attempt-diagnostic", diag: "attempt=planted"},
 	}
