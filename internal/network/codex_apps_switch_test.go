@@ -157,10 +157,11 @@ var codexNeverAdmitted = map[string][]string{
 // switches as its third to sixth owned pairs, and the launcher itself refuses
 // to bind a process whose final arguments are anything but the rendered
 // forms: any one switch missing, switched on, repeated, moved or spelled
-// another way, or an owned setting selected in any other spelling at any
-// position. The refusal is the launcher's own: it carries a
-// reason, where the module's argv comparison refuses without one, so a
-// launcher that only forwarded to the module would fail here. A refused
+// another way, its key in upper case or the token with a character before
+// the key, after the key or after the value, or an owned setting selected in
+// any other spelling at any position. The refusal is the launcher's own: it
+// carries a reason, where the module's argv comparison refuses without one,
+// so a launcher that only forwarded to the module would fail here. A refused
 // attempt binds nothing; the true arguments still bind afterwards, which is
 // each refused row's admitted neighbour. Without a gateway the launcher asks
 // for nothing. The fixture is a real module policy basis and a synthetic
@@ -197,6 +198,7 @@ func TestCodexGatewayRequiresTheSwitches(t *testing.T) {
 	refused("nothing", nil)
 	for which, at := range codexSwitches {
 		off := argv[at+1]
+		key, value, _ := strings.Cut(off, "=")
 		next := 4 + (at-4+2)%(owned-4)
 		for name, mutate := range map[string]func([]string) []string{
 			"pair-removed": func(a []string) []string { return append(a[:at], a[at+2:]...) },
@@ -206,6 +208,10 @@ func TestCodexGatewayRequiresTheSwitches(t *testing.T) {
 			"short-equals": func(a []string) []string { a[at] = "-c=" + off; return append(a[:at+1], a[at+2:]...) },
 			"swapped":      func(a []string) []string { a[at+1], a[next+1] = a[next+1], a[at+1]; return a },
 			"moved-last":   func(a []string) []string { return append(append(a[:at], a[at+2:]...), "-c", off) },
+			"upper-key":    func(a []string) []string { a[at+1] = strings.ToUpper(key) + "=" + value; return a },
+			"key-prefix":   func(a []string) []string { a[at+1] = "x" + off; return a },
+			"key-suffix":   func(a []string) []string { a[at+1] = key + "x=" + value; return a },
+			"suffixed":     func(a []string) []string { a[at+1] = off + "x"; return a },
 		} {
 			// The last switch moved last in a list with nothing after it
 			// is the list itself; that row is no change.
@@ -286,11 +292,17 @@ func TestCodexGatewayBindsWhatTheModuleRenders(t *testing.T) {
 // character. It refuses every list in which a group that is no rendered form
 // stands at any position of an admitted list, and every list that repeats,
 // reorders, alters or drops a form; for each of the four switches that is
-// the pair removed, switched on, spaced, in upper case, with a trailing
-// space, under the long option, repeated, swapped with another switch and
-// moved behind the optional forms. Each refused list differs by one change
-// from an admitted list of the 128. The table is written from the module's
-// renderer, not rendered by it; the test above ties the two together.
+// the pair removed, switched on, spaced, with the value in upper case, with a
+// trailing space, under the long option, repeated, swapped with another
+// switch and moved behind the optional forms, and the token with its key in
+// upper case, with a character before the key, after the key or after the
+// value. The last four keep a matcher that folds case, or that looks for the
+// token or the key inside, at the start or at the end of an argument, from
+// admitting a token that is not the rendered one. Each refused list differs
+// by one change from an admitted list of the 128; the bare and the full list,
+// the two each switch row is changed from, are asserted as admitted beside
+// the rows. The table is written from the module's renderer, not rendered by
+// it; the test above ties the two together.
 func TestCodexSwitchesOff(t *testing.T) {
 	owned := len(codexOwnedArgs)
 	for mask := 0; mask < 1<<len(codexOptionalArgs); mask++ {
@@ -322,8 +334,14 @@ func TestCodexSwitchesOff(t *testing.T) {
 	}
 	edit := func(base []string, change func([]string) []string) []string { return change(slices.Clone(base)) }
 	rows := map[string][]string{}
+	for base, list := range map[string][]string{"bare": bare, "all": all} {
+		if !codexSwitchesOff(list) {
+			t.Fatalf("refused the %s list, the admitted list every switch row is changed from: %q", base, list)
+		}
+	}
 	for which, at := range codexSwitches {
 		off := all[at+1]
+		key, value, _ := strings.Cut(off, "=")
 		next := 4 + (at-4+2)%(owned-4)
 		for name, change := range map[string]func([]string) []string{
 			"removed":     func(a []string) []string { return append(a[:at], a[at+2:]...) },
@@ -337,6 +355,10 @@ func TestCodexSwitchesOff(t *testing.T) {
 			"swapped":     func(a []string) []string { a[at+1], a[next+1] = a[next+1], a[at+1]; return a },
 			"moved-last":  func(a []string) []string { return append(append(a[:at], a[at+2:]...), "-c", off) },
 			"moved-first": func(a []string) []string { return append([]string{"-c", off}, append(a[:at], a[at+2:]...)...) },
+			"upper-key":   func(a []string) []string { a[at+1] = strings.ToUpper(key) + "=" + value; return a },
+			"key-prefix":  func(a []string) []string { a[at+1] = "x" + off; return a },
+			"key-suffix":  func(a []string) []string { a[at+1] = key + "x=" + value; return a },
+			"suffixed":    func(a []string) []string { a[at+1] = off + "x"; return a },
 		} {
 			for base, list := range map[string][]string{"bare": bare, "all": all} {
 				// The last switch moved last in the bare list is the
@@ -347,7 +369,7 @@ func TestCodexSwitchesOff(t *testing.T) {
 			}
 		}
 	}
-	if len(rows) != 4*11*2-1 {
+	if len(rows) != 4*15*2-1 {
 		t.Fatalf("the switch rows are %d, want every change of every switch on both lists but the one that changes nothing", len(rows))
 	}
 	for name, argv := range rows {
