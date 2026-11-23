@@ -29,6 +29,27 @@ func fake(t *testing.T) string {
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("build fake: %v %s", err, out)
 	}
+	// An operating system may check a new executable before its first start.
+	// On macOS that first start was measured at about 0.4 s on an idle host
+	// and at over 4 s while a whole-suite run started its packages; a later
+	// start of the same file took about 0.02 s. The fake runs once here,
+	// outside every timed assertion, and what that run wrote is removed, so
+	// no start budget in these tests has to cover the check.
+	if err := exec.Command(binary, "invalid").Run(); err != nil {
+		t.Fatalf("first run of the fake: %v", err)
+	}
+	entries, err := os.ReadDir(filepath.Dir(binary))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range entries {
+		if entry.Name() == filepath.Base(binary) {
+			continue
+		}
+		if err := os.Remove(filepath.Join(filepath.Dir(binary), entry.Name())); err != nil {
+			t.Fatal(err)
+		}
+	}
 	return binary
 }
 func request(t *testing.T) Request {
