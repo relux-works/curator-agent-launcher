@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"syscall"
 	"testing"
@@ -21,6 +22,13 @@ import (
 	"github.com/relux-works/skill-agents-management/pkg/agentic"
 	"github.com/relux-works/skill-agents-management/pkg/providerlimits"
 	"time"
+)
+
+// g2Bypass is the flag the pinned module maps to the yolo mode for its listed
+// Codex releases; g2Thread is a synthetic thread identity for a native resume.
+const (
+	g2Bypass = "--dangerously-bypass-approvals-and-sandbox"
+	g2Thread = "01234567-89ab-cdef-0123-456789abcdef"
 )
 
 // All executables are the repository's inert capture helper. Version labels and
@@ -67,7 +75,16 @@ func codexRecoveryFixture(t *testing.T) (*pipelineFixture, *launchRecoveryGatewa
 // the unlisted 0.166.0, 0.167.0 and an unknown one), every listed refusal
 // starts no child and leaves no stage, and each refusal before admission makes
 // no control call. The permission grammar stays release-bound: default and
-// yolo on the unlisted 0.166.0 still refuse. Proxy, provider, remote and
+// yolo on the unlisted 0.166.0 still refuse, and so does yolo on an unknown
+// release. On the listed 0.164.0 and 0.167.0 a yolo plan launches, alone and
+// before an exact `resume <thread>`: the child's arguments carry the bypass
+// flag once, after the effort pair and before the native suffix, and the
+// operator's line names it. Every other child carries no bypass flag and the
+// line `mapped=none`. The flag typed after `--` refuses under either mode:
+// natively as an argument the gateway does not admit, under yolo as a
+// duplicate of the flag the mode emits. The yolo rows use a fragment that
+// carries a permission mode; the fixture's own does not, and refuses yolo
+// before the release is asked. Proxy, provider, remote and
 // native-provider refusals name their check class in the diagnostic, and so
 // does a native selection of an owned setting (`features.apps`,
 // `features.plugins`, `analytics.enabled`, an `otel` exporter,
@@ -80,11 +97,18 @@ func codexRecoveryFixture(t *testing.T) (*pipelineFixture, *launchRecoveryGatewa
 // inherited proxy selector in any letter case refuses before health.
 // Executables are inert fixtures, not native Codex.
 func TestCodexRecoveryG2Matrix(t *testing.T) {
-	cases := []string{"valid164", "symlink-home", "proxy-HTTP_PROXY", "proxy-https_proxy", "proxy-ALL_PROXY", "proxy-All_Proxy", "native166", "native167", "default166", "yolo166", "unknown-release", "provider-env", "remote-env", "native-provider", "native-apps", "native-enable-apps", "native-plugins", "native-analytics", "native-otel", "native-update-check", "missing-host", "stage-mutation", "missing-journal", "unsafe-journal", "prepare-fault", "not-ready", "legacy-health", "malformed-health", "lost-reply", "malformed-register", "interrupt-after-register", "child-error", "child-signal", "cleanup-registry", "cleanup-malformed", "cleanup-local", "restart-not-ready", "same-authority-restart", "forward-sigint", "forward-sigterm"}
+	cases := []string{"valid164", "symlink-home", "proxy-HTTP_PROXY", "proxy-https_proxy", "proxy-ALL_PROXY", "proxy-All_Proxy", "native166", "native167", "default166", "yolo166", "unknown-release", "yolo164", "yolo167", "yolo167-resume", "yolo-unknown-release", "native-bypass", "yolo-bypass", "provider-env", "remote-env", "native-provider", "native-apps", "native-enable-apps", "native-plugins", "native-analytics", "native-otel", "native-update-check", "missing-host", "stage-mutation", "missing-journal", "unsafe-journal", "prepare-fault", "not-ready", "legacy-health", "malformed-health", "lost-reply", "malformed-register", "interrupt-after-register", "child-error", "child-signal", "cleanup-registry", "cleanup-malformed", "cleanup-local", "restart-not-ready", "same-authority-restart", "forward-sigint", "forward-sigterm"}
 	for _, kind := range cases {
 		t.Run(kind, func(t *testing.T) {
 			f, g, stages := codexRecoveryFixture(t)
 			var signalDone chan struct{}
+			permissions := func(mode string) {
+				for i := range f.args {
+					if f.args[i] == "native" {
+						f.args[i] = mode
+					}
+				}
+			}
 			switch kind {
 			case "native166", "default166", "yolo166":
 				withTestRelease(f, "codex-cli 0.166.0")
@@ -93,13 +117,35 @@ func TestCodexRecoveryG2Matrix(t *testing.T) {
 					mode = "default"
 				}
 				if kind == "yolo166" {
+					// The fixture's fragment carries no permission mode; without
+					// one that does, yolo refuses before the release is asked.
+					v2Default(f, t)
 					mode = "yolo"
 				}
-				for i := range f.args {
-					if f.args[i] == "native" {
-						f.args[i] = mode
-					}
-				}
+				permissions(mode)
+			case "yolo164":
+				v2Default(f, t)
+				permissions("yolo")
+			case "yolo167":
+				withTestRelease(f, "codex-cli 0.167.0")
+				v2Default(f, t)
+				permissions("yolo")
+			case "yolo167-resume":
+				withTestRelease(f, "codex-cli 0.167.0")
+				v2Default(f, t)
+				permissions("yolo")
+				f.args = append(f.args, "--", "resume", g2Thread)
+			case "yolo-unknown-release":
+				withTestRelease(f, "codex-cli 9.999.0")
+				v2Default(f, t)
+				permissions("yolo")
+			case "native-bypass":
+				f.args = append(f.args, "--", g2Bypass)
+			case "yolo-bypass":
+				withTestRelease(f, "codex-cli 0.167.0")
+				v2Default(f, t)
+				permissions("yolo")
+				f.args = append(f.args, "--", g2Bypass)
 			case "native167":
 				withTestRelease(f, "codex-cli 0.167.0")
 			case "unknown-release":
@@ -244,7 +290,8 @@ func TestCodexRecoveryG2Matrix(t *testing.T) {
 				<-signalDone
 			}
 			calls := g.calls()
-			success := kind == "valid164" || kind == "native166" || kind == "native167" || kind == "unknown-release" || kind == "restart-not-ready" || kind == "same-authority-restart"
+			yolo := kind == "yolo164" || kind == "yolo167" || kind == "yolo167-resume"
+			success := yolo || kind == "valid164" || kind == "native166" || kind == "native167" || kind == "unknown-release" || kind == "restart-not-ready" || kind == "same-authority-restart"
 			child := success || strings.HasPrefix(kind, "forward-") || kind == "child-error" || kind == "child-signal" || strings.HasPrefix(kind, "cleanup-")
 			if success && code != 0 {
 				t.Fatalf("positive refused: %d %s", code, diag)
@@ -257,12 +304,23 @@ func TestCodexRecoveryG2Matrix(t *testing.T) {
 			reason := map[string]string{"provider-env": "gateway_provider_route_override", "remote-env": "gateway_provider_route_override", "native-provider": "gateway_native_arguments_not_admitted",
 				"native-apps": "gateway_native_arguments_not_admitted", "native-enable-apps": "gateway_native_arguments_not_admitted",
 				"native-plugins": "gateway_native_arguments_not_admitted", "native-analytics": "gateway_native_arguments_not_admitted",
-				"native-otel": "gateway_native_arguments_not_admitted", "native-update-check": "gateway_native_arguments_not_admitted"}[kind]
+				"native-otel": "gateway_native_arguments_not_admitted", "native-update-check": "gateway_native_arguments_not_admitted",
+				"native-bypass": "gateway_native_arguments_not_admitted"}[kind]
 			if strings.HasPrefix(kind, "proxy-") {
 				reason = "gateway_direct_proxy_selector_present"
 			}
 			if reason != "" && !strings.Contains(string(diag), "curator-run: plan_refused: agentic: Codex gateway binding refused reason="+reason+"\n") {
 				t.Fatalf("refusal does not name %s: %s", reason, diag)
+			}
+			// An unlisted or unknown release has no mapping for the bypass: the
+			// refusal is the permission one, before any gateway check.
+			if (kind == "yolo166" || kind == "yolo-unknown-release") && !strings.Contains(string(diag), "curator-run: plan_refused: permission mapping was not established: ") {
+				t.Fatalf("yolo on an unlisted release is not the permission refusal: %s", diag)
+			}
+			// Under yolo the mode itself emits the flag, so the typed one is a
+			// duplicate: the module refuses to emit it twice, as a usage error.
+			if kind == "yolo-bypass" && (code != 2 || !strings.Contains(string(diag), "curator-run: usage: plan_refused: ") || !strings.Contains(string(diag), "bypass flag already present")) {
+				t.Fatalf("typed bypass under yolo is not the duplicate refusal: %d %s", code, diag)
 			}
 			if kind == "child-error" && code != 37 {
 				t.Fatalf("child exit lost: %d", code)
@@ -296,7 +354,7 @@ func TestCodexRecoveryG2Matrix(t *testing.T) {
 				if kind != "prepare-fault" && (strings.Contains(string(diag), "attempt=") || strings.Contains(calls, "/v2/recover")) {
 					t.Fatal("pre-admission effects")
 				}
-				if kind == "default166" || kind == "yolo166" || kind == "provider-env" || kind == "remote-env" || kind == "native-provider" || kind == "native-apps" || kind == "native-enable-apps" || kind == "native-plugins" || kind == "native-analytics" || kind == "native-otel" || kind == "native-update-check" || kind == "missing-host" || kind == "symlink-home" || strings.HasPrefix(kind, "proxy-") {
+				if kind == "default166" || kind == "yolo166" || kind == "yolo-unknown-release" || kind == "native-bypass" || kind == "yolo-bypass" || kind == "provider-env" || kind == "remote-env" || kind == "native-provider" || kind == "native-apps" || kind == "native-enable-apps" || kind == "native-plugins" || kind == "native-analytics" || kind == "native-otel" || kind == "native-update-check" || kind == "missing-host" || kind == "symlink-home" || strings.HasPrefix(kind, "proxy-") {
 					if calls != "" {
 						t.Fatalf("refusal reached control: %s", calls)
 					}
@@ -355,6 +413,36 @@ func TestCodexRecoveryG2Matrix(t *testing.T) {
 					}
 					if selectors != len(switches) {
 						t.Fatalf("child arguments name an owned setting %d times, want only the %d switches: %q", selectors, len(switches), captured.Argv)
+					}
+					// The permission mode reaches the child as the one flag the
+					// module maps for it, in its place, and the operator's line
+					// names the same mapping. A native child carries no such flag.
+					line, tail := "curator-run: permissions=native source=flag mapped=none\n", []string{}
+					if yolo {
+						line, tail = "curator-run: permissions=yolo source=flag mapped="+g2Bypass+"\n", []string{g2Bypass}
+					}
+					if kind == "yolo167-resume" {
+						tail = append(tail, "resume", g2Thread)
+					}
+					if strings.Count(string(diag), "curator-run: permissions=") != 1 || !strings.Contains(string(diag), line) {
+						t.Fatalf("permission line is not %q: %s", line, diag)
+					}
+					// Counted by family, not by one spelling: the bypass flag, a
+					// sandbox selector or an approval selector in any argument.
+					bypasses := 0
+					for _, arg := range captured.Argv {
+						if strings.Contains(arg, "dangerously") || strings.Contains(arg, "sandbox") || strings.Contains(arg, "approval") {
+							bypasses++
+						}
+					}
+					if want := map[bool]int{true: 1}[yolo]; bypasses != want {
+						t.Fatalf("child arguments name a permission override %d times, want %d: %q", bypasses, want, captured.Argv)
+					}
+					if yolo {
+						before := len(captured.Argv) - len(tail)
+						if before < 2 || !slices.Equal(captured.Argv[before:], tail) || captured.Argv[before-2] != "-c" || captured.Argv[before-1] != `model_reasoning_effort="high"` {
+							t.Fatalf("bypass flag is not after the effort pair and before the suffix %q: %q", tail, captured.Argv)
+						}
 					}
 					if !strings.Contains(string(diag), "sam_attempt=") || !strings.Contains(string(diag), "launch="+strings.Repeat("d", 64)) || !strings.Contains(string(diag), "registration_session="+g.envelope.Session) {
 						t.Fatal("missing distinct correlation")
