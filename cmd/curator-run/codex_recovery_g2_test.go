@@ -31,6 +31,40 @@ const (
 	g2Thread = "01234567-89ab-cdef-0123-456789abcdef"
 )
 
+var g2PreIssueRefusalKinds = []string{
+	"default166", "yolo166", "yolo-unknown-release", "native-bypass", "yolo-bypass",
+	"provider-env", "remote-env", "native-provider", "native-apps", "native-enable-apps",
+	"native-plugins", "native-analytics", "native-otel", "native-update-check", "missing-host",
+	"symlink-home", "proxy-HTTP_PROXY", "proxy-https_proxy", "proxy-ALL_PROXY", "proxy-All_Proxy",
+}
+
+func g2PreIssueRefusalKind(kind string) bool {
+	for _, refusal := range g2PreIssueRefusalKinds {
+		if kind == refusal {
+			return true
+		}
+	}
+	return false
+}
+
+// g2PreIssueRefusalFailure is shared by the matrix and the deliberate plant:
+// refusal rows must not issue, call control, or expose attempt/recovery effects.
+func g2PreIssueRefusalFailure(kind string, issued bool, calls, diag string) string {
+	if !g2PreIssueRefusalKind(kind) {
+		return ""
+	}
+	if issued {
+		return "pre-issue refusal recorded an attempt"
+	}
+	if calls != "" {
+		return "pre-issue refusal reached control: " + calls
+	}
+	if strings.Contains(diag, "attempt=") {
+		return "pre-issue refusal exposed attempt effects"
+	}
+	return ""
+}
+
 // All executables are the repository's inert capture helper. Version labels and
 // qualification rows below are synthetic policy inputs, never native evidence.
 func codexRecoveryFixture(t *testing.T) (*pipelineFixture, *launchRecoveryGateway, string) {
@@ -347,17 +381,15 @@ func TestCodexRecoveryG2Matrix(t *testing.T) {
 				t.Fatal("duplicate issuance or completion")
 			}
 			issued := g.envelope.AttemptID != ""
+			if failure := g2PreIssueRefusalFailure(kind, issued, calls, string(diag)); failure != "" {
+				t.Fatal(failure)
+			}
 			if !issued {
 				if strings.Contains(calls, "/v2/register") {
 					t.Fatal("unobserved issue")
 				}
 				if kind != "prepare-fault" && (strings.Contains(string(diag), "attempt=") || strings.Contains(calls, "/v2/recover")) {
 					t.Fatal("pre-admission effects")
-				}
-				if kind == "default166" || kind == "yolo166" || kind == "yolo-unknown-release" || kind == "native-bypass" || kind == "yolo-bypass" || kind == "provider-env" || kind == "remote-env" || kind == "native-provider" || kind == "native-apps" || kind == "native-enable-apps" || kind == "native-plugins" || kind == "native-analytics" || kind == "native-otel" || kind == "native-update-check" || kind == "missing-host" || kind == "symlink-home" || strings.HasPrefix(kind, "proxy-") {
-					if calls != "" {
-						t.Fatalf("refusal reached control: %s", calls)
-					}
 				}
 			} else {
 				if g.envelope.Runtime != "codex" {
@@ -515,6 +547,29 @@ func TestCodexRecoveryG2Matrix(t *testing.T) {
 			}
 			t.Logf("scenario=%s exit=%d workload_spawn=%t controls=%s stage_removed=true", kind, code, child, calls)
 		})
+	}
+}
+
+// This plant simulates a premature registration before a pre-issue refusal.
+// It proves every listed refusal row detects the attempt, control call, and
+// diagnostic independently; it tests the assertion boundary, not launch order.
+func TestCodexRecoveryG2PreIssueRefusalRegisterPlant(t *testing.T) {
+	plants := []struct {
+		name, calls, diag string
+		issued            bool
+	}{
+		{name: "register-before-refusal", issued: true, calls: "/v2/health /v2/register", diag: "attempt=planted"},
+		{name: "control-call", calls: "/v2/register"},
+		{name: "attempt-diagnostic", diag: "attempt=planted"},
+	}
+	for _, kind := range g2PreIssueRefusalKinds {
+		for _, plant := range plants {
+			t.Run(kind+"/"+plant.name, func(t *testing.T) {
+				if failure := g2PreIssueRefusalFailure(kind, plant.issued, plant.calls, plant.diag); failure == "" {
+					t.Fatal("planted pre-issue effect passed the refusal assertion")
+				}
+			})
+		}
 	}
 }
 
