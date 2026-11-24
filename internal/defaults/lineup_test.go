@@ -292,7 +292,7 @@ func TestCompleteUnresolvable(t *testing.T) {
 func TestCompleteNoFirePastFailure(t *testing.T) {
 	reg := mustRegistry(t)
 	p := paths(t)
-	write(t, p.Machine, doc(`{"pi":{"model":"machine"}}`, true))
+	write(t, p.Machine, doc(`{"pi":{"model":"claude-fable-5"}}`, true))
 	write(t, p.Operator, doc(`{"pi":{"model":"operator","effort":"operator"}}`, false))
 	files, err := defaults.Load(p)
 	if err != nil {
@@ -311,7 +311,7 @@ func TestCompleteNoFirePastFailure(t *testing.T) {
 func TestCompletePreservesLocks(t *testing.T) {
 	reg := mustRegistry(t)
 	p := paths(t)
-	write(t, p.Machine, doc(`{"pi":{"model":"machine"}}`, true))
+	write(t, p.Machine, doc(`{"pi":{"model":"claude-fable-5"}}`, true))
 	write(t, p.Operator, doc(`{"pi":{"model":"operator","effort":"operator"}}`, false))
 	files, err := defaults.Load(p)
 	if err != nil {
@@ -321,7 +321,7 @@ func TestCompletePreservesLocks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Model != resolved("machine", defaults.OriginMachine) {
+	if got.Model != resolved("claude-fable-5", defaults.OriginMachine) {
 		t.Fatalf("model = %+v", got.Model)
 	}
 	if got.Effort != resolved("flag-effort", defaults.OriginFlag) {

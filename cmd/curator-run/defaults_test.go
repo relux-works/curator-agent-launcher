@@ -21,21 +21,23 @@ import (
 	"github.com/relux-works/skill-agents-management/pkg/vendorplugin/vendors/openai"
 )
 
+// TestRunDefaultsPerMember proves known per-member precedence stays intact
+// while empty and unknown configured models refuse before plan admission.
 func TestRunDefaultsPerMember(t *testing.T) {
 	for _, tc := range []struct {
 		name, env, machine, operator string
 		flags                        []string
-		want                         string
+		want, wantCode               string
 	}{
-		{"own-row-recommendation", "claude_code", `{"model":"claude-opus-4-8"}`, "", nil, "model=claude-opus-4-8 (machine) effort=xhigh (lineup)"},
-		{"no-effort", "claude_code", "", `{"model":"claude-haiku-4-5"}`, nil, "model=claude-haiku-4-5 (operator) effort unset"},
-		{"pi-google-override", "pi", "", `{"model":"gemini-3.1-pro-preview"}`, nil, "model=gemini-3.1-pro-preview (operator) effort unset"},
-		{"pi-openai-override", "pi", `{"model":"gpt-5.6-sol"}`, "", nil, "model=gpt-5.6-sol (machine) effort=max (lineup)"},
-		{"flag-model-machine-effort", "codex_cli", `{"effort":"low"}`, "", []string{"--model", "gpt-6-astra"}, "model=gpt-6-astra (flag) effort=low (machine)"},
-		{"operator-model-machine-effort", "codex_cli", `{"model":"gpt-5.6-sol","effort":"low"}`, `{"model":"gpt-6-astra"}`, nil, "model=gpt-6-astra (operator) effort=low (machine)"},
-		{"flag-effort", "pi", "", "", []string{"--effort", "unsupported-word"}, "model=claude-fable-5 (lineup) effort=unsupported-word (flag)"},
-		{"explicit-empty", "pi", "", `{"model":"","effort":""}`, nil, "model= (operator) effort= (operator)"},
-		{"unknown-not-replaced", "pi", "", "", []string{"--model", "unknown"}, "model=unknown (flag) effort unset"},
+		{"own-row-recommendation", "claude_code", `{"model":"claude-opus-4-8"}`, "", nil, "model=claude-opus-4-8 (machine) effort=xhigh (lineup)", ""},
+		{"no-effort", "claude_code", "", `{"model":"claude-haiku-4-5"}`, nil, "model=claude-haiku-4-5 (operator) effort unset", ""},
+		{"pi-google-override", "pi", "", `{"model":"gemini-3.1-pro-preview"}`, nil, "model=gemini-3.1-pro-preview (operator) effort unset", ""},
+		{"pi-openai-override", "pi", `{"model":"gpt-5.6-sol"}`, "", nil, "model=gpt-5.6-sol (machine) effort=max (lineup)", ""},
+		{"flag-model-machine-effort", "codex_cli", `{"effort":"low"}`, "", []string{"--model", "gpt-6-astra"}, "model=gpt-6-astra (flag) effort=low (machine)", ""},
+		{"operator-model-machine-effort", "codex_cli", `{"model":"gpt-5.6-sol","effort":"low"}`, `{"model":"gpt-6-astra"}`, nil, "model=gpt-6-astra (operator) effort=low (machine)", ""},
+		{"flag-effort", "pi", "", "", []string{"--effort", "unsupported-word"}, "model=claude-fable-5 (lineup) effort=unsupported-word (flag)", ""},
+		{"explicit-empty", "pi", "", `{"model":"","effort":""}`, nil, `model "" for environment "pi"`, defaults.CodeUnresolvable},
+		{"unknown-not-replaced", "pi", "", "", []string{"--model", "unknown"}, `model "unknown" for environment "pi"`, defaults.CodeUnresolvable},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			sr := &scriptedRunner{stdout: fragmentLineFor(tc.env)}
@@ -49,6 +51,12 @@ func TestRunDefaultsPerMember(t *testing.T) {
 			}
 			var out, stderr strings.Builder
 			code := run(context.Background(), append([]string{tc.env}, tc.flags...), &out, &stderr, deps)
+			if tc.wantCode != "" {
+				if code != 1 || out.Len() != 0 || sr.calls != 1 || !strings.Contains(stderr.String(), "curator-run: "+tc.wantCode+":") || !strings.Contains(stderr.String(), tc.want) || strings.Contains(stderr.String(), "plan_refused") {
+					t.Fatalf("exit=%d calls=%d stdout=%q stderr=%q", code, sr.calls, out.String(), stderr.String())
+				}
+				return
+			}
 			if code != 1 || out.Len() != 0 || sr.calls != 1 || !strings.HasPrefix(stderr.String(), "curator-run: provider: path="+testProviderPath+"\ncurator-run: defaults: "+tc.want+"\ncurator-run: plan_refused: ") {
 				t.Fatalf("exit=%d calls=%d stdout=%q stderr=%q", code, sr.calls, out.String(), stderr.String())
 			}
