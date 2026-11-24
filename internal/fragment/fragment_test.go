@@ -242,6 +242,85 @@ func TestOptionalSectionsParsed(t *testing.T) {
 	}
 }
 
+const antigravityFragmentV1 = `{"env":{},"environment":"antigravity","fragment":"launch-env-fragment-v1","precedence":{"placement":"winner-last","winner":"higher-weight"},"profile":{"lock_sha256":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","name":"companyA"}}`
+
+func withAntigravityMember(fragment, member string) string {
+	return strings.Replace(fragment, `"environment":"antigravity",`, `"environment":"antigravity",`+member+`,`, 1)
+}
+
+func antigravityFragmentRevision(revision string) string {
+	if revision == Identity {
+		return antigravityFragmentV1
+	}
+	raw := strings.Replace(antigravityFragmentV1, Identity, revision, 1)
+	return strings.Replace(raw, `"profile":`, `"permissions":{"mode":"native","locked":false,"source":"default"},"profile":`, 1)
+}
+
+func TestAntigravityFragmentContract(t *testing.T) {
+	if HomeVariable(EnvAntigravity) != "" {
+		t.Fatalf("antigravity home variable = %q, want none", HomeVariable(EnvAntigravity))
+	}
+	t.Run("without MCP", func(t *testing.T) {
+		f, err := Parse([]byte(antigravityFragmentV1))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if f.Environment != EnvAntigravity || f.Home() != "" || len(f.Env) != 0 || f.SystemPrompt != nil || f.MCP != nil {
+			t.Fatalf("antigravity fragment = %+v; want no env override, managed home, prompt or MCP section", f)
+		}
+	})
+	for _, revision := range []string{IdentityV2, IdentityV3} {
+		t.Run(revision, func(t *testing.T) {
+			f, err := Parse([]byte(antigravityFragmentRevision(revision)))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if f.Revision != revision || f.Environment != EnvAntigravity || len(f.Env) != 0 || f.Home() != "" {
+				t.Fatalf("Antigravity %s fragment = %+v; want empty adapter environment and no managed home", revision, f)
+			}
+		})
+	}
+
+	for _, path := range []string{
+		"/home/iv/.gemini/config/mcp_config.json",
+		"/workspace/project/.agents/mcp_config.json",
+	} {
+		t.Run(path, func(t *testing.T) {
+			mcp := fmt.Sprintf(`"mcp":{"path":%q,"env_names":[],"channels":[{"kind":"file","filename":"mcp_config.json"}]}`, path)
+			f, err := Parse([]byte(withAntigravityMember(antigravityFragmentV1, mcp)))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if f.MCP == nil || f.MCP.Path != path || len(f.MCP.EnvNames) != 0 || len(f.MCP.Channels) != 1 || f.MCP.Channels[0].Kind != KindFile || f.MCP.Channels[0].Filename != "mcp_config.json" {
+				t.Fatalf("antigravity MCP = %+v; want the exact file channel", f.MCP)
+			}
+		})
+	}
+}
+
+func TestAntigravityFragmentRejectsOtherSurface(t *testing.T) {
+	validMCP := `"mcp":{"path":"/home/iv/.gemini/config/mcp_config.json","env_names":[],"channels":[{"kind":"file","filename":"mcp_config.json"}]}`
+	for name, raw := range map[string]string{
+		"HOME override":                    strings.Replace(antigravityFragmentV1, `"env":{}`, `"env":{"HOME":"/home/managed"}`, 1),
+		"home variable":                    strings.Replace(antigravityFragmentV1, `"env":{}`, `"env":{"AGY_HOME":"/home/managed"}`, 1),
+		"Google home variable":             strings.Replace(antigravityFragmentV1, `"env":{}`, `"env":{"GEMINI_HOME":"/home/managed"}`, 1),
+		"model member":                     withAntigravityMember(antigravityFragmentV1, `"model":"gemini-3.6-flash-high"`),
+		"system prompt empty channel list": withAntigravityMember(antigravityFragmentV1, `"system_prompt":{"path":"/home/iv/AGENTS.md","channels":[]}`),
+		"system prompt descriptor":         withAntigravityMember(antigravityFragmentV1, `"system_prompt":{"path":"/home/iv/AGENTS.md","channels":[{"kind":"file","semantics":"append","filename":"AGENTS.md"}]}`),
+		"MCP environment name":             strings.Replace(withAntigravityMember(antigravityFragmentV1, validMCP), `"env_names":[]`, `"env_names":["GEMINI_API_KEY"]`, 1),
+		"MCP flag channel":                 strings.Replace(withAntigravityMember(antigravityFragmentV1, validMCP), `{"kind":"file","filename":"mcp_config.json"}`, `{"kind":"flag","flag":"--mcp-config","argument":"path"}`, 1),
+		"MCP wrong filename":               strings.Replace(withAntigravityMember(antigravityFragmentV1, validMCP), `"filename":"mcp_config.json"`, `"filename":"settings.json"`, 1),
+		"MCP unsupported path":             strings.Replace(withAntigravityMember(antigravityFragmentV1, validMCP), `/home/iv/.gemini/config/mcp_config.json`, `/tmp/mcp_config.json`, 1),
+		"path prepend":                     withAntigravityMember(antigravityFragmentV1, `"path_prepend":"/home/iv/.agents/bin"`),
+	} {
+		t.Run(name, func(t *testing.T) {
+			if f, err := Parse([]byte(raw)); err == nil || !IsInvalid(err) {
+				t.Fatalf("parsed hostile Antigravity fragment %+v; want invalid contract error, got %v", f, err)
+			}
+		})
+	}
+}
+
 // TestRejections drives one rule per case beyond what the vendored corpus
 // covers: the CCJ-1 reader rules and the fragment-specific closures.
 func TestRejections(t *testing.T) {

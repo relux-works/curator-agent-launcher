@@ -46,11 +46,12 @@ type CredentialStore struct {
 // §7.1). The launcher's own support for a launch into one of them is a §4.2
 // fact, not this package's.
 const (
-	EnvClaudeCode = "claude_code"
-	EnvCodexCLI   = "codex_cli"
-	EnvOpenCode   = "opencode"
-	EnvPi         = "pi"
-	EnvMuse       = "muse"
+	EnvClaudeCode  = "claude_code"
+	EnvCodexCLI    = "codex_cli"
+	EnvOpenCode    = "opencode"
+	EnvPi          = "pi"
+	EnvMuse        = "muse"
+	EnvAntigravity = "antigravity"
 )
 
 // ChannelKind is the closed descriptor kind vocabulary (environments.md §7.3).
@@ -165,15 +166,17 @@ type Fragment struct {
 }
 
 // HomeVariable returns the adapter's primary home variable name for env
-// (environments.md §7.1), or "" for an environment outside the registry.
-// Muse uses XDG_CONFIG_HOME here; Home derives the parent of its /config path.
+// (environments.md §7.1), or "" when the adapter has no home variable or the
+// environment is outside the registry. Muse uses XDG_CONFIG_HOME here; Home
+// derives the parent of its /config path.
 func HomeVariable(env string) string {
 	return homeVariable[env]
 }
 
 // Home returns the managed home this launch runs in: the value of the
 // adapter's home variable, or the common XDG parent for Muse (SPEC §4.1,
-// passed as LaunchRequest.Home in §4.4).
+// passed as LaunchRequest.Home in §4.4). It is empty for Antigravity, whose
+// adapter declares no managed home; callers preserve the inherited HOME.
 func (f *Fragment) Home() string {
 	if f.Environment == EnvMuse {
 		return strings.TrimSuffix(f.Env["XDG_CONFIG_HOME"], "/config")
@@ -212,9 +215,10 @@ var systemPromptRegistry = map[string][]Channel{
 // mcpRegistry has no entry for pi: pi has no MCP channel and a pi fragment
 // carrying an mcp section is rejected.
 var mcpRegistry = map[string]Channel{
-	EnvClaudeCode: {Kind: KindFlag, Flag: "--mcp-config", Argument: ArgumentPath, With: []string{"--strict-mcp-config"}},
-	EnvCodexCLI:   {Kind: KindFlag, Flag: "-p", Argument: ArgumentName, Name: "curator-mcp"},
-	EnvOpenCode:   {Kind: KindVariable, Variable: "OPENCODE_CONFIG"},
+	EnvClaudeCode:  {Kind: KindFlag, Flag: "--mcp-config", Argument: ArgumentPath, With: []string{"--strict-mcp-config"}},
+	EnvCodexCLI:    {Kind: KindFlag, Flag: "-p", Argument: ArgumentName, Name: "curator-mcp"},
+	EnvOpenCode:    {Kind: KindVariable, Variable: "OPENCODE_CONFIG"},
+	EnvAntigravity: {Kind: KindFile, Filename: "mcp_config.json"},
 }
 
 var (
@@ -366,7 +370,7 @@ func fromValue(root Value) (*Fragment, error) {
 	}
 	f := &Fragment{Revision: revision}
 
-	env, err := enumMember("", root, "environment", EnvClaudeCode, EnvCodexCLI, EnvOpenCode, EnvPi, EnvMuse)
+	env, err := enumMember("", root, "environment", EnvClaudeCode, EnvCodexCLI, EnvOpenCode, EnvPi, EnvMuse, EnvAntigravity)
 	if err != nil {
 		return nil, err
 	}
@@ -434,7 +438,9 @@ func fromValue(root Value) (*Fragment, error) {
 	// env: closed adapter variable set; Muse paths share one managed parent.
 	envObj, _ := root.Get("env")
 	variables := []string{homeVariable[env]}
-	if env == EnvMuse {
+	if env == EnvAntigravity {
+		variables = nil
+	} else if env == EnvMuse {
 		variables = []string{"XDG_CONFIG_HOME", "XDG_DATA_HOME", "XDG_STATE_HOME", "XDG_CACHE_HOME"}
 		if revision == IdentityV4 {
 			variables = append(variables, "TBH_CREDENTIAL_BACKEND")
@@ -476,6 +482,9 @@ func fromValue(root Value) (*Fragment, error) {
 	}
 	// system_prompt
 	if sp, ok := root.Get("system_prompt"); ok {
+		if env == EnvAntigravity {
+			return nil, invalid("/system_prompt", "antigravity has no system-prompt channel")
+		}
 		if env == EnvMuse {
 			return nil, invalid("/system_prompt", "muse has no system-prompt channel")
 		}
@@ -536,12 +545,18 @@ func fromValue(root Value) (*Fragment, error) {
 			}
 			mc.EnvNames = append(mc.EnvNames, n.Str)
 		}
+		if env == EnvAntigravity && len(mc.EnvNames) != 0 {
+			return nil, invalid("/mcp/env_names", "antigravity MCP uses file paths and does not admit environment names")
+		}
 		ch, _ := mv.Get("channels")
 		if mc.Channels, err = channels("/mcp/channels", ch, false); err != nil {
 			return nil, err
 		}
 		if !sameChannels(mc.Channels, []Channel{reg}) {
 			return nil, invalid("/mcp/channels", "not the %s adapter's registry descriptor", env)
+		}
+		if env == EnvAntigravity && !antigravityMCPPath(mc.Path) {
+			return nil, invalid("/mcp/path", "antigravity MCP path must be a global Gemini or project .agents JSON file")
 		}
 		f.MCP = mc
 	}
@@ -562,6 +577,13 @@ func fromValue(root Value) (*Fragment, error) {
 		f.PathPrepend = pp.Str
 	}
 	return f, nil
+}
+
+// antigravityMCPPath is the closed path-form allowlist from the adapter
+// contract. The generic absolute-path check has already rejected relative,
+// NUL, and parent-traversal paths.
+func antigravityMCPPath(path string) bool {
+	return strings.HasSuffix(path, "/.gemini/config/mcp_config.json") || strings.HasSuffix(path, "/.agents/mcp_config.json")
 }
 
 // environmentsRoot derives the manager-owned environments root from a

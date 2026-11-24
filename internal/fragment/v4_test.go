@@ -17,6 +17,8 @@ func v4Fixture(t *testing.T, env string) []byte {
 			m["env"].(map[string]any)["TBH_CREDENTIAL_BACKEND"] = "file"
 			m["credential_store"] = map[string]any{"selection": "file"}
 			m["root_context"] = map[string]any{"exclusive": true}
+		} else if env == EnvAntigravity {
+			m["env"] = map[string]any{}
 		} else {
 			m["env"] = map[string]any{HomeVariable(env): "/manager/environments/default/" + env}
 		}
@@ -26,7 +28,7 @@ func v4Fixture(t *testing.T, env string) []byte {
 // The v4 contract admits each adapter's native policy, Muse's explicit fact,
 // and both typed Codex overrides; canonical round trips preserve identity.
 func TestV4Valid(t *testing.T) {
-	for _, env := range []string{EnvMuse, EnvCodexCLI, EnvClaudeCode, EnvPi, EnvOpenCode} {
+	for _, env := range []string{EnvMuse, EnvCodexCLI, EnvClaudeCode, EnvPi, EnvOpenCode, EnvAntigravity} {
 		t.Run(env, func(t *testing.T) {
 			raw := v4Fixture(t, env)
 			f, err := Parse(raw)
