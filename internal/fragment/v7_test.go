@@ -106,6 +106,15 @@ func TestV7AntigravityInvalid(t *testing.T) {
 		"wrong mcp filename": func(m map[string]any) {
 			m["mcp"] = map[string]any{"path": "/manager/environments/default/antigravity/config/mcp_config.json", "env_names": []any{}, "channels": []any{map[string]any{"kind": "file", "filename": "mcp.json"}}}
 		},
+		"forbidden mcp AGY_ADC_AUTH": func(m map[string]any) {
+			m["mcp"] = map[string]any{"path": "/manager/environments/default/antigravity/config/mcp_config.json", "env_names": []any{"AGY_ADC_AUTH"}, "channels": []any{map[string]any{"kind": "file", "filename": AntigravityMCPFile}}}
+		},
+		"forbidden mcp GEMINI_API_KEY": func(m map[string]any) {
+			m["mcp"] = map[string]any{"path": "/manager/environments/default/antigravity/config/mcp_config.json", "env_names": []any{"GEMINI_API_KEY"}, "channels": []any{map[string]any{"kind": "file", "filename": AntigravityMCPFile}}}
+		},
+		"forbidden mcp force file var": func(m map[string]any) {
+			m["mcp"] = map[string]any{"path": "/manager/environments/default/antigravity/config/mcp_config.json", "env_names": []any{AntigravityForceFileTokenVariable}, "channels": []any{map[string]any{"kind": "file", "filename": AntigravityMCPFile}}}
+		},
 		"v4 carrying antigravity": func(m map[string]any) { m["fragment"] = IdentityV4; delete(m, "home") },
 	} {
 		t.Run(name, func(t *testing.T) {

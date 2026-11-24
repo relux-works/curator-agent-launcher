@@ -14,7 +14,28 @@ const (
 	AntigravityForceFileTokenTrue = "true"
 	// AntigravityMCPFile is the relative MCP config path under the managed home.
 	AntigravityMCPFile = "config/mcp_config.json"
+	// AntigravityDisableAutoUpdateVariable is pinned by SAM ChildEnv on managed launches.
+	AntigravityDisableAutoUpdateVariable = "AGY_CLI_DISABLE_AUTO_UPDATE"
 )
+
+// IsAntigravityForbiddenEnv reports whether name is an ambient Antigravity
+// authentication or managed-home policy variable that MUST NOT pass through
+// MCP env_names, prompt overlays, plan-owned env overrides, or network patches
+// (CIP-0033).
+func IsAntigravityForbiddenEnv(name string) bool {
+	switch strings.ToUpper(name) {
+	case "GEMINI_API_KEY",
+		"GOOGLE_API_KEY",
+		"AGY_ADC_AUTH",
+		"GOOGLE_APPLICATION_CREDENTIALS",
+		"GOOGLE_CLOUD_QUOTA_PROJECT",
+		AntigravityForceFileTokenVariable,
+		AntigravityDisableAutoUpdateVariable:
+		return true
+	default:
+		return false
+	}
+}
 
 // v7HomePolicy validates the v7 `home` transport object. Antigravity requires
 // {"path": <clean abs path, basename != ".gemini">, "transport": "flag"};

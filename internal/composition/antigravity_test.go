@@ -62,4 +62,17 @@ func TestAntigravityCompositionPolicy(t *testing.T) {
 	if _, err := ComposeAdmittedPlanWithNetwork(plan, nil, badFrag, PromptApplication{}, nil, envpatch.Unmanaged()); err == nil {
 		t.Fatal("missing HomeBinding admitted")
 	}
+
+	// Ambient auth variables in ownEnv, prompt.Env, or network.Patch refuse (CIP-0033 X2 / l1).
+	for _, forbidden := range []string{"AGY_ADC_AUTH", "GEMINI_API_KEY", "GOOGLE_API_KEY", "GOOGLE_APPLICATION_CREDENTIALS", "GOOGLE_CLOUD_QUOTA_PROJECT"} {
+		if _, err := ComposeAdmittedPlanWithNetwork(plan, []string{forbidden + "=1"}, frag, PromptApplication{}, nil, envpatch.Unmanaged()); err == nil {
+			t.Fatalf("ownEnv admitted forbidden antigravity auth var %s", forbidden)
+		}
+		if _, err := ComposeAdmittedPlanWithNetwork(plan, nil, frag, PromptApplication{Env: map[string]string{forbidden: "1"}}, nil, envpatch.Unmanaged()); err == nil {
+			t.Fatalf("prompt.Env admitted forbidden antigravity auth var %s", forbidden)
+		}
+		if _, err := ComposeAdmittedPlanWithNetwork(plan, nil, frag, PromptApplication{}, nil, envpatch.Patch{Set: []envpatch.Pair{{Name: forbidden, Value: "1"}}}); err == nil {
+			t.Fatalf("network patch admitted forbidden antigravity auth var %s", forbidden)
+		}
+	}
 }

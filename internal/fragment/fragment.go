@@ -592,6 +592,9 @@ func fromValue(root Value) (*Fragment, error) {
 			if reservedEnvName.MatchString(n.Str) {
 				return nil, invalid(p, "%q is a reserved variable name", n.Str)
 			}
+			if env == EnvAntigravity && IsAntigravityForbiddenEnv(n.Str) {
+				return nil, invalid(p, "%q is forbidden in antigravity mcp.env_names", n.Str)
+			}
 			if i > 0 && n.Str <= mc.EnvNames[i-1] {
 				return nil, invalid(p, "env_names must be sorted and unique")
 			}
