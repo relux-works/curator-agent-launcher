@@ -11,6 +11,13 @@
   feature together. Direct launches remain unchanged. Keep the option off
   until the proxy search route is deployed.
 
+### Fixed
+
+- Resolve an explicit or configured model to exactly one declared runtime
+  contributor before planning. Unknown or ambiguous identifiers now fail with
+  `defaults_unresolvable`, including when an effort is supplied; declared
+  model identifiers and aliases keep their existing behavior.
+
 ## 0.7.4 — 2026-11-24
 
 ### Changed

@@ -8,13 +8,15 @@
 // system, with that model's declared Effort.Recommended as the effort, or
 // no effort when its EffortSupport is EffortSupportNone.
 //
-// The module is the authority for ranking, recommendation, and admission:
-// the launcher never invents a model name, never substitutes one row's
-// effort for another's, and never retries past a refusal. A configured
-// model with no configured effort takes the lineup's effort for THAT
-// model; an unknown configured model leaves the effort unset so the spawn
-// plane's admission (a later stage) refuses it. When the lineup admits no
-// model for the system, the launch fails with defaults_unresolvable.
+// The module is the authority for model identifiers, ranking, and
+// recommendations: the launcher never invents a model name, never
+// substitutes one row's effort for another's, and never retries past a
+// refusal. Every configured model must have exactly one runtime contributor
+// before planning; an unknown or ambiguous model fails with
+// defaults_unresolvable, even when an effort is explicit. A known configured
+// model with no configured effort takes that model's lineup recommendation.
+// When the lineup admits no model for the system, the launch also fails with
+// defaults_unresolvable.
 //
 // Native Pi selects the first driven runtime in the SPEC preference before
 // ranking that runtime's vendor-local lineup. Configured models instead bind
@@ -50,8 +52,9 @@ import (
 	"github.com/relux-works/curator-agent-launcher/internal/mapping"
 )
 
-// CodeUnresolvable is the SPEC §6 defaults diagnostic for a system the
-// lineup admits no model for. It is owned here; diagnostics transcribes it.
+// CodeUnresolvable is the SPEC §6 defaults diagnostic for an empty lineup or
+// a configured model without a unique runtime contributor. Diagnostics
+// transcribes it.
 const CodeUnresolvable = "defaults_unresolvable"
 
 // OriginLineup marks a member the level-3 fallback supplied.
@@ -60,10 +63,9 @@ const OriginLineup Origin = "lineup"
 // piRuntimePreference is the SPEC §4.3 ordered convention, not a score ranking.
 const piRuntimePreference = "pi-anthropic pi-openai pi-google"
 
-// Resolved is the §4.3 resolved pair plus the module runtime binding the
-// lineup completed it against. Runtime is empty exactly when the registry
-// admitted no runtime for the mapped system: the pair is then fully
-// file-supplied and the plan stage refuses the unknown runtime.
+// Resolved is the §4.3 resolved pair plus the unique runtime contributor.
+// Successful resolution always sets Runtime; unknown or ambiguous models
+// fail before a plan reaches the spawn plane.
 type Resolved struct {
 	Model, Effort ResolvedMember
 	Runtime       string
@@ -169,25 +171,16 @@ func complete(environment string, target mapping.Target, partial Partial, reg *v
 	if len(cands) == 0 {
 		return Resolved{}, &Error{CodeUnresolvable, fmt.Errorf("the lineup admits no model for environment %q (system %q)", environment, target.System)}
 	}
-	if partial.Model.Present && partial.Effort.Present {
-		// Nothing missing: the lineup supplies nothing. Record the
-		// binding when exactly one of the system's runtimes drives the
-		// configured model; otherwise an empty Runtime leaves the
-		// unknown runtime to the plan stage.
-		if matches := contributorsFor(cands, partial.Model.Value); len(matches) == 1 {
-			out.Runtime = string(matches[0].runtime)
-		}
-		return out, nil
-	}
 	if partial.Model.Present {
-		// The effort is missing here: a full pair returned above, so
-		// this fill cannot overwrite an explicit value.
 		matches := contributorsFor(cands, partial.Model.Value)
+		if len(matches) == 0 {
+			return Resolved{}, &Error{CodeUnresolvable, fmt.Errorf("model %q for environment %q has no contributing runtime; use an exact admitted model identifier", partial.Model.Value, environment)}
+		}
 		if len(matches) > 1 {
 			return Resolved{}, &Error{CodeUnresolvable, fmt.Errorf("model %q for environment %q is driven by several runtimes; the launcher binds none", partial.Model.Value, environment)}
 		}
-		if len(matches) == 1 {
-			out.Runtime = string(matches[0].runtime)
+		out.Runtime = string(matches[0].runtime)
+		if !partial.Effort.Present {
 			if effort, ok := effortForRow(matches[0].model); ok {
 				out.Effort = ResolvedMember{Member: effort, Origin: OriginLineup}
 			}
@@ -265,7 +258,7 @@ func systemCandidates(system string, reg *vendorplugin.Registry) ([]candidate, e
 
 // contributorsFor looks a model id up among the candidates by exact id.
 // Names are never normalized, prefixed, or otherwise derived: a spelling
-// no vendor issued matches nothing, and the plan stage refuses it.
+// no vendor issued matches nothing, and defaults resolution refuses it.
 func contributorsFor(cands []candidate, id string) []candidate {
 	var matches []candidate
 	for _, cand := range cands {

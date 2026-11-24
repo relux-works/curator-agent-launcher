@@ -797,7 +797,7 @@ scope. Resolution always requests repair.
 | `resume [SES-HANDLE]`, `--resume <id>` | Hosted-only resume selectors; usage errors in native mode |
 | `--profile <name>` | Curator profile, forwarded to environment resolution |
 | `--system-prompt <append\|replace>` | Explicit prompt-channel opt-in; unavailable semantics refuse the launch |
-| `--model <model>`, `--effort <effort>` | Explicit spawn-plane selection, subject to admission and machine locks |
+| `--model <model>`, `--effort <effort>` | Explicit selection; the model must match one declared runtime contributor before planning, and spawn admission validates the remaining tuple |
 | `--permissions <native\|yolo>` | Resolve the launcher permission mode |
 | `--yolo` | Exact alias of `--permissions yolo` at the same precedence level |
 | `-d`, `--danger` | Rejected as usage errors before `--`; after `--`, arguments are native input |
@@ -1574,6 +1574,9 @@ Pi fallback uses the ordered convention `pi-anthropic`, `pi-openai`,
 `pi-google`, selecting the first runtime with a driven model and ranking only
 within that runtime. This is an operator convention, not a comparison of vendor
 scores. An explicit/configured model binds its own runtime independently.
+Exact declared identifiers, including aliases, are accepted. A model with no
+unique runtime contributor fails with `defaults_unresolvable` before planning;
+an explicit effort does not bypass the runtime check.
 
 ### Removed ax tracking
 
