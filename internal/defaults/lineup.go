@@ -83,11 +83,19 @@ type Resolved struct {
 // here can admit a Pi launch through it; native Pi arrives only through
 // the pi-native plugin and the three frozen pi-* runtime rows.
 //
-// The gemini-cli and antigravity systems are registered only because the
-// google vendor's own registration contract requires every agentic system
-// its rows mention; the launcher maps nothing to them and launches
-// nothing through them.
+// The gemini-cli system is registered only because the google vendor's own
+// registration contract requires every agentic system its rows mention; the
+// launcher maps nothing to gemini-cli. Antigravity is mapped and launched via
+// NewRegistryWithAgyRuntime once preflight establishes the agy executable.
 func NewRegistry() (*vendorplugin.Registry, error) {
+	return NewRegistryWithAgyRuntime(agySystem.Runtime{})
+}
+
+// NewRegistryWithAgyRuntime builds the production compatibility registry with
+// an optional preflighted Antigravity runtime. A zero Runtime registers the
+// unpreflighted agy plugin, which resolves lineups and refuses exec/interactive
+// planning until preflighted.
+func NewRegistryWithAgyRuntime(agyRuntime agySystem.Runtime) (*vendorplugin.Registry, error) {
 	systems := agentic.NewRegistry()
 	if err := systems.Register(claudeSystem.New()); err != nil {
 		return nil, fmt.Errorf("register claude-code system: %w", err)
@@ -101,7 +109,13 @@ func NewRegistry() (*vendorplugin.Registry, error) {
 	if err := systems.Register(geminiSystem.New()); err != nil {
 		return nil, fmt.Errorf("register gemini-cli system: %w", err)
 	}
-	if err := systems.Register(agySystem.New()); err != nil {
+	var agySys *agySystem.System
+	if agyRuntime.IsZero() {
+		agySys = agySystem.New()
+	} else {
+		agySys = agySystem.NewWithRuntime(agyRuntime)
+	}
+	if err := systems.Register(agySys); err != nil {
 		return nil, fmt.Errorf("register antigravity system: %w", err)
 	}
 	if err := systems.Register(museSystem.New()); err != nil {

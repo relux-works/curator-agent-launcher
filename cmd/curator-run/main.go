@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/relux-works/skill-agents-management/pkg/agentic"
+	agySystem "github.com/relux-works/skill-agents-management/pkg/agentic/systems/agy"
 	museSystem "github.com/relux-works/skill-agents-management/pkg/agentic/systems/muse"
 	"github.com/relux-works/skill-agents-management/pkg/providerlimits"
 	"github.com/relux-works/skill-agents-management/pkg/vendorplugin"
@@ -183,6 +184,9 @@ type launchDeps struct {
 	// gatewayRecover is the exact administrative boundary, separate from
 	// configuration/fragment/manager/native-launch routing.
 	gatewayRecover gatewayRecoverFunc
+	// agyPreflight resolves the Antigravity CLI executable and version for
+	// managed antigravity launches; production defaults to agySystem.ProbeRuntime.
+	agyPreflight func(context.Context, []string) (agySystem.Runtime, error)
 }
 
 // run is the production entry point. Flags parse before configuration is read
@@ -639,7 +643,23 @@ func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, ta
 		return emitFailure(stderr, code, err)
 	}
 	launchContext := plan.Context(frag, fragment.Semantics(inv.SystemPrompt))
-	admitted, err := plan.Build(ctx, plan.Deps{Registry: deps.registry, BuildLaunch: build, Availability: availability, ModuleVersion: deps.moduleVersion, GatewayStore: gatewayStore}, plan.Request{
+	planRegistry := deps.registry
+	if target.System == "antigravity" && deps.build == nil && needsAgyPreflight(planRegistry) {
+		probeAgy := deps.agyPreflight
+		if probeAgy == nil {
+			probeAgy = agySystem.ProbeRuntime
+		}
+		rt, preflightErr := probeAgy(ctx, parentEnv)
+		if preflightErr != nil {
+			return emitFailure(stderr, diagnostics.CodePlanRefused, preflightErr)
+		}
+		rebuilt, regErr := defaults.NewRegistryWithAgyRuntime(rt)
+		if regErr != nil {
+			return emitFailure(stderr, diagnostics.CodePlanRefused, regErr)
+		}
+		planRegistry = rebuilt
+	}
+	admitted, err := plan.Build(ctx, plan.Deps{Registry: planRegistry, BuildLaunch: build, Availability: availability, ModuleVersion: deps.moduleVersion, GatewayStore: gatewayStore}, plan.Request{
 		Runtime: resolved.Runtime, Model: resolved.Model.Value, Effort: resolved.Effort.Value, Gateway: gatewayAttempt,
 		PermissionMode: decision.Mode, ToolRelease: toolRelease, NativeArgs: tail,
 		Home: frag.Home(), WorkDir: wd, Env: parentEnv, Context: launchContext,
@@ -1115,7 +1135,7 @@ func resolvePermission(ctx context.Context, inv cli.Invocation, frag *fragment.F
 	decision, err := execution.ResolvePermission(execution.PermissionRequest{
 		Flag: inv.PermissionMode, FlagPresent: inv.PermissionSet, Profile: frag.Permissions,
 		Global: global, Headless: headless,
-		Transport: frag.Revision == fragment.IdentityV2 || frag.Revision == fragment.IdentityV3 || frag.Revision == fragment.IdentityV4,
+		Transport: frag.Revision == fragment.IdentityV2 || frag.Revision == fragment.IdentityV3 || frag.Revision == fragment.IdentityV4 || frag.Revision == fragment.IdentityV7,
 	})
 	if err != nil {
 		return execution.PermissionDecision{}, "", nil, err
@@ -1173,4 +1193,16 @@ func emitPermissionFailure(stderr io.Writer, err error) int {
 		fmt.Fprintf(stderr, "\n%s", cli.Usage)
 	}
 	return diagnostics.ExitForCode(code)
+}
+
+func needsAgyPreflight(reg *vendorplugin.Registry) bool {
+	if reg == nil {
+		return false
+	}
+	resolved, err := reg.ResolveRuntime(vendorplugin.RuntimeID("agy"))
+	if err != nil || resolved.System == nil {
+		return false
+	}
+	bin, err := resolved.System.ResolveBinary(agentic.LaunchRequest{})
+	return err == nil && bin == "agy"
 }

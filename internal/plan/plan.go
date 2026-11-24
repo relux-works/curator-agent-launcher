@@ -52,6 +52,7 @@ import (
 	// local-models has no init registration (it needs explicit config) and
 	// is intentionally absent: nothing here invents a vendor for a runtime
 	// whose broker was never established.
+	_ "github.com/relux-works/skill-agents-management/pkg/agentic/systems/agy"
 	_ "github.com/relux-works/skill-agents-management/pkg/agentic/systems/claude"
 	_ "github.com/relux-works/skill-agents-management/pkg/agentic/systems/codex"
 	_ "github.com/relux-works/skill-agents-management/pkg/agentic/systems/muse"

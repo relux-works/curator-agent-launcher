@@ -8,12 +8,12 @@ import (
 	"github.com/relux-works/skill-agents-management/pkg/agentic"
 )
 
-// Context forwards validated v4 policy to the module, which owns argv and
-// sealing. Older Claude/Codex carriers keep their v1-compatible projection;
+// Context forwards validated v4 and v7 policy to the module, which owns argv
+// and sealing. Older Claude/Codex carriers keep their v1-compatible projection;
 // older Muse/Pi fragments retain their existing paths. Reserved members remain
 // in the original fragment digest and do not activate execution semantics.
 func Context(f *fragment.Fragment, intent fragment.Semantics) *agentic.CuratorContext {
-	if f.Revision != fragment.IdentityV4 && f.Environment != fragment.EnvClaudeCode && f.Environment != fragment.EnvCodexCLI {
+	if f.Revision != fragment.IdentityV4 && f.Revision != fragment.IdentityV7 && f.Environment != fragment.EnvClaudeCode && f.Environment != fragment.EnvCodexCLI {
 		return nil
 	}
 	value := &agentic.CuratorContext{
@@ -22,8 +22,15 @@ func Context(f *fragment.Fragment, intent fragment.Semantics) *agentic.CuratorCo
 		Precedence: agentic.CuratorPrecedence{Winner: f.Precedence.Winner, Placement: f.Precedence.Placement},
 		Env:        maps.Clone(f.Env),
 	}
-	if f.Revision == fragment.IdentityV4 {
-		value.Revision = agentic.CuratorLaunchFragmentV4
+	if f.Revision == fragment.IdentityV4 || f.Revision == fragment.IdentityV7 {
+		if f.Revision == fragment.IdentityV7 {
+			value.Revision = agentic.CuratorLaunchFragmentV7
+		} else {
+			value.Revision = agentic.CuratorLaunchFragmentV4
+		}
+		if f.HomeBinding != nil {
+			value.Home = &agentic.CuratorHomeBinding{Path: f.HomeBinding.Path, Transport: f.HomeBinding.Transport}
+		}
 		if f.Permissions != nil {
 			value.Permissions = &agentic.CuratorPermissions{
 				Mode: agentic.CuratorPermissionMode(f.Permissions.Mode), Locked: f.Permissions.Locked, Source: agentic.CuratorPermissionSource(f.Permissions.Source),

@@ -77,7 +77,7 @@ options:
   --help, -h                        print this usage text and exit 0
   --version                         print the launcher name and version, exit 0
 
-Environments: claude_code (alias claude), codex_cli (alias codex), pi, muse.
+Environments: claude_code (alias claude), codex_cli (alias codex), pi, muse, antigravity (alias agy).
 opencode is currently unsupported. Aliases normalize to the canonical id
 before validation or lookup; outputs carry the canonical id only.
 Omitting --profile uses Curator's current profile; resolution always repairs.
@@ -146,9 +146,9 @@ const (
 	PermissionYolo   PermissionMode = "yolo"
 )
 
-// NormalizeEnvID maps the two SPEC §3 CLI aliases to their canonical
-// environment ids: claude -> claude_code, codex -> codex_cli. Every other
-// spelling, including unknown ids, is returned unchanged so the later
+// NormalizeEnvID maps the SPEC §3 CLI aliases to their canonical environment
+// ids: claude -> claude_code, codex -> codex_cli, agy -> antigravity. Every
+// other spelling, including unknown ids, is returned unchanged so the later
 // stages that own those facts refuse it as today. The mapping is exact
 // and case-sensitive; it never trims, folds, or prefixes.
 func NormalizeEnvID(id string) string {
@@ -157,6 +157,8 @@ func NormalizeEnvID(id string) string {
 		return "claude_code"
 	case "codex":
 		return "codex_cli"
+	case "agy":
+		return "antigravity"
 	default:
 		return id
 	}

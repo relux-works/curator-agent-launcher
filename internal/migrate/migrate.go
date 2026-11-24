@@ -351,7 +351,7 @@ func stripHosts(data []byte) ([]byte, []string, error) {
 		if err := json.Unmarshal(value, &host); err != nil || (host != "native" && host != "hosted") {
 			return nil, nil, fmt.Errorf("%s.host must be native or hosted", name)
 		}
-		if fragment.HomeVariable(name) == "" {
+		if !fragment.IsKnownEnvironment(name) {
 			return nil, nil, fmt.Errorf("unknown environment %q", name)
 		}
 		hosts = append(hosts, name+"="+host)

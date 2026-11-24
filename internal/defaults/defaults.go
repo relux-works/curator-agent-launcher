@@ -170,7 +170,7 @@ func parse(data []byte) (file, error) {
 						return file{}, &HostWithdrawnError{Reason: "present"}
 					}
 				}
-				if fragment.HomeVariable(env.Key) == "" {
+				if !fragment.IsKnownEnvironment(env.Key) {
 					return file{}, fmt.Errorf("unknown environment %q", env.Key)
 				}
 				if env.Value.Kind != fragment.KindObject || len(env.Value.Obj) == 0 {
@@ -241,7 +241,7 @@ type Partial struct{ Model, Effort, Permissions ResolvedMember }
 // even if the flag repeats the machine value. Operator locked has no effect.
 // An ignored operator entry still must be valid at Load time.
 func (f Files) Resolve(environment string, flags Pair) (Partial, error) {
-	if fragment.HomeVariable(environment) == "" {
+	if !fragment.IsKnownEnvironment(environment) {
 		return Partial{}, invalid(fmt.Errorf("unknown environment %q", environment))
 	}
 	machine, named := f.machine.entries[environment]
@@ -278,7 +278,7 @@ func (f Files) Resolve(environment string, flags Pair) (Partial, error) {
 // flag are applied. The machine lock has the same named-environment scope as
 // the model and effort lock.
 func (f Files) PermissionDefault(environment string) (Member, error) {
-	if fragment.HomeVariable(environment) == "" {
+	if !fragment.IsKnownEnvironment(environment) {
 		return Member{}, invalid(fmt.Errorf("unknown environment %q", environment))
 	}
 	machine, named := f.machine.entries[environment]
@@ -320,7 +320,7 @@ type ResolvedHost struct {
 // The machine lock has the same named-environment scope as the model and
 // effort lock. An ignored operator entry still must be valid at Load time.
 func (f Files) ResolveHost(environment string, hostFlag string) (ResolvedHost, error) {
-	if fragment.HomeVariable(environment) == "" {
+	if !fragment.IsKnownEnvironment(environment) {
 		return ResolvedHost{}, invalid(fmt.Errorf("unknown environment %q", environment))
 	}
 	var flag Member

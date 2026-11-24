@@ -33,6 +33,17 @@ const IdentityV3 = "launch-env-fragment-v3"
 // IdentityV4 adds typed credential storage and Muse root-context policy.
 const IdentityV4 = "launch-env-fragment-v4"
 
+// IdentityV7 adds flag-based managed-home transport (home: {path, transport})
+// for Antigravity CLI (CIP-0033), retaining v4 permissions and credential_store.
+const IdentityV7 = "launch-env-fragment-v7"
+
+// HomeBinding carries the non-env managed-home transport for flag-home
+// environments such as Antigravity (CIP-0033).
+type HomeBinding struct {
+	Path      string
+	Transport string
+}
+
 // RootContext carries Curator's verified fact; its absence permits no inference.
 type RootContext struct{ Exclusive bool }
 
@@ -46,11 +57,12 @@ type CredentialStore struct {
 // §7.1). The launcher's own support for a launch into one of them is a §4.2
 // fact, not this package's.
 const (
-	EnvClaudeCode = "claude_code"
-	EnvCodexCLI   = "codex_cli"
-	EnvOpenCode   = "opencode"
-	EnvPi         = "pi"
-	EnvMuse       = "muse"
+	EnvClaudeCode  = "claude_code"
+	EnvCodexCLI    = "codex_cli"
+	EnvOpenCode    = "opencode"
+	EnvPi          = "pi"
+	EnvMuse        = "muse"
+	EnvAntigravity = "antigravity"
 )
 
 // ChannelKind is the closed descriptor kind vocabulary (environments.md §7.3).
@@ -136,19 +148,21 @@ type MCP struct {
 	Channels []Channel
 }
 
-// Fragment is a parsed, validated launch-env-fragment-v1 through v4.
+// Fragment is a parsed, validated launch-env-fragment-v1 through v4 or v7.
 type Fragment struct {
 	// Revision is the exact fragment token and the only permission-transport
-	// signal. Only v2 through v4 carry Permissions.
+	// signal. Only v2 through v4 and v7 carry Permissions.
 	Revision        string
 	Environment     string
 	Profile         Profile
 	Precedence      Precedence
 	Permissions     *Permissions
+	HomeBinding     *HomeBinding
 	RootContext     *RootContext
 	CredentialStore *CredentialStore
 	// Env maps the adapter's registry-declared variable name to the managed
 	// home path. Muse declares four XDG paths, plus a backend constant in v4.
+	// Flag-home environments such as Antigravity carry policy constants only.
 	Env map[string]string
 	// SystemPrompt is nil when the section is absent.
 	SystemPrompt *SystemPrompt
@@ -165,16 +179,30 @@ type Fragment struct {
 }
 
 // HomeVariable returns the adapter's primary home variable name for env
-// (environments.md §7.1), or "" for an environment outside the registry.
+// (environments.md §7.1), or "" for an environment outside the env-home
+// registry (including flag-home environments such as antigravity).
 // Muse uses XDG_CONFIG_HOME here; Home derives the parent of its /config path.
 func HomeVariable(env string) string {
 	return homeVariable[env]
 }
 
-// Home returns the managed home this launch runs in: the value of the
-// adapter's home variable, or the common XDG parent for Muse (SPEC §4.1,
-// passed as LaunchRequest.Home in §4.4).
+// IsKnownEnvironment reports whether env is a registered canonical Curator
+// environment id, regardless of whether its home travels via an env var or a
+// CLI flag.
+func IsKnownEnvironment(env string) bool {
+	if _, ok := homeVariable[env]; ok {
+		return true
+	}
+	return env == EnvAntigravity
+}
+
+// Home returns the managed home this launch runs in: the flag-transport home
+// path when present, the adapter's home variable value, or the common XDG
+// parent for Muse (SPEC §4.1, passed as LaunchRequest.Home in §4.4).
 func (f *Fragment) Home() string {
+	if f.HomeBinding != nil && f.HomeBinding.Path != "" {
+		return f.HomeBinding.Path
+	}
 	if f.Environment == EnvMuse {
 		return strings.TrimSuffix(f.Env["XDG_CONFIG_HOME"], "/config")
 	}
@@ -212,9 +240,10 @@ var systemPromptRegistry = map[string][]Channel{
 // mcpRegistry has no entry for pi: pi has no MCP channel and a pi fragment
 // carrying an mcp section is rejected.
 var mcpRegistry = map[string]Channel{
-	EnvClaudeCode: {Kind: KindFlag, Flag: "--mcp-config", Argument: ArgumentPath, With: []string{"--strict-mcp-config"}},
-	EnvCodexCLI:   {Kind: KindFlag, Flag: "-p", Argument: ArgumentName, Name: "curator-mcp"},
-	EnvOpenCode:   {Kind: KindVariable, Variable: "OPENCODE_CONFIG"},
+	EnvClaudeCode:  {Kind: KindFlag, Flag: "--mcp-config", Argument: ArgumentPath, With: []string{"--strict-mcp-config"}},
+	EnvCodexCLI:    {Kind: KindFlag, Flag: "-p", Argument: ArgumentName, Name: "curator-mcp"},
+	EnvOpenCode:    {Kind: KindVariable, Variable: "OPENCODE_CONFIG"},
+	EnvAntigravity: {Kind: KindFile, Filename: "config/mcp_config.json"},
 }
 
 var (
@@ -347,7 +376,7 @@ func checkFlagToken(path, s string) error {
 }
 
 func fromValue(root Value) (*Fragment, error) {
-	revision, err := enumMember("", root, "fragment", Identity, IdentityV2, IdentityV3, IdentityV4)
+	revision, err := enumMember("", root, "fragment", Identity, IdentityV2, IdentityV3, IdentityV4, IdentityV7)
 	if err != nil {
 		return nil, err
 	}
@@ -355,6 +384,9 @@ func fromValue(root Value) (*Fragment, error) {
 	optional := []string{"system_prompt", "mcp", "path_prepend"}
 	if revision == IdentityV4 {
 		optional = append(optional, "root_context", "credential_store")
+	}
+	if revision == IdentityV7 {
+		optional = append(optional, "home", "root_context", "credential_store")
 	}
 	if revision != Identity {
 		required = append(required, "permissions")
@@ -366,12 +398,15 @@ func fromValue(root Value) (*Fragment, error) {
 	}
 	f := &Fragment{Revision: revision}
 
-	env, err := enumMember("", root, "environment", EnvClaudeCode, EnvCodexCLI, EnvOpenCode, EnvPi, EnvMuse)
+	env, err := enumMember("", root, "environment", EnvClaudeCode, EnvCodexCLI, EnvOpenCode, EnvPi, EnvMuse, EnvAntigravity)
 	if err != nil {
 		return nil, err
 	}
-	if env == EnvMuse && revision != IdentityV3 && revision != IdentityV4 {
+	if env == EnvMuse && revision != IdentityV3 && revision != IdentityV4 && revision != IdentityV7 {
 		return nil, invalid("/environment", "muse requires launch-env-fragment-v3")
+	}
+	if env == EnvAntigravity && revision != IdentityV7 {
+		return nil, invalid("/environment", "antigravity requires launch-env-fragment-v7")
 	}
 	f.Environment = env
 
@@ -431,14 +466,23 @@ func fromValue(root Value) (*Fragment, error) {
 		return nil, err
 	}
 
-	// env: closed adapter variable set; Muse paths share one managed parent.
+	if revision == IdentityV7 {
+		if err := v7HomePolicy(root, f); err != nil {
+			return nil, err
+		}
+	}
+
+	// env: closed adapter variable set; Muse paths share one managed parent;
+	// Antigravity carries only the forced file-token storage constant.
 	envObj, _ := root.Get("env")
 	variables := []string{homeVariable[env]}
 	if env == EnvMuse {
 		variables = []string{"XDG_CONFIG_HOME", "XDG_DATA_HOME", "XDG_STATE_HOME", "XDG_CACHE_HOME"}
-		if revision == IdentityV4 {
+		if revision == IdentityV4 || revision == IdentityV7 {
 			variables = append(variables, "TBH_CREDENTIAL_BACKEND")
 		}
+	} else if env == EnvAntigravity {
+		variables = []string{AntigravityForceFileTokenVariable}
 	}
 	if err := closedObject("/env", envObj, variables, nil); err != nil {
 		return nil, err
@@ -449,12 +493,19 @@ func fromValue(root Value) (*Fragment, error) {
 		if err != nil {
 			return nil, err
 		}
-		if name == "TBH_CREDENTIAL_BACKEND" {
+		switch name {
+		case "TBH_CREDENTIAL_BACKEND":
 			if value != "file" {
 				return nil, invalid("/env/"+name, "must equal file")
 			}
-		} else if err := checkAbsolutePath("/env/"+name, value); err != nil {
-			return nil, err
+		case AntigravityForceFileTokenVariable:
+			if value != AntigravityForceFileTokenTrue {
+				return nil, invalid("/env/"+name, "must equal true")
+			}
+		default:
+			if err := checkAbsolutePath("/env/"+name, value); err != nil {
+				return nil, err
+			}
 		}
 		f.Env[name] = value
 	}
@@ -473,11 +524,18 @@ func fromValue(root Value) (*Fragment, error) {
 		if err := v4Policy(root, f); err != nil {
 			return nil, err
 		}
+	} else if revision == IdentityV7 {
+		if err := v7Policy(root, f); err != nil {
+			return nil, err
+		}
 	}
 	// system_prompt
 	if sp, ok := root.Get("system_prompt"); ok {
 		if env == EnvMuse {
 			return nil, invalid("/system_prompt", "muse has no system-prompt channel")
+		}
+		if env == EnvAntigravity {
+			return nil, invalid("/system_prompt", "antigravity has no system-prompt channel")
 		}
 		if err := closedObject("/system_prompt", sp, []string{"path", "channels"}, nil); err != nil {
 			return nil, err
@@ -490,7 +548,7 @@ func fromValue(root Value) (*Fragment, error) {
 			return nil, err
 		}
 		ch, _ := sp.Get("channels")
-		if s.Channels, err = channels("/system_prompt/channels", ch, true); err != nil {
+		if s.Channels, err = channels("/system_prompt/channels", ch, true, revision == IdentityV7); err != nil {
 			return nil, err
 		}
 		if !sameChannels(s.Channels, systemPromptRegistry[env]) {
@@ -515,6 +573,9 @@ func fromValue(root Value) (*Fragment, error) {
 		if err := checkAbsolutePath("/mcp/path", mc.Path); err != nil {
 			return nil, err
 		}
+		if env == EnvAntigravity && mc.Path != f.Home()+"/"+AntigravityMCPFile {
+			return nil, invalid("/mcp/path", "antigravity MCP path must equal <home>/%s", AntigravityMCPFile)
+		}
 		names, _ := mv.Get("env_names")
 		if names.Kind != KindArray {
 			return nil, invalid("/mcp/env_names", "expected an array, got %s", names.Kind)
@@ -537,7 +598,7 @@ func fromValue(root Value) (*Fragment, error) {
 			mc.EnvNames = append(mc.EnvNames, n.Str)
 		}
 		ch, _ := mv.Get("channels")
-		if mc.Channels, err = channels("/mcp/channels", ch, false); err != nil {
+		if mc.Channels, err = channels("/mcp/channels", ch, false, revision == IdentityV7); err != nil {
 			return nil, err
 		}
 		if !sameChannels(mc.Channels, []Channel{reg}) {
@@ -583,13 +644,13 @@ func environmentsRoot(home string) string {
 // channels parses a descriptor list. withSemantics selects the
 // system-prompt grammar (semantics required) over the MCP grammar
 // (semantics forbidden).
-func channels(path string, v Value, withSemantics bool) ([]Channel, error) {
+func channels(path string, v Value, withSemantics, allowSubpath bool) ([]Channel, error) {
 	if v.Kind != KindArray {
 		return nil, invalid(path, "expected an array, got %s", v.Kind)
 	}
 	out := []Channel{}
 	for i, el := range v.Arr {
-		c, err := channel(fmt.Sprintf("%s/%d", path, i), el, withSemantics)
+		c, err := channel(fmt.Sprintf("%s/%d", path, i), el, withSemantics, allowSubpath)
 		if err != nil {
 			return nil, err
 		}
@@ -598,7 +659,7 @@ func channels(path string, v Value, withSemantics bool) ([]Channel, error) {
 	return out, nil
 }
 
-func channel(path string, v Value, withSemantics bool) (Channel, error) {
+func channel(path string, v Value, withSemantics, allowSubpath bool) (Channel, error) {
 	if v.Kind != KindObject {
 		return Channel{}, invalid(path, "expected an object, got %s", v.Kind)
 	}
@@ -703,7 +764,11 @@ func channel(path string, v Value, withSemantics bool) (Channel, error) {
 		if c.Filename, err = stringMember(path, v, "filename"); err != nil {
 			return Channel{}, err
 		}
-		if err := checkPortableFilename(path+"/filename", c.Filename); err != nil {
+		if allowSubpath {
+			if err := checkPortableRelativePath(path+"/filename", c.Filename); err != nil {
+				return Channel{}, err
+			}
+		} else if err := checkPortableFilename(path+"/filename", c.Filename); err != nil {
 			return Channel{}, err
 		}
 	}

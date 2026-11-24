@@ -12,10 +12,14 @@ func (e *VersionError) Error() string {
 }
 
 // CheckLaunchRevision leaves the v1-v3 reader contract unchanged while closing
-// the managed Muse launch boundary to fragments without v4 policy.
+// the managed Muse and Antigravity launch boundaries to fragments without their
+// required policy revision.
 func CheckLaunchRevision(f *Fragment) error {
 	if f.Environment == EnvMuse && (f.Revision == Identity || f.Revision == IdentityV2 || f.Revision == IdentityV3) {
 		return &VersionError{Environment: EnvMuse, Required: IdentityV4}
+	}
+	if f.Environment == EnvAntigravity && f.Revision != IdentityV7 {
+		return &VersionError{Environment: EnvAntigravity, Required: IdentityV7}
 	}
 	return nil
 }

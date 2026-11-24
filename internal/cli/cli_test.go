@@ -220,6 +220,9 @@ func TestNormalizeEnvID(t *testing.T) {
 	for _, tc := range []struct{ in, want string }{
 		{"claude", "claude_code"},
 		{"codex", "codex_cli"},
+		{"agy", "antigravity"},
+		{"antigravity", "antigravity"},
+		{"AGY", "AGY"},
 		{"claude_code", "claude_code"},
 		{"codex_cli", "codex_cli"},
 		{"pi", "pi"},
