@@ -403,7 +403,7 @@ func TestRunProductionResolverAgainstFakeCurator(t *testing.T) {
 // version drifts from the changelog, install documentation or help header.
 func TestReleaseVersionPinned(t *testing.T) {
 	const (
-		wantBuild = "0.7.3"
+		wantBuild = "0.7.4"
 		wantSpec  = "0.5.1-draft"
 	)
 	if buildVersion != wantBuild {
@@ -418,10 +418,10 @@ func TestReleaseVersionPinned(t *testing.T) {
 	}{
 		{path: "../../SPEC.md", content: specVersion},
 		{path: "../../README.md", content: specVersion},
-		{path: "../../README.md", content: "github.com/relux-works/curator-agent-launcher/cmd/curator-run@v0.7.3"},
-		{path: "../../README.md", content: "The v0.7.3 release reports `0.7.3` (specification `0.5.1-draft`)."},
+		{path: "../../README.md", content: "github.com/relux-works/curator-agent-launcher/cmd/curator-run@v0.7.4"},
+		{path: "../../README.md", content: "The v0.7.4 release reports `0.7.4` (specification `0.5.1-draft`)."},
 		{path: "../../README.md", content: "curator v0.15.0-rc.3 or later, once published"},
-		{path: "../../CHANGELOG.md", content: "## 0.7.3 — 2026-11-21"},
+		{path: "../../CHANGELOG.md", content: "## 0.7.4 — 2026-11-24"},
 	} {
 		data, err := os.ReadFile(check.path)
 		if err != nil {

@@ -11,6 +11,13 @@
   feature together. Direct launches remain unchanged. Keep the option off
   until the proxy search route is deployed.
 
+## 0.7.4 — 2026-11-24
+
+### Changed
+
+- Added an opt-in standalone web-search setting for Codex gateway launches; it
+  is disabled by default.
+
 ## 0.7.3 — 2026-11-21
 
 ### Changed
