@@ -170,6 +170,18 @@ func TestNonZeroExitMapping(t *testing.T) {
 	}
 }
 
+func TestMissingAntigravityHarnessPreservesEnvironmentRefusal(t *testing.T) {
+	stderr := "curator: environment_unknown: unregistered environment \"antigravity\"\n"
+	fr := &fakeRunner{stdout: piFragment(t), stderr: stderr, exit: 1}
+	f, re, errOut := resolveWith(t, fr, Request{EnvID: "antigravity"})
+	if f != nil || re == nil || re.Code != CodeEnvironmentUnknown || re.CuratorCode != "environment_unknown" {
+		t.Fatalf("missing harness: fragment=%v refusal=%+v", f, re)
+	}
+	if errOut != stderr || strings.Join(fr.argv, "\x00") != strings.Join([]string{"env", "resolve", "antigravity", "--repair", "--format", "json"}, "\x00") {
+		t.Fatalf("refusal lost Curator evidence or changed request: stderr=%q argv=%q", errOut, fr.argv)
+	}
+}
+
 func TestNonZeroExitNeverYieldsFragmentEvenWithValidStdout(t *testing.T) {
 	fr := &fakeRunner{stdout: piFragment(t), stderr: "curator: environment_repair_failed: x\n", exit: 1}
 	f, re, _ := resolveWith(t, fr, Request{EnvID: "pi"})

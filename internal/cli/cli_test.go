@@ -352,6 +352,12 @@ func TestUsageErrorShape(t *testing.T) {
 	}
 }
 
+func TestUsageDocumentsAntigravityEffortRule(t *testing.T) {
+	if !strings.Contains(Usage, "antigravity") || !strings.Contains(Usage, "effort_unsupported") || !strings.Contains(Usage, "non-empty effort for agy model IDs") || !strings.Contains(Usage, "Interactive Antigravity requests") || !strings.Contains(Usage, "refuse earlier") {
+		t.Fatalf("Usage omits the antigravity runtime or its effort rule")
+	}
+}
+
 // TestGolden renders every shape through Parse and compares against
 // testdata/cases.golden, so an accepted or rejected shape cannot change
 // silently. Regenerate with: go test ./internal/cli -run TestGolden -update

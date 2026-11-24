@@ -42,7 +42,7 @@ import (
 
 const (
 	name        = cli.Name
-	specVersion = "0.5.1-draft"
+	specVersion = "0.5.3-draft"
 )
 
 // buildVersion is the launcher's own version; the specification version is
@@ -204,6 +204,9 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer, deps laun
 		case cli.InfoVersion:
 			fmt.Fprintf(stdout, "%s %s (specification %s)\n", name, buildVersion, specVersion)
 			return 0
+		}
+		if systemID, unsupported := samInteractiveModeUnsupported(inv.EnvID, deps.systems); unsupported {
+			return emitFailure(stderr, diagnostics.CodeSAMInteractiveModeUnsupported, fmt.Errorf("SAM system %s does not declare interactive launch mode", systemID))
 		}
 	}
 	if len(args) > 0 && args[0] == "gateway" {
@@ -518,6 +521,40 @@ func processAvailability() (plan.AvailabilityFunc, error) {
 	return store.AvailabilityFor, nil
 }
 
+// launchHome returns the active provider home used for plan and limits
+// identity. Antigravity has no Curator-managed home, so its identity comes
+// from the inherited HOME value; the environment itself remains unchanged.
+func launchHome(frag *fragment.Fragment, parentEnv []string) string {
+	if home := frag.Home(); home != "" || frag.Environment != fragment.EnvAntigravity {
+		return home
+	}
+	for _, entry := range parentEnv {
+		name, value, ok := strings.Cut(entry, "=")
+		if ok && name == "HOME" {
+			return value
+		}
+	}
+	return ""
+}
+
+// samInteractiveModeUnsupported checks the registered SAM capability before
+// Curator resolution, configuration reads, or any other child process.
+func samInteractiveModeUnsupported(environment string, systems *agentic.Registry) (agentic.SystemID, bool) {
+	target, err := mapping.Resolve(environment)
+	if err != nil {
+		return "", false
+	}
+	if systems == nil {
+		systems = agentic.Default
+	}
+	systemID := agentic.SystemID(target.System)
+	system, ok := systems.Lookup(systemID)
+	if ok && system.Capabilities().SupportsMode(agentic.LaunchModeInteractive) {
+		return "", false
+	}
+	return systemID, true
+}
+
 func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, target mapping.Target, resolved defaults.Resolved, files defaults.Files, stdout, stderr io.Writer, deps launchDeps) int {
 	// The operator's gateway default is resolved before any route is chosen,
 	// so a hosted launch or resume can never run without it, and a catalog
@@ -642,7 +679,7 @@ func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, ta
 	admitted, err := plan.Build(ctx, plan.Deps{Registry: deps.registry, BuildLaunch: build, Availability: availability, ModuleVersion: deps.moduleVersion, GatewayStore: gatewayStore}, plan.Request{
 		Runtime: resolved.Runtime, Model: resolved.Model.Value, Effort: resolved.Effort.Value, Gateway: gatewayAttempt,
 		PermissionMode: decision.Mode, ToolRelease: toolRelease, NativeArgs: tail,
-		Home: frag.Home(), WorkDir: wd, Env: parentEnv, Context: launchContext,
+		Home: launchHome(frag, parentEnv), WorkDir: wd, Env: parentEnv, Context: launchContext,
 	})
 	if err != nil {
 		code := diagnostics.CodePlanRefused

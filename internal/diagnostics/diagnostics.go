@@ -19,8 +19,10 @@
 //	resolve_lock_unavailable       fragment.ResolveError       fragment.Resolver.Resolve (exit 1)
 //	resolve_fragment_invalid       fragment.ResolveError       fragment.Resolver.Resolve (exit 1)
 //	defaults_unresolvable          defaults.Error              defaults.Files.Complete (exit 1)
+//	effort_unsupported             defaults.Error              defaults.Files.Complete (exit 1)
 //	plan_refused                   plan.Build                 separately owned (exit 1)
 //	plan_provider_limited          plan.Build                 separately owned (exit 1)
+//	sam_interactive_mode_unsupported SAM capability gate        run before children (exit 1)
 //	env_unsupported                mapping (constant)          mapping.Resolve (exit 1)
 //	permission_policy_unsupported  permission policy          call-site selected (exit 1)
 //	permission_mode_unsupported    permission policy          call-site selected (exit 1)
@@ -102,8 +104,8 @@ const (
 )
 
 // Stable diagnostic codes of SPEC §6, in table order. Owned literals are
-// pinned to their owners in tests; the two separately-owned plan codes
-// are selected by main at the plan.Build call site.
+// pinned to their owners in tests; launch-mode refusal is selected at the
+// early run call site before any child process can start.
 const (
 	CodeUsage = "usage"
 
@@ -117,6 +119,7 @@ const (
 	CodeAXTrackingRemoved                = "ax_tracking_removed"
 	CodeDefaultsInvalid                  = "defaults_config_invalid"
 	CodeDefaultsUnresolvable             = "defaults_unresolvable"
+	CodeEffortUnsupported                = "effort_unsupported"
 	CodeSelectorUnavailable              = "selector_unavailable"
 	CodeSelectorAbstained                = "selector_abstained"
 	CodeHostWithdrawn                    = "host_member_withdrawn"
@@ -127,8 +130,9 @@ const (
 	CodeSessionManagerRegistryShadowed   = "session_manager_registry_shadowed"
 	CodeSessionManagerNotRegistered      = "session_manager_not_registered"
 
-	CodePlanRefused         = "plan_refused"
-	CodePlanProviderLimited = "plan_provider_limited"
+	CodePlanRefused                   = "plan_refused"
+	CodePlanProviderLimited           = "plan_provider_limited"
+	CodeSAMInteractiveModeUnsupported = "sam_interactive_mode_unsupported"
 
 	CodeEnvUnsupported = "env_unsupported"
 
@@ -181,6 +185,7 @@ func Codes() []string {
 		CodeResolveFragmentInvalid,
 		CodeDefaultsInvalid,
 		CodeDefaultsUnresolvable,
+		CodeEffortUnsupported,
 		CodeSelectorUnavailable,
 		CodeSelectorAbstained,
 		CodeSessionManagerRegistryInvalid,
@@ -192,6 +197,7 @@ func Codes() []string {
 		CodeMigrateDestinationExists,
 		CodePlanRefused,
 		CodePlanProviderLimited,
+		CodeSAMInteractiveModeUnsupported,
 		CodeEnvUnsupported,
 		CodePermissionPolicyUnsupported,
 		CodePermissionModeUnsupported,

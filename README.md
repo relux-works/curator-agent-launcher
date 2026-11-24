@@ -6,7 +6,7 @@ resume, see [Profile-bound conversion and terminal hosting](docs/profile-bound-t
 
 `curator-run` composes Curator's managed environment, agents-management's
 admitted interactive plan, and native or hosted execution. The contract is
-[SPEC 0.5.1-draft](SPEC.md).
+[SPEC 0.5.3-draft](SPEC.md).
 
 Documentation revision: accepted architecture-review findings (2026-10-13)
 clarify role/placement admission and inert candidate review; the workplace
@@ -531,7 +531,13 @@ implemented; unpublished intake, receipts and activation details remain visible
 as spec gaps. See the [figure index](diagrams/README.md).
 
 The executable supports `claude_code` (alias `claude`), `codex_cli`
-(alias `codex`), native `pi`, and Muse (`muse`).
+(alias `codex`), native `pi`, and Muse (`muse`). Curator's `agy` selector
+resolves to the `antigravity` environment; SAM model rows bind to runtime
+`agy` under system `antigravity`. The model IDs encode effort; the defaults
+resolver rejects non-empty effort with `effort_unsupported`. Interactive
+Antigravity requests on the pinned SAM version refuse earlier with
+`sam_interactive_mode_unsupported` because SAM declares no interactive mode;
+the refusal happens before Curator resolution.
 
 Muse requires `launch-env-fragment-v4`: exactly four XDG parents under one
 managed home plus `TBH_CREDENTIAL_BACKEND=file`, preserving inherited `HOME`.

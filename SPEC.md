@@ -1,6 +1,6 @@
 # Curator Agent Launcher — Specification
 
-**Specification version:** `0.5.1-draft`
+**Specification version:** `0.5.3-draft`
 **Status:** in-repository draft (see [Versioning](#8-versioning))
 
 - 2026-10-13, 0.5.1-draft documentation revision: apply accepted
@@ -224,7 +224,7 @@ change, not a flag addition.
 
 | Element | Plane | Meaning |
 |---|---|---|
-| `<env-id>` | context + spawn + session | Required operand. A registered Curator environment identifier (`claude_code`, `codex_cli`, `opencode`, `pi`), with `claude` and `codex` accepted as aliases of `claude_code` and `codex_cli`. The operand normalizes to the canonical id before any validation or lookup; outputs, diagnostics, fragments, configuration records, and locks carry the canonical id only, and an alias is never persisted. Selects the fragment to resolve and, through the closed mapping of §4.2, the agentic system to plan. |
+| `<env-id>` | context + spawn + session | Required operand. A registered Curator environment identifier (`claude_code`, `codex_cli`, `opencode`, `pi`, `antigravity`), with `claude` and `codex` accepted as aliases of `claude_code` and `codex_cli`. The operand normalizes to the canonical id before any validation or lookup; outputs, diagnostics, fragments, configuration records, and locks carry the canonical id only, and an alias is never persisted. Selects the fragment to resolve and, through the closed mapping of §4.2, the agentic system to plan. |
 | `--profile <name>` | context | Forwarded verbatim to `curator env resolve` as its `--profile` operand. Absent, resolution uses the current profile for the applicable scope. |
 | `--member <existing-record-id>` | session | Explicit expected-input selection for Core-selected Host notification. Uses the existing local record directory and `[a-z0-9][a-z0-9-]{0,47}` IDs. Missing, incompatible or disabled selection refuses; there is no ambient default. Runtime, profile, pinned profile lock and physical workspace must match the resolved operation. Only notification member/reference/timeout fields enter the request; plain admission remains null, and model, effort, child environment and resume identity remain unchanged. The manager independently admits its configured actual record source before attachment effects. |
 | `--system-prompt <append\|replace>` | execution | Explicit opt-in that engages the fragment's system-prompt channel with the given semantics. The value is required: the opt-in states what it wants, and the launcher never chooses replacement by default. See §5. |
@@ -281,20 +281,23 @@ Figures: [current and target components](diagrams/components.puml),
 [launch sequences](diagrams/launch-paths.puml), and
 [transient invocation states](diagrams/launch-states.puml).
 
-A launch composes in seven ordered steps: obtain the fragment, map the
-environment, resolve model and effort, obtain the plan, resolve the
-network selection (§4.4b), compose, hand off or exec. Every step either
-completes or fails the launch with a §6 diagnostic; there is no partial
-launch, and no step's failure degrades into a weaker launch shape. The
-order is contract, not convenience: the fragment comes **first** because
-the plan request needs the managed home (§4.1, §4.4), the plan comes
-before the network step because only an admitted launch may probe, and
-composition comes last because it appends to values it never rebuilds
-(§4.5). Native execution consumes the caller-composed value; delegated hosted
-execution uses the selected manager contract. Host selection (§4.8) runs after configuration validation
-and routes the launch to native execution or to the hosted payload
-handoff (§4.9); it changes no step's contract, only which handoff the
-composed value reaches.
+Before the composition steps, the launcher checks whether the mapped SAM
+system declares the required interactive mode. A missing capability refuses
+with `sam_interactive_mode_unsupported` before configuration reads, Curator
+resolution, or any child process. Help and version remain static.
+
+For launches that pass that gate, composition has seven ordered steps: obtain
+the fragment, map the environment, resolve model and effort, obtain the plan,
+resolve the network selection (§4.4b), compose, hand off or exec. Every step
+either completes or fails the launch with a §6 diagnostic; there is no partial
+launch, and no step's failure degrades into a weaker launch shape. Within
+composition, the fragment comes **first** because the plan request needs the
+managed home (§4.1, §4.4), the plan comes before the network step because
+only an admitted launch may probe, and composition comes last because it
+appends to values it never rebuilds (§4.5). Native execution consumes the
+caller-composed value; delegated hosted execution uses the selected manager
+contract. Host selection (§4.8) runs after configuration validation and routes
+the launch to native execution or to the hosted payload handoff (§4.9).
 
 ### 4.1 Obtain the fragment (context plane)
 
@@ -307,7 +310,7 @@ curator env resolve <env-id> [--profile <name>] --repair --format json
 with the canonical `<env-id>` of §3: the launcher normalizes the `claude`
 and `codex` aliases before invoking the subprocess, so the alias never
 reaches Curator's lookup. The required `fragment` member names the fragment
-revision. The launcher parses the closed v1, v2, or v3 object per environments.md
+revision. The launcher parses the closed v1, v2, v3, or v4 object per environments.md
 §10.2 as revised by Decisions 0012 and 0018 and F-S2
 (curator-spec `ec8dc656`), rejecting unknown fields, unknown kinds,
 unknown semantics values, and contradictory permission data.
@@ -325,7 +328,17 @@ retains v2 permissions and admits Muse with exactly `XDG_CONFIG_HOME`,
 one absolute managed parent, ending in `/config`, `/data`, `/state`, and
 `/cache`, respectively. `HOME` is never a fragment variable or managed
 override. Muse has no system-prompt or MCP member; v1/v2 do not admit Muse.
-Other adapters retain their single variable and existing channel rules.
+Revision v4 adds the typed `credential_store` member, which Muse requires.
+The optional `root_context.exclusive` member is Muse-only and records an
+explicit true fact when present. Other adapters accept only their declared
+native credential-store policy, with Codex's typed configuration override.
+Antigravity has an empty `env` object, no managed home or home override
+variable, no `system_prompt` member, and no model ID in the fragment. Its
+optional MCP member has an empty `env_names` list and one `file` channel
+named `mcp_config.json`; the absolute path resolves either the global
+`~/.gemini/config/mcp_config.json` file or the project
+`.agents/mcp_config.json` file. Antigravity preserves inherited `HOME`
+unchanged. Other adapters retain their declared variables and channel rules.
 
 `--repair` is **always** passed (environments.md §9.2 step 5, §10.1;
 `profiles/manager.md` §12.5): the launcher is the one caller that repairs.
@@ -363,7 +376,9 @@ The members this document consumes:
   variable** (`CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `PI_CODING_AGENT_DIR`;
   `XDG_CONFIG_HOME` for `opencode`, whose home is `<parent>/opencode/`,
   environments.md §7.1) is the managed home this launch runs in and is
-  passed as `LaunchRequest.Home` in §4.4;
+  passed as `LaunchRequest.Home` in §4.4; Antigravity declares no managed
+  home and uses inherited `HOME` only as plan identity metadata, leaving
+  `LaunchRequest.Env` unchanged;
 - `system_prompt` — present exactly when the resolved chain carries at
   least one applicable system module; data about a channel, consumed only
   under §5, and its presence recorded as `system-modules` in §4.6;
@@ -449,9 +464,12 @@ Curator environment ids map to spawn-plane agentic-system plugin ids:
 | `codex_cli` | `codex` |
 | `pi` | `pi-native` |
 | `muse` | `muse` |
+| `antigravity` | `antigravity` |
 | `opencode` | none in this revision — `env_unsupported` |
 
-The ax provider-id column was **removed 2026-10-27 (owner decision)**.
+The agents-management system id is `antigravity`; the selected Antigravity
+model rows bind runtime `agy`. The ax provider-id column was **removed
+2026-10-27 (owner decision)**.
 
 The Pi system cell corrects accepted A0 errata E1/E2
 (TASK-260908-qblycn, `TASK-260908-qblycn_a0-verification-findings.md`):
@@ -548,6 +566,12 @@ with no configured effort takes the lineup's effort for that model.
    effort MUST NOT bypass this check. Declared catalogue aliases remain valid;
    unknown identifiers MUST NOT gain invented aliases. No empty or guessed
    runtime is forwarded to the plan stage.
+
+   For `antigravity`, an agy model ID carries its effort. A non-empty
+   `--effort` flag or launcher-default effort refuses with
+   `effort_unsupported`, naming whether the source was the flag or defaults.
+   The launcher passes an empty effort to the spawn plane; it does not infer
+   effort from the model ID.
 
 **Permission-mode resolution (separate from model and effort).** The
 resolved mode follows this precedence, with the force-native lock of
@@ -652,7 +676,9 @@ by calling `BuildPlan` with a bare model id or reconstructing the row's
   remains subject to the upstream evidence and release boundary in §4.2);
 - `Model` and `Effort`: the §4.3 resolved pair;
 - `Home`: the managed home from the fragment's home variable (§4.1),
-  passed through to `LaunchRequest.Home`;
+  passed through to `LaunchRequest.Home`; for Antigravity, inherited
+  `HOME` is plan identity metadata and the child environment is passed
+  unchanged;
 - `WorkDir`: the launcher's current working directory;
 - `PermissionMode`: the §4.3 resolved `native` or `yolo` value, passed
   through `LaunchRequest.PermissionMode` for `LaunchModeInteractive`;
@@ -1407,12 +1433,13 @@ receiving registry, which recognizes codes the launcher never emits.
 |---|---|---|
 | usage | `usage` | invalid CLI grammar, removed `--name` or `--ax-profile` (message says removed in 0.6.0), locked override, repeated host request, native resume selector, or visible `yolo` under a force-native lock — exit 2, nothing resolved or launched |
 | resolve | `resolve_invocation_failed`, `resolve_environment_unknown`, `resolve_profile_unknown`, `resolve_repair_failed`, `resolve_lock_unavailable`, `resolve_fragment_invalid` | §4.1: the context plane could not produce a usable fragment — `curator` not startable, or a non-zero exit with an unmapped diagnostic, Curator's own code and message passed through verbatim; unregistered environment; uninstalled profile; the store cannot restore the stale home; the repair could not take Curator's mutation lock within its bounded wait; or the output is not a valid closed fragment |
-| defaults | `defaults_config_invalid`, `defaults_unresolvable` | §4.3, §4.6, and §4.7: a launcher-owned configuration file — `defaults.json`, `launcher.json`, or `selector.json` — is symlinked, non-regular, owned by a different identity than its configuration directory, group/world-writable on POSIX, grants a non-owner/non-owner-alias/non-system/non-administrators Windows DACL identity write/delete/security-control access, or cannot be read or parsed, or names an unknown env-id or member; this includes a v1 file carrying `permissions`, or a v1 or v2 file carrying `host` — a read failure is never absence; the lineup admits no model for the mapped system after earlier model levels are silent, or an explicit/configured model has zero or multiple contributing runtimes |
+| defaults | `defaults_config_invalid`, `defaults_unresolvable`, `effort_unsupported` | §4.3, §4.6, and §4.7: a launcher-owned configuration file — `defaults.json`, `launcher.json`, or `selector.json` — is symlinked, non-regular, owned by a different identity than its configuration directory, group/world-writable on POSIX, grants a non-owner/non-owner-alias/non-system/non-administrators Windows DACL identity write/delete/security-control access, or cannot be read or parsed, or names an unknown env-id or member; this includes a v1 file carrying `permissions`, or a v1 or v2 file carrying `host` — a read failure is never absence; the lineup admits no model for the mapped system after earlier model levels are silent, an explicit/configured model has zero or multiple contributing runtimes, or a non-empty flag/default effort is supplied for Antigravity — exit 1 |
 | selector | `selector_unavailable`, `selector_abstained` | FRONT-DOOR §3.4/11: enforcing selector failed (`reason=timeout/exit/invalid`) or returned a typed abstention (`code` matches `[a-z0-9_]{1,64}`); exit 1, no fallback. Messages: `selector unavailable` and `selector abstained`. |
 | registry | `session_manager_registry_invalid`, `session_manager_registry_unwritable`, `session_manager_registry_shadowed`, `session_manager_not_registered` | FRONT-DOOR §§4.2–4.3/11: invalid registry (`path`, `reason=unreadable/parse/schema/symlink/owner/mode`), unwritable explicit-scope target directory (`path`, `scope=system/user`, before locking/writing, no fallback), shadowed user mutation (`path`), or unknown id (`id`); exit 2 |
 | registry contention | `session_manager_registry_busy` | FRONT-DOOR §§4.3/11: exclusive transaction lock unavailable after 10 seconds; no details; exit 1 |
 | migration | `host_member_withdrawn`, `migrate_destination_exists` | FRONT-DOOR §§3.1/11/13: withdrawn defaults host member (`path`, `reason=present`), mixed system migration values (`path`, `reason=mixed_values`), or different destination bytes (`path`); exit 2, no migration writes on planning refusal |
 | plan | `plan_refused`, `plan_provider_limited` | §4.4: the spawn plane refused the request (unknown system/runtime or model, model not driven by the system, mode not declared by the system, invalid or missing required effort, unresolved vendor, an unverified release-specific permission mapping, or failure to produce a provider-limits verdict), or the explicit provider-limits verdict was not serviceable (`AvailabilityHealthy`) — the verdict's structure and evidence are surfaced verbatim |
+| launch mode | `sam_interactive_mode_unsupported` | Before configuration reads or Curator resolution, the mapped SAM system does not declare the required interactive mode; operational refusal, exit 1, no child process |
 | environment | `env_unsupported` | §4.2: the environment has no spawn-plane system mapping in this revision |
 | permission | `permission_policy_unsupported`, `permission_mode_unsupported` | §4.6: a would-be `yolo` lacks established permission transport, or its environment has no declared mapping; exit 1, terminal with no weaker fallback |
 | exec | `exec_provider_missing` | §4.6: the plan's binary does not exist — reported with the executable name and installation guidance |
@@ -1480,7 +1507,7 @@ Ax-related entries below are historical; their requirements were
 The launcher v0.4.0 release reports `0.4.0` (specification `0.5.1-draft`).
 
 - This specification is versioned semantically; the current version is
-  **`0.5.1-draft`**. Draft versions may change incompatibly between
+  **`0.5.3-draft`**. Draft versions may change incompatibly between
   commits; the `-draft` suffix is the signal that nothing downstream may
   pin them.
 - The `curator-run` binary reports both its build version and the
@@ -1496,6 +1523,8 @@ The launcher v0.4.0 release reports `0.4.0` (specification `0.5.1-draft`).
 
 | Version | Change |
 |---|---|
+| `0.5.3-draft` | Refuse interactive Antigravity launches before configuration or child-process work when the pinned SAM system does not declare interactive mode. |
+| `0.5.2-draft` | Add the Antigravity environment-to-system mapping, require an empty standalone effort for agy models, and add the stable `effort_unsupported` refusal. |
 | `0.5.0-draft` | Decision 0018 permission interface. §3 adds typed permission mode, its exact alias, and rejected legacy spellings; §§4.1/4.3 define v2 fragment transport and mode precedence; §§4.5/4.6 pass the mode through agents-management, define headless and tracked refusals, and record native-policy relaxation; §4.7 and §6 update file and diagnostic contracts. Updated README and version pins. |
 | `0.4.1-draft` | Four 0.2.1-review minors (TASK-260906-2t2t6w). §4.1/§6: the resolve pass-through clause — unmapped `--repair` diagnostics (`environment_marker_invalid`, `environment_surface_unmanaged_conflict`, `environment_backup_exists`, `environment_seed_unreadable`) collapse into `resolve_invocation_failed` with Curator's own code and message passed through verbatim, and the §6 gloss no longer leads with "`curator` not startable" for that class. §4.6: the three pre-launch checks run in the listed order — binary check first — and the first failure is the one reported. §9: the silent-MCP-absence residual for `claude_code` and `opencode` recorded. `TestSpecVersionPinned` now reads SPEC.md and README.md. |
 | `0.3.0-draft` | §4.2: correct the Pi system to `pi-native` using accepted A0 E1/E2 and landed native-Pi support (PR23, `a2a6e9f`). Other API/environment errata remain separately tracked. |
@@ -1594,7 +1623,7 @@ first-consumer role; it resolves the platform table's P1/N6 and C9 choices.
 Decision 0021 and the launcher must publish the amendment and its supported
 release/wire versions before activation;
 this document does not claim that upstream publication has happened.
-The executable's existing specification version remains `0.5.1-draft`;
+The executable's existing specification version remains `0.5.3-draft`;
 it does not advertise implementation of this target revision.
 
 The baseline is the [platform contract table at 177cb554](https://github.com/relux-works/curator/blob/177cb554/.research/261010_platform-contract-table.md),

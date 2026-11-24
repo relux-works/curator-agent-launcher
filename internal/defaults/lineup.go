@@ -55,6 +55,10 @@ import (
 // a configured model without a unique runtime. Diagnostics transcribes it.
 const CodeUnresolvable = "defaults_unresolvable"
 
+// CodeEffortUnsupported refuses standalone effort values for model IDs that
+// carry their effort intrinsically.
+const CodeEffortUnsupported = "effort_unsupported"
+
 // OriginLineup marks a member the level-3 fallback supplied.
 const OriginLineup Origin = "lineup"
 
@@ -73,8 +77,8 @@ type Resolved struct {
 }
 
 // NewRegistry builds the production compatibility registry from the real
-// tagged module: the claude-code, codex, pi-native, gemini-cli, and
-// antigravity and Muse system plugins, the frozen runtime declarations, and the
+// tagged module: the claude-code, codex, pi-native, gemini-cli, antigravity,
+// and Muse system plugins, the frozen runtime declarations, and the
 // anthropic, openai, and google vendor plugins.
 //
 // The legacy pi system plugin is deliberately not registered: it drives
@@ -83,10 +87,9 @@ type Resolved struct {
 // here can admit a Pi launch through it; native Pi arrives only through
 // the pi-native plugin and the three frozen pi-* runtime rows.
 //
-// The gemini-cli and antigravity systems are registered only because the
-// google vendor's own registration contract requires every agentic system
-// its rows mention; the launcher maps nothing to them and launches
-// nothing through them.
+// The google vendor requires both gemini-cli and antigravity systems to be
+// registered because its catalog rows mention them. Antigravity model rows
+// contribute the agy runtime; gemini-cli remains unlaunched by this package.
 func NewRegistry() (*vendorplugin.Registry, error) {
 	systems := agentic.NewRegistry()
 	if err := systems.Register(claudeSystem.New()); err != nil {
@@ -141,6 +144,13 @@ func (f Files) Complete(environment string, flags Pair, reg *vendorplugin.Regist
 }
 
 func complete(environment string, target mapping.Target, partial Partial, reg *vendorplugin.Registry) (Resolved, error) {
+	if target.System == "antigravity" && partial.Effort.Present && partial.Effort.Value != "" {
+		source := "defaults"
+		if partial.Effort.Origin == OriginFlag {
+			source = "flag"
+		}
+		return Resolved{}, &Error{CodeEffortUnsupported, fmt.Errorf("%s source supplied an effort for antigravity; the agy model id already encodes effort", source)}
+	}
 	if reg == nil {
 		return Resolved{}, &Error{CodeUnresolvable, fmt.Errorf("no compatibility registry completes %s defaults", environment)}
 	}

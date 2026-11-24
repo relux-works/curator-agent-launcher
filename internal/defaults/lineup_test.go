@@ -41,8 +41,8 @@ func lineupOrigin(t *testing.T, got defaults.ResolvedMember, value string) {
 }
 
 // TestNewRegistryResolvesLaunchableSystems builds the production registry
-// from the real tagged module: all five launchable runtimes resolve with
-// their system and vendor, each driving at least one model row, while the
+// from the real tagged module: every launchable runtime resolves with its
+// system and vendor, each driving at least one model row, while the
 // legacy pi id and the pi-native system id (neither is a runtime id)
 // resolve to nothing, so no Pi launch can slip through the wrapper.
 func TestNewRegistryResolvesLaunchableSystems(t *testing.T) {
@@ -50,6 +50,7 @@ func TestNewRegistryResolvesLaunchableSystems(t *testing.T) {
 	for runtime, system := range map[string]string{
 		"claude": "claude-code", "codex": "codex",
 		"pi-anthropic": "pi-native", "pi-openai": "pi-native", "pi-google": "pi-native",
+		"agy": "antigravity",
 	} {
 		resolved, err := reg.ResolveRuntime(vendorplugin.RuntimeID(runtime))
 		if err != nil {

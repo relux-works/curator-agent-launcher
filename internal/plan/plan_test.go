@@ -434,7 +434,8 @@ func TestUnresolvedVendorScope(t *testing.T) {
 }
 
 // TestInteractiveDeclaredForMappedSystems pins the established interactive
-// systems, including Muse after the v0.5.37 admission flip.
+// systems. Antigravity's pinned SAM plugin is covered by the dry-run control
+// below and is refused by curator-run before resolution.
 func TestInteractiveDeclaredForMappedSystems(t *testing.T) {
 	for _, id := range []agentic.SystemID{"claude-code", "codex", "pi-native", "muse"} {
 		sys, ok := agentic.Default.Lookup(id)
@@ -444,6 +445,46 @@ func TestInteractiveDeclaredForMappedSystems(t *testing.T) {
 		if !sys.Capabilities().SupportsMode(agentic.LaunchModeInteractive) {
 			t.Fatalf("mapped system %q does not declare Interactive: %v", id, sys.Capabilities().LaunchModes)
 		}
+	}
+}
+
+func TestProductionAgyDryRunPositiveControl(t *testing.T) {
+	runtime, err := vendorplugin.Default.ResolveRuntime("agy")
+	if err != nil {
+		t.Fatalf("production registry has no agy runtime: %v", err)
+	}
+	if string(runtime.SystemID) != "antigravity" || runtime.Vendor == nil {
+		t.Fatalf("agy runtime = system %q, vendor %v", runtime.SystemID, runtime.Vendor)
+	}
+	var modelID string
+	for _, model := range vendorplugin.RuntimeModels(runtime) {
+		if model.Effort.Support == agentic.EffortSupportNone {
+			modelID = string(model.ID)
+			break
+		}
+	}
+	if modelID == "" {
+		t.Fatal("production agy runtime has no model row with effort encoded in its id")
+	}
+
+	system, ok := agentic.Default.Lookup(runtime.SystemID)
+	if !ok {
+		t.Fatalf("agy system %q not registered", runtime.SystemID)
+	}
+	caps := system.Capabilities()
+	if !caps.SupportsMode(agentic.LaunchModeExec) || !caps.SupportsMode(agentic.LaunchModeDryRun) || caps.SupportsMode(agentic.LaunchModeInteractive) {
+		t.Fatalf("agy launch modes = %v; want exec and dry-run, without interactive", caps.LaunchModes)
+	}
+	req := vendorplugin.SpawnRequest{
+		Runtime: "agy", Model: vendorplugin.ModelID(modelID), Home: testHome(t), WorkDir: t.TempDir(),
+		Env: []string{"PATH=/usr/bin"},
+	}
+	got, err := vendorplugin.BuildLaunchWithEnvironment(context.Background(), vendorplugin.Default, req, agentic.LaunchModeDryRun)
+	if err != nil {
+		t.Fatalf("Build agy dry-run plan: %v", err)
+	}
+	if got.Plan.System != "antigravity" || got.Plan.Mode != agentic.LaunchModeDryRun || len(got.Plan.Argv) == 0 {
+		t.Fatalf("agy dry-run plan = system %q mode %q argv %q", got.Plan.System, got.Plan.Mode, got.Plan.Argv)
 	}
 }
 

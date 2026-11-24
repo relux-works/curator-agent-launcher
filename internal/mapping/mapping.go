@@ -10,15 +10,29 @@ import (
 
 const CodeUnsupported = "env_unsupported"
 
+// EnvAntigravity is Curator's harness id. SAM's system id is antigravity;
+// its model rows bind the agy runtime.
+const EnvAntigravity = fragment.EnvAntigravity
+
 // Target names the spawn-plane system. Unsupported environments refuse.
 type Target struct {
 	System string
 }
 
+// KnownEnvironment is the closed launcher-side set of recognized Curator
+// environments. opencode is recognized for configuration validation, but
+// this revision has no launch mapping for it.
+func KnownEnvironment(environment string) bool {
+	switch environment {
+	case fragment.EnvClaudeCode, fragment.EnvCodexCLI, fragment.EnvMuse, fragment.EnvPi, fragment.EnvOpenCode, EnvAntigravity:
+		return true
+	default:
+		return false
+	}
+}
+
 // Resolve maps only explicitly supported environment identifiers. It neither
 // interprets native argv nor infers a provider from an environment name.
-// Use fragment.HomeVariable for registry membership in configuration readers:
-// opencode is known there even though this revision cannot launch it.
 func Resolve(environment string) (Target, error) {
 	switch environment {
 	case fragment.EnvClaudeCode:
@@ -29,6 +43,8 @@ func Resolve(environment string) (Target, error) {
 		return Target{System: "muse"}, nil
 	case fragment.EnvPi:
 		return Target{System: "pi-native"}, nil
+	case EnvAntigravity:
+		return Target{System: "antigravity"}, nil
 	default:
 		return Target{}, fmt.Errorf("environment %q has no supported system mapping", environment)
 	}

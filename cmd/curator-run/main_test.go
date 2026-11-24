@@ -106,6 +106,53 @@ func TestRunUsageErrorsExit2(t *testing.T) {
 
 // scriptedRunner replays one subprocess outcome and records the argv it was
 // asked to run; it is injected at the fragment package's process boundary.
+func TestAntigravityLaunchHomeUsesInheritedHomeWithoutChangingEnv(t *testing.T) {
+	parent := []string{"PATH=/usr/bin", "HOME=/home/operator"}
+	before := slices.Clone(parent)
+	f := &fragment.Fragment{Environment: fragment.EnvAntigravity, Env: map[string]string{}}
+	if got := launchHome(f, parent); got != "/home/operator" {
+		t.Fatalf("Antigravity launch home = %q, want inherited HOME", got)
+	}
+	if !slices.Equal(parent, before) {
+		t.Fatalf("inherited environment changed: %q -> %q", before, parent)
+	}
+	if got := launchHome(f, []string{"PATH=/usr/bin"}); got != "" {
+		t.Fatalf("missing inherited HOME resolved to %q, want empty", got)
+	}
+	managed := &fragment.Fragment{Environment: fragment.EnvPi, Env: map[string]string{fragment.HomeVariable(fragment.EnvPi): "/managed/pi"}}
+	if got := launchHome(managed, parent); got != "/managed/pi" {
+		t.Fatalf("managed launch home = %q, want fragment home", got)
+	}
+}
+
+func TestAntigravityInteractiveRefusesBeforeCuratorResolution(t *testing.T) {
+	var out, errOut strings.Builder
+	code := runNoResolve(t, []string{"antigravity", "--native", "--model", firstEffortlessAgyModel(t)}, &out, &errOut)
+	if code != 1 {
+		t.Fatalf("interactive Antigravity run exit = %d, want operational refusal; stderr=%q", code, errOut.String())
+	}
+	first, _, _ := strings.Cut(errOut.String(), "\n")
+	if first != "curator-run: sam_interactive_mode_unsupported: SAM system antigravity does not declare interactive launch mode" {
+		t.Fatalf("interactive refusal = %q, want stable SAM mode refusal", first)
+	}
+	if out.Len() != 0 {
+		t.Fatalf("interactive refusal wrote to stdout: %q", out.String())
+	}
+}
+
+func TestSAMInteractiveModeGateFailsClosedWhenSystemIsUnregistered(t *testing.T) {
+	systemID, unsupported := samInteractiveModeUnsupported("antigravity", agentic.NewRegistry())
+	if !unsupported || systemID != agentic.SystemID("antigravity") {
+		t.Fatalf("unregistered mapped system gate = (%q, %v), want (antigravity, true)", systemID, unsupported)
+	}
+}
+
+func TestSAMInteractiveModeGateAllowsDeclaredMode(t *testing.T) {
+	if systemID, unsupported := samInteractiveModeUnsupported("codex_cli", agentic.Default); unsupported || systemID != "" {
+		t.Fatalf("interactive-capable mapped system gate = (%q, %v), want empty system and false", systemID, unsupported)
+	}
+}
+
 type scriptedRunner struct {
 	stdout, stderr string
 	exit           int
@@ -162,6 +209,21 @@ func testDeps(t *testing.T, resolver fragmentResolver) launchDeps {
 func runNoResolve(t *testing.T, args []string, stdout, stderr io.Writer) int {
 	t.Helper()
 	return run(context.Background(), args, stdout, stderr, testDeps(t, fragment.NewWithRunner("curator", forbiddenRunner{t})))
+}
+
+func firstEffortlessAgyModel(t *testing.T) string {
+	t.Helper()
+	runtime, err := vendorplugin.Default.ResolveRuntime("agy")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, model := range vendorplugin.RuntimeModels(runtime) {
+		if model.Effort.Support == agentic.EffortSupportNone {
+			return string(model.ID)
+		}
+	}
+	t.Fatal("production agy runtime has no effort-encoded model row")
+	return ""
 }
 
 // fragmentLineFor replays the pi fragment fixture for another known
@@ -404,7 +466,7 @@ func TestRunProductionResolverAgainstFakeCurator(t *testing.T) {
 func TestReleaseVersionPinned(t *testing.T) {
 	const (
 		wantBuild = "0.7.0"
-		wantSpec  = "0.5.1-draft"
+		wantSpec  = "0.5.3-draft"
 	)
 	if buildVersion != wantBuild {
 		t.Fatalf("buildVersion = %q, want %q", buildVersion, wantBuild)

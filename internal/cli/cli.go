@@ -77,7 +77,7 @@ options:
   --help, -h                        print this usage text and exit 0
   --version                         print the launcher name and version, exit 0
 
-Environments: claude_code (alias claude), codex_cli (alias codex), pi, muse.
+Environments: claude_code (alias claude), codex_cli (alias codex), pi, muse, antigravity.
 opencode is currently unsupported. Aliases normalize to the canonical id
 before validation or lookup; outputs carry the canonical id only.
 Omitting --profile uses Curator's current profile; resolution always repairs.
@@ -93,6 +93,10 @@ rejects flags overriding members it sets. Pi fallback preference is
 pi-anthropic, pi-openai, pi-google; explicit models bind their own runtime.
 Pi has no MCP channel. Prompt opt-in defaults off; native prompt-file
 candidates can still produce warnings without opt-in.
+The defaults resolver rejects non-empty effort for agy model IDs with
+effort_unsupported. Interactive Antigravity requests on this SAM version
+refuse earlier with sam_interactive_mode_unsupported because SAM declares
+no interactive mode; this check runs before Curator resolution.
 
 Repeated/unknown flags, missing values and extra operands before -- refuse.
 

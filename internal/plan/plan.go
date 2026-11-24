@@ -32,6 +32,8 @@
 // serves the pi-anthropic, pi-openai and pi-google runtimes natively on the
 // managed home. No pseudo-version, replace, workspace override, or
 // synthetic admission is used; the request pins the real tag.
+// The antigravity system is the production target for Curator's environment;
+// its model rows bind the agy runtime through the pinned module.
 package plan
 
 import (
@@ -52,6 +54,7 @@ import (
 	// local-models has no init registration (it needs explicit config) and
 	// is intentionally absent: nothing here invents a vendor for a runtime
 	// whose broker was never established.
+	_ "github.com/relux-works/skill-agents-management/pkg/agentic/systems/agy"
 	_ "github.com/relux-works/skill-agents-management/pkg/agentic/systems/claude"
 	_ "github.com/relux-works/skill-agents-management/pkg/agentic/systems/codex"
 	_ "github.com/relux-works/skill-agents-management/pkg/agentic/systems/muse"

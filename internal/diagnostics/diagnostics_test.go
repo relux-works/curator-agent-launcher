@@ -118,6 +118,21 @@ func TestClosedSetMatchesSpec(t *testing.T) {
 	}
 }
 
+func TestAntigravityEffortRefusalIsStable(t *testing.T) {
+	if !diagnostics.Valid("effort_unsupported") {
+		t.Fatal("effort_unsupported is not in the closed diagnostic set")
+	}
+	if got := diagnostics.ExitForCode("effort_unsupported"); got != 1 {
+		t.Fatalf("effort_unsupported exit = %d, want operational refusal 1", got)
+	}
+	if !diagnostics.Valid(diagnostics.CodeSAMInteractiveModeUnsupported) {
+		t.Fatalf("SAM interactive mode code %q is not in the closed diagnostic set", diagnostics.CodeSAMInteractiveModeUnsupported)
+	}
+	if got := diagnostics.ExitForCode(diagnostics.CodeSAMInteractiveModeUnsupported); got != 1 {
+		t.Fatalf("SAM interactive mode exit = %d, want operational refusal 1", got)
+	}
+}
+
 // TestOwnedCodesMatchOwners pins every owned literal to its owner's
 // constant or method: the owner stays the single source of truth and this
 // package only transcribes the SPEC table.
@@ -133,6 +148,7 @@ func TestOwnedCodesMatchOwners(t *testing.T) {
 		{diagnostics.CodeResolveLockUnavailable, fragment.CodeLockUnavailable},
 		{diagnostics.CodeResolveFragmentInvalid, fragment.CodeFragmentInvalid},
 		{diagnostics.CodeDefaultsUnresolvable, defaults.CodeUnresolvable},
+		{diagnostics.CodeEffortUnsupported, defaults.CodeEffortUnsupported},
 		{diagnostics.CodeHostWithdrawn, defaults.CodeHostWithdrawn},
 		{diagnostics.CodeMigrateDestinationExists, migrate.CodeDestinationExists},
 		{diagnostics.CodeSelectorUnavailable, selector.CodeUnavailable},
