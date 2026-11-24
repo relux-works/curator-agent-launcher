@@ -252,6 +252,26 @@ func TestCompleteNoEffortSemantics(t *testing.T) {
 	})
 }
 
+// TestCompleteTaggedCodexModel proves the v0.5.79 catalog resolves gpt-6.2-sol
+// to Codex and preserves its explicit effort.
+func TestCompleteTaggedCodexModel(t *testing.T) {
+	files, err := defaults.Load(paths(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := files.Complete("codex_cli", defaults.Pair{
+		Model:  member("gpt-6.2-sol"),
+		Effort: member("max"),
+	}, mustRegistry(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Model != resolved("gpt-6.2-sol", defaults.OriginFlag) ||
+		got.Effort != resolved("max", defaults.OriginFlag) || got.Runtime != "codex" {
+		t.Fatalf("tagged model resolution = %+v", got)
+	}
+}
+
 // TestCompleteUnresolvable proves an empty system and an unknown fully
 // configured model both fail with the typed diagnostic and no partial pair.
 func TestCompleteUnresolvable(t *testing.T) {

@@ -12,18 +12,19 @@ import (
 )
 
 // Older and opaque module versions refuse with their observed version before
-// any build or availability read; a tagged v4 consumer reaches both
-// boundaries. So does a commit after such a release, in Go's pseudo-version
-// form and judged by the release it follows, which is what a module pinned
-// between two tags reports. Every other spelling with a hyphen or a plus
-// refuses: a pre-release, build metadata, the two other pseudo-version forms,
-// a commit after a release older than v0.5.66, and a malformed time or hash.
+// any build or availability read; the current v0.5.79 tag and a tagged v4
+// consumer reach both boundaries. So does a commit after such a release, in
+// Go's pseudo-version form and judged by the release it follows, which is what
+// a module pinned between two tags reports. Every other spelling with a hyphen
+// or a plus refuses: a pre-release, build metadata, the two other
+// pseudo-version forms, a commit after a release older than v0.5.66, and a
+// malformed time or hash.
 // A plain release is three numbers of decimal digits in canonical form: a
 // sign, a leading zero, a missing or extra part and surrounding space refuse.
 // The linked version is injected; no build metadata is read here.
 func TestMuseModuleVersionGate(t *testing.T) {
 	admittedVersions := map[string]bool{
-		"v0.5.66": true, "v0.5.68": true, "v0.6.0": true, "v1.0.0": true,
+		"v0.5.66": true, "v0.5.68": true, "v0.5.79": true, "v0.6.0": true, "v1.0.0": true,
 		"0.5.66": true, "1.0.0": true, "v10.0.0": true, // a plain release may omit the v
 		"v0.5.79-0.20261122055244-b43a71d2e645": true, // the commit after v0.5.78
 		"v0.5.67-0.20260101000000-0123456789ab": true, // the commit after v0.5.66
@@ -31,7 +32,7 @@ func TestMuseModuleVersionGate(t *testing.T) {
 		"v1.0.1-0.20260101000000-0123456789ab":  true,
 	}
 	for _, version := range []string{
-		"v0.5.62", "v0.5.65", "v0.5.66", "v0.5.68", "v0.6.0", "v1.0.0", "unknown", "",
+		"v0.5.62", "v0.5.65", "v0.5.66", "v0.5.68", "v0.5.79", "v0.6.0", "v1.0.0", "unknown", "",
 		"v0.5.79-0.20261122055244-b43a71d2e645", "v0.5.67-0.20260101000000-0123456789ab",
 		"v0.6.1-0.20260101000000-0123456789ab", "v1.0.1-0.20260101000000-0123456789ab",
 		"v0.5.66-0.20260101000000-0123456789ab",                     // follows v0.5.65

@@ -8,9 +8,10 @@ import (
 	"testing"
 )
 
-// TestExplicitModelDiagnosticBeforePlanning proves admitted Codex models keep
-// their model, effort, and native tail while unknown identifiers refuse
-// before plan construction, availability, or child dispatch.
+// TestExplicitModelDiagnosticBeforePlanning proves current admitted Codex
+// models, including gpt-6.2-sol from the v0.5.79 tag, keep their model,
+// effort, and native tail while unknown identifiers refuse before plan
+// construction, availability, or child dispatch.
 func TestExplicitModelDiagnosticBeforePlanning(t *testing.T) {
 	t.Run("admitted-model-and-effort", func(t *testing.T) {
 		f := entryFixture(t, "codex_cli")
@@ -27,6 +28,23 @@ func TestExplicitModelDiagnosticBeforePlanning(t *testing.T) {
 		want := []string{"-c", fmt.Sprintf("model_instructions_file=%q", f.prompt), "-p", "curator-mcp", "-m", "gpt-6.1-sol", "-c", `model_reasoning_effort="high"`, "", "--model=native", "a\nb"}
 		if !slices.Equal(child.Argv, want) {
 			t.Fatalf("final Codex argv=%q want=%q", child.Argv, want)
+		}
+	})
+	t.Run("tagged-model-and-effort-preserve-native-tail", func(t *testing.T) {
+		f := entryFixture(t, "codex_cli")
+		f.args[2], f.args[4] = "gpt-6.2-sol", "max"
+		insertLauncherArgs(f, "--permissions", "native", "--native")
+		code, out, stderr := f.run()
+		if code != 0 || f.builds != 1 || f.verdicts != 1 || len(out) == 0 || f.request.Runtime != "codex" || string(f.request.Model) != "gpt-6.2-sol" || f.request.Effort != "max" {
+			t.Fatalf("tagged admitted tuple: exit=%d builds=%d verdicts=%d stderr=%q", code, f.builds, f.verdicts, stderr)
+		}
+		var child childCapture
+		if err := json.Unmarshal(out, &child); err != nil {
+			t.Fatal(err)
+		}
+		want := []string{"-c", fmt.Sprintf("model_instructions_file=%q", f.prompt), "-p", "curator-mcp", "-m", "gpt-6.2-sol", "-c", `model_reasoning_effort="max"`, "", "--model=native", "a\nb"}
+		if !slices.Equal(child.Argv, want) {
+			t.Fatalf("tagged Codex argv=%q want=%q", child.Argv, want)
 		}
 	})
 	t.Run("model-only-keeps-catalog-recommendation", func(t *testing.T) {

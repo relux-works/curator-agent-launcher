@@ -4,7 +4,7 @@ go 1.25.5
 
 require (
 	github.com/relux-works/curator-agent-launcher/schemas/session-manager v0.0.0-20261104135218-0da523bc1012
-	github.com/relux-works/skill-agents-management v0.5.79-0.20261123175620-8c85a40be200
+	github.com/relux-works/skill-agents-management v0.5.79
 	golang.org/x/sys v0.47.0
 )
 

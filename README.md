@@ -529,8 +529,8 @@ The executable supports `claude_code` (alias `claude`), `codex_cli`
 Muse requires `launch-env-fragment-v4`: exactly four XDG parents under one
 managed home plus `TBH_CREDENTIAL_BACKEND=file`, preserving inherited `HOME`.
 Older Muse fragments refuse `fragment_version_unsupported` before launch.
-The pinned agents-management plugin (the untagged pseudo-version
-`v0.5.79-0.20261123175620-8c85a40be200`, commit 8c85a40be200) owns the native plan; managed
+The pinned agents-management plugin (`skill-agents-management` v0.5.79,
+commit 3891e783, from its signed release tag) owns the native plan; managed
 Muse refuses module versions older than v0.5.66. The optional frozen-copy
 tuple otherwise leaves binary resolution on the handed PATH. `muse-wonder`
 resolves to `muse-wonder-1.0-contributor` with module-owned effort rules.
@@ -620,8 +620,8 @@ The launch pipeline follows these steps:
    `session_liveness_unknown`. No hosted refusal executes natively.
 
 The permission interface is implemented against upstream
-`skill-agents-management v0.5.79-0.20261123175620-8c85a40be200`, an untagged
-pseudo-version of commit 8c85a40be200. It owns
+`skill-agents-management v0.5.79` (commit 3891e783, from its signed release
+tag). It owns
 `LaunchRequest.PermissionMode`, the release-bound mapping, versioned native
 argument classification, stored-policy inspection, and the capability table.
 Claude Code and Codex CLI 0.153.2 use `permission-grammar-v2`, Codex CLI 0.164.0 uses `permission-grammar-v3`; Pi uses

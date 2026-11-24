@@ -87,7 +87,8 @@ func buildErr(t *testing.T, in hosted.PayloadInputs) *hosted.PlanError {
 
 // TestBuildPayloadValid pins the wire projection of a valid input: every
 // member lands in the closed shape, stdin and the future carriers stay
-// null, the emission is canonical bytes, and the digest recomputes.
+// null, the emission is canonical bytes, the digest recomputes, and the
+// producer fields identify the exact tagged dependency release.
 func TestBuildPayloadValid(t *testing.T) {
 	in := validPayloadInputs(t)
 	wire, err := hosted.BuildPayload(in)
@@ -125,7 +126,7 @@ func TestBuildPayloadValid(t *testing.T) {
 		t.Fatal("wire bytes are not the canonical form")
 	}
 	producer := payload["producer"].(map[string]any)
-	if producer["module_version"] != "0.5.79-0.20261123175620-8c85a40be200" || producer["module_commit"] != hosted.ProducerModuleCommit {
+	if producer["module_version"] != "0.5.79" || producer["module_commit"] != "3891e783f5b6f71b0cca594d4ea00ad1fc8e35bc" {
 		t.Fatalf("producer = %v", producer)
 	}
 	process := payload["process"].(map[string]any)

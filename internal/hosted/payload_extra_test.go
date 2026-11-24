@@ -383,7 +383,7 @@ func TestBuildPayloadDiagnosticsCarryNoValues(t *testing.T) {
 
 // TestProducerMatchesBuild pins the payload producer identity to the build:
 // the version equals the go.mod require resolved by the go command, and the
-// commit is a non-placeholder 40-hex digest. It reads the module graph the
+// commit equals the verified v0.5.79 tag target. It reads the module graph the
 // same way the release pin test does: test binaries in this tree carry no
 // dependency build info, so debug.ReadBuildInfo is not an oracle here.
 func TestProducerMatchesBuild(t *testing.T) {
@@ -411,8 +411,8 @@ func TestProducerMatchesBuild(t *testing.T) {
 		t.Fatalf("producer version %q != resolved module %q", hosted.ProducerModuleVersion, module.Version)
 	}
 	commit := hosted.ProducerModuleCommit
-	if len(commit) != 40 {
-		t.Fatalf("producer commit %q is not 40 hex", commit)
+	if commit != "3891e783f5b6f71b0cca594d4ea00ad1fc8e35bc" {
+		t.Fatalf("producer commit %q != v0.5.79 tag target", commit)
 	}
 	for i := 0; i < len(commit); i++ {
 		if !strings.ContainsRune("0123456789abcdef", rune(commit[i])) {
