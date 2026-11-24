@@ -189,7 +189,7 @@ func TestRunPiResolvesNativeLineup(t *testing.T) {
 		wantArgv []string
 	}{
 		{[]string{"pi"}, []string{"env", "resolve", "pi", "--repair", "--format", "json"}},
-		{[]string{"pi", "--profile", "default", "--model", "m", "--effort", "high", "--", "resume", "--last"}, []string{"env", "resolve", "pi", "--profile", "default", "--repair", "--format", "json"}},
+		{[]string{"pi", "--profile", "default", "--model", "claude-fable-5", "--effort", "high", "--", "resume", "--last"}, []string{"env", "resolve", "pi", "--profile", "default", "--repair", "--format", "json"}},
 		{[]string{"pi", "--system-prompt", "append", "--", "--help", "", "--ax-profile", "yolo", "--profile", "x"}, []string{"env", "resolve", "pi", "--repair", "--format", "json"}},
 	}
 	for _, c := range cases {
@@ -227,11 +227,11 @@ func TestRunPiResolvesNativeLineup(t *testing.T) {
 	{
 		sr := &scriptedRunner{stdout: piFragmentLine, stderr: warn}
 		var out, errOut strings.Builder
-		args := []string{"pi", "--profile", "default", "--model", "m", "--effort", "high", "--", "resume", "--last"}
+		args := []string{"pi", "--profile", "default", "--model", "claude-fable-5", "--effort", "high", "--", "resume", "--last"}
 		if got := run(context.Background(), args, &out, &errOut, testDeps(t, fragment.NewWithRunner("curator", sr))); got != 1 {
 			t.Errorf("run(%v) = %d, want 1 (stderr %q)", args, got, errOut.String())
 		}
-		want := warn + name + ": provider: path=" + testProviderPath + "\n" + name + ": defaults: model=m (flag) effort=high (flag)\n" + name + ": plan_refused: "
+		want := warn + name + ": provider: path=" + testProviderPath + "\n" + name + ": defaults: model=claude-fable-5 (flag) effort=high (flag)\n" + name + ": plan_refused: "
 		if !strings.HasPrefix(errOut.String(), want) {
 			t.Errorf("run(%v) stderr %q: want group then plan_refused with digest", args, errOut.String())
 		}

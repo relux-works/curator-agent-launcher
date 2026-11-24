@@ -149,6 +149,9 @@ func complete(environment string, target mapping.Target, partial Partial, reg *v
 	out := Resolved{Model: partial.Model, Effort: partial.Effort}
 	cands, err := systemCandidates(target.System, reg)
 	if err != nil {
+		if partial.Model.Present {
+			return Resolved{}, &Error{CodeUnresolvable, fmt.Errorf("model %q for environment %q has no contributing runtime: %v", partial.Model.Value, environment, err)}
+		}
 		return Resolved{}, &Error{CodeUnresolvable, fmt.Errorf("the lineup admits no model for environment %q (system %q): %v", environment, target.System, err)}
 	}
 	if target.System == "pi-native" && !partial.Model.Present {
@@ -169,6 +172,9 @@ func complete(environment string, target mapping.Target, partial Partial, reg *v
 		cands = preferred
 	}
 	if len(cands) == 0 {
+		if partial.Model.Present {
+			return Resolved{}, &Error{CodeUnresolvable, fmt.Errorf("model %q for environment %q has no contributing runtime; use an exact admitted model identifier", partial.Model.Value, environment)}
+		}
 		return Resolved{}, &Error{CodeUnresolvable, fmt.Errorf("the lineup admits no model for environment %q (system %q)", environment, target.System)}
 	}
 	if partial.Model.Present {

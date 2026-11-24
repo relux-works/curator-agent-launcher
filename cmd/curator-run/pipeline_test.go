@@ -444,6 +444,7 @@ func TestProductionAdmissionRefusals(t *testing.T) {
 			switch shape {
 			case "unknown-model":
 				f.args[2] = "nonexistent-model"
+				expected = "defaults_unresolvable"
 			case "bad-effort":
 				f.args[4] = "unsupported-effort"
 			case "module-bytes":
@@ -475,6 +476,14 @@ func TestProductionAdmissionRefusals(t *testing.T) {
 			code, out, stderr := f.run()
 			if code != 1 || len(out) != 0 || !bytes.Contains(stderr, []byte("curator-run: "+expected+": ")) {
 				t.Fatalf("exit=%d stderr=%s", code, stderr)
+			}
+			if shape == "unknown-model" {
+				if !bytes.Contains(stderr, []byte(`model "nonexistent-model" for environment "pi"`)) {
+					t.Fatalf("unknown model diagnostic does not name model and environment: %s", stderr)
+				}
+				if f.verdicts != 0 {
+					t.Fatalf("availability calls = %d, want none for an unresolved model", f.verdicts)
+				}
 			}
 			if shape == "limited" || shape == "unknown" || shape == "read-failed" || shape == "module-bytes" {
 				if !bytes.Contains(stderr, []byte(evidence)) {

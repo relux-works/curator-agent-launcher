@@ -271,6 +271,26 @@ func TestCompleteUnresolvable(t *testing.T) {
 			t.Fatalf("error %q does not name the unadmitted system", err)
 		}
 	})
+	t.Run("explicit-model-without-runtime", func(t *testing.T) {
+		bare := vendorplugin.NewRegistry(agentic.NewRegistry())
+		files, err := defaults.Load(paths(t))
+		if err != nil {
+			t.Fatal(err)
+		}
+		got, err := files.Complete("pi", defaults.Pair{
+			Model:  member("gpt-6.9-sol"),
+			Effort: member("high"),
+		}, bare)
+		code(t, err, defaults.CodeUnresolvable)
+		if got != (defaults.Resolved{}) {
+			t.Fatalf("resolution leaked: %+v", got)
+		}
+		for _, want := range []string{`"gpt-6.9-sol"`, `"pi"`} {
+			if !strings.Contains(err.Error(), want) {
+				t.Fatalf("error %q does not name %s", err, want)
+			}
+		}
+	})
 	t.Run("file-supplied-pair", func(t *testing.T) {
 		p := paths(t)
 		write(t, p.Operator, doc(`{"pi":{"model":"m","effort":"e"}}`, false))
@@ -432,7 +452,8 @@ func TestCompleteRuntimeResolutionFailure(t *testing.T) {
 // TestCompleteWrongVendorModels proves rows for other systems are not
 // candidates: the claude runtime is bound to the openai vendor, whose
 // models all drive codex, so the lineup for claude-code is empty and the
-// launch fails instead of cross-driving a model.
+// launch fails instead of cross-driving a model. An explicit model also
+// names itself and the environment in the empty-lineup refusal.
 func TestCompleteWrongVendorModels(t *testing.T) {
 	systems := agentic.NewRegistry()
 	if err := systems.Register(claudeSystem.New()); err != nil {
@@ -468,6 +489,11 @@ func TestCompleteWrongVendorModels(t *testing.T) {
 	code(t, err, defaults.CodeUnresolvable)
 	if got != (defaults.Resolved{}) {
 		t.Fatalf("resolution leaked: %+v", got)
+	}
+	got, err = files.Complete("claude_code", defaults.Pair{Model: member("unlisted-model")}, reg)
+	code(t, err, defaults.CodeUnresolvable)
+	if got != (defaults.Resolved{}) || !strings.Contains(err.Error(), `model "unlisted-model"`) || !strings.Contains(err.Error(), `environment "claude_code"`) {
+		t.Fatalf("explicit model with empty lineup = %+v, %v", got, err)
 	}
 }
 
