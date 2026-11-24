@@ -67,6 +67,9 @@ func v7HomePolicy(root Value, f *Fragment) error {
 	if path.Base(homePath) == ".gemini" {
 		return invalid("/home/path", "managed antigravity home basename must not be .gemini")
 	}
+	if !managedHomeMatches(homePath, f.Profile.Name, f.Environment) {
+		return invalid("/home/path", "must end with profile %q and environment %q", f.Profile.Name, f.Environment)
+	}
 	transport, err := enumMember("/home", hv, "transport", "flag")
 	if err != nil {
 		return err

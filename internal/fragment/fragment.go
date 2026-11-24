@@ -644,6 +644,16 @@ func environmentsRoot(home string) string {
 	return home[:j]
 }
 
+// managedHomeMatches reports whether home follows the manager-owned layout
+// <root>/<profile>/<env-id> for the fragment's profile and environment.
+func managedHomeMatches(home, profile, environment string) bool {
+	parts := strings.Split(home, "/")
+	if len(parts) < 3 {
+		return false
+	}
+	return parts[len(parts)-2] == profile && parts[len(parts)-1] == environment
+}
+
 // channels parses a descriptor list. withSemantics selects the
 // system-prompt grammar (semantics required) over the MCP grammar
 // (semantics forbidden).

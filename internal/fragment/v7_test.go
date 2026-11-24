@@ -79,6 +79,12 @@ func TestV7AntigravityInvalid(t *testing.T) {
 		"dot-gemini basename": func(m map[string]any) {
 			m["home"] = map[string]any{"path": "/manager/environments/default/.gemini", "transport": "flag"}
 		},
+		"home profile mismatch": func(m map[string]any) {
+			m["home"] = map[string]any{"path": "/manager/environments/other/antigravity", "transport": "flag"}
+		},
+		"home environment mismatch": func(m map[string]any) {
+			m["home"] = map[string]any{"path": "/manager/environments/default/codex_cli", "transport": "flag"}
+		},
 		"unclean home path": func(m map[string]any) {
 			m["home"] = map[string]any{"path": "/manager/environments/default/antigravity/", "transport": "flag"}
 		},
@@ -106,15 +112,6 @@ func TestV7AntigravityInvalid(t *testing.T) {
 		"wrong mcp filename": func(m map[string]any) {
 			m["mcp"] = map[string]any{"path": "/manager/environments/default/antigravity/config/mcp_config.json", "env_names": []any{}, "channels": []any{map[string]any{"kind": "file", "filename": "mcp.json"}}}
 		},
-		"forbidden mcp AGY_ADC_AUTH": func(m map[string]any) {
-			m["mcp"] = map[string]any{"path": "/manager/environments/default/antigravity/config/mcp_config.json", "env_names": []any{"AGY_ADC_AUTH"}, "channels": []any{map[string]any{"kind": "file", "filename": AntigravityMCPFile}}}
-		},
-		"forbidden mcp GEMINI_API_KEY": func(m map[string]any) {
-			m["mcp"] = map[string]any{"path": "/manager/environments/default/antigravity/config/mcp_config.json", "env_names": []any{"GEMINI_API_KEY"}, "channels": []any{map[string]any{"kind": "file", "filename": AntigravityMCPFile}}}
-		},
-		"forbidden mcp force file var": func(m map[string]any) {
-			m["mcp"] = map[string]any{"path": "/manager/environments/default/antigravity/config/mcp_config.json", "env_names": []any{AntigravityForceFileTokenVariable}, "channels": []any{map[string]any{"kind": "file", "filename": AntigravityMCPFile}}}
-		},
 		"v4 carrying antigravity": func(m map[string]any) { m["fragment"] = IdentityV4; delete(m, "home") },
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -132,4 +129,35 @@ func TestV7AntigravityInvalid(t *testing.T) {
 	if _, err := Parse(raw); err == nil {
 		t.Fatal("non-antigravity v7 with home was admitted")
 	}
+}
+
+func TestV7AntigravityForbiddenMCPEnvNames(t *testing.T) {
+	forbidden := []string{
+		"GEMINI_API_KEY",
+		"GOOGLE_API_KEY",
+		"AGY_ADC_AUTH",
+		"GOOGLE_APPLICATION_CREDENTIALS",
+		"GOOGLE_CLOUD_QUOTA_PROJECT",
+		AntigravityForceFileTokenVariable,
+		AntigravityDisableAutoUpdateVariable,
+	}
+	for _, name := range forbidden {
+		t.Run(name, func(t *testing.T) {
+			raw := mutate(t, v7AntigravityFixture(t, true), func(m map[string]any) {
+				m["mcp"].(map[string]any)["env_names"] = []any{name}
+			})
+			if _, err := Parse(raw); err == nil || !strings.Contains(err.Error(), "forbidden in antigravity mcp.env_names") {
+				t.Fatalf("Parse env_names %q error = %v, want forbidden-name rejection", name, err)
+			}
+		})
+	}
+
+	t.Run("case insensitive", func(t *testing.T) {
+		raw := mutate(t, v7AntigravityFixture(t, true), func(m map[string]any) {
+			m["mcp"].(map[string]any)["env_names"] = []any{"google_application_credentials"}
+		})
+		if _, err := Parse(raw); err == nil || !strings.Contains(err.Error(), "forbidden in antigravity mcp.env_names") {
+			t.Fatalf("Parse lowercase forbidden name error = %v, want forbidden-name rejection", err)
+		}
+	})
 }
