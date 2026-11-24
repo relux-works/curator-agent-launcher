@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -152,62 +153,95 @@ func writeCodexGatewayCatalog(t *testing.T, f *pipelineFixture, socket string) {
 }
 
 // The system option reaches the canonical binding only for a managed Codex
-// gateway launch. The zero-value gateway keeps both settings absent, and a
-// machine opt-in without a gateway leaves direct arguments untouched.
+// gateway launch. For direct launches, the complete argv is identical with
+// explicit system opt-out and opt-in on both supported Codex releases.
 func TestGatewayStandaloneSearchConfigPropagation(t *testing.T) {
-	for _, tc := range []struct {
-		name, config string
-		gateway      bool
-		wantSearch   bool
-	}{
-		{name: "gateway-default-off", gateway: true},
-		{name: "gateway-opt-in", config: `,"gateway_standalone_web_search":true`, gateway: true, wantSearch: true},
-		{name: "direct-ignores-opt-in", config: `,"gateway_standalone_web_search":true`},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			f := entryFixture(t, "codex_cli")
-			withTestRelease(f, "codex-cli 0.164.0")
-			codexHost, err := os.ReadFile(pipelineHelper)
-			if err != nil {
-				t.Fatal(err)
-			}
-			writeFixture(t, filepath.Join(f.dir, "codex-code-mode-host"), codexHost, 0700)
-			f.args = []string{"codex_cli", "--permissions", "native", "--model", "gpt-6-astra", "--effort", "high"}
-			var g *e2eGateway
-			if tc.gateway {
-				g = newE2EGateway(t)
-				writeCodexGatewayCatalog(t, f, g.socket)
-				f.args = withNetworkFlag(f.args, "egress-a")
-				store, err := providerlimits.NewStore(providerlimits.Options{Layout: providerlimits.LayoutAt(t.TempDir())})
+	for _, release := range []string{"codex-cli 0.164.0", "codex-cli 0.167.0"} {
+		release := release
+		releaseName := strings.TrimPrefix(release, "codex-cli ")
+		t.Run(releaseName, func(t *testing.T) {
+			newFixture := func() *pipelineFixture {
+				f := entryFixture(t, "codex_cli")
+				withTestRelease(f, release)
+				codexHost, err := os.ReadFile(pipelineHelper)
 				if err != nil {
 					t.Fatal(err)
 				}
-				f.deps.gatewayStore = func() (*providerlimits.Store, error) { return store, nil }
+				writeFixture(t, filepath.Join(f.dir, "codex-code-mode-host"), codexHost, 0700)
+				f.args = []string{"codex_cli", "--permissions", "native", "--model", "gpt-6-astra", "--effort", "high"}
+				return f
 			}
-			if tc.config != "" {
-				f.writeDefaults(t, filepath.Join(f.dir, "machine", "launcher.json"), `{"schema":"curator-run-launcher-v1","host_mode":"native"`+tc.config+`}`)
+			writeSearchConfig := func(f *pipelineFixture, selected string) {
+				config := `{"schema":"curator-run-launcher-v1","host_mode":"native"`
+				if selected != "" {
+					config += `,"gateway_standalone_web_search":` + selected
+				}
+				f.writeDefaults(t, filepath.Join(f.dir, "machine", "launcher.json"), config+`}`)
 			}
-			code, out, stderr := f.run()
-			if code != 0 {
-				t.Fatalf("exit=%d stderr=%s", code, stderr)
+			run := func(f *pipelineFixture) childCapture {
+				code, out, stderr := f.run()
+				if code != 0 {
+					t.Fatalf("exit=%d stderr=%s", code, stderr)
+				}
+				var child childCapture
+				if err := json.Unmarshal(out, &child); err != nil {
+					t.Fatal(err)
+				}
+				return child
 			}
-			if tc.gateway && g.calls() != "/v1/health /v1/register /v1/activate /v1/unregister" {
-				t.Fatalf("gateway calls = %q", g.calls())
-			}
-			var child childCapture
-			if err := json.Unmarshal(out, &child); err != nil {
-				t.Fatal(err)
-			}
-			capability := strings.Contains(strings.Join(child.Argv, " "), "supports_standalone_web_search=true")
-			feature := false
-			for i := 0; i+1 < len(child.Argv); i++ {
-				if child.Argv[i] == "-c" && child.Argv[i+1] == "features.standalone_web_search=true" {
-					feature = true
+			assertSearch := func(child childCapture, want bool) {
+				t.Helper()
+				capability := strings.Contains(strings.Join(child.Argv, " "), "supports_standalone_web_search=true")
+				feature := false
+				for i := 0; i+1 < len(child.Argv); i++ {
+					if child.Argv[i] == "-c" && child.Argv[i+1] == "features.standalone_web_search=true" {
+						feature = true
+					}
+				}
+				if capability != want || feature != want {
+					t.Fatalf("search capability=%t feature=%t argv=%q", capability, feature, child.Argv)
 				}
 			}
-			if capability != tc.wantSearch || feature != tc.wantSearch {
-				t.Fatalf("search capability=%t feature=%t argv=%q", capability, feature, child.Argv)
+
+			for _, tc := range []struct {
+				name, config string
+				wantSearch   bool
+			}{
+				{name: "gateway-default-off"},
+				{name: "gateway-opt-in", config: "true", wantSearch: true},
+			} {
+				t.Run(tc.name, func(t *testing.T) {
+					f := newFixture()
+					g := newE2EGateway(t)
+					writeCodexGatewayCatalog(t, f, g.socket)
+					f.args = withNetworkFlag(f.args, "egress-a")
+					store, err := providerlimits.NewStore(providerlimits.Options{Layout: providerlimits.LayoutAt(t.TempDir())})
+					if err != nil {
+						t.Fatal(err)
+					}
+					f.deps.gatewayStore = func() (*providerlimits.Store, error) { return store, nil }
+					writeSearchConfig(f, tc.config)
+					child := run(f)
+					if g.calls() != "/v1/health /v1/register /v1/activate /v1/unregister" {
+						t.Fatalf("gateway calls = %q", g.calls())
+					}
+					assertSearch(child, tc.wantSearch)
+				})
 			}
+
+			t.Run("direct-argv-byte-identity", func(t *testing.T) {
+				f := newFixture()
+				writeSearchConfig(f, "false")
+				baseline := run(f)
+				assertSearch(baseline, false)
+
+				writeSearchConfig(f, "true")
+				optIn := run(f)
+				assertSearch(optIn, false)
+				if !slices.Equal(baseline.Argv, optIn.Argv) {
+					t.Fatalf("direct argv changed when only gateway_standalone_web_search changed: baseline=%q opt-in=%q", baseline.Argv, optIn.Argv)
+				}
+			})
 		})
 	}
 }
