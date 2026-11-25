@@ -73,17 +73,91 @@ func TestV7AntigravityValid(t *testing.T) {
 	}
 }
 
+func TestV7AntigravityHomeTracksProfileAndEnvironment(t *testing.T) {
+	const profile = "work"
+	const home = "/manager/environments/work/antigravity"
+	raw := mutate(t, v7AntigravityFixture(t, false), func(m map[string]any) {
+		m["profile"].(map[string]any)["name"] = profile
+		m["environment"] = EnvAntigravity
+		m["home"].(map[string]any)["path"] = home
+	})
+	f, err := Parse(raw)
+	if err != nil {
+		t.Fatalf("Parse matching non-default profile and environment: %v", err)
+	}
+	if f.Profile.Name != profile {
+		t.Fatalf("parsed profile = %q, want %q", f.Profile.Name, profile)
+	}
+	if f.Environment != EnvAntigravity {
+		t.Fatalf("parsed environment = %q, want %q", f.Environment, EnvAntigravity)
+	}
+	if f.Home() != home {
+		t.Fatalf("parsed home = %q, want %q", f.Home(), home)
+	}
+}
+
+func TestV7AntigravityHomeIdentityMismatch(t *testing.T) {
+	tests := []struct {
+		name string
+		home string
+	}{
+		{name: "home_profile_mismatch", home: "/manager/environments/other/antigravity"},
+		{name: "home_environment_mismatch", home: "/manager/environments/default/codex_cli"},
+	}
+	const want = `fragment: /home/path: must end with profile "default" and environment "antigravity"`
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			raw := mutate(t, v7AntigravityFixture(t, true), func(m map[string]any) {
+				m["home"].(map[string]any)["path"] = tt.home
+				m["mcp"].(map[string]any)["path"] = tt.home + "/" + AntigravityMCPFile
+			})
+			if _, err := Parse(raw); err == nil || err.Error() != want {
+				t.Fatalf("Parse error = %v, want matcher diagnostic %q", err, want)
+			}
+		})
+	}
+}
+
+func TestV7AntigravityHomeRejectsPathNearMisses(t *testing.T) {
+	tests := []struct {
+		name string
+		home string
+		want string
+	}{
+		{
+			name: "profile_prefix",
+			home: "/manager/environments/default-extra/antigravity",
+			want: `fragment: /home/path: must end with profile "default" and environment "antigravity"`,
+		},
+		{
+			name: "environment_prefix",
+			home: "/manager/environments/default/antigravity-extra",
+			want: `fragment: /home/path: must end with profile "default" and environment "antigravity"`,
+		},
+		{
+			name: "parent_segment",
+			home: "/manager/environments/default/../antigravity",
+			want: `fragment: /home/path: "/manager/environments/default/../antigravity" contains a .. segment`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			raw := mutate(t, v7AntigravityFixture(t, true), func(m map[string]any) {
+				m["home"].(map[string]any)["path"] = tt.home
+				m["mcp"].(map[string]any)["path"] = tt.home + "/" + AntigravityMCPFile
+			})
+			if _, err := Parse(raw); err == nil || err.Error() != tt.want {
+				t.Fatalf("Parse error = %v, want diagnostic %q", err, tt.want)
+			}
+		})
+	}
+}
+
 func TestV7AntigravityInvalid(t *testing.T) {
 	for name, edit := range map[string]func(map[string]any){
 		"missing home": func(m map[string]any) { delete(m, "home") },
 		"dot-gemini basename": func(m map[string]any) {
 			m["home"] = map[string]any{"path": "/manager/environments/default/.gemini", "transport": "flag"}
-		},
-		"home profile mismatch": func(m map[string]any) {
-			m["home"] = map[string]any{"path": "/manager/environments/other/antigravity", "transport": "flag"}
-		},
-		"home environment mismatch": func(m map[string]any) {
-			m["home"] = map[string]any{"path": "/manager/environments/default/codex_cli", "transport": "flag"}
 		},
 		"unclean home path": func(m map[string]any) {
 			m["home"] = map[string]any{"path": "/manager/environments/default/antigravity/", "transport": "flag"}
