@@ -9,9 +9,9 @@ import (
 	"testing"
 )
 
-// This checks the release configuration separately from launch behavior; a
-// same-version replacement can otherwise pass every behavioral regression.
-func TestConstructionDependencyReleasePin(t *testing.T) {
+// This checks the dependency pin separately from launch behavior; a
+// replacement can otherwise pass every behavioral regression.
+func TestConstructionDependencyPin(t *testing.T) {
 	for _, name := range []string{"go.work", "go.work.sum"} {
 		if _, err := os.Stat(filepath.Join("..", "..", name)); !os.IsNotExist(err) {
 			t.Fatalf("release candidate must have no %s: %v", name, err)
@@ -35,7 +35,7 @@ func TestConstructionDependencyReleasePin(t *testing.T) {
 	if err := json.Unmarshal(out, &module); err != nil {
 		t.Fatal(err)
 	}
-	if module.Version != "v0.5.80" || module.Replace != nil {
-		t.Fatalf("release module must be v0.5.80 without replacement: version=%s replaced=%v", module.Version, module.Replace != nil)
+	if module.Version != "v0.5.81-0.20261124231244-1fcf854d828c" || module.Replace != nil {
+		t.Fatalf("module pin must be v0.5.81-0.20261124231244-1fcf854d828c without replacement: version=%s replaced=%v", module.Version, module.Replace != nil)
 	}
 }

@@ -29,7 +29,7 @@ func (s *scriptedResolver) Resolve(_ context.Context, req fragment.Request) (*fr
 	return s.frag, nil
 }
 
-func TestAntigravityEndToEndNativeLaunch(t *testing.T) {
+func TestAntigravityEndToEndInteractiveLaunch(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("shell stub test requires unix")
 	}
@@ -45,7 +45,7 @@ printf 'ARGV:' > %q
 for arg in "$@"; do
   printf '%%s|' "$arg" >> %q
 done
-printf '\nFORCE=%%s\nNOUPDATE=%%s\nLEAK=%%s\n' "$AGY_CLI_FORCE_FILE_TOKEN_STORAGE" "$AGY_CLI_DISABLE_AUTO_UPDATE" "$UNEXPECTED_AMBIENT_SECRET" >> %q
+printf '\nAGY_CLI_FORCE_FILE_TOKEN_STORAGE=%%s\nAGY_CLI_DISABLE_AUTO_UPDATE=%%s\nUNEXPECTED_AMBIENT_SECRET=%%s\n' "$AGY_CLI_FORCE_FILE_TOKEN_STORAGE" "$AGY_CLI_DISABLE_AUTO_UPDATE" "$UNEXPECTED_AMBIENT_SECRET" >> %q
 `, outFile, outFile, outFile)
 	if err := os.WriteFile(fakeAgy, []byte(script), 0o755); err != nil {
 		t.Fatal(err)
@@ -104,11 +104,14 @@ printf '\nFORCE=%%s\nNOUPDATE=%%s\nLEAK=%%s\n' "$AGY_CLI_FORCE_FILE_TOKEN_STORAG
 		isTerminal:   func() bool { return true },
 	}
 
-	// Launch via `agy` alias with --native --yolo -- --continue.
+	// The production plan path is interactive. Pin its argv and managed child
+	// environment while exercising the explicit --permissions yolo spelling.
 	var stdout, stderr strings.Builder
-	code := run(context.Background(), []string{"agy", "--native", "--yolo", "--", "--continue"}, &stdout, &stderr, deps)
+	code := run(context.Background(), []string{
+		"agy", "--native", "--permissions", "yolo", "--model", "gemini-4-neon-high", "--", "--continue",
+	}, &stdout, &stderr, deps)
 	if code != 0 {
-		t.Fatalf("run(agy --native --yolo) = %d\nstdout: %s\nstderr: %s", code, stdout.String(), stderr.String())
+		t.Fatalf("run(agy --permissions yolo) = %d\nstdout: %s\nstderr: %s", code, stdout.String(), stderr.String())
 	}
 	if resolver.lastID != fragment.EnvAntigravity {
 		t.Fatalf("resolver received EnvID %q, want %q", resolver.lastID, fragment.EnvAntigravity)
@@ -118,17 +121,13 @@ printf '\nFORCE=%%s\nNOUPDATE=%%s\nLEAK=%%s\n' "$AGY_CLI_FORCE_FILE_TOKEN_STORAG
 		t.Fatalf("read captured launch: %v", err)
 	}
 	text := string(captured)
-	for _, want := range []string{
-		"--gemini_dir|" + home + "|",
-		"--model|",
-		"--dangerously-skip-permissions|--continue|",
-		"FORCE=true",
-		"NOUPDATE=true",
-		"LEAK=\n",
-	} {
-		if !strings.Contains(text, want) {
-			t.Fatalf("captured launch missing %q:\n%s", want, text)
-		}
+	wantGolden, err := os.ReadFile(filepath.Join("testdata", "antigravity-interactive.golden"))
+	if err != nil {
+		t.Fatalf("read interactive plan golden: %v", err)
+	}
+	wantCapture := strings.ReplaceAll(string(wantGolden), "<MANAGED_HOME>", home)
+	if text != wantCapture {
+		t.Fatalf("interactive plan golden mismatch:\n got: %q\nwant: %q", text, wantCapture)
 	}
 
 	// Conflicting native flags (--gemini_dir, --cli_dir_name, --settings) must be refused before spawn (a1).

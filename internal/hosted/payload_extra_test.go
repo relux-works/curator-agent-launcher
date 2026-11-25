@@ -384,7 +384,7 @@ func TestBuildPayloadDiagnosticsCarryNoValues(t *testing.T) {
 // TestProducerMatchesBuild pins the payload producer identity to the build:
 // the version equals the go.mod require resolved by the go command, and the
 // commit is a non-placeholder 40-hex digest. It reads the module graph the
-// same way the release pin test does: test binaries in this tree carry no
+// same way the dependency pin test does: test binaries in this tree carry no
 // dependency build info, so debug.ReadBuildInfo is not an oracle here.
 func TestProducerMatchesBuild(t *testing.T) {
 	if hosted.ProducerModuleVersion == "" {

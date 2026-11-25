@@ -1,0 +1,4 @@
+ARGV:--gemini_dir|<MANAGED_HOME>|--model|gemini-4-neon-high|--dangerously-skip-permissions|--continue|
+AGY_CLI_FORCE_FILE_TOKEN_STORAGE=true
+AGY_CLI_DISABLE_AUTO_UPDATE=true
+UNEXPECTED_AMBIENT_SECRET=

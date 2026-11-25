@@ -434,9 +434,9 @@ func TestUnresolvedVendorScope(t *testing.T) {
 }
 
 // TestInteractiveDeclaredForMappedSystems pins the established interactive
-// systems, including Muse after the v0.5.37 admission flip.
+// systems, including Muse and Antigravity.
 func TestInteractiveDeclaredForMappedSystems(t *testing.T) {
-	for _, id := range []agentic.SystemID{"claude-code", "codex", "pi-native", "muse"} {
+	for _, id := range []agentic.SystemID{"claude-code", "codex", "pi-native", "muse", "antigravity"} {
 		sys, ok := agentic.Default.Lookup(id)
 		if !ok {
 			t.Fatalf("mapped system %q not registered", id)
