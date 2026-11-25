@@ -11,10 +11,27 @@ import (
 	"github.com/relux-works/skill-agents-management/pkg/vendorplugin"
 )
 
-// Older and opaque module versions refuse with their observed version before
-// any build or availability read; a tagged v4 consumer reaches both boundaries.
+// Versions below the stable v0.5.66 threshold refuse before any build or
+// availability read; releases and valid Go pseudo-versions at or above it pass.
 func TestMuseModuleVersionGate(t *testing.T) {
-	for _, version := range []string{"v0.5.62", "v0.5.65", "v0.5.66", "v0.5.68", "unknown"} {
+	for _, tc := range []struct {
+		version  string
+		admitted bool
+	}{
+		{version: "v0.5.62"},
+		{version: "v0.5.65"},
+		{version: "v0.5.66", admitted: true},
+		{version: "v0.5.68", admitted: true},
+		{version: "v0.5.66+incompatible", admitted: true},
+		{version: "v0.5.65-0.20261124231244-8efb5e8226cf"},
+		{version: "v0.5.66-0.20261124231244-8efb5e8226cf"},
+		{version: "v0.5.81-0.20261124231244-1fcf854d828c", admitted: true},
+		{version: "v0.6.0-0.20261124231244-1fcf854d828c", admitted: true},
+		{version: "v0.5.81-01.20261124231244-1fcf854d828c"},
+		{version: "0.5.80"},
+		{version: "unknown"},
+	} {
+		version := tc.version
 		t.Run(version, func(t *testing.T) {
 			builds, reads := 0, 0
 			deps := Deps{ModuleVersion: func() string { return version }, BuildLaunch: func(context.Context, *vendorplugin.Registry, vendorplugin.SpawnRequest, agentic.LaunchMode) (agentic.PlanWithEnvironment, error) {
@@ -25,8 +42,7 @@ func TestMuseModuleVersionGate(t *testing.T) {
 				return vendorplugin.Availability{State: vendorplugin.AvailabilityHealthy}, nil
 			}}
 			_, err := Build(context.Background(), deps, Request{Home: "/managed", WorkDir: "/work", Context: &agentic.CuratorContext{Environment: "muse"}})
-			admitted := version == "v0.5.66" || version == "v0.5.68"
-			if admitted {
+			if tc.admitted {
 				if err != nil || builds != 1 || reads != 1 {
 					t.Fatalf("valid consumer: %v %d %d", err, builds, reads)
 				}

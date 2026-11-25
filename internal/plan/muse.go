@@ -3,8 +3,8 @@ package plan
 import (
 	"fmt"
 	"runtime/debug"
-	"strconv"
-	"strings"
+
+	"golang.org/x/mod/semver"
 )
 
 const agentsManagementModule = "github.com/relux-works/skill-agents-management"
@@ -24,15 +24,7 @@ func linkedModuleVersion() string {
 }
 
 func checkMuseModuleVersion(version string) error {
-	parts := strings.Split(strings.TrimPrefix(version, "v"), ".")
-	admitted := false
-	if len(parts) == 3 && !strings.ContainsAny(parts[2], "-+") {
-		major, e1 := strconv.Atoi(parts[0])
-		minor, e2 := strconv.Atoi(parts[1])
-		patch, e3 := strconv.Atoi(parts[2])
-		admitted = e1 == nil && e2 == nil && e3 == nil && (major > 0 || major == 0 && (minor > 5 || minor == 5 && patch >= 66))
-	}
-	if !admitted {
+	if !semver.IsValid(version) || semver.Compare(version, "v0.5.66") < 0 {
 		return &RefusedError{Detail: fmt.Sprintf("agents-management module version=%s required=v0.5.66-or-later for managed Muse", version)}
 	}
 	return nil
