@@ -10,7 +10,7 @@ import (
 	"github.com/relux-works/curator-network-profiles/pkg/envpatch"
 	"github.com/relux-works/curator-network-profiles/pkg/netprofile"
 	"github.com/relux-works/curator-network-profiles/pkg/refusal"
-	"github.com/relux-works/skill-agents-management/pkg/agentic"
+	"github.com/relux-works/curator-runtimes/pkg/agentic"
 )
 
 // genericPatch builds the real generic patch for a test profile. The

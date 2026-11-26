@@ -11,11 +11,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/relux-works/skill-agents-management/pkg/agentic"
-	agySystem "github.com/relux-works/skill-agents-management/pkg/agentic/systems/agy"
-	museSystem "github.com/relux-works/skill-agents-management/pkg/agentic/systems/muse"
-	"github.com/relux-works/skill-agents-management/pkg/providerlimits"
-	"github.com/relux-works/skill-agents-management/pkg/vendorplugin"
+	"github.com/relux-works/curator-runtimes/pkg/agentic"
+	agySystem "github.com/relux-works/curator-runtimes/pkg/agentic/systems/agy"
+	museSystem "github.com/relux-works/curator-runtimes/pkg/agentic/systems/muse"
+	"github.com/relux-works/curator-runtimes/pkg/providerlimits"
+	"github.com/relux-works/curator-runtimes/pkg/runtimecatalog"
+	"github.com/relux-works/curator-runtimes/pkg/vendorplugin"
 
 	"github.com/relux-works/curator-agent-launcher/internal/claudeauth"
 	"github.com/relux-works/curator-agent-launcher/internal/cli"
@@ -59,7 +60,12 @@ func main() {
 		}
 		os.Exit(selector.RunWorker(input))
 	}
-	registry, err := defaults.NewRegistry()
+	modelCatalog, err := processModelCatalog()
+	if err != nil {
+		_ = diagnostics.Emit(os.Stderr, diagnostics.CodePlanRefused, fmt.Sprintf("cannot load operator model catalog: %v", err))
+		os.Exit(diagnostics.ExitForCode(diagnostics.CodePlanRefused))
+	}
+	registry, err := defaults.NewRegistryWithCatalog(agySystem.Runtime{}, modelCatalog)
 	if err != nil {
 		_ = diagnostics.Emit(os.Stderr, diagnostics.CodePlanRefused, fmt.Sprintf("cannot build the spawn-plane registry: %v", err))
 		os.Exit(diagnostics.ExitForCode(diagnostics.CodePlanRefused))
@@ -71,6 +77,7 @@ func main() {
 		environ:         os.Environ,
 		availability:    processAvailability,
 		registry:        registry,
+		modelCatalog:    modelCatalog,
 	}
 	if len(os.Args) == 3 && os.Args[1] == "__tmux-child" {
 		os.Exit(runTmuxChild(os.Args[2], deps))
@@ -104,8 +111,21 @@ func processConfigLocations() (configfile.Locations, error) {
 	return locations, nil
 }
 
+func processModelCatalog() (runtimecatalog.ModelCatalog, error) {
+	curatorDir := strings.TrimSpace(os.Getenv("CURATOR_HOME"))
+	if curatorDir == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return runtimecatalog.ModelCatalog{}, nil
+		}
+		curatorDir = filepath.Join(home, ".curator")
+	}
+	return runtimecatalog.LoadModelCatalog(curatorDir)
+}
+
 // Process boundaries are injectable; production uses the tagged builder and real execution.
 type launchDeps struct {
+	modelCatalog runtimecatalog.ModelCatalog
 	terminalFragment string
 	terminalStarted  func()
 
@@ -653,7 +673,7 @@ func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, ta
 		if preflightErr != nil {
 			return emitFailure(stderr, diagnostics.CodePlanRefused, preflightErr)
 		}
-		rebuilt, regErr := defaults.NewRegistryWithAgyRuntime(rt)
+		rebuilt, regErr := defaults.NewRegistryWithCatalog(rt, deps.modelCatalog)
 		if regErr != nil {
 			return emitFailure(stderr, diagnostics.CodePlanRefused, regErr)
 		}

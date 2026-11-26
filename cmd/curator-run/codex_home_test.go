@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/relux-works/skill-agents-management/pkg/agentic"
+	"github.com/relux-works/curator-runtimes/pkg/agentic"
 
 	"github.com/relux-works/curator-agent-launcher/internal/fragment"
 )

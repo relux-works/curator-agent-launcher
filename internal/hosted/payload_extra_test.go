@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/relux-works/skill-agents-management/pkg/agentic"
+	"github.com/relux-works/curator-runtimes/pkg/agentic"
 
 	"github.com/relux-works/curator-agent-launcher/internal/hosted"
 )
@@ -390,7 +390,7 @@ func TestProducerMatchesBuild(t *testing.T) {
 	if hosted.ProducerModuleVersion == "" {
 		t.Fatal("empty producer version")
 	}
-	cmd := exec.Command("go", "list", "-m", "-json", "github.com/relux-works/skill-agents-management")
+	cmd := exec.Command("go", "list", "-m", "-json", "github.com/relux-works/curator-runtimes")
 	for _, entry := range os.Environ() {
 		if !strings.HasPrefix(entry, "GOWORK=") {
 			cmd.Env = append(cmd.Env, entry)

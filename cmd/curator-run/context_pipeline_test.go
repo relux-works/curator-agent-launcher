@@ -10,8 +10,8 @@ import (
 	"testing"
 
 	"github.com/relux-works/curator-agent-launcher/internal/fragment"
-	"github.com/relux-works/skill-agents-management/pkg/agentic"
-	"github.com/relux-works/skill-agents-management/pkg/vendorplugin"
+	"github.com/relux-works/curator-runtimes/pkg/agentic"
+	"github.com/relux-works/curator-runtimes/pkg/vendorplugin"
 )
 
 func capturedLaunch(t *testing.T, out []byte) ([]string, map[string]string, []string) {

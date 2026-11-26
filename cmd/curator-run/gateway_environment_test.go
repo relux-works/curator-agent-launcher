@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/relux-works/skill-agents-management/pkg/agentic"
-	"github.com/relux-works/skill-agents-management/pkg/vendorplugin"
+	"github.com/relux-works/curator-runtimes/pkg/agentic"
+	"github.com/relux-works/curator-runtimes/pkg/vendorplugin"
 )
 
 // An altered provider-owned snapshot can contain a selector absent from the

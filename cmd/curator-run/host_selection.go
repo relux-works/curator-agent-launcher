@@ -17,7 +17,7 @@ import (
 	"github.com/relux-works/curator-agent-launcher/internal/mapping"
 	"github.com/relux-works/curator-agent-launcher/internal/sessionmanager"
 	"github.com/relux-works/curator-agent-launcher/internal/sessionmanager/client"
-	"github.com/relux-works/skill-agents-management/pkg/agentic"
+	"github.com/relux-works/curator-runtimes/pkg/agentic"
 )
 
 type hostSelection struct {

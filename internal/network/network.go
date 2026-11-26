@@ -34,7 +34,7 @@ import (
 	"github.com/relux-works/curator-network-profiles/pkg/probe"
 	"github.com/relux-works/curator-network-profiles/pkg/refusal"
 	"github.com/relux-works/curator-network-profiles/pkg/resolve"
-	"github.com/relux-works/skill-agents-management/pkg/agentic"
+	"github.com/relux-works/curator-runtimes/pkg/agentic"
 
 	"github.com/relux-works/curator-agent-launcher/internal/netproxy"
 )

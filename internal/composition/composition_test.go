@@ -11,8 +11,8 @@ import (
 
 	"github.com/relux-works/curator-agent-launcher/internal/composition"
 	"github.com/relux-works/curator-agent-launcher/internal/fragment"
-	"github.com/relux-works/skill-agents-management/pkg/agentic"
-	"github.com/relux-works/skill-agents-management/pkg/agentic/systems/codex"
+	"github.com/relux-works/curator-runtimes/pkg/agentic"
+	"github.com/relux-works/curator-runtimes/pkg/agentic/systems/codex"
 )
 
 func equal(t *testing.T, got, want any) {

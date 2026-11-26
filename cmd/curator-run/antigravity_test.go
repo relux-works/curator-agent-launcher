@@ -15,8 +15,8 @@ import (
 	"github.com/relux-works/curator-agent-launcher/internal/launcherconfig"
 	"github.com/relux-works/curator-agent-launcher/internal/plan"
 	"github.com/relux-works/curator-agent-launcher/internal/sessionmanager"
-	"github.com/relux-works/skill-agents-management/pkg/providerlimits"
-	"github.com/relux-works/skill-agents-management/pkg/vendorplugin"
+	"github.com/relux-works/curator-runtimes/pkg/providerlimits"
+	"github.com/relux-works/curator-runtimes/pkg/vendorplugin"
 )
 
 type scriptedResolver struct {
@@ -148,10 +148,10 @@ printf '\nAGY_CLI_FORCE_FILE_TOKEN_STORAGE=%%s\nAGY_CLI_DISABLE_AUTO_UPDATE=%%s\
 		}
 	}
 
-	// Non-yolo Curator-managed launches also enforce the verified agy release pin (a2).
+	// Non-yolo Curator-managed launches also enforce the verified agy release bounds (>=1.5.16,<2.0.0).
 	unverifiedDir := t.TempDir()
 	unverifiedAgy := filepath.Join(unverifiedDir, "agy")
-	unverifiedScript := fmt.Sprintf("#!/bin/sh\nif [ \"$1\" = \"--version\" ]; then echo \"1.6.0\"; exit 0; fi\necho RAN > %q\n", outFile)
+	unverifiedScript := fmt.Sprintf("#!/bin/sh\nif [ \"$1\" = \"--version\" ]; then echo \"2.0.0\"; exit 0; fi\necho RAN > %q\n", outFile)
 	if err := os.WriteFile(unverifiedAgy, []byte(unverifiedScript), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -162,10 +162,37 @@ printf '\nAGY_CLI_FORCE_FILE_TOKEN_STORAGE=%%s\nAGY_CLI_DISABLE_AUTO_UPDATE=%%s\
 	_ = os.Remove(outFile)
 	var outPin, errPin strings.Builder
 	if codePin := run(context.Background(), []string{"agy", "--native"}, &outPin, &errPin, unverifiedDeps); codePin == 0 {
-		t.Fatalf("agy --native on unverified 1.6.0 unexpectedly succeeded\nstderr: %s", errPin.String())
+		t.Fatalf("agy --native on unverified 2.0.0 unexpectedly succeeded\nstderr: %s", errPin.String())
 	}
 	if _, err := os.Stat(outFile); !os.IsNotExist(err) {
 		t.Fatal("child executed despite unverified agy release")
+	}
+
+	// agy 1.5.18 (within >=1.5.16,<2.0.0) with gemini-4-neon-xhigh and yolo succeeds.
+	v1518Dir := t.TempDir()
+	v1518Agy := filepath.Join(v1518Dir, "agy")
+	v1518Script := fmt.Sprintf("#!/bin/sh\nif [ \"$1\" = \"--version\" ]; then echo \"1.5.18\"; exit 0; fi\nprintf '%%s\\n' \"$*\" > %q\n", outFile)
+	if err := os.WriteFile(v1518Agy, []byte(v1518Script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	v1518Deps := deps
+	v1518Deps.environ = func() []string {
+		return []string{"PATH=" + v1518Dir + string(os.PathListSeparator) + "/usr/bin:/bin"}
+	}
+	_ = os.Remove(outFile)
+	var outNeon, errNeon strings.Builder
+	if codeNeon := run(context.Background(), []string{
+		"agy", "--native", "--permissions", "yolo", "--model", "gemini-4-neon-xhigh",
+	}, &outNeon, &errNeon, v1518Deps); codeNeon != 0 {
+		t.Fatalf("agy 1.5.18 --model gemini-4-neon-xhigh --permissions yolo = %d\nstderr: %s", codeNeon, errNeon.String())
+	}
+	neonArgv, err := os.ReadFile(outFile)
+	if err != nil {
+		t.Fatalf("read 1.5.18 neon launch: %v", err)
+	}
+	wantNeon := fmt.Sprintf("--gemini_dir %s --model gemini-4-neon-xhigh --dangerously-skip-permissions\n", home)
+	if string(neonArgv) != wantNeon {
+		t.Fatalf("1.5.18 neon argv = %q, want %q", string(neonArgv), wantNeon)
 	}
 
 	// Hosted route with a selected session manager must refuse antigravity with

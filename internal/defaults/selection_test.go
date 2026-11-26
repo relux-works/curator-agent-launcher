@@ -7,8 +7,8 @@ import (
 
 	"github.com/relux-works/curator-agent-launcher/internal/defaults"
 	"github.com/relux-works/curator-agent-launcher/internal/mapping"
-	"github.com/relux-works/skill-agents-management/pkg/agentic"
-	"github.com/relux-works/skill-agents-management/pkg/vendorplugin"
+	"github.com/relux-works/curator-runtimes/pkg/agentic"
+	"github.com/relux-works/curator-runtimes/pkg/vendorplugin"
 )
 
 // Candidate tuples exactly cover the mapped system's driven model/effort
@@ -95,7 +95,7 @@ func TestSelectionCandidates(t *testing.T) {
 		t.Fatal(err)
 	}
 	source := defaults.AdmissionSource()
-	if !strings.Contains(string(data), "github.com/relux-works/skill-agents-management "+strings.Fields(source)[1]) {
+	if !strings.Contains(string(data), "github.com/relux-works/curator-runtimes "+strings.Fields(source)[1]) {
 		t.Fatal("source does not name module pin", source)
 	}
 }

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/relux-works/curator-agent-launcher/internal/composition"
 	"github.com/relux-works/curator-agent-launcher/internal/execution"
-	"github.com/relux-works/skill-agents-management/pkg/agentic"
+	"github.com/relux-works/curator-runtimes/pkg/agentic"
 	"os"
 	"syscall"
 	"unsafe"

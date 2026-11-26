@@ -17,3 +17,6 @@ go.work.sum
 .DS_Store
 .idea/
 .vscode/
+
+# local axiloom workspace binding
+.axiloom.json

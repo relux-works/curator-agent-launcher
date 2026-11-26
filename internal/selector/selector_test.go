@@ -181,7 +181,7 @@ func TestRequest(t *testing.T) {
 	if model.Kind != fragment.KindString || model.Str != "explicit" || effort.Kind != fragment.KindNull {
 		t.Fatal("flags changed", flags)
 	}
-	if len(req.Candidates) == 0 || !strings.Contains(req.AdmissionSource, "agents-management ") || !strings.HasSuffix(req.AdmissionSource, "lineup") {
+	if len(req.Candidates) == 0 || !strings.Contains(req.AdmissionSource, "curator-runtimes ") || !strings.HasSuffix(req.AdmissionSource, "lineup") {
 		t.Fatal(req)
 	}
 	req.Profile = strings.Repeat("x", Limit)

@@ -15,7 +15,7 @@ import (
 	"github.com/relux-works/curator-agent-launcher/internal/execution"
 	"github.com/relux-works/curator-agent-launcher/internal/fragment"
 	"github.com/relux-works/curator-agent-launcher/internal/sessionmanager/client"
-	"github.com/relux-works/skill-agents-management/pkg/agentic"
+	"github.com/relux-works/curator-runtimes/pkg/agentic"
 )
 
 func operationID() (string, error) {

@@ -13,8 +13,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/relux-works/skill-agents-management/pkg/agentic"
-	"github.com/relux-works/skill-agents-management/pkg/vendorplugin"
+	"github.com/relux-works/curator-runtimes/pkg/agentic"
+	"github.com/relux-works/curator-runtimes/pkg/vendorplugin"
 
 	"github.com/relux-works/curator-agent-launcher/internal/defaults"
 	"github.com/relux-works/curator-agent-launcher/internal/diagnostics"

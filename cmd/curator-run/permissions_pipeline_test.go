@@ -11,7 +11,7 @@ import (
 
 	"github.com/relux-works/curator-agent-launcher/internal/fragment"
 	"github.com/relux-works/curator-agent-launcher/internal/mapping"
-	"github.com/relux-works/skill-agents-management/pkg/agentic"
+	"github.com/relux-works/curator-runtimes/pkg/agentic"
 )
 
 type permissionRow struct {

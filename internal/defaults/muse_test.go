@@ -5,9 +5,9 @@ import (
 	"testing"
 
 	"github.com/relux-works/curator-agent-launcher/internal/defaults"
-	"github.com/relux-works/skill-agents-management/pkg/agentic"
-	museSystem "github.com/relux-works/skill-agents-management/pkg/agentic/systems/muse"
-	"github.com/relux-works/skill-agents-management/pkg/vendorplugin"
+	"github.com/relux-works/curator-runtimes/pkg/agentic"
+	museSystem "github.com/relux-works/curator-runtimes/pkg/agentic/systems/muse"
+	"github.com/relux-works/curator-runtimes/pkg/vendorplugin"
 )
 
 func TestMuseDefaultsUseDeclarationOwnedModels(t *testing.T) {

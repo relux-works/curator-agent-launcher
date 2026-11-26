@@ -17,7 +17,7 @@ func TestConstructionDependencyPin(t *testing.T) {
 			t.Fatalf("release candidate must have no %s: %v", name, err)
 		}
 	}
-	cmd := exec.Command("go", "list", "-m", "-json", "github.com/relux-works/skill-agents-management")
+	cmd := exec.Command("go", "list", "-m", "-json", "github.com/relux-works/curator-runtimes")
 	for _, entry := range os.Environ() {
 		if !strings.HasPrefix(entry, "GOWORK=") {
 			cmd.Env = append(cmd.Env, entry)

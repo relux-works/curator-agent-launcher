@@ -5,7 +5,7 @@ import (
 	"slices"
 
 	"github.com/relux-works/curator-agent-launcher/internal/fragment"
-	"github.com/relux-works/skill-agents-management/pkg/agentic"
+	"github.com/relux-works/curator-runtimes/pkg/agentic"
 )
 
 // Context forwards validated v4 and v7 policy to the module, which owns argv

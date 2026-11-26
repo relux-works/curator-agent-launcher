@@ -35,17 +35,18 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/relux-works/skill-agents-management/pkg/agentic"
-	agySystem "github.com/relux-works/skill-agents-management/pkg/agentic/systems/agy"
-	claudeSystem "github.com/relux-works/skill-agents-management/pkg/agentic/systems/claude"
-	codexSystem "github.com/relux-works/skill-agents-management/pkg/agentic/systems/codex"
-	geminiSystem "github.com/relux-works/skill-agents-management/pkg/agentic/systems/gemini"
-	museSystem "github.com/relux-works/skill-agents-management/pkg/agentic/systems/muse"
-	pinativeSystem "github.com/relux-works/skill-agents-management/pkg/agentic/systems/pinative"
-	"github.com/relux-works/skill-agents-management/pkg/vendorplugin"
-	"github.com/relux-works/skill-agents-management/pkg/vendorplugin/vendors/anthropic"
-	"github.com/relux-works/skill-agents-management/pkg/vendorplugin/vendors/google"
-	"github.com/relux-works/skill-agents-management/pkg/vendorplugin/vendors/openai"
+	"github.com/relux-works/curator-runtimes/pkg/agentic"
+	agySystem "github.com/relux-works/curator-runtimes/pkg/agentic/systems/agy"
+	claudeSystem "github.com/relux-works/curator-runtimes/pkg/agentic/systems/claude"
+	codexSystem "github.com/relux-works/curator-runtimes/pkg/agentic/systems/codex"
+	geminiSystem "github.com/relux-works/curator-runtimes/pkg/agentic/systems/gemini"
+	museSystem "github.com/relux-works/curator-runtimes/pkg/agentic/systems/muse"
+	pinativeSystem "github.com/relux-works/curator-runtimes/pkg/agentic/systems/pinative"
+	"github.com/relux-works/curator-runtimes/pkg/runtimecatalog"
+	"github.com/relux-works/curator-runtimes/pkg/vendorplugin"
+	"github.com/relux-works/curator-runtimes/pkg/vendorplugin/vendors/anthropic"
+	"github.com/relux-works/curator-runtimes/pkg/vendorplugin/vendors/google"
+	"github.com/relux-works/curator-runtimes/pkg/vendorplugin/vendors/openai"
 
 	"github.com/relux-works/curator-agent-launcher/internal/cli"
 	"github.com/relux-works/curator-agent-launcher/internal/mapping"
@@ -96,6 +97,13 @@ func NewRegistry() (*vendorplugin.Registry, error) {
 // unpreflighted agy plugin, which resolves lineups and refuses exec/interactive
 // planning until preflighted.
 func NewRegistryWithAgyRuntime(agyRuntime agySystem.Runtime) (*vendorplugin.Registry, error) {
+	return NewRegistryWithCatalog(agyRuntime, runtimecatalog.ModelCatalog{})
+}
+
+// NewRegistryWithCatalog builds the production compatibility registry with an
+// optional preflighted Antigravity runtime and applies operator-declared models
+// and effort scales from ~/.curator/catalog.toml (schema model-catalog/1).
+func NewRegistryWithCatalog(agyRuntime agySystem.Runtime, catalog runtimecatalog.ModelCatalog) (*vendorplugin.Registry, error) {
 	systems := agentic.NewRegistry()
 	if err := systems.Register(claudeSystem.New()); err != nil {
 		return nil, fmt.Errorf("register claude-code system: %w", err)
@@ -125,14 +133,18 @@ func NewRegistryWithAgyRuntime(agyRuntime agySystem.Runtime) (*vendorplugin.Regi
 	if err := vendorplugin.SeedFrozenRuntimes(registry); err != nil {
 		return nil, fmt.Errorf("seed frozen runtimes: %w", err)
 	}
-	if err := registry.Register(anthropic.New()); err != nil {
-		return nil, fmt.Errorf("register anthropic vendor: %w", err)
+	vendors, err := catalog.ApplyAll([]vendorplugin.Vendor{
+		anthropic.New(),
+		openai.New(),
+		google.New(),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("apply model catalog: %w", err)
 	}
-	if err := registry.Register(openai.New()); err != nil {
-		return nil, fmt.Errorf("register openai vendor: %w", err)
-	}
-	if err := registry.Register(google.New()); err != nil {
-		return nil, fmt.Errorf("register google vendor: %w", err)
+	for _, v := range vendors {
+		if err := registry.Register(v); err != nil {
+			return nil, fmt.Errorf("register %s vendor: %w", v.ID(), err)
+		}
 	}
 	return registry, nil
 }

@@ -41,10 +41,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/relux-works/skill-agents-management/pkg/agentic"
-	"github.com/relux-works/skill-agents-management/pkg/gatewayadmission"
-	"github.com/relux-works/skill-agents-management/pkg/providerlimits"
-	"github.com/relux-works/skill-agents-management/pkg/vendorplugin"
+	"github.com/relux-works/curator-runtimes/pkg/agentic"
+	"github.com/relux-works/curator-runtimes/pkg/gatewayadmission"
+	"github.com/relux-works/curator-runtimes/pkg/providerlimits"
+	"github.com/relux-works/curator-runtimes/pkg/vendorplugin"
 
 	// Production plugin registrations: the systems and vendors behind the
 	// §4.2 runtimes. Each import runs the plugin's own init into the
@@ -52,14 +52,14 @@ import (
 	// local-models has no init registration (it needs explicit config) and
 	// is intentionally absent: nothing here invents a vendor for a runtime
 	// whose broker was never established.
-	_ "github.com/relux-works/skill-agents-management/pkg/agentic/systems/agy"
-	_ "github.com/relux-works/skill-agents-management/pkg/agentic/systems/claude"
-	_ "github.com/relux-works/skill-agents-management/pkg/agentic/systems/codex"
-	_ "github.com/relux-works/skill-agents-management/pkg/agentic/systems/muse"
-	_ "github.com/relux-works/skill-agents-management/pkg/agentic/systems/pinative"
-	_ "github.com/relux-works/skill-agents-management/pkg/vendorplugin/vendors/anthropic"
-	_ "github.com/relux-works/skill-agents-management/pkg/vendorplugin/vendors/google"
-	_ "github.com/relux-works/skill-agents-management/pkg/vendorplugin/vendors/openai"
+	_ "github.com/relux-works/curator-runtimes/pkg/agentic/systems/agy"
+	_ "github.com/relux-works/curator-runtimes/pkg/agentic/systems/claude"
+	_ "github.com/relux-works/curator-runtimes/pkg/agentic/systems/codex"
+	_ "github.com/relux-works/curator-runtimes/pkg/agentic/systems/muse"
+	_ "github.com/relux-works/curator-runtimes/pkg/agentic/systems/pinative"
+	_ "github.com/relux-works/curator-runtimes/pkg/vendorplugin/vendors/anthropic"
+	_ "github.com/relux-works/curator-runtimes/pkg/vendorplugin/vendors/google"
+	_ "github.com/relux-works/curator-runtimes/pkg/vendorplugin/vendors/openai"
 )
 
 // Stable diagnostic codes of SPEC §6 owned here. Main chooses them at the

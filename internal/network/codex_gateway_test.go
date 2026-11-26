@@ -26,12 +26,12 @@ import (
 	"github.com/relux-works/curator-network-profiles/pkg/netprofile"
 	"github.com/relux-works/curator-network-profiles/pkg/refusal"
 	"github.com/relux-works/curator-network-profiles/pkg/resolve"
-	"github.com/relux-works/skill-agents-management/pkg/agentic"
-	codexpolicy "github.com/relux-works/skill-agents-management/pkg/agentic/systems/codex"
-	"github.com/relux-works/skill-agents-management/pkg/gatewayadmission"
-	"github.com/relux-works/skill-agents-management/pkg/providerlimits"
-	"github.com/relux-works/skill-agents-management/pkg/vendorplugin"
-	_ "github.com/relux-works/skill-agents-management/pkg/vendorplugin/vendors/openai"
+	"github.com/relux-works/curator-runtimes/pkg/agentic"
+	codexpolicy "github.com/relux-works/curator-runtimes/pkg/agentic/systems/codex"
+	"github.com/relux-works/curator-runtimes/pkg/gatewayadmission"
+	"github.com/relux-works/curator-runtimes/pkg/providerlimits"
+	"github.com/relux-works/curator-runtimes/pkg/vendorplugin"
+	_ "github.com/relux-works/curator-runtimes/pkg/vendorplugin/vendors/openai"
 )
 
 const codexSyntheticToken = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"

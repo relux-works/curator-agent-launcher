@@ -7,7 +7,7 @@ import (
 
 	"github.com/relux-works/curator-agent-launcher/internal/fragment"
 	"github.com/relux-works/curator-network-profiles/pkg/envpatch"
-	"github.com/relux-works/skill-agents-management/pkg/agentic"
+	"github.com/relux-works/curator-runtimes/pkg/agentic"
 )
 
 func antigravityV7Fragment() fragment.Fragment {

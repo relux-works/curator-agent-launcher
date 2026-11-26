@@ -3,8 +3,8 @@ package hosted
 import (
 	"errors"
 
-	"github.com/relux-works/skill-agents-management/pkg/agentic"
-	claudeSystem "github.com/relux-works/skill-agents-management/pkg/agentic/systems/claude"
+	"github.com/relux-works/curator-runtimes/pkg/agentic"
+	claudeSystem "github.com/relux-works/curator-runtimes/pkg/agentic/systems/claude"
 )
 
 // ExportRestart exports the closed claude-restart template for the composed,

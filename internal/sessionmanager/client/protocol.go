@@ -14,10 +14,10 @@ import (
 	"github.com/relux-works/curator-agent-launcher/internal/hosted"
 	"github.com/relux-works/curator-agent-launcher/internal/mapping"
 	managerschema "github.com/relux-works/curator-agent-launcher/schemas/session-manager"
-	"github.com/relux-works/skill-agents-management/pkg/agentic"
-	_ "github.com/relux-works/skill-agents-management/pkg/agentic/systems/claude"
-	_ "github.com/relux-works/skill-agents-management/pkg/agentic/systems/codex"
-	_ "github.com/relux-works/skill-agents-management/pkg/agentic/systems/muse"
+	"github.com/relux-works/curator-runtimes/pkg/agentic"
+	_ "github.com/relux-works/curator-runtimes/pkg/agentic/systems/claude"
+	_ "github.com/relux-works/curator-runtimes/pkg/agentic/systems/codex"
+	_ "github.com/relux-works/curator-runtimes/pkg/agentic/systems/muse"
 )
 
 const Protocol = "curator-session-manager/1"

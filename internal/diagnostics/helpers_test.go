@@ -10,7 +10,7 @@ import (
 	"github.com/relux-works/curator-agent-launcher/internal/composition"
 	"github.com/relux-works/curator-agent-launcher/internal/fragment"
 	sp "github.com/relux-works/curator-agent-launcher/internal/systemprompt"
-	"github.com/relux-works/skill-agents-management/pkg/agentic"
+	"github.com/relux-works/curator-runtimes/pkg/agentic"
 )
 
 func codexFragment(t *testing.T, home, layer string) fragment.Fragment {

@@ -7,7 +7,7 @@ import (
 	"golang.org/x/mod/semver"
 )
 
-const agentsManagementModule = "github.com/relux-works/skill-agents-management"
+const agentsManagementModule = "github.com/relux-works/curator-runtimes"
 
 func linkedModuleVersion() string {
 	if info, ok := debug.ReadBuildInfo(); ok {

@@ -8,9 +8,9 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/relux-works/skill-agents-management/pkg/agentic"
-	"github.com/relux-works/skill-agents-management/pkg/providerlimits"
-	"github.com/relux-works/skill-agents-management/pkg/vendorplugin"
+	"github.com/relux-works/curator-runtimes/pkg/agentic"
+	"github.com/relux-works/curator-runtimes/pkg/providerlimits"
+	"github.com/relux-works/curator-runtimes/pkg/vendorplugin"
 )
 
 // The gateway path obtains authority from the real vendor/store boundary and

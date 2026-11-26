@@ -14,9 +14,9 @@ import (
 	"github.com/relux-works/curator-agent-launcher/internal/fragment"
 	"github.com/relux-works/curator-agent-launcher/internal/mapping"
 	"github.com/relux-works/curator-agent-launcher/internal/plan"
-	"github.com/relux-works/skill-agents-management/pkg/agentic"
-	"github.com/relux-works/skill-agents-management/pkg/providerlimits"
-	"github.com/relux-works/skill-agents-management/pkg/vendorplugin"
+	"github.com/relux-works/curator-runtimes/pkg/agentic"
+	"github.com/relux-works/curator-runtimes/pkg/providerlimits"
+	"github.com/relux-works/curator-runtimes/pkg/vendorplugin"
 )
 
 func museFixture(t *testing.T) (*pipelineFixture, *fragment.Fragment) {
