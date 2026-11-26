@@ -31,7 +31,7 @@ func AdmissionSource() string {
 	}
 	// Test executables may omit dependency build information. This fallback is
 	// pinned to go.mod by TestSelectionCandidates.
-	return "curator-runtimes v0.6.0 lineup"
+	return "curator-runtimes v0.7.0 lineup"
 }
 func SelectionCandidates(env string, reg *vendorplugin.Registry) ([]SelectionCandidate, error) {
 	target, err := mapping.Resolve(env)

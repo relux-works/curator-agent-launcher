@@ -63,6 +63,7 @@ const (
 	EnvPi          = "pi"
 	EnvMuse        = "muse"
 	EnvAntigravity = "antigravity"
+	EnvKimiCode    = "kimi_code"
 )
 
 // ChannelKind is the closed descriptor kind vocabulary (environments.md §7.3).
@@ -215,6 +216,7 @@ var homeVariable = map[string]string{
 	EnvOpenCode:   "XDG_CONFIG_HOME",
 	EnvPi:         "PI_CODING_AGENT_DIR",
 	EnvMuse:       "XDG_CONFIG_HOME",
+	EnvKimiCode:   "KIMI_CODE_HOME",
 }
 
 // The closed adapter channel registry (environments.md §7.3 and §7.8). A
@@ -244,6 +246,7 @@ var mcpRegistry = map[string]Channel{
 	EnvCodexCLI:    {Kind: KindFlag, Flag: "-p", Argument: ArgumentName, Name: "curator-mcp"},
 	EnvOpenCode:    {Kind: KindVariable, Variable: "OPENCODE_CONFIG"},
 	EnvAntigravity: {Kind: KindFile, Filename: "config/mcp_config.json"},
+	EnvKimiCode:    {Kind: KindFile, Filename: "mcp.json"},
 }
 
 var (
@@ -398,7 +401,7 @@ func fromValue(root Value) (*Fragment, error) {
 	}
 	f := &Fragment{Revision: revision}
 
-	env, err := enumMember("", root, "environment", EnvClaudeCode, EnvCodexCLI, EnvOpenCode, EnvPi, EnvMuse, EnvAntigravity)
+	env, err := enumMember("", root, "environment", EnvClaudeCode, EnvCodexCLI, EnvOpenCode, EnvPi, EnvMuse, EnvAntigravity, EnvKimiCode)
 	if err != nil {
 		return nil, err
 	}

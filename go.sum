@@ -4,8 +4,8 @@ github.com/relux-works/curator-agent-launcher/schemas/session-manager v0.0.0-202
 github.com/relux-works/curator-agent-launcher/schemas/session-manager v0.0.0-20261117104515-98007286bab0/go.mod h1:gVV9OQTCR5EItZ1EcETtNyHsGsc52JX+za15xVKaW3M=
 github.com/relux-works/curator-network-profiles v0.3.3-0.20261108191441-afe05ddfa764 h1:s0AJ1yoKBnqQVEJHdUSBn25OKTIPGv3KBGIA1FVQA3A=
 github.com/relux-works/curator-network-profiles v0.3.3-0.20261108191441-afe05ddfa764/go.mod h1:KlPpVwgH45EtLFWodP1ofqWc+amLHGuftUVoZ1rsWhg=
-github.com/relux-works/curator-runtimes v0.6.0 h1:+sXbWyxUq/jVxy/QG+HmTHDejO86vYNbhCl8Aqlu5N8=
-github.com/relux-works/curator-runtimes v0.6.0/go.mod h1:F+JtI/KXXzKtz7gCliTQdMocc9d3di49oPyxQ2OPPD0=
+github.com/relux-works/curator-runtimes v0.7.0 h1:dAJ+xHKMONOhz2vGjI/Adq9iEsnOQmnUfOgyXHnADU0=
+github.com/relux-works/curator-runtimes v0.7.0/go.mod h1:F+JtI/KXXzKtz7gCliTQdMocc9d3di49oPyxQ2OPPD0=
 golang.org/x/mod v0.40.0 h1:hUv+3cXcdRHz08UmSiOob7sadHig73uo5bkXxQ/tvUs=
 golang.org/x/mod v0.40.0/go.mod h1:0/weTWkPWGBikyTWAX3dkjVztMmBA5hM0DH6BElSupE=
 golang.org/x/sys v0.47.0 h1:o7XGOvZQCADBQQ4Y7VNq2dRWQR7JmOUW8Kxx4ZsNgWs=

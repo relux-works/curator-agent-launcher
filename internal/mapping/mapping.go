@@ -31,6 +31,8 @@ func Resolve(environment string) (Target, error) {
 		return Target{System: "pi-native"}, nil
 	case fragment.EnvAntigravity:
 		return Target{System: "antigravity"}, nil
+	case fragment.EnvKimiCode:
+		return Target{System: "kimi"}, nil
 	default:
 		return Target{}, fmt.Errorf("environment %q has no supported system mapping", environment)
 	}

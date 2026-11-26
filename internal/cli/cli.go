@@ -77,7 +77,7 @@ options:
   --help, -h                        print this usage text and exit 0
   --version                         print the launcher name and version, exit 0
 
-Environments: claude_code (alias claude), codex_cli (alias codex), pi, muse, antigravity (alias agy).
+Environments: claude_code (alias claude), codex_cli (alias codex), pi, muse, antigravity (alias agy), kimi_code (alias kimi).
 opencode is currently unsupported. Aliases normalize to the canonical id
 before validation or lookup; outputs carry the canonical id only.
 Omitting --profile uses Curator's current profile; resolution always repairs.
@@ -159,6 +159,8 @@ func NormalizeEnvID(id string) string {
 		return "codex_cli"
 	case "agy":
 		return "antigravity"
+	case "kimi":
+		return "kimi_code"
 	default:
 		return id
 	}

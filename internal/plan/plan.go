@@ -55,10 +55,12 @@ import (
 	_ "github.com/relux-works/curator-runtimes/pkg/agentic/systems/agy"
 	_ "github.com/relux-works/curator-runtimes/pkg/agentic/systems/claude"
 	_ "github.com/relux-works/curator-runtimes/pkg/agentic/systems/codex"
+	_ "github.com/relux-works/curator-runtimes/pkg/agentic/systems/kimi"
 	_ "github.com/relux-works/curator-runtimes/pkg/agentic/systems/muse"
 	_ "github.com/relux-works/curator-runtimes/pkg/agentic/systems/pinative"
 	_ "github.com/relux-works/curator-runtimes/pkg/vendorplugin/vendors/anthropic"
 	_ "github.com/relux-works/curator-runtimes/pkg/vendorplugin/vendors/google"
+	_ "github.com/relux-works/curator-runtimes/pkg/vendorplugin/vendors/moonshot"
 	_ "github.com/relux-works/curator-runtimes/pkg/vendorplugin/vendors/openai"
 )
 

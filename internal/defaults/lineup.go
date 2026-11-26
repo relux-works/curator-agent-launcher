@@ -40,12 +40,14 @@ import (
 	claudeSystem "github.com/relux-works/curator-runtimes/pkg/agentic/systems/claude"
 	codexSystem "github.com/relux-works/curator-runtimes/pkg/agentic/systems/codex"
 	geminiSystem "github.com/relux-works/curator-runtimes/pkg/agentic/systems/gemini"
+	kimiSystem "github.com/relux-works/curator-runtimes/pkg/agentic/systems/kimi"
 	museSystem "github.com/relux-works/curator-runtimes/pkg/agentic/systems/muse"
 	pinativeSystem "github.com/relux-works/curator-runtimes/pkg/agentic/systems/pinative"
 	"github.com/relux-works/curator-runtimes/pkg/runtimecatalog"
 	"github.com/relux-works/curator-runtimes/pkg/vendorplugin"
 	"github.com/relux-works/curator-runtimes/pkg/vendorplugin/vendors/anthropic"
 	"github.com/relux-works/curator-runtimes/pkg/vendorplugin/vendors/google"
+	"github.com/relux-works/curator-runtimes/pkg/vendorplugin/vendors/moonshot"
 	"github.com/relux-works/curator-runtimes/pkg/vendorplugin/vendors/openai"
 
 	"github.com/relux-works/curator-agent-launcher/internal/cli"
@@ -129,14 +131,21 @@ func NewRegistryWithCatalog(agyRuntime agySystem.Runtime, catalog runtimecatalog
 	if err := systems.Register(museSystem.New()); err != nil {
 		return nil, fmt.Errorf("register muse system: %w", err)
 	}
+	if err := systems.Register(kimiSystem.New()); err != nil {
+		return nil, fmt.Errorf("register kimi system: %w", err)
+	}
 	registry := vendorplugin.NewRegistry(systems)
 	if err := vendorplugin.SeedFrozenRuntimes(registry); err != nil {
 		return nil, fmt.Errorf("seed frozen runtimes: %w", err)
+	}
+	if err := registry.DeclareRuntime(moonshot.RuntimeDeclaration()); err != nil {
+		return nil, fmt.Errorf("declare kimi runtime: %w", err)
 	}
 	vendors, err := catalog.ApplyAll([]vendorplugin.Vendor{
 		anthropic.New(),
 		openai.New(),
 		google.New(),
+		moonshot.New(),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("apply model catalog: %w", err)
@@ -217,10 +226,28 @@ func complete(environment string, target mapping.Target, partial Partial, reg *v
 	for _, cand := range cands {
 		models = append(models, cand.model)
 	}
-	// Candidates are non-empty here, so the lineup is non-empty too:
-	// the only empty gate is the candidate check above, and it stays
-	// in exactly that one place.
-	top := vendorplugin.Lineup(models)[0].Model
+	ranked := vendorplugin.Lineup(models)
+	var top vendorplugin.Model
+	if len(ranked) > 0 {
+		top = ranked[0].Model
+	} else {
+		// When every admitted built-in model for a system is unmeasured
+		// (e.g. newly integrated runtimes like kimi/moonshot), fall back
+		// to the first built-in declared model rather than panicking on an
+		// empty ranked slice. Operator-declared catalog rows remain
+		// excluded from fallback selection.
+		var found bool
+		for _, m := range models {
+			if !m.OperatorDeclared {
+				top = m
+				found = true
+				break
+			}
+		}
+		if !found {
+			return Resolved{}, &Error{CodeUnresolvable, fmt.Errorf("the lineup admits no default model for environment %q (system %q); specify --model explicitly", environment, target.System)}
+		}
+	}
 	matches := contributorsFor(cands, string(top.ID))
 	if len(matches) != 1 {
 		return Resolved{}, &Error{CodeUnresolvable, fmt.Errorf("the lineup top model %q for environment %q is driven by several runtimes; the launcher binds none", string(top.ID), environment)}
