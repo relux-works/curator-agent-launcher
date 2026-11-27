@@ -18,7 +18,7 @@ func antigravityPolicy(ownEnv []string, f fragment.Fragment, prompt PromptApplic
 	}
 	const backend = fragment.AntigravityForceFileTokenVariable
 	const required = fragment.AntigravityForceFileTokenTrue
-	if f.Revision != fragment.IdentityV7 ||
+	if (f.Revision != fragment.IdentityV7 && f.Revision != fragment.IdentityV9) ||
 		f.HomeBinding == nil || f.HomeBinding.Transport != "flag" || f.HomeBinding.Path == "" ||
 		f.Env[backend] != required || f.CredentialStore == nil || f.CredentialStore.Selection != "file" {
 		return fmt.Errorf("Antigravity requires the validated v7 flag-home and file token storage policy")

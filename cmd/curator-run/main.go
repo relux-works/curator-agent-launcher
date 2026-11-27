@@ -125,7 +125,7 @@ func processModelCatalog() (runtimecatalog.ModelCatalog, error) {
 
 // Process boundaries are injectable; production uses the tagged builder and real execution.
 type launchDeps struct {
-	modelCatalog runtimecatalog.ModelCatalog
+	modelCatalog     runtimecatalog.ModelCatalog
 	terminalFragment string
 	terminalStarted  func()
 
@@ -550,6 +550,9 @@ func launch(ctx context.Context, inv cli.Invocation, frag *fragment.Fragment, ta
 	// os.Environ, and a caller that leaves it unset gets the same.
 	if deps.environ == nil {
 		deps.environ = os.Environ
+	}
+	if err := fragment.VerifyCommandRoot(frag); err != nil {
+		return emitFailure(stderr, "command_root_invalid", err)
 	}
 	if !inv.NetworkSet && deps.selectedConfig.Proxy == nil {
 		selectedDefault, err := network.DefaultGatewaySelected(deps.environ())
@@ -1155,7 +1158,7 @@ func resolvePermission(ctx context.Context, inv cli.Invocation, frag *fragment.F
 	decision, err := execution.ResolvePermission(execution.PermissionRequest{
 		Flag: inv.PermissionMode, FlagPresent: inv.PermissionSet, Profile: frag.Permissions,
 		Global: global, Headless: headless,
-		Transport: frag.Revision == fragment.IdentityV2 || frag.Revision == fragment.IdentityV3 || frag.Revision == fragment.IdentityV4 || frag.Revision == fragment.IdentityV7,
+		Transport: frag.Revision == fragment.IdentityV2 || frag.Revision == fragment.IdentityV3 || frag.Revision == fragment.IdentityV4 || frag.Revision == fragment.IdentityV7 || frag.Revision == fragment.IdentityV9,
 	})
 	if err != nil {
 		return execution.PermissionDecision{}, "", nil, err

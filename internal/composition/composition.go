@@ -5,6 +5,7 @@ package composition
 import (
 	"fmt"
 	"maps"
+	"os"
 	"slices"
 	"sort"
 	"strings"
@@ -129,6 +130,22 @@ func ComposeWithNetwork(plan agentic.Plan, ownEnv []string, frag fragment.Fragme
 		}
 	}
 	overlay(frag.Env)
+	if frag.Revision == fragment.IdentityV9 && frag.CommandRoot != nil && frag.PathPrepend != "" {
+		existing := env["PATH"]
+		if existing == "" {
+			existing = own["PATH"]
+		}
+		sep := string(os.PathListSeparator)
+		switch {
+		case existing == "":
+			env["PATH"] = frag.PathPrepend
+		case existing == frag.PathPrepend || strings.HasPrefix(existing, frag.PathPrepend+sep):
+			env["PATH"] = existing
+		default:
+			env["PATH"] = frag.PathPrepend + sep + existing
+		}
+		literals["PATH"] = env["PATH"]
+	}
 	v.Argv = append(v.Argv, prompt.Argv...)
 	overlay(prompt.Env)
 	if frag.MCP != nil {

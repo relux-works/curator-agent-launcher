@@ -18,7 +18,7 @@ func CheckLaunchRevision(f *Fragment) error {
 	if f.Environment == EnvMuse && (f.Revision == Identity || f.Revision == IdentityV2 || f.Revision == IdentityV3) {
 		return &VersionError{Environment: EnvMuse, Required: IdentityV4}
 	}
-	if f.Environment == EnvAntigravity && f.Revision != IdentityV7 {
+	if f.Environment == EnvAntigravity && f.Revision != IdentityV7 && f.Revision != IdentityV9 {
 		return &VersionError{Environment: EnvAntigravity, Required: IdentityV7}
 	}
 	return nil

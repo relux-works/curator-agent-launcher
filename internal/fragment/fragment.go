@@ -37,6 +37,10 @@ const IdentityV4 = "launch-env-fragment-v4"
 // for Antigravity CLI (CIP-0033), retaining v4 permissions and credential_store.
 const IdentityV7 = "launch-env-fragment-v7"
 
+// IdentityV9 activates Slice B-a profile command roots (command_root +
+// path_prepend) alongside all v1-v7 environment transports.
+const IdentityV9 = "launch-env-fragment-v9"
+
 // HomeBinding carries the non-env managed-home transport for flag-home
 // environments such as Antigravity (CIP-0033).
 type HomeBinding struct {
@@ -149,10 +153,22 @@ type MCP struct {
 	Channels []Channel
 }
 
-// Fragment is a parsed, validated launch-env-fragment-v1 through v4 or v7.
+// CommandRoot carries the Slice B-a profile command root metadata
+// (schemas/profile-command-roots-v1/fragment-members.schema.json).
+type CommandRoot struct {
+	LockSHA256      string
+	PlanSHA256      string
+	Generation      string
+	Platform        string
+	ReceiptSHA256   string
+	MarkerSHA256    string
+	InventorySHA256 string
+}
+
+// Fragment is a parsed, validated launch-env-fragment-v1 through v4, v7, or v9.
 type Fragment struct {
 	// Revision is the exact fragment token and the only permission-transport
-	// signal. Only v2 through v4 and v7 carry Permissions.
+	// signal. Only v2 through v4, v7, and v9 carry Permissions.
 	Revision        string
 	Environment     string
 	Profile         Profile
@@ -161,6 +177,9 @@ type Fragment struct {
 	HomeBinding     *HomeBinding
 	RootContext     *RootContext
 	CredentialStore *CredentialStore
+	// CommandRoot is non-nil only on launch-env-fragment-v9; when present,
+	// PathPrepend is verified against CommandRoot and prepended to child PATH.
+	CommandRoot *CommandRoot
 	// Env maps the adapter's registry-declared variable name to the managed
 	// home path. Muse declares four XDG paths, plus a backend constant in v4.
 	// Flag-home environments such as Antigravity carry policy constants only.
@@ -170,7 +189,8 @@ type Fragment struct {
 	// MCP is nil when the section is absent.
 	MCP *MCP
 	// Reserved members are marked with their wire name in the reserved tag.
-	// They remain parsed and hashed, but are never execution context channels.
+	// On v1-v7 PathPrepend remains reserved/inert; on v9 it is activated only
+	// when paired with a verified CommandRoot.
 	PathPrepend string `reserved:"path_prepend"`
 
 	// Canonical is the CCJ-1 byte form of the parsed object and Digest is
@@ -379,7 +399,7 @@ func checkFlagToken(path, s string) error {
 }
 
 func fromValue(root Value) (*Fragment, error) {
-	revision, err := enumMember("", root, "fragment", Identity, IdentityV2, IdentityV3, IdentityV4, IdentityV7)
+	revision, err := enumMember("", root, "fragment", Identity, IdentityV2, IdentityV3, IdentityV4, IdentityV7, IdentityV9)
 	if err != nil {
 		return nil, err
 	}
@@ -390,6 +410,10 @@ func fromValue(root Value) (*Fragment, error) {
 	}
 	if revision == IdentityV7 {
 		optional = append(optional, "home", "root_context", "credential_store")
+	}
+	if revision == IdentityV9 {
+		required = append(required, "command_root", "path_prepend")
+		optional = []string{"system_prompt", "mcp", "home", "root_context", "credential_store"}
 	}
 	if revision != Identity {
 		required = append(required, "permissions")
@@ -405,10 +429,10 @@ func fromValue(root Value) (*Fragment, error) {
 	if err != nil {
 		return nil, err
 	}
-	if env == EnvMuse && revision != IdentityV3 && revision != IdentityV4 && revision != IdentityV7 {
+	if env == EnvMuse && revision != IdentityV3 && revision != IdentityV4 && revision != IdentityV7 && revision != IdentityV9 {
 		return nil, invalid("/environment", "muse requires launch-env-fragment-v3")
 	}
-	if env == EnvAntigravity && revision != IdentityV7 {
+	if env == EnvAntigravity && revision != IdentityV7 && revision != IdentityV9 {
 		return nil, invalid("/environment", "antigravity requires launch-env-fragment-v7")
 	}
 	f.Environment = env
@@ -469,7 +493,7 @@ func fromValue(root Value) (*Fragment, error) {
 		return nil, err
 	}
 
-	if revision == IdentityV7 {
+	if revision == IdentityV7 || revision == IdentityV9 {
 		if err := v7HomePolicy(root, f); err != nil {
 			return nil, err
 		}
@@ -481,7 +505,7 @@ func fromValue(root Value) (*Fragment, error) {
 	variables := []string{homeVariable[env]}
 	if env == EnvMuse {
 		variables = []string{"XDG_CONFIG_HOME", "XDG_DATA_HOME", "XDG_STATE_HOME", "XDG_CACHE_HOME"}
-		if revision == IdentityV4 || revision == IdentityV7 {
+		if revision == IdentityV4 || revision == IdentityV7 || revision == IdentityV9 {
 			variables = append(variables, "TBH_CREDENTIAL_BACKEND")
 		}
 	} else if env == EnvAntigravity {
@@ -527,7 +551,7 @@ func fromValue(root Value) (*Fragment, error) {
 		if err := v4Policy(root, f); err != nil {
 			return nil, err
 		}
-	} else if revision == IdentityV7 {
+	} else if revision == IdentityV7 || revision == IdentityV9 {
 		if err := v7Policy(root, f); err != nil {
 			return nil, err
 		}
@@ -551,7 +575,7 @@ func fromValue(root Value) (*Fragment, error) {
 			return nil, err
 		}
 		ch, _ := sp.Get("channels")
-		if s.Channels, err = channels("/system_prompt/channels", ch, true, revision == IdentityV7); err != nil {
+		if s.Channels, err = channels("/system_prompt/channels", ch, true, revision == IdentityV7 || revision == IdentityV9); err != nil {
 			return nil, err
 		}
 		if !sameChannels(s.Channels, systemPromptRegistry[env]) {
@@ -604,7 +628,7 @@ func fromValue(root Value) (*Fragment, error) {
 			mc.EnvNames = append(mc.EnvNames, n.Str)
 		}
 		ch, _ := mv.Get("channels")
-		if mc.Channels, err = channels("/mcp/channels", ch, false, revision == IdentityV7); err != nil {
+		if mc.Channels, err = channels("/mcp/channels", ch, false, revision == IdentityV7 || revision == IdentityV9); err != nil {
 			return nil, err
 		}
 		if !sameChannels(mc.Channels, []Channel{reg}) {
@@ -613,8 +637,7 @@ func fromValue(root Value) (*Fragment, error) {
 		f.MCP = mc
 	}
 
-	// path_prepend: reserved; must lie below the environments root, which
-	// is two segments above the managed home (<root>/<profile>/<env>).
+	// path_prepend: reserved on v1-v7; active on v9 only alongside command_root.
 	if pp, ok := root.Get("path_prepend"); ok {
 		if pp.Kind != KindString {
 			return nil, invalid("/path_prepend", "expected a string, got %s", pp.Kind)
@@ -627,6 +650,50 @@ func fromValue(root Value) (*Fragment, error) {
 			return nil, invalid("/path_prepend", "%q is outside the environments root %q", pp.Str, rootDir)
 		}
 		f.PathPrepend = pp.Str
+	}
+
+	if revision == IdentityV9 {
+		crVal, _ := root.Get("command_root")
+		if err := closedObject("/command_root", crVal, []string{
+			"lock_sha256", "plan_sha256", "generation", "platform",
+			"receipt_sha256", "marker_sha256", "inventory_sha256",
+		}, nil); err != nil {
+			return nil, err
+		}
+		cr := &CommandRoot{}
+		hexFields := []struct {
+			key string
+			dst *string
+		}{
+			{"lock_sha256", &cr.LockSHA256},
+			{"plan_sha256", &cr.PlanSHA256},
+			{"generation", &cr.Generation},
+			{"receipt_sha256", &cr.ReceiptSHA256},
+			{"marker_sha256", &cr.MarkerSHA256},
+			{"inventory_sha256", &cr.InventorySHA256},
+		}
+		for _, hf := range hexFields {
+			val, err := stringMember("/command_root", crVal, hf.key)
+			if err != nil {
+				return nil, err
+			}
+			if !hex256Pattern.MatchString(val) {
+				return nil, invalid("/command_root/"+hf.key, "expected 64 lowercase hex digits")
+			}
+			*hf.dst = val
+		}
+		if cr.Platform, err = enumMember("/command_root", crVal, "platform",
+			"darwin-arm64", "darwin-amd64", "linux-arm64", "linux-amd64", "windows-arm64", "windows-amd64"); err != nil {
+			return nil, err
+		}
+		if cr.LockSHA256 != f.Profile.LockSHA256 {
+			return nil, invalid("/command_root/lock_sha256", "must equal /profile/lock_sha256")
+		}
+		expectedRoot := environmentsRoot(f.Home()) + "/" + f.Profile.Name + "/commands/" + cr.Generation + "/" + cr.Platform + "/bin"
+		if f.PathPrepend != expectedRoot {
+			return nil, invalid("/path_prepend", "must equal %q", expectedRoot)
+		}
+		f.CommandRoot = cr
 	}
 	return f, nil
 }

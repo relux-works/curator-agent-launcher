@@ -12,7 +12,7 @@ import (
 // or later overlays may not contradict it. Network relocation cannot replace
 // the verified root with a new, unverified home.
 func musePolicy(ownEnv []string, f fragment.Fragment, prompt PromptApplication, patch envpatch.Patch) error {
-	if f.Environment != fragment.EnvMuse || f.Revision != fragment.IdentityV4 {
+	if f.Environment != fragment.EnvMuse || (f.Revision != fragment.IdentityV4 && f.Revision != fragment.IdentityV9) {
 		return nil
 	}
 	const backend = "TBH_CREDENTIAL_BACKEND"

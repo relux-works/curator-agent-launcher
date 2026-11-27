@@ -284,7 +284,7 @@ func prepareWerkstatt(ctx context.Context, r *werkstatt.Record, c werkstatt.Comm
 		build = vendorplugin.BuildLaunchWithEnvironment
 	}
 	var launchContext *agentic.CuratorContext
-	if frag.Revision == fragment.IdentityV4 || frag.Revision == fragment.IdentityV7 {
+	if frag.Revision == fragment.IdentityV4 || frag.Revision == fragment.IdentityV7 || frag.Revision == fragment.IdentityV9 {
 		launchContext = plan.Context(frag, fragment.Semantics(inv.SystemPrompt))
 	}
 	admitted, err := plan.Build(ctx, plan.Deps{Registry: deps.registry, BuildLaunch: build, Availability: availability, ModuleVersion: deps.moduleVersion}, plan.Request{

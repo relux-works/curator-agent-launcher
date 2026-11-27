@@ -13,7 +13,7 @@ import (
 // older Muse/Pi fragments retain their existing paths. Reserved members remain
 // in the original fragment digest and do not activate execution semantics.
 func Context(f *fragment.Fragment, intent fragment.Semantics) *agentic.CuratorContext {
-	if f.Revision != fragment.IdentityV4 && f.Revision != fragment.IdentityV7 && f.Environment != fragment.EnvClaudeCode && f.Environment != fragment.EnvCodexCLI {
+	if f.Revision != fragment.IdentityV4 && f.Revision != fragment.IdentityV7 && f.Revision != fragment.IdentityV9 && f.Environment != fragment.EnvClaudeCode && f.Environment != fragment.EnvCodexCLI {
 		return nil
 	}
 	value := &agentic.CuratorContext{
@@ -22,8 +22,8 @@ func Context(f *fragment.Fragment, intent fragment.Semantics) *agentic.CuratorCo
 		Precedence: agentic.CuratorPrecedence{Winner: f.Precedence.Winner, Placement: f.Precedence.Placement},
 		Env:        maps.Clone(f.Env),
 	}
-	if f.Revision == fragment.IdentityV4 || f.Revision == fragment.IdentityV7 {
-		if f.Revision == fragment.IdentityV7 {
+	if f.Revision == fragment.IdentityV4 || f.Revision == fragment.IdentityV7 || f.Revision == fragment.IdentityV9 {
+		if f.Revision == fragment.IdentityV7 || (f.Revision == fragment.IdentityV9 && f.HomeBinding != nil) {
 			value.Revision = agentic.CuratorLaunchFragmentV7
 		} else {
 			value.Revision = agentic.CuratorLaunchFragmentV4
