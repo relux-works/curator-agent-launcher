@@ -14,10 +14,10 @@ import (
 	"github.com/relux-works/curator-agent-launcher/internal/fragment"
 	"github.com/relux-works/curator-agent-launcher/internal/launcherconfig"
 	"github.com/relux-works/curator-agent-launcher/internal/plan"
-	agySystem "github.com/relux-works/curator-runtimes/pkg/agentic/systems/agy"
-	"github.com/relux-works/curator-runtimes/pkg/providerlimits"
-	"github.com/relux-works/curator-runtimes/pkg/runtimecatalog"
-	"github.com/relux-works/curator-runtimes/pkg/vendorplugin"
+	agySystem "github.com/relux-works/archon-pantheon/pkg/agentic/systems/agy"
+	"github.com/relux-works/archon-pantheon/pkg/providerlimits"
+	"github.com/relux-works/archon-pantheon/pkg/runtimecatalog"
+	"github.com/relux-works/archon-pantheon/pkg/vendorplugin"
 )
 
 func TestKimiCodeEndToEndInteractiveLaunch(t *testing.T) {

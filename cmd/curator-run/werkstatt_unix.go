@@ -28,8 +28,8 @@ import (
 	"github.com/relux-works/curator-agent-launcher/internal/sessionmanager"
 	"github.com/relux-works/curator-agent-launcher/internal/sessionmanager/client"
 	"github.com/relux-works/curator-agent-launcher/internal/werkstatt"
-	"github.com/relux-works/curator-runtimes/pkg/agentic"
-	"github.com/relux-works/curator-runtimes/pkg/vendorplugin"
+	"github.com/relux-works/archon-pantheon/pkg/agentic"
+	"github.com/relux-works/archon-pantheon/pkg/vendorplugin"
 )
 
 func environmentValue(env []string, key string) string {

@@ -3,7 +3,7 @@ package hosted
 import (
 	"errors"
 
-	"github.com/relux-works/curator-runtimes/pkg/agentic"
+	"github.com/relux-works/archon-pantheon/pkg/agentic"
 )
 
 // ElevateResume runs the module typed-intent elevation for the admitted

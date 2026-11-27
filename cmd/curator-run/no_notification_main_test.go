@@ -15,7 +15,7 @@ import (
 	"github.com/relux-works/curator-agent-launcher/internal/execution"
 	"github.com/relux-works/curator-agent-launcher/internal/fragment"
 	managerschema "github.com/relux-works/curator-agent-launcher/schemas/session-manager"
-	"github.com/relux-works/curator-runtimes/pkg/agentic"
+	"github.com/relux-works/archon-pantheon/pkg/agentic"
 )
 
 type noNotificationSnapshot struct {

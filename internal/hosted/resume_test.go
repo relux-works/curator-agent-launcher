@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/relux-works/curator-runtimes/pkg/agentic"
-	claudeSystem "github.com/relux-works/curator-runtimes/pkg/agentic/systems/claude"
-	codexSystem "github.com/relux-works/curator-runtimes/pkg/agentic/systems/codex"
+	"github.com/relux-works/archon-pantheon/pkg/agentic"
+	claudeSystem "github.com/relux-works/archon-pantheon/pkg/agentic/systems/claude"
+	codexSystem "github.com/relux-works/archon-pantheon/pkg/agentic/systems/codex"
 
 	"github.com/relux-works/curator-agent-launcher/internal/hosted"
 )

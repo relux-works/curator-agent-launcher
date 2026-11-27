@@ -11,12 +11,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/relux-works/curator-runtimes/pkg/agentic"
-	agySystem "github.com/relux-works/curator-runtimes/pkg/agentic/systems/agy"
-	museSystem "github.com/relux-works/curator-runtimes/pkg/agentic/systems/muse"
-	"github.com/relux-works/curator-runtimes/pkg/providerlimits"
-	"github.com/relux-works/curator-runtimes/pkg/runtimecatalog"
-	"github.com/relux-works/curator-runtimes/pkg/vendorplugin"
+	"github.com/relux-works/archon-pantheon/pkg/agentic"
+	agySystem "github.com/relux-works/archon-pantheon/pkg/agentic/systems/agy"
+	museSystem "github.com/relux-works/archon-pantheon/pkg/agentic/systems/muse"
+	"github.com/relux-works/archon-pantheon/pkg/providerlimits"
+	"github.com/relux-works/archon-pantheon/pkg/runtimecatalog"
+	"github.com/relux-works/archon-pantheon/pkg/vendorplugin"
 
 	"github.com/relux-works/curator-agent-launcher/internal/claudeauth"
 	"github.com/relux-works/curator-agent-launcher/internal/cli"

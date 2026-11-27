@@ -7,8 +7,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/relux-works/curator-runtimes/pkg/agentic"
-	claudeSystem "github.com/relux-works/curator-runtimes/pkg/agentic/systems/claude"
+	"github.com/relux-works/archon-pantheon/pkg/agentic"
+	claudeSystem "github.com/relux-works/archon-pantheon/pkg/agentic/systems/claude"
 
 	"github.com/relux-works/curator-agent-launcher/internal/composition"
 	"github.com/relux-works/curator-agent-launcher/internal/fragment"

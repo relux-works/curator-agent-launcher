@@ -3,7 +3,7 @@ package main
 import (
 	"maps"
 
-	"github.com/relux-works/curator-runtimes/pkg/agentic"
+	"github.com/relux-works/archon-pantheon/pkg/agentic"
 
 	"github.com/relux-works/curator-agent-launcher/internal/fragment"
 )

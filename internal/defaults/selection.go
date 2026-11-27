@@ -6,9 +6,9 @@ import (
 	"runtime/debug"
 
 	"github.com/relux-works/curator-agent-launcher/internal/mapping"
-	"github.com/relux-works/curator-runtimes/pkg/agentic"
-	"github.com/relux-works/curator-runtimes/pkg/plugin"
-	"github.com/relux-works/curator-runtimes/pkg/vendorplugin"
+	"github.com/relux-works/archon-pantheon/pkg/agentic"
+	"github.com/relux-works/archon-pantheon/pkg/plugin"
+	"github.com/relux-works/archon-pantheon/pkg/vendorplugin"
 )
 
 // SelectionCandidate is an exact admitted tuple from the existing runtime and
@@ -24,14 +24,14 @@ const OriginSelector Origin = "selector"
 func AdmissionSource() string {
 	if info, ok := debug.ReadBuildInfo(); ok {
 		for _, dep := range info.Deps {
-			if dep.Path == "github.com/relux-works/curator-runtimes" {
-				return "curator-runtimes " + dep.Version + " lineup"
+			if dep.Path == "github.com/relux-works/archon-pantheon" {
+				return "archon-pantheon " + dep.Version + " lineup"
 			}
 		}
 	}
 	// Test executables may omit dependency build information. This fallback is
 	// pinned to go.mod by TestSelectionCandidates.
-	return "curator-runtimes v0.7.0 lineup"
+	return "archon-pantheon v0.8.0 lineup"
 }
 func SelectionCandidates(env string, reg *vendorplugin.Registry) ([]SelectionCandidate, error) {
 	target, err := mapping.Resolve(env)

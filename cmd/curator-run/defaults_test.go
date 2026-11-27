@@ -9,16 +9,16 @@ import (
 
 	"github.com/relux-works/curator-agent-launcher/internal/defaults"
 	"github.com/relux-works/curator-agent-launcher/internal/fragment"
-	"github.com/relux-works/curator-runtimes/pkg/agentic"
-	agy "github.com/relux-works/curator-runtimes/pkg/agentic/systems/agy"
-	claude "github.com/relux-works/curator-runtimes/pkg/agentic/systems/claude"
-	codex "github.com/relux-works/curator-runtimes/pkg/agentic/systems/codex"
-	gemini "github.com/relux-works/curator-runtimes/pkg/agentic/systems/gemini"
-	pinative "github.com/relux-works/curator-runtimes/pkg/agentic/systems/pinative"
-	"github.com/relux-works/curator-runtimes/pkg/vendorplugin"
-	"github.com/relux-works/curator-runtimes/pkg/vendorplugin/vendors/anthropic"
-	"github.com/relux-works/curator-runtimes/pkg/vendorplugin/vendors/google"
-	"github.com/relux-works/curator-runtimes/pkg/vendorplugin/vendors/openai"
+	"github.com/relux-works/archon-pantheon/pkg/agentic"
+	agy "github.com/relux-works/archon-pantheon/pkg/agentic/systems/agy"
+	claude "github.com/relux-works/archon-pantheon/pkg/agentic/systems/claude"
+	codex "github.com/relux-works/archon-pantheon/pkg/agentic/systems/codex"
+	gemini "github.com/relux-works/archon-pantheon/pkg/agentic/systems/gemini"
+	pinative "github.com/relux-works/archon-pantheon/pkg/agentic/systems/pinative"
+	"github.com/relux-works/archon-pantheon/pkg/vendorplugin"
+	"github.com/relux-works/archon-pantheon/pkg/vendorplugin/vendors/anthropic"
+	"github.com/relux-works/archon-pantheon/pkg/vendorplugin/vendors/google"
+	"github.com/relux-works/archon-pantheon/pkg/vendorplugin/vendors/openai"
 )
 
 // Per-member defaults retain merged values and origins before an intentionally

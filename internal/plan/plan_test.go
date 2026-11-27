@@ -14,9 +14,9 @@ import (
 
 	"github.com/relux-works/curator-agent-launcher/internal/mapping"
 	"github.com/relux-works/curator-agent-launcher/internal/plan"
-	"github.com/relux-works/curator-runtimes/pkg/agentic"
-	"github.com/relux-works/curator-runtimes/pkg/providerlimits"
-	"github.com/relux-works/curator-runtimes/pkg/vendorplugin"
+	"github.com/relux-works/archon-pantheon/pkg/agentic"
+	"github.com/relux-works/archon-pantheon/pkg/providerlimits"
+	"github.com/relux-works/archon-pantheon/pkg/vendorplugin"
 )
 
 // capture records one BuildLaunch call.

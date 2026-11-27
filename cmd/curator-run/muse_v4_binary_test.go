@@ -17,8 +17,8 @@ import (
 	"github.com/relux-works/curator-agent-launcher/internal/fragment"
 	"github.com/relux-works/curator-agent-launcher/internal/plan"
 	"github.com/relux-works/curator-agent-launcher/internal/sessionmanager/fakemanager"
-	"github.com/relux-works/curator-runtimes/pkg/agentic"
-	"github.com/relux-works/curator-runtimes/pkg/vendorplugin"
+	"github.com/relux-works/archon-pantheon/pkg/agentic"
+	"github.com/relux-works/archon-pantheon/pkg/vendorplugin"
 )
 
 func frontV4(t *testing.T, f *frontFixture, environment string, root bool) *fragment.Fragment {
