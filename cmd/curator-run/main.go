@@ -50,7 +50,7 @@ const (
 // buildVersion is the launcher's own version; the specification version is
 // reported beside it (SPEC §8). It is a variable so that `make
 // release-binary` can set it with -ldflags -X (FRONT-DOOR §10).
-var buildVersion = "0.7.0"
+var buildVersion = "0.8.0"
 
 func main() {
 	if len(os.Args) == 2 && os.Args[1] == selector.WorkerArgument {
@@ -1146,11 +1146,10 @@ func resolvePermission(ctx context.Context, inv cli.Invocation, frag *fragment.F
 	if deps.isTerminal != nil {
 		terminal = deps.isTerminal()
 	}
-	// Q-D3 (2026-10-05), literal: the headless signal is observed but
+	// 2026-11-27 operator decision: the headless signal is observed but
 	// never consulted by the permission default; ResolvePermission
-	// selects yolo for silence on every stdio shape. The native-argument
-	// non-interactive classification served only that default, so it is
-	// gone: the tool release probes once below for the mapping check.
+	// selects native for silence on every stdio shape. The tool release
+	// probes once below for the mapping check.
 	headless := execution.HasNonInteractiveMarker(parentEnv) || !terminal
 
 	toolRelease := ""

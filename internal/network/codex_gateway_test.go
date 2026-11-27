@@ -21,17 +21,17 @@ import (
 
 	"github.com/relux-works/curator-agent-launcher/internal/netproxy"
 
-	"github.com/relux-works/curator-network-profiles/pkg/adapterprobe"
-	"github.com/relux-works/curator-network-profiles/pkg/binding"
-	"github.com/relux-works/curator-network-profiles/pkg/netprofile"
-	"github.com/relux-works/curator-network-profiles/pkg/refusal"
-	"github.com/relux-works/curator-network-profiles/pkg/resolve"
 	"github.com/relux-works/archon-pantheon/pkg/agentic"
 	codexpolicy "github.com/relux-works/archon-pantheon/pkg/agentic/systems/codex"
 	"github.com/relux-works/archon-pantheon/pkg/gatewayadmission"
 	"github.com/relux-works/archon-pantheon/pkg/providerlimits"
 	"github.com/relux-works/archon-pantheon/pkg/vendorplugin"
 	_ "github.com/relux-works/archon-pantheon/pkg/vendorplugin/vendors/openai"
+	"github.com/relux-works/curator-network-profiles/pkg/adapterprobe"
+	"github.com/relux-works/curator-network-profiles/pkg/binding"
+	"github.com/relux-works/curator-network-profiles/pkg/netprofile"
+	"github.com/relux-works/curator-network-profiles/pkg/refusal"
+	"github.com/relux-works/curator-network-profiles/pkg/resolve"
 )
 
 const codexSyntheticToken = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"

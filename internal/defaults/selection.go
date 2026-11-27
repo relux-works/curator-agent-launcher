@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"runtime/debug"
 
-	"github.com/relux-works/curator-agent-launcher/internal/mapping"
 	"github.com/relux-works/archon-pantheon/pkg/agentic"
 	"github.com/relux-works/archon-pantheon/pkg/plugin"
 	"github.com/relux-works/archon-pantheon/pkg/vendorplugin"
+	"github.com/relux-works/curator-agent-launcher/internal/mapping"
 )
 
 // SelectionCandidate is an exact admitted tuple from the existing runtime and

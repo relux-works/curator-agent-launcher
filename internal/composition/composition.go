@@ -10,10 +10,10 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/relux-works/archon-pantheon/pkg/agentic"
 	"github.com/relux-works/curator-agent-launcher/internal/fragment"
 	"github.com/relux-works/curator-agent-launcher/internal/network"
 	"github.com/relux-works/curator-network-profiles/pkg/envpatch"
-	"github.com/relux-works/archon-pantheon/pkg/agentic"
 )
 
 // PromptApplication is the already selected and encoded §5 channel application.

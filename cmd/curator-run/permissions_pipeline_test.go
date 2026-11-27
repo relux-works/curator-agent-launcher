@@ -9,9 +9,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/relux-works/archon-pantheon/pkg/agentic"
 	"github.com/relux-works/curator-agent-launcher/internal/fragment"
 	"github.com/relux-works/curator-agent-launcher/internal/mapping"
-	"github.com/relux-works/archon-pantheon/pkg/agentic"
 )
 
 type permissionRow struct {
@@ -81,17 +81,17 @@ func TestChoice5PermissionRowsThroughRealCuratorRun(t *testing.T) {
 		}, mode: agentic.PermissionModeYolo, source: "profile", yoloMapped: true},
 		{family: "precedence", name: "global-over-interactive-default", env: "claude_code", setup: func(t *testing.T, f *pipelineFixture) {
 			v2Default(f, t)
-			globalPermission(t, f, "curator-run-defaults-v2", "native")
+			globalPermission(t, f, "curator-run-defaults-v2", "yolo")
 			f.deps.isTerminal = func() bool { return true }
-		}, mode: agentic.PermissionModeNative, source: "global"},
+		}, mode: agentic.PermissionModeYolo, source: "global", yoloMapped: true},
 		{family: "precedence", name: "default-interactive", env: "claude_code", setup: func(t *testing.T, f *pipelineFixture) {
 			v2Default(f, t)
 			f.deps.isTerminal = func() bool { return true }
-		}, mode: agentic.PermissionModeYolo, source: "default-interactive", yoloMapped: true},
+		}, mode: agentic.PermissionModeNative, source: "default-interactive"},
 		{family: "precedence", name: "default-unconfigured-nonterminal", env: "codex_cli", setup: func(t *testing.T, f *pipelineFixture) {
 			v2Default(f, t)
 			f.deps.isTerminal = func() bool { return false }
-		}, mode: agentic.PermissionModeYolo, source: "default-interactive", yoloMapped: true},
+		}, mode: agentic.PermissionModeNative, source: "default-interactive"},
 
 		{family: "invalid-configuration", name: "v1-file-with-permissions-member", env: "claude_code", setup: func(t *testing.T, f *pipelineFixture) {
 			f.writeDefaults(t, f.deps.defaults.Operator, `{"schema":"curator-run-defaults-v1","defaults":{"claude_code":{"permissions":"yolo"}}}`)
@@ -127,32 +127,32 @@ func TestChoice5PermissionRowsThroughRealCuratorRun(t *testing.T) {
 		}, code: 2, diagnostic: "usage"},
 		{family: "force-native-lock", name: "silent-lock-is-native", env: "claude_code", setup: func(t *testing.T, f *pipelineFixture) { f.usePermissionsFragment(t, "native", true, "global") }, mode: agentic.PermissionModeNative, source: "default-headless"},
 
-		// Q-D3 (2026-10-05), literal: headless detection (terminal,
-		// CI markers, native-argument form) never changes the
-		// permission default. Native silence is yolo everywhere.
+		// 2026-11-27 unified native default: headless detection (terminal,
+		// CI markers, native-argument form) never changes the permission
+		// default. Unconfigured silence is consistently native everywhere.
 		{family: "qd3-unconfigured", name: "stdio-non-tty", env: "claude_code", setup: func(t *testing.T, f *pipelineFixture) {
 			v2Default(f, t)
 			f.deps.isTerminal = func() bool { return false }
-		}, mode: agentic.PermissionModeYolo, source: "default-interactive", yoloMapped: true},
+		}, mode: agentic.PermissionModeNative, source: "default-interactive"},
 		{family: "qd3-unconfigured", name: "ci-marker", env: "codex_cli", setup: func(t *testing.T, f *pipelineFixture) {
 			v2Default(f, t)
 			f.deps.isTerminal = func() bool { return true }
 			f.addEnv("CI", "true")
-		}, mode: agentic.PermissionModeYolo, source: "default-interactive", yoloMapped: true},
+		}, mode: agentic.PermissionModeNative, source: "default-interactive"},
 		{family: "qd3-unconfigured", name: "github-actions-present-empty", env: "claude_code", setup: func(t *testing.T, f *pipelineFixture) {
 			v2Default(f, t)
 			f.deps.isTerminal = func() bool { return true }
 			f.addEnv("GITHUB_ACTIONS", "")
-		}, mode: agentic.PermissionModeYolo, source: "default-interactive", yoloMapped: true},
+		}, mode: agentic.PermissionModeNative, source: "default-interactive"},
 		{family: "qd3-unconfigured", name: "ni-tail-ignored", env: "codex_cli", setup: func(t *testing.T, f *pipelineFixture) {
 			v2Default(f, t)
 			f.deps.isTerminal = func() bool { return true }
 			replaceNativeArgs(f, "exec", "prompt")
-		}, mode: agentic.PermissionModeYolo, source: "default-interactive", yoloMapped: true},
+		}, mode: agentic.PermissionModeNative, source: "default-interactive"},
 
 		{family: "legacy-yolo-transport", name: "flag", env: "claude_code", setup: func(t *testing.T, f *pipelineFixture) { insertLauncherArgs(f, "--permissions=yolo") }, code: 1, diagnostic: "permission_policy_unsupported"},
 		{family: "legacy-yolo-transport", name: "global", env: "codex_cli", setup: func(t *testing.T, f *pipelineFixture) { globalPermission(t, f, "curator-run-defaults-v2", "yolo") }, code: 1, diagnostic: "permission_policy_unsupported"},
-		{family: "legacy-yolo-transport", name: "default-interactive", env: "claude_code", setup: func(t *testing.T, f *pipelineFixture) { f.deps.isTerminal = func() bool { return true } }, code: 1, diagnostic: "permission_policy_unsupported"},
+		{family: "legacy-yolo-transport", name: "default-interactive", env: "claude_code", setup: func(t *testing.T, f *pipelineFixture) { f.deps.isTerminal = func() bool { return true } }, mode: agentic.PermissionModeNative, source: "default-interactive"},
 	}
 
 	counts := map[string]int{}

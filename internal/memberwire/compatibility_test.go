@@ -303,7 +303,7 @@ func compatibilityGrammarFields() []compatibilityField {
 		compatibilityField{"home.mode", []any{"managed_snapshot", "native_strict"}, []any{"unavailable", "managed", ""}},
 		compatibilityField{"runtime.os", []any{"linux", "darwin"}, []any{"windows", "Linux", ""}},
 		compatibilityField{"runtime.architecture", []any{"amd64", "arm64"}, []any{"x86_64", "ARM64", ""}},
-		compatibilityField{"agents_management.module", []any{"github.com/relux-works/archon-pantheon"}, []any{"other", "github.com/relux-works/archon-pantheon/", ""}},
+		compatibilityField{"agents_management.module", []any{"github.com/relux-works/skill-agents-management"}, []any{"other", "github.com/relux-works/skill-agents-management/", ""}},
 		compatibilityField{"owner_inputs.0.owner", []any{"curator"}, []any{"other", "Curator", ""}},
 	)
 	return fields

@@ -9,10 +9,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/relux-works/curator-agent-launcher/internal/composition"
-	"github.com/relux-works/curator-agent-launcher/internal/fragment"
 	"github.com/relux-works/archon-pantheon/pkg/agentic"
 	"github.com/relux-works/archon-pantheon/pkg/agentic/systems/codex"
+	"github.com/relux-works/curator-agent-launcher/internal/composition"
+	"github.com/relux-works/curator-agent-launcher/internal/fragment"
 )
 
 func equal(t *testing.T, got, want any) {

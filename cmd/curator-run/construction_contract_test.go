@@ -35,7 +35,7 @@ func TestConstructionDependencyPin(t *testing.T) {
 	if err := json.Unmarshal(out, &module); err != nil {
 		t.Fatal(err)
 	}
-	if module.Version != "v0.5.81-0.20261124231244-1fcf854d828c" || module.Replace != nil {
-		t.Fatalf("module pin must be v0.5.81-0.20261124231244-1fcf854d828c without replacement: version=%s replaced=%v", module.Version, module.Replace != nil)
+	if module.Version != "v0.8.0" || module.Replace != nil {
+		t.Fatalf("module pin must be v0.8.0 without replacement: version=%s replaced=%v", module.Version, module.Replace != nil)
 	}
 }

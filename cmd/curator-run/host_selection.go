@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"slices"
 
+	"github.com/relux-works/archon-pantheon/pkg/agentic"
 	"github.com/relux-works/curator-agent-launcher/internal/cli"
 	"github.com/relux-works/curator-agent-launcher/internal/diagnostics"
 	"github.com/relux-works/curator-agent-launcher/internal/execution"
@@ -17,7 +18,6 @@ import (
 	"github.com/relux-works/curator-agent-launcher/internal/mapping"
 	"github.com/relux-works/curator-agent-launcher/internal/sessionmanager"
 	"github.com/relux-works/curator-agent-launcher/internal/sessionmanager/client"
-	"github.com/relux-works/archon-pantheon/pkg/agentic"
 )
 
 type hostSelection struct {

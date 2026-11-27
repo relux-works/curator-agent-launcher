@@ -40,6 +40,6 @@ const (
 // the source commit of the pinned pseudo-version, resolved at pin time
 // (Go exposes no dependency commit at runtime).
 const (
-	ProducerModuleVersion = "0.5.81-0.20261124231244-1fcf854d828c"
-	ProducerModuleCommit  = "1fcf854d828c3a58b1f1de15018126aa5775a468"
+	ProducerModuleVersion = "0.8.0"
+	ProducerModuleCommit  = "6526072a518f02cedc9fac54b0fc6ec70930e403"
 )

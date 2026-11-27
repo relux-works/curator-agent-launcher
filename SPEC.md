@@ -558,12 +558,11 @@ resolved mode follows this precedence, with the force-native lock of
    when `source=profile`;
 3. the launcher-global `defaults.json` `permissions` member for the
    env-id, after the operator-over-machine merge;
-4. the built-in default, `yolo` with
+4. the built-in default, `native` with
    `source=default-interactive`, for native and hosted silence on every stdio
-   shape. Operator decision Q-D3 (2026-10-05), literal: headless
-   detection (terminal, CI markers, native-argument form) never
-   changes the permission default, for native and hosted launches
-   alike;
+   shape (2026-11-27 operator decision superseding Q-D3's `yolo` default).
+   Headless detection (terminal, CI markers, native-argument form) never
+   changes the permission default, for native and hosted launches alike;
 
 Locked silence retains `source=default-headless` as existing lock provenance.
 The tracked-silence default and tracked permission restrictions were

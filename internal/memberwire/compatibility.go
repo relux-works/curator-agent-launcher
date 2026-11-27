@@ -124,7 +124,7 @@ func tupleValid(o map[string]any) bool {
 		return false
 	}
 	sam := object(o["agents_management"])
-	return componentValid(o["launcher"]) && componentValid(o["curator"]) && closed(sam, "module", "version", "revision") && is(sam["module"], "github.com/relux-works/archon-pantheon") && textLength(sam["version"], 128) && revision(sam["revision"]) && runtimeValid(o["runtime"]) && profileValid(o["profile"]) && homeValid(o["home"]) && managerValid(o["manager"]) && ownerInputsValid(o["owner_inputs"], true)
+	return componentValid(o["launcher"]) && componentValid(o["curator"]) && closed(sam, "module", "version", "revision") && is(sam["module"], "github.com/relux-works/skill-agents-management") && textLength(sam["version"], 128) && revision(sam["revision"]) && runtimeValid(o["runtime"]) && profileValid(o["profile"]) && homeValid(o["home"]) && managerValid(o["manager"]) && ownerInputsValid(o["owner_inputs"], true)
 }
 func ownerValid(o map[string]any) bool {
 	return closed(o, "kind", "controller_id", "store_id", "uid", "catalog_sha256") && is(o["kind"], "curator-run member-owner/1") && id(o["controller_id"]) && id(o["store_id"]) && integer(o["uid"], 1, 4294967295) && digest(o["catalog_sha256"])

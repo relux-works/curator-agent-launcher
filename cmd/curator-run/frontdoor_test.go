@@ -18,13 +18,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/relux-works/archon-pantheon/pkg/providerlimits"
 	"github.com/relux-works/curator-agent-launcher/internal/configfile"
 	"github.com/relux-works/curator-agent-launcher/internal/fragment"
 	"github.com/relux-works/curator-agent-launcher/internal/plan"
 	"github.com/relux-works/curator-agent-launcher/internal/selector"
 	"github.com/relux-works/curator-agent-launcher/internal/sessionmanager"
 	"github.com/relux-works/curator-agent-launcher/internal/sessionmanager/fakemanager"
-	"github.com/relux-works/archon-pantheon/pkg/providerlimits"
 )
 
 type frontBinaries struct{ launcher, manager, adapter, provider, selector, system string }

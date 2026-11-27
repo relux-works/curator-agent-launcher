@@ -10,14 +10,14 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/relux-works/curator-agent-launcher/internal/diagnostics"
-	"github.com/relux-works/curator-agent-launcher/internal/hosted"
-	"github.com/relux-works/curator-agent-launcher/internal/mapping"
-	managerschema "github.com/relux-works/curator-agent-launcher/schemas/session-manager"
 	"github.com/relux-works/archon-pantheon/pkg/agentic"
 	_ "github.com/relux-works/archon-pantheon/pkg/agentic/systems/claude"
 	_ "github.com/relux-works/archon-pantheon/pkg/agentic/systems/codex"
 	_ "github.com/relux-works/archon-pantheon/pkg/agentic/systems/muse"
+	"github.com/relux-works/curator-agent-launcher/internal/diagnostics"
+	"github.com/relux-works/curator-agent-launcher/internal/hosted"
+	"github.com/relux-works/curator-agent-launcher/internal/mapping"
+	managerschema "github.com/relux-works/curator-agent-launcher/schemas/session-manager"
 )
 
 const Protocol = "curator-session-manager/1"

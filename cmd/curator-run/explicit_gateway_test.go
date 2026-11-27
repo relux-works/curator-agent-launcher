@@ -11,11 +11,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/relux-works/archon-pantheon/pkg/agentic"
+	"github.com/relux-works/archon-pantheon/pkg/vendorplugin"
 	"github.com/relux-works/curator-agent-launcher/internal/launcherconfig"
 	"github.com/relux-works/curator-network-profiles/pkg/adapterprobe"
 	"github.com/relux-works/curator-network-profiles/pkg/netprofile"
-	"github.com/relux-works/archon-pantheon/pkg/agentic"
-	"github.com/relux-works/archon-pantheon/pkg/vendorplugin"
 )
 
 // This fixture uses the real parser, confirmation ledger and root declaration;

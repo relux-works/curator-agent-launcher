@@ -10,12 +10,12 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/relux-works/archon-pantheon/pkg/agentic"
+	"github.com/relux-works/archon-pantheon/pkg/providerlimits"
 	"github.com/relux-works/curator-agent-launcher/internal/composition"
 	"github.com/relux-works/curator-agent-launcher/internal/execution"
 	"github.com/relux-works/curator-agent-launcher/internal/network"
 	"github.com/relux-works/curator-network-profiles/pkg/adapterprobe"
-	"github.com/relux-works/archon-pantheon/pkg/agentic"
-	"github.com/relux-works/archon-pantheon/pkg/providerlimits"
 )
 
 // The actual native-launch boundary accepts a sealed package, refuses a changed

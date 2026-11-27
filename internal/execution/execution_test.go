@@ -17,11 +17,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/relux-works/archon-pantheon/pkg/agentic"
 	"github.com/relux-works/curator-agent-launcher/internal/composition"
 	"github.com/relux-works/curator-agent-launcher/internal/diagnostics"
 	"github.com/relux-works/curator-agent-launcher/internal/execution"
 	"github.com/relux-works/curator-agent-launcher/internal/fragment"
-	"github.com/relux-works/archon-pantheon/pkg/agentic"
 )
 
 var helper, driver, python string

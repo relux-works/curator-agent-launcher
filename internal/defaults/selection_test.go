@@ -5,10 +5,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/relux-works/curator-agent-launcher/internal/defaults"
-	"github.com/relux-works/curator-agent-launcher/internal/mapping"
 	"github.com/relux-works/archon-pantheon/pkg/agentic"
 	"github.com/relux-works/archon-pantheon/pkg/vendorplugin"
+	"github.com/relux-works/curator-agent-launcher/internal/defaults"
+	"github.com/relux-works/curator-agent-launcher/internal/mapping"
 )
 
 // Candidate tuples exactly cover the mapped system's driven model/effort

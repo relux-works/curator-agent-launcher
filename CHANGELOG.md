@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.8.0 — 2026-11-27
+
+- Support `launch-env-fragment-v9` profile command roots (Slice B-a): verify
+  the command root marker/receipt/inventory digests and prepend `path_prepend`
+  to the child process `PATH` during launch composition.
+- Unify the built-in permission-mode default to `native` across all launches
+  (interactive, headless, CI, native, and hosted) per the 2026-11-27 amendment
+  to Decision 0018; `--permissions yolo` / `--yolo`, per-profile
+  `permissions.<profile>`, and `defaults.json` `permissions` continue to opt
+  into `yolo` explicitly.
+- Switch the spawn-plane module to `github.com/relux-works/archon-pantheon`
+  `v0.8.0` with semver permission-grammar release ranges for supported
+  harnesses (Claude Code `>=2.1.312,<3.0.0`, Codex CLI `>=0.163.0,<1.0.0`,
+  Pi `>=0.84.2,<1.0.0`, Antigravity `>=1.5.16,<2.0.0`, Kimi `>=2.6.3,<3.0.0`,
+  and live help probe for Muse).
+
 ## Unreleased
 
 - Under a filtering gateway, the launcher sets `CLAUDE_CODE_MODEL_CATALOG=off`

@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/relux-works/archon-pantheon/pkg/agentic"
 	"github.com/relux-works/curator-agent-launcher/internal/diagnostics"
 	"github.com/relux-works/curator-agent-launcher/internal/network"
 	"github.com/relux-works/curator-network-profiles/pkg/binding"
@@ -21,7 +22,6 @@ import (
 	"github.com/relux-works/curator-network-profiles/pkg/netprofile"
 	"github.com/relux-works/curator-network-profiles/pkg/probe"
 	"github.com/relux-works/curator-network-profiles/pkg/refusal"
-	"github.com/relux-works/archon-pantheon/pkg/agentic"
 )
 
 // scriptedProber records its request and replays one outcome. Tests never

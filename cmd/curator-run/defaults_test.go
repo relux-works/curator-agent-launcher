@@ -7,8 +7,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/relux-works/curator-agent-launcher/internal/defaults"
-	"github.com/relux-works/curator-agent-launcher/internal/fragment"
 	"github.com/relux-works/archon-pantheon/pkg/agentic"
 	agy "github.com/relux-works/archon-pantheon/pkg/agentic/systems/agy"
 	claude "github.com/relux-works/archon-pantheon/pkg/agentic/systems/claude"
@@ -19,6 +17,8 @@ import (
 	"github.com/relux-works/archon-pantheon/pkg/vendorplugin/vendors/anthropic"
 	"github.com/relux-works/archon-pantheon/pkg/vendorplugin/vendors/google"
 	"github.com/relux-works/archon-pantheon/pkg/vendorplugin/vendors/openai"
+	"github.com/relux-works/curator-agent-launcher/internal/defaults"
+	"github.com/relux-works/curator-agent-launcher/internal/fragment"
 )
 
 // Per-member defaults retain merged values and origins before an intentionally

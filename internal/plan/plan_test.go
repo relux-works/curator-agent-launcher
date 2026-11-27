@@ -12,11 +12,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/relux-works/curator-agent-launcher/internal/mapping"
-	"github.com/relux-works/curator-agent-launcher/internal/plan"
 	"github.com/relux-works/archon-pantheon/pkg/agentic"
 	"github.com/relux-works/archon-pantheon/pkg/providerlimits"
 	"github.com/relux-works/archon-pantheon/pkg/vendorplugin"
+	"github.com/relux-works/curator-agent-launcher/internal/mapping"
+	"github.com/relux-works/curator-agent-launcher/internal/plan"
 )
 
 // capture records one BuildLaunch call.

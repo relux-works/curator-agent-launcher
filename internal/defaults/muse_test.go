@@ -4,10 +4,10 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/relux-works/curator-agent-launcher/internal/defaults"
 	"github.com/relux-works/archon-pantheon/pkg/agentic"
 	museSystem "github.com/relux-works/archon-pantheon/pkg/agentic/systems/muse"
 	"github.com/relux-works/archon-pantheon/pkg/vendorplugin"
+	"github.com/relux-works/curator-agent-launcher/internal/defaults"
 )
 
 func TestMuseDefaultsUseDeclarationOwnedModels(t *testing.T) {

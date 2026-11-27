@@ -1,4 +1,4 @@
-curator-run 0.7.0 (specification 0.5.1-draft)
+curator-run 0.8.0 (specification 0.5.1-draft)
 
 usage: curator-run <env-id> [--hosted | --native | --untracked]
                    [resume [SES-HANDLE]] [--resume <id>]
@@ -56,7 +56,7 @@ options:
   --help, -h                        print this usage text and exit 0
   --version                         print the launcher name and version, exit 0
 
-Environments: claude_code (alias claude), codex_cli (alias codex), pi, muse, antigravity (alias agy).
+Environments: claude_code (alias claude), codex_cli (alias codex), pi, muse, antigravity (alias agy), kimi_code (alias kimi).
 opencode is currently unsupported. Aliases normalize to the canonical id
 before validation or lookup; outputs carry the canonical id only.
 Omitting --profile uses Curator's current profile; resolution always repairs.

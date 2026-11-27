@@ -10,12 +10,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/relux-works/archon-pantheon/pkg/agentic"
 	"github.com/relux-works/curator-agent-launcher/internal/cli"
 	"github.com/relux-works/curator-agent-launcher/internal/defaults"
 	"github.com/relux-works/curator-agent-launcher/internal/execution"
 	"github.com/relux-works/curator-agent-launcher/internal/fragment"
 	managerschema "github.com/relux-works/curator-agent-launcher/schemas/session-manager"
-	"github.com/relux-works/archon-pantheon/pkg/agentic"
 )
 
 type noNotificationSnapshot struct {

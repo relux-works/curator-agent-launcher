@@ -7,19 +7,20 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/relux-works/archon-pantheon/pkg/agentic"
 	"github.com/relux-works/curator-agent-launcher/internal/cli"
 	"github.com/relux-works/curator-agent-launcher/internal/defaults"
 	"github.com/relux-works/curator-agent-launcher/internal/diagnostics"
 	"github.com/relux-works/curator-agent-launcher/internal/fragment"
-	"github.com/relux-works/archon-pantheon/pkg/agentic"
 )
 
 // PermissionRequest is the input to the closed §4.3 permission ladder. The
 // profile value is present only when the v2 fragment identifies a named
 // profile setting; source=default remains silent and falls through.
-// Headless carries the observed terminal/marker signal for the Q-D3
-// narrowing mutant; the decision below intentionally never consults it:
-// with no configuration the default is yolo on every stdio shape.
+// Headless carries the observed terminal/marker signal; the built-in
+// default intentionally never consults it: with no configuration the
+// built-in default is native on every stdio shape for native and hosted
+// launches alike (2026-11-27 operator decision superseding Q-D3's yolo default).
 type PermissionRequest struct {
 	Flag        cli.PermissionMode
 	FlagPresent bool
@@ -68,10 +69,12 @@ func ResolvePermission(req PermissionRequest) (PermissionDecision, error) {
 		return PermissionDecision{Mode: agentic.PermissionModeNative, Source: "default-headless"}, nil
 	}
 
-	// Q-D3 (2026-10-05), literal: with no configuration the default is
-	// yolo for native and hosted launches alike, on every stdio shape.
-	// Headless detection (terminal, CI markers, native-argument form)
-	// must not change the permission default; req.Headless is not consulted.
+	// 2026-11-27 operator decision (superseding Q-D3's yolo default): with no
+	// configuration the built-in default is consistently native for native and
+	// hosted launches alike, on every stdio shape. Headless detection
+	// (terminal, CI markers) does not change the permission default;
+	// req.Headless is not consulted. Explicit yolo still opts in via flag,
+	// profile, or launcher-global defaults.json.
 
 	decision := PermissionDecision{}
 	switch {
@@ -82,7 +85,7 @@ func ResolvePermission(req PermissionRequest) (PermissionDecision, error) {
 	case req.Global.Present:
 		decision = PermissionDecision{Mode: agentic.PermissionMode(req.Global.Value), Source: "global"}
 	default:
-		decision = PermissionDecision{Mode: agentic.PermissionModeYolo, Source: "default-interactive"}
+		decision = PermissionDecision{Mode: agentic.PermissionModeNative, Source: "default-interactive"}
 	}
 
 	if decision.Mode == agentic.PermissionModeYolo && !req.Transport {

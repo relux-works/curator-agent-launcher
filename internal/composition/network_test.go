@@ -5,12 +5,12 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/relux-works/archon-pantheon/pkg/agentic"
 	"github.com/relux-works/curator-agent-launcher/internal/composition"
 	"github.com/relux-works/curator-agent-launcher/internal/fragment"
 	"github.com/relux-works/curator-network-profiles/pkg/envpatch"
 	"github.com/relux-works/curator-network-profiles/pkg/netprofile"
 	"github.com/relux-works/curator-network-profiles/pkg/refusal"
-	"github.com/relux-works/archon-pantheon/pkg/agentic"
 )
 
 // genericPatch builds the real generic patch for a test profile. The

@@ -10,13 +10,13 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/relux-works/archon-pantheon/pkg/providerlimits"
+	"github.com/relux-works/archon-pantheon/pkg/vendorplugin"
 	"github.com/relux-works/curator-agent-launcher/internal/defaults"
 	"github.com/relux-works/curator-agent-launcher/internal/fragment"
 	"github.com/relux-works/curator-agent-launcher/internal/launcherconfig"
 	"github.com/relux-works/curator-agent-launcher/internal/plan"
 	"github.com/relux-works/curator-agent-launcher/internal/sessionmanager"
-	"github.com/relux-works/archon-pantheon/pkg/providerlimits"
-	"github.com/relux-works/archon-pantheon/pkg/vendorplugin"
 )
 
 type scriptedResolver struct {

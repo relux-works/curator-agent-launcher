@@ -26,6 +26,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/relux-works/archon-pantheon/pkg/agentic"
 	"github.com/relux-works/curator-network-profiles/pkg/adapterprobe"
 	"github.com/relux-works/curator-network-profiles/pkg/binding"
 	"github.com/relux-works/curator-network-profiles/pkg/catalog"
@@ -34,7 +35,6 @@ import (
 	"github.com/relux-works/curator-network-profiles/pkg/probe"
 	"github.com/relux-works/curator-network-profiles/pkg/refusal"
 	"github.com/relux-works/curator-network-profiles/pkg/resolve"
-	"github.com/relux-works/archon-pantheon/pkg/agentic"
 
 	"github.com/relux-works/curator-agent-launcher/internal/netproxy"
 )

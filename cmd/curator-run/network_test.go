@@ -13,15 +13,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/relux-works/archon-pantheon/pkg/agentic"
+	"github.com/relux-works/archon-pantheon/pkg/plugin"
+	"github.com/relux-works/archon-pantheon/pkg/providerlimits"
+	"github.com/relux-works/archon-pantheon/pkg/vendorplugin"
 	"github.com/relux-works/curator-agent-launcher/internal/network"
 	"github.com/relux-works/curator-agent-launcher/internal/plan"
 	"github.com/relux-works/curator-network-profiles/pkg/netprofile"
 	"github.com/relux-works/curator-network-profiles/pkg/probe"
 	"github.com/relux-works/curator-network-profiles/pkg/refusal"
-	"github.com/relux-works/archon-pantheon/pkg/agentic"
-	"github.com/relux-works/archon-pantheon/pkg/plugin"
-	"github.com/relux-works/archon-pantheon/pkg/providerlimits"
-	"github.com/relux-works/archon-pantheon/pkg/vendorplugin"
 )
 
 // Regression tests cover library admission and the independent launch scope.
